@@ -38,7 +38,16 @@ def open_scene(app, ctx, path: str) -> None:
     print(f"rig sim: stage still loading after {LOAD_TIMEOUT_S:.0f}s, continuing", flush=True)
 
 
-def load_environment(stage, preset: str):
+def hide_builtin_environment(stage) -> list[str]:
+    from rig.sim.envhide import is_builtin_environment
+
+    hidden = [p for p in stage.Traverse() if is_builtin_environment(p.GetName(), p.GetTypeName())]
+    for prim in hidden:
+        prim.SetActive(False)
+    return [str(p.GetPath()) for p in hidden]
+
+
+def load_environment(stage, preset: str, sea_level: float):
     if not preset:
         return None
     try:
@@ -46,12 +55,13 @@ def load_environment(stage, preset: str):
     except ImportError as exc:
         print(f"rig sim: --env {preset} skipped, sim.environment unavailable ({exc})", flush=True)
         return None
-    env = add_environment(stage, preset)
-    print(f"rig sim: environment preset {preset} added", flush=True)
+    hidden = hide_builtin_environment(stage)
+    env = add_environment(stage, preset, sea_level_z=sea_level)
+    print(f"rig sim: environment preset {preset} added at sea level {sea_level}, hid {hidden}", flush=True)
     return env
 
 
-def make_orbit_camera(stage, src_path: str, period: float, plane_z: float):
+def make_orbit_camera(stage, src_path: str, args):
     from pxr import Gf, Usd, UsdGeom
 
     from rig.sim.orbit import Orbit, look_at_rows, orbit_eye, view_target
@@ -59,7 +69,9 @@ def make_orbit_camera(stage, src_path: str, period: float, plane_z: float):
     src = UsdGeom.Camera(stage.GetPrimAtPath(src_path))
     m = src.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
     rows = [tuple(m.GetRow(i)) for i in range(4)]
-    orbit = Orbit.from_eye(rows[3][:3], view_target(rows, plane_z), period)
+    target = args.orbit_target or view_target(rows, args.orbit_z)
+    period = args.orbit
+    orbit = Orbit.from_eye(rows[3][:3], target, period, radius=args.orbit_radius, z=args.orbit_eye_z)
     cam = UsdGeom.Camera.Define(stage, ORBIT_CAMERA)
     for name in ("focalLength", "horizontalAperture", "verticalAperture", "clippingRange"):
         value = src.GetPrim().GetAttribute(name).Get()
@@ -110,9 +122,9 @@ def main() -> None:
     if not stage.GetPrimAtPath(cam_path).IsValid():
         raise SystemExit(f"rig sim: camera {cam_path} not in scene")
     if args.orbit:
-        cam_path, orbit_update = make_orbit_camera(stage, cam_path, args.orbit, args.orbit_z)
+        cam_path, orbit_update = make_orbit_camera(stage, cam_path, args)
         tickers.append(orbit_update)
-    env = load_environment(stage, args.env)
+    env = load_environment(stage, args.env, args.sea_level)
     if env is not None:
         tickers.append(env.update)
 

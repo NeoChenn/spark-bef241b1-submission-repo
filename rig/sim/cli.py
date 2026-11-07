@@ -1,7 +1,7 @@
 import argparse
 
-DEFAULT_SCENE = "/rig/sim/output/rig_deck.usda"
-DEFAULT_CAMERA = "/World/Cameras/hero"
+DEFAULT_SCENE = "/rig/sim/output/full_rig.usda"
+DEFAULT_CAMERA = "/World/Cameras/wide"
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -12,6 +12,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--orbit", type=float, default=0.0, help="orbit period in seconds around the camera's view target; 0 = fixed")
     p.add_argument("--orbit-z", type=float, default=1.0, help="height of the plane the orbit target is picked on")
     p.add_argument("--env", default="", help="sim.environment preset to add (ocean/sky); empty = none")
+    p.add_argument("--orbit-target", type=vec3, default=None, metavar="X,Y,Z", help="orbit target; default = view ray hit on --orbit-z")
+    p.add_argument("--orbit-radius", type=float, default=0.0, help="orbit radius; 0 = keep the camera's distance")
+    p.add_argument("--orbit-eye-z", type=float, default=None, help="orbit eye height; default = the camera's height")
+    p.add_argument("--sea-level", type=float, default=0.0, help="sea level z passed to add_environment")
     p.add_argument("--width", type=int, default=1280)
     p.add_argument("--height", type=int, default=720)
     p.add_argument("--renderer", default="RealTimePathTracing")
@@ -26,6 +30,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--snapshot", default="", help="save frames as PNG here (first good frame, then every --snapshot-every s)")
     p.add_argument("--snapshot-every", type=float, default=0.0)
     return p.parse_args(argv)
+
+
+def vec3(text: str) -> tuple[float, float, float]:
+    x, y, z = (float(v) for v in text.split(","))
+    return (x, y, z)
 
 
 def parse_setting(item: str) -> tuple[str, object]:

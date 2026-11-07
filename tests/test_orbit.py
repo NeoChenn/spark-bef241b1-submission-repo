@@ -52,3 +52,8 @@ def test_orbit_from_eye_starts_at_eye_and_loops():
 def test_orbit_quarter_turn_is_counter_clockwise():
     orbit = Orbit.from_eye((1.0, 0.0, 0.0), (0.0, 0.0, 0.0), period=4.0)
     assert close(orbit_eye(orbit, 1.0), (math.cos(math.pi / 2), 1.0, 0.0))
+
+
+def test_orbit_overrides_radius_and_height():
+    orbit = Orbit.from_eye((3.0, 4.0, 2.0), (0.0, 0.0, 1.0), period=10.0, radius=10.0, z=7.0)
+    assert close(orbit_eye(orbit, 0.0), (6.0, 8.0, 7.0))

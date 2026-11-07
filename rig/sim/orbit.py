@@ -41,9 +41,10 @@ class Orbit:
     period: float
 
     @classmethod
-    def from_eye(cls, eye: Vec3, target: Vec3, period: float) -> "Orbit":
+    def from_eye(cls, eye: Vec3, target: Vec3, period: float, radius: float = 0.0, z: float | None = None) -> "Orbit":
         dx, dy = eye[0] - target[0], eye[1] - target[1]
-        return cls(target, math.hypot(dx, dy), eye[2], math.atan2(dy, dx), period)
+        r = radius or math.hypot(dx, dy)
+        return cls(target, r, eye[2] if z is None else z, math.atan2(dy, dx), period)
 
 
 def orbit_eye(orbit: Orbit, t: float) -> Vec3:
