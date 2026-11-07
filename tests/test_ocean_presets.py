@@ -30,9 +30,9 @@ def test_hdri_azimuth_wraps():
 def test_fog_settings_and_sky_opacity():
     from sim.ocean_presets import Fog
 
-    fog = Fog(color=(0.1, 0.1, 0.2), distance_density=0.5)
+    fog = Fog(color=(0.1, 0.1, 0.2), distance_density=0.5, sky_opacity=0.4)
     s = fog.settings()
     assert s["/rtx/fog/enabled"] and s["/rtx/fog/fogColor"] == [0.1, 0.1, 0.2]
-    assert fog.sky_opacity == pytest.approx(0.3935, abs=1e-3)
+    assert s["/rtx/fog/fogDistanceDensity"] == 0.5
     assert render_settings(get_preset("clear"))["/rtx/fog/enabled"] is False
     assert render_settings(get_preset("mood"))["/rtx/fog/enabled"] is True

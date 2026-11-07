@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 
 from sim.sky_gen import SkySpec
@@ -10,18 +9,16 @@ from sim.sky_gen import SkySpec
 
 @dataclass(frozen=True)
 class Fog:
-    """RTX analytic fog. Sky pixels are blended to ``color`` by 1 - exp(-distance_density) (measured, RTPT 6.2)."""
+    """RTX analytic fog. ``sky_opacity`` is how far the renderer blends sky pixels to ``color`` (measured by render)."""
 
     color: tuple[float, float, float]
     distance_density: float = 1.0
     height_density: float = 1.0
     height_falloff: float = 0.05
     start_height: float = 0.0
+    start_distance: float = 0.0
     end_distance: float = 1000.0
-
-    @property
-    def sky_opacity(self) -> float:
-        return float(1.0 - math.exp(-self.distance_density))
+    sky_opacity: float = 0.0
 
     def settings(self) -> dict:
         return {
@@ -33,7 +30,7 @@ class Fog:
             "/rtx/fog/fogHeightDensity": self.height_density,
             "/rtx/fog/fogHeightFalloff": self.height_falloff,
             "/rtx/fog/fogStartHeight": self.start_height,
-            "/rtx/fog/fogStartDist": 0.0,
+            "/rtx/fog/fogStartDist": self.start_distance,
             "/rtx/fog/fogEndDist": self.end_distance,
         }
 
@@ -100,9 +97,9 @@ PRESETS: dict[str, Preset] = {
     "mood": Preset(
         hdri="",
         sky=SkySpec(
-            horizon=(0.160, 0.165, 0.270),
-            mid=(0.150, 0.110, 0.230),
-            zenith=(0.110, 0.085, 0.190),
+            horizon=(0.060, 0.085, 0.170),
+            mid=(0.140, 0.095, 0.210),
+            zenith=(0.085, 0.060, 0.150),
             mid_height=0.5,
             horizon_hold=1.6,
             sun_azimuth=200.0,
@@ -111,7 +108,7 @@ PRESETS: dict[str, Preset] = {
             glow_width_deg=30.0,
             disc=6.0,
             disc_deg=1.5,
-            cloud_color=(0.200, 0.170, 0.260),
+            cloud_color=(0.170, 0.135, 0.230),
             cloud_amount=0.7,
         ),
         dome_intensity=1000.0,
@@ -119,8 +116,8 @@ PRESETS: dict[str, Preset] = {
         wind_speed=8.0,
         swell=(1.2, 120.0, 10.0),
         haze_distance=2500.0,
-        fog=Fog(color=(0.14, 0.145, 0.24), distance_density=1.0, height_density=1.0, height_falloff=0.2,
-                start_height=30.0, end_distance=500.0),
+        fog=Fog(color=(0.11, 0.125, 0.23), distance_density=2.5, height_density=30.0, height_falloff=0.08,
+                start_height=14.0, start_distance=100.0, end_distance=450.0),
     ),
     "overcast": Preset(
         hdri="overcast_soil_puresky",
