@@ -17,6 +17,7 @@ class EpisodeResult:
     outcome: str
     reason: str
     steps: int
+    decision_step: int = 0  # step at which the policy reached DONE or ESCALATED (excludes the retreat afterwards)
     retorques: list[dict] = field(default_factory=list)  # {"t", "bolt", "gas_true"} at the moment of action
     safety_stops: int = 0
     final_angles: list[float] = field(default_factory=list)  # ground truth, evaluation only
@@ -34,6 +35,7 @@ def run_episode(
     obs = env.observe()
     result = EpisodeResult(outcome="timeout", reason="", steps=0)
     settled = 0
+    decided = False
     for t in range(max_steps):
         if hook:
             hook(t, env)
@@ -43,9 +45,13 @@ def run_episode(
         if info["verdict"] == "stop_and_retreat":
             result.safety_stops += 1
         if action.kind == "retorque":
-            result.retorques.append({"t": t, "bolt": action.bolt, "gas_true": gas_true})
+            result.retorques.append({"t": t, "bolt": action.bolt, "gas_true": gas_true,
+                                     "angle_true": abs(env.true_bolt_angle(action.bolt))})
         obs = env.step(action)
         result.steps = t + 1
+        if not decided and policy.phase in (Phase.DONE, Phase.ESCALATED):
+            decided = True
+            result.decision_step = t + 1
         if policy.phase == Phase.DONE:
             break
         if policy.phase == Phase.ESCALATED:
@@ -57,4 +63,6 @@ def run_episode(
     result.reason = policy.reason
     result.final_angles = [env.true_bolt_angle(i) for i in range(N_BOLTS)]
     result.final_xy = env.robot_xy.tolist()
+    if not decided:
+        result.decision_step = result.steps
     return result

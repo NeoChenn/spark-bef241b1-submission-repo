@@ -3,3 +3,8 @@ numpy>=1.26
 pytest>=8.0
 # Needed only for the live Gemini call path (imported lazily):
 google-genai>=1.0
+# Needed only for PPO training (CPU is enough; pip's default torch also pulls large GPU libraries):
+torch
+gymnasium
+stable-baselines3
+sb3-contrib
