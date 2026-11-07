@@ -128,3 +128,21 @@ detect → spray → wait 30 s → scrub (PPO) → re-detect → paint → verif
 | `integration/INTERFACE.md` | Contract with the rig scene (prim paths, rust texture, robot). |
 
 Setup: `uv sync` (tests: `uv run pytest`); add `--group train` for Modal training and data prep tools.
+
+## Cinematic demo
+
+A separate layer on top of `sim/output/full_rig.usda`, with an animated ocean, rig lighting, a flare and three presets. It
+doesn't change the rig scene or its data.
+
+```bat
+C:\isaacsim\python.bat sim\tools\make_preset_skies.py
+C:\isaacsim\python.bat sim\build_cinematic.py --preset all
+C:\isaacsim\python.bat sim\render_sequence.py --preset night
+C:\isaacsim\python.bat sim\run_demo.py
+```
+
+In `run_demo.py`, press **1** for Night Operations, **2** for Golden Hour, **3** for Storm, and **C** to play the camera
+sequence. Run `run_demo.py --self-test` to check every preset without a window.
+
+The skies come from Poly Haven's CC0 `overcast_soil_puresky` and `evening_road_01_puresky`. The flame is emissive geometry,
+not a fluid simulation, and the waves are visual only.
