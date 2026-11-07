@@ -252,6 +252,34 @@ def add_lights(stage, looks) -> None:
                      (x + 0.08, y + 0.08, light.pos[2] - 0.3), pole_mat, collide=True)
 
 
+def add_flare(stage, looks) -> None:
+    steel = looks.textured("derrick_white", 3.0)
+    members, flame = dp.flare_boom()
+    for i, (a, b, r) in enumerate(members):
+        a, b = np.asarray(a), np.asarray(b)
+        xform_at(stage, f"{ROOT}/Flare/member_{i}", matrix=dp.aim_matrix((a + b) / 2, b))
+        tube = UsdGeom.Cylinder.Define(stage, f"{ROOT}/Flare/member_{i}/tube")
+        tube.CreateRadiusAttr(r)
+        tube.CreateHeightAttr(float(np.linalg.norm(b - a)))
+        tube.CreateAxisAttr("Z")
+        bind(tube.GetPrim(), steel)
+    fire = looks.plain("flame", (0, 0, 0), 0.9, emissive=(9000.0, 3200.0, 700.0))
+    core = looks.plain("flame_core", (0, 0, 0), 0.9, emissive=(16000.0, 11000.0, 5000.0))
+    for name, scale, material, lift in (("flame", (1.3, 1.3, 3.6), fire, 2.2), ("flame_core", (0.6, 0.6, 1.6), core, 0.8)):
+        xf = xform_at(stage, f"{ROOT}/Flare/{name}", translate=(flame[0], flame[1], flame[2] + lift))
+        xf.AddScaleOp().Set(Gf.Vec3f(*scale))
+        ball = UsdGeom.Sphere.Define(stage, f"{xf.GetPath()}/shape")
+        ball.CreateRadiusAttr(1.0)
+        bind(ball.GetPrim(), material)
+        for flag in ("doNotCastShadows", "invisibleToSecondaryRays"):
+            UsdGeom.PrimvarsAPI(ball).CreatePrimvar(flag, Sdf.ValueTypeNames.Bool).Set(True)
+    light = UsdLux.SphereLight.Define(stage, f"{ROOT}/Flare/light")
+    light.AddTranslateOp().Set(Gf.Vec3d(flame[0], flame[1], flame[2] + 2.0))
+    light.CreateRadiusAttr(1.2)
+    light.CreateIntensityAttr(1.5e5 * args.lights)
+    light.CreateColorAttr(Gf.Vec3f(1.0, 0.5, 0.18))
+
+
 def add_helideck_lamps(stage, looks) -> None:
     for i, (pos, color) in enumerate(dp.helideck_lamps()):
         key = "lamp_green" if color[1] > 0.9 else "lamp_yellow"
@@ -380,6 +408,7 @@ def main() -> None:
     leg_streaks(stage, looks, tris)
     add_lights(stage, looks)
     add_helideck_lamps(stage, looks)
+    add_flare(stage, looks)
     add_windows(stage, looks)
     add_signs(stage, looks)
     if not args.no_props:

@@ -148,3 +148,13 @@ def test_windows_cover_the_living_quarters_faces():
     windows = dp.windows()
     assert len(windows) > 20
     assert any(w.lit for w in windows) and any(not w.lit for w in windows)
+
+
+def test_flare_boom_leaves_the_deck_and_puts_flame_past_the_tip():
+    members, flame = dp.flare_boom()
+    starts = np.array([m[0] for m in members])
+    assert starts[:, 2].min() >= dp.DECK_TOPS[2]
+    tip = np.array([m[1] for m in members[:3]]).mean(0)
+    assert np.linalg.norm(np.array(flame) - tip) < 4.0
+    assert flame[2] > dp.DECK_TOPS[2] + 15
+    assert all(r > 0 for _, _, r in members)

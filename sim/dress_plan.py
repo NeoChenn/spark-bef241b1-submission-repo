@@ -356,3 +356,34 @@ SIGNS = (
     ("w021", (-0.95, -16.0, DECK_TOPS[0] + 1.8), (1, 0)),
     ("w012", (4.05, -12.0, DECK_TOPS[0] + 1.8), (1, 0)),
 )
+
+
+FLARE_BASE = (36.0, 26.0, DECK_TOPS[2] + 1.0)
+FLARE_DIR = (0.62, 0.62, 0.48)
+FLARE_LENGTH = 32.0
+
+
+def flare_boom(width: float = 1.6, bays: int = 12) -> tuple[list[tuple[tuple, tuple, float]], tuple[float, float, float]]:
+    """Triangular lattice boom as (start, end, radius) members, and the flame position past its tip."""
+    d = np.asarray(FLARE_DIR, float)
+    d /= np.linalg.norm(d)
+    side = np.cross(d, (0.0, 0.0, 1.0))
+    side /= np.linalg.norm(side)
+    up = np.cross(side, d)
+    base = np.asarray(FLARE_BASE, float)
+    offsets = [width / 2 * side, -width / 2 * side, width * 0.8 * up]
+    stations = [base + d * FLARE_LENGTH * i / bays for i in range(bays + 1)]
+    members = []
+    for k, off in enumerate(offsets):
+        members.append((tuple(stations[0] + off), tuple(stations[-1] + off * 0.4), 0.12))
+    for i in range(bays + 1):
+        taper = 1 - 0.6 * i / bays
+        ring = [stations[i] + off * taper for off in offsets]
+        for k in range(3):
+            members.append((tuple(ring[k]), tuple(ring[(k + 1) % 3]), 0.05))
+        if i < bays:
+            nxt = [stations[i + 1] + off * (1 - 0.6 * (i + 1) / bays) for off in offsets]
+            for k in range(3):
+                members.append((tuple(ring[k]), tuple(nxt[(k + 1) % 3]), 0.05))
+    flame = base + d * (FLARE_LENGTH + 2.5)
+    return members, tuple(float(v) for v in flame)
