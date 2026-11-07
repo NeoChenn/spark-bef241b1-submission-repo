@@ -47,6 +47,14 @@ class S(str, Enum):
     BACK_OFF = "BACK_OFF"
     HOLD = "HOLD"
     PAUSE_PERSON = "PAUSE_PERSON"
+    # gas-leak job (policy/leak/job.py)
+    GAS_CHECK = "GAS_CHECK"
+    LEAK_APPROACH = "LEAK_APPROACH"
+    LEAK_INSPECT = "LEAK_INSPECT"
+    LEAK_SECOND_VIEW = "LEAK_SECOND_VIEW"
+    RETORQUE = "RETORQUE"
+    LEAK_VERIFY = "LEAK_VERIFY"
+    GAS_RETREAT = "GAS_RETREAT"
 
 
 TERMINAL = {S.DONE, S.ESCALATE_TO_HUMAN}
@@ -178,6 +186,10 @@ class Orchestrator:
         if self.baseline_cells:
             self.rust_frac = float((grid & self.target).sum() / self.baseline_cells)
         return self.last
+
+    def _interrupt(self) -> Optional[tuple[S, str, dict]]:
+        """Checked every scrub step. None = carry on. Subclasses return a transition to break off."""
+        return None
 
     def _hold(self, reason_state: S) -> tuple[S, str, dict]:
         self.resume = reason_state
@@ -343,6 +355,11 @@ class Orchestrator:
         if self.last is None:
             return self._hold(S.SCRUB)
         while self.scrub_steps_left > 0:
+            hit = self._interrupt()
+            if hit is not None:                 # e.g. gas alarm (leak job); cycle restarts afterwards
+                self.scrub_steps_left = 0
+                self.scrub_cycles -= 1
+                return hit
             f = float(self.arm.current_force())
             if f > cfg.force_limit:
                 self.resume = S.SCRUB
@@ -493,7 +510,7 @@ def draw_hud(rgb: np.ndarray, lines: list[str], state: str = "") -> np.ndarray:
     d = ImageDraw.Draw(im, "RGBA")
     h = 14 * len(lines) + 10
     d.rectangle([0, 0, min(im.width, 560), h], fill=(0, 0, 0, 150))
-    alert = any(k in (lines[0] if lines else "") for k in ("ESCALATE", "BACK_OFF", "HOLD", "PAUSE"))
+    alert = any(k in (lines[0] if lines else "") for k in ("ESCALATE", "BACK_OFF", "HOLD", "PAUSE", "GAS_RETREAT"))
     for k, line in enumerate(lines):
         col = (255, 90, 60) if (alert and k == 0) else ((120, 255, 140) if k == 0 else (235, 235, 235))
         d.text((6, 5 + 14 * k), line, fill=col)
