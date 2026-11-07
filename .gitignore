@@ -13,3 +13,4 @@ sim/output/asset_report.json
 .vscode/
 .DS_Store
 Thumbs.db
+.work/
