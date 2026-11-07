@@ -6,6 +6,7 @@ from rig.sim.cli import parse_args, parse_setting
 
 STATS_EVERY_S = 5.0
 WARMUP_UPDATES = 30
+KEEPALIVE_S = 1.0
 LOAD_TIMEOUT_S = 300.0
 ORBIT_CAMERA = "/RigStream/OrbitCamera"
 
@@ -142,7 +143,9 @@ def main() -> None:
     stats_at = start + STATS_EVERY_S
     snap_at = None if not args.snapshot else start
     seq = frames = 0
-    stats_frames, stats_start = 0, start
+    stats_frames, stats_fresh, stats_start = 0, 0, start
+    last_sample = b""
+    last_sent = 0.0
     mean = 0.0
     jpeg_kb = 0.0
     print(
@@ -158,7 +161,12 @@ def main() -> None:
             tick(t)
         rep.orchestrator.step(rt_subframes=args.subframes, pause_timeline=False, wait_for_render=args.wait_render)
         data = np.asarray(ann.get_data())
-        if data.ndim == 3 and data.size:
+        sample = data[::24, ::24, :3].tobytes() if data.ndim == 3 and data.size else b""
+        fresh = bool(sample) and sample != last_sample
+        last_sample = sample or last_sample
+        stats_fresh += fresh
+        if fresh or (sample and now - last_sent >= KEEPALIVE_S):
+            last_sent = now
             rgb = np.ascontiguousarray(data[..., :3], dtype=np.uint8)
             mean = float(rgb.mean())
             buf = io.BytesIO()
@@ -175,12 +183,12 @@ def main() -> None:
         stats_frames += 1
         if now >= stats_at:
             print(
-                f"t={t:.0f}s fps={stats_frames / (now - stats_start):.1f} sent={sender.sent} dropped={sender.dropped} "
+                f"t={t:.0f}s fps={stats_fresh / (now - stats_start):.1f} steps={stats_frames / (now - stats_start):.1f} sent={sender.sent} dropped={sender.dropped} "
                 f"connected={sender.connected.is_set()} mean={mean:.1f} jpeg={jpeg_kb:.0f}KB",
                 flush=True,
             )
             stats_at = now + STATS_EVERY_S
-            stats_frames, stats_start = 0, now
+            stats_frames, stats_fresh, stats_start = 0, 0, now
         if args.duration and t >= args.duration:
             break
         next_tick += period

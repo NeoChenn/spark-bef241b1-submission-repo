@@ -25,7 +25,24 @@ services:
       ACCEPT_EULA: "Y"
       PRIVACY_CONSENT: "Y"
       NVIDIA_DRIVER_CAPABILITIES: all
-    command: ["/rig/rig/sim/main.py", "--sim", "127.0.0.1:9000"]
+    command:
+      - /rig/rig/sim/main.py
+      - --sim=127.0.0.1:9000
+      - --scene=/rig/sim/output/full_rig.usda
+      - --camera=/World/Cameras/wide
+      - --orbit=180
+      - --orbit-target=0,-5,38
+      - --env=clear
+      - --renderer=RealTimePathTracing
+      - --width=1280
+      - --height=720
+      - --spp=1
+      - --subframes=1
+      - --bounces=6
+      - --set=/rtx/rtpt/maxSpecularAndTransmissionBounces=6
+      - --set=/rtx/post/dlss/execMode=2
+      - --fps=24
+      - --quality=80
     volumes:
       - ./rig:/rig/rig:ro
       - ./sim:/rig/sim:ro
