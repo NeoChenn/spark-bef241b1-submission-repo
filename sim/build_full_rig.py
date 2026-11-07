@@ -62,7 +62,7 @@ PAINTS = {
     "module_grey": ((0.46, 0.49, 0.51), 0.55, 0.1, CLADDING),
 }
 TILE_METRES = {"deck": 2.5, "concrete": 6.0, "module_white": 4.0, "module_blue": 4.0, "module_grey": 4.0}
-WALL_TEXTURE = "rusty_metal_grid"
+WALL_TEXTURE = "worn_corrugated_iron"
 WALL_MATERIALS = ("module_white", "module_blue", "module_grey")
 SEA_TILE_METRES = 70.0
 # Sea haze. Saved in the scene so it applies when anyone opens the rig. Distances are in metres.

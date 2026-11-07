@@ -7731,7 +7731,7 @@ def Xform "World"
             def Shader "diff"
             {
                 uniform token info:id = "UsdUVTexture"
-                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/diff.jpg@
+                asset inputs:file = @../assets/third_party/textures/worn_corrugated_iron/diff.jpg@
                 token inputs:sourceColorSpace = "sRGB"
                 float2 inputs:st.connect = </World/Looks/module_white/uv.outputs:result>
                 token inputs:wrapS = "repeat"
@@ -7742,7 +7742,7 @@ def Xform "World"
             def Shader "rough"
             {
                 uniform token info:id = "UsdUVTexture"
-                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/rough.jpg@
+                asset inputs:file = @../assets/third_party/textures/worn_corrugated_iron/rough.jpg@
                 token inputs:sourceColorSpace = "raw"
                 float2 inputs:st.connect = </World/Looks/module_white/uv.outputs:result>
                 token inputs:wrapS = "repeat"
@@ -7754,7 +7754,7 @@ def Xform "World"
             {
                 uniform token info:id = "UsdUVTexture"
                 float4 inputs:bias = (-1, -1, -1, 0)
-                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/nor_gl.jpg@
+                asset inputs:file = @../assets/third_party/textures/worn_corrugated_iron/nor_gl.jpg@
                 float4 inputs:scale = (2, 2, 2, 1)
                 token inputs:sourceColorSpace = "raw"
                 float2 inputs:st.connect = </World/Looks/module_white/uv.outputs:result>
@@ -7788,7 +7788,7 @@ def Xform "World"
             def Shader "diff"
             {
                 uniform token info:id = "UsdUVTexture"
-                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/diff.jpg@
+                asset inputs:file = @../assets/third_party/textures/worn_corrugated_iron/diff.jpg@
                 token inputs:sourceColorSpace = "sRGB"
                 float2 inputs:st.connect = </World/Looks/module_blue/uv.outputs:result>
                 token inputs:wrapS = "repeat"
@@ -7799,7 +7799,7 @@ def Xform "World"
             def Shader "rough"
             {
                 uniform token info:id = "UsdUVTexture"
-                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/rough.jpg@
+                asset inputs:file = @../assets/third_party/textures/worn_corrugated_iron/rough.jpg@
                 token inputs:sourceColorSpace = "raw"
                 float2 inputs:st.connect = </World/Looks/module_blue/uv.outputs:result>
                 token inputs:wrapS = "repeat"
@@ -7811,7 +7811,7 @@ def Xform "World"
             {
                 uniform token info:id = "UsdUVTexture"
                 float4 inputs:bias = (-1, -1, -1, 0)
-                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/nor_gl.jpg@
+                asset inputs:file = @../assets/third_party/textures/worn_corrugated_iron/nor_gl.jpg@
                 float4 inputs:scale = (2, 2, 2, 1)
                 token inputs:sourceColorSpace = "raw"
                 float2 inputs:st.connect = </World/Looks/module_blue/uv.outputs:result>
@@ -7845,7 +7845,7 @@ def Xform "World"
             def Shader "diff"
             {
                 uniform token info:id = "UsdUVTexture"
-                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/diff.jpg@
+                asset inputs:file = @../assets/third_party/textures/worn_corrugated_iron/diff.jpg@
                 token inputs:sourceColorSpace = "sRGB"
                 float2 inputs:st.connect = </World/Looks/module_grey/uv.outputs:result>
                 token inputs:wrapS = "repeat"
@@ -7856,7 +7856,7 @@ def Xform "World"
             def Shader "rough"
             {
                 uniform token info:id = "UsdUVTexture"
-                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/rough.jpg@
+                asset inputs:file = @../assets/third_party/textures/worn_corrugated_iron/rough.jpg@
                 token inputs:sourceColorSpace = "raw"
                 float2 inputs:st.connect = </World/Looks/module_grey/uv.outputs:result>
                 token inputs:wrapS = "repeat"
@@ -7868,7 +7868,7 @@ def Xform "World"
             {
                 uniform token info:id = "UsdUVTexture"
                 float4 inputs:bias = (-1, -1, -1, 0)
-                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/nor_gl.jpg@
+                asset inputs:file = @../assets/third_party/textures/worn_corrugated_iron/nor_gl.jpg@
                 float4 inputs:scale = (2, 2, 2, 1)
                 token inputs:sourceColorSpace = "raw"
                 float2 inputs:st.connect = </World/Looks/module_grey/uv.outputs:result>

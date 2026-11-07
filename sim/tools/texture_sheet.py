@@ -23,7 +23,8 @@ COLUMNS = 4
 USED_BY = {
     "metal_plate": "Full rig: floor relief",
     "box_profile_metal_sheet": "Not used yet",
-    "rusty_metal_grid": "Full rig: building walls",
+    "rusty_metal_grid": "Not used yet",
+    "worn_corrugated_iron": "Full rig: building walls",
     "concrete_floor_damaged_01": "Full rig: leg relief",
     "metal_grate_rusty": "Deck scene",
     "rusty_metal_02": "Deck scene",
