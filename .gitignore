@@ -14,3 +14,6 @@ sim/output/asset_report.json
 .DS_Store
 Thumbs.db
 .work/
+
+# Large assets kept out of Git; fetch with sim/tools/fetch_assets.py --only <id>
+sim/assets/third_party/hdris/*/*_8k.hdr

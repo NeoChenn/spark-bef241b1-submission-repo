@@ -2,35 +2,52 @@
 
 Uses only the Python standard library, so any Python 3.9+ works:
 
-    python sim/tools/fetch_assets.py
+    python sim/tools/fetch_assets.py                  # everything
+    python sim/tools/fetch_assets.py --kind hdri      # one kind
+    python sim/tools/fetch_assets.py --only Rust007   # one asset
+    python sim/tools/fetch_assets.py --licences       # rewrite sim/assets/LICENSES.md
 
-Files land in sim/assets/third_party/, which Git ignores. Each file is checked
-against the MD5 published by the Poly Haven API, and files that already match
-are skipped, so the script is safe to re-run.
+Files land in sim/assets/third_party/<path>. Poly Haven files are checked against
+the API's MD5 and skipped when they match; ambientCG and direct downloads are skipped
+when the target already exists. Entries marked "remote" (NVIDIA Omniverse content)
+are loaded by URL at runtime and never downloaded.
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import sys
 import time
 import urllib.request
+import zipfile
 from pathlib import Path, PurePosixPath
 
-API = "https://api.polyhaven.com/files/"
-# Poly Haven asks API clients to send a unique User-Agent.
+from asset_manifest import (
+    Asset,
+    ambientcg_map_name,
+    ambientcg_zip_url,
+    licences_markdown,
+    load_assets,
+    polyhaven_hdri_file,
+    polyhaven_model_files,
+    polyhaven_texture_files,
+    safe_target,
+    select,
+)
+
+PH_API = "https://api.polyhaven.com/files/"
 USER_AGENT = "spark-hackathon-asset-fetch/1.0"
 ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
-TEXTURE_MAPS = {"diff": "Diffuse", "nor_gl": "nor_gl", "rough": "Rough", "metal": "Metal", "ao": "AO"}
 
 
 def get(url: str) -> bytes:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     for attempt in range(4):
         try:
-            with urllib.request.urlopen(request, timeout=120) as response:
+            with urllib.request.urlopen(request, timeout=300) as response:
                 return response.read()
         except OSError:
             if attempt == 3:
@@ -39,82 +56,85 @@ def get(url: str) -> bytes:
     raise AssertionError("unreachable")
 
 
-def safe_target(root: Path, relative: str) -> Path:
-    """Resolve a path from the API, refusing anything that leaves ``root``."""
-    parts = PurePosixPath(relative).parts
-    if not parts or PurePosixPath(relative).is_absolute() or ".." in parts:
-        raise ValueError(f"unsafe path from API: {relative!r}")
-    return root.joinpath(*parts)
-
-
-def download(entry: dict, target: Path) -> int:
-    """Fetch one file unless a verified copy exists. Returns bytes downloaded."""
-    expected = entry["md5"]
-    if target.exists() and hashlib.md5(target.read_bytes()).hexdigest() == expected:
+def download_md5(url: str, md5: str, target: Path) -> int:
+    if target.exists() and hashlib.md5(target.read_bytes()).hexdigest() == md5:
         return 0
-    data = get(entry["url"])
+    data = get(url)
     actual = hashlib.md5(data).hexdigest()
-    if actual != expected:
-        raise ValueError(f"checksum mismatch for {entry['url']}: {actual} != {expected}")
+    if actual != md5:
+        raise ValueError(f"checksum mismatch for {url}: {actual} != {md5}")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(data)
     return len(data)
 
 
-def fetch_model(asset_id: str, resolution: str, out: Path) -> int:
-    files = json.loads(get(API + asset_id))
-    usd = files["usd"][resolution]["usd"]
-    root = out / "models" / asset_id
-    total = download(usd, root / PurePosixPath(usd["url"]).name)
-    for relative, entry in usd.get("include", {}).items():
-        total += download(entry, safe_target(root, relative))
-    # Some USD packages (barrel_03, for one) omit a roughness map they reference.
-    rough = files.get("Rough", {}).get(resolution, {}).get("exr")
-    if rough:
-        total += download(rough, root / "textures" / PurePosixPath(rough["url"]).name)
-    return total
+def fetch_polyhaven(asset: Asset, out: Path) -> int:
+    files = json.loads(get(PH_API + asset.upstream_id))
+    root = safe_target(out, asset.path)
+    if asset.kind == "texture":
+        jobs = polyhaven_texture_files(files, asset.resolution)
+    elif asset.kind == "model":
+        jobs = polyhaven_model_files(files, asset.resolution)
+    else:
+        url, md5, name = polyhaven_hdri_file(files, asset.resolution, asset.path)
+        jobs, root = [(url, md5, name)], root.parent if asset.path.endswith(".hdr") else root
+    return sum(download_md5(url, md5, safe_target(root, rel)) for url, md5, rel in jobs)
 
 
-def fetch_texture(asset_id: str, resolution: str, out: Path) -> int:
-    files = json.loads(get(API + asset_id))
-    total = 0
-    for name, key in TEXTURE_MAPS.items():
-        if key in files:
-            total += download(
-                files[key][resolution]["jpg"],
-                out / "textures" / asset_id / f"{name}.jpg",
-            )
-    return total
+def fetch_ambientcg(asset: Asset, out: Path) -> int:
+    root = safe_target(out, asset.path)
+    if (root / "diff.jpg").exists():
+        return 0
+    data = get(asset.download or ambientcg_zip_url(asset.upstream_id, asset.resolution))
+    written = 0
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        for member in archive.namelist():
+            name = ambientcg_map_name(member)
+            if name:
+                root.mkdir(parents=True, exist_ok=True)
+                written += (root / name).write_bytes(archive.read(member))
+    if not (root / "diff.jpg").exists():
+        raise ValueError(f"no colour map in {asset.id} archive")
+    return written
 
 
-def fetch_hdri(asset_id: str, resolution: str, out: Path) -> int:
-    files = json.loads(get(API + asset_id))
-    return download(files["hdri"][resolution]["hdr"], out / "hdris" / f"{asset_id}.hdr")
+def fetch_direct(asset: Asset, out: Path) -> int:
+    target = safe_target(out, asset.path)
+    if target.exists():
+        return 0
+    data = get(asset.download or asset.url)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    return target.write_bytes(data)
+
+
+FETCHERS = {"polyhaven": fetch_polyhaven, "ambientcg": fetch_ambientcg}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--manifest", type=Path, default=ASSETS_DIR / "manifest.json")
     parser.add_argument("--out", type=Path, default=ASSETS_DIR / "third_party")
+    parser.add_argument("--kind", action="append", help="texture, hdri, model or decal (repeatable)")
+    parser.add_argument("--only", action="append", help="asset id (repeatable)")
+    parser.add_argument("--licences", action="store_true", help="write LICENSES.md and exit")
     args = parser.parse_args()
 
-    manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-    jobs = (
-        [(fetch_model, asset, manifest["resolution"]) for asset in manifest["models"]]
-        + [(fetch_texture, asset, manifest["resolution"]) for asset in manifest["textures"]]
-        + [(fetch_hdri, asset, manifest["hdri_resolution"]) for asset in manifest["hdris"]]
-    )
+    assets = load_assets(json.loads(args.manifest.read_text(encoding="utf-8")))
+    if args.licences:
+        target = args.manifest.parent / "LICENSES.md"
+        target.write_text(licences_markdown(assets), encoding="utf-8")
+        print(f"Wrote {target}")
+        return 0
 
-    total = 0
-    failures = []
-    for fetcher, asset, resolution in jobs:
+    total, failures = 0, []
+    for asset in select(assets, set(args.kind or []), set(args.only or [])):
         try:
-            size = fetcher(asset, resolution, args.out)
+            size = FETCHERS.get(asset.source, fetch_direct)(asset, args.out)
             total += size
-            print(f"ok   {asset} ({size / 1e6:.1f} MB new)")
-        except (OSError, KeyError, ValueError) as error:
-            failures.append(asset)
-            print(f"FAIL {asset}: {error}", file=sys.stderr)
+            print(f"ok   {asset.kind:7} {asset.id} ({size / 1e6:.1f} MB new)")
+        except (OSError, KeyError, ValueError, zipfile.BadZipFile) as error:
+            failures.append(asset.id)
+            print(f"FAIL {asset.id}: {error}", file=sys.stderr)
 
     print(f"Downloaded {total / 1e6:.1f} MB into {args.out}")
     if failures:
