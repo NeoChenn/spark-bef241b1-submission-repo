@@ -1,16 +1,9 @@
-"""Gerstner ocean surface on a polar grid, using numpy only.
-
-Rings get wider with distance, so detail stays near the rig while the surface
-still reaches the horizon. Waves fade out with distance to avoid aliasing.
-"""
-
 from __future__ import annotations
 
 import math
 
 import numpy as np
 
-# wavelength m, relative height, direction deg, steepness
 WAVES = (
     (140.0, 1.00, 18.0, 0.45),
     (86.0, 0.62, -12.0, 0.50),
@@ -24,7 +17,6 @@ FADE_DISTANCE_M = 1600.0
 
 
 def make_grid(rings: int = 190, segments: int = 256, inner: float = 6.0, outer: float = 24000.0):
-    """Return rest points (N, 2), distance from center (N), face counts and indices."""
     radii = inner * (outer / inner) ** (np.arange(rings) / (rings - 1))
     angles = np.arange(segments) / segments * math.tau
     grid_r, grid_a = np.meshgrid(radii, angles, indexing="ij")
@@ -44,7 +36,6 @@ def make_grid(rings: int = 190, segments: int = 256, inner: float = 6.0, outer: 
 
 
 def surface(rest: np.ndarray, distance: np.ndarray, time: float, height: float):
-    """Return displaced points (N, 3) and normals (N, 3). ``height`` is the largest wave's amplitude."""
     fade = np.exp(-distance / FADE_DISTANCE_M)
     x, y, z = rest[:, 0].copy(), rest[:, 1].copy(), np.zeros(len(rest))
     slope_x, slope_y, stretch = np.zeros(len(rest)), np.zeros(len(rest)), np.zeros(len(rest))

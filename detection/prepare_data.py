@@ -1,21 +1,10 @@
-"""Build the binary rust/clean classification dataset on the `rust-data` Modal volume.
-
-Output (see detection/DATA.md for the contract):
-  /data/rust_v1/{train,val,test}/{rust,clean}/*.jpg
-  /data/rust_v1/manifest.csv   path,label,split,source,group_id
-  /data/rust_v1/stats.json
-
-Run:
-  .venv/bin/modal run detection/prepare_data.py                     # build on Modal
-  .venv/bin/modal run detection/prepare_data.py --local-sample 20   # + copy 20/split/class to ./data/rust_v1_sample
-"""
 import os
 import sys
 
 import modal
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from infra.common import DATA_DIR, DATA_VOL  # noqa: E402
+from infra.common import DATA_DIR, DATA_VOL
 
 app = modal.App("rust-prepare-data")
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
@@ -28,9 +17,9 @@ SEED = 1234
 SPLIT_FRAC = {"train": 0.70, "val": 0.15, "test": 0.15}
 HAMMING_MAX = 4
 
-BINKHOA = "BinKhoaLe1812/Corrosion_Rust"     # MIT
-RF100 = "Francesco/corrosion-bi3q3"          # CC BY 4.0 (RF100)
-IAMCLOUD = "iamcloud/Corrosion_Dataset"      # Apache-2.0, all-positive Roboflow classification export
+BINKHOA = "BinKhoaLe1812/Corrosion_Rust"
+RF100 = "Francesco/corrosion-bi3q3"
+IAMCLOUD = "iamcloud/Corrosion_Dataset"
 
 
 def _resize_short(img, short=SHORT_SIDE):
@@ -66,9 +55,8 @@ def build(sample_n: int = 0):
     from PIL import Image
 
     rng = random.Random(SEED)
-    items = []  # dict(img=PIL, label, source, group, parent_hash)
+    items = []
 
-    # ---------- 1. BinKhoaLe1812/Corrosion_Rust ----------
     d = snapshot_download(BINKHOA, repo_type="dataset", allow_patterns=["Corrosion/*/*.jpg"], max_workers=16)
     n0 = len(items)
     for folder, label in [("rust", "rust"), ("no rust", "clean")]:
@@ -85,7 +73,6 @@ def build(sample_n: int = 0):
             items.append(dict(img=img, label=label, source="binkhoa", group=f"binkhoa:{label}:{stem}", full=img))
     print("binkhoa", len(items) - n0)
 
-    # ---------- 2. Francesco/corrosion-bi3q3 (RF100 detection) ----------
     n0 = len(items)
     files = [f for f in list_repo_files(RF100, repo_type="dataset") if f.endswith(".parquet")]
     names = None
@@ -98,11 +85,10 @@ def build(sample_n: int = 0):
             gid = f"rf100:{f.split('/')[-1].split('-')[0]}:{r['image_id']}"
             boxes = []
             for bb, cat in zip(r["objects"]["bbox"], r["objects"]["category"]):
-                if cat not in (0, 2):  # 0=corrosion-0 (supercat), 2=corrosion; skip Slippage/crack
+                if cat not in (0, 2):
                     continue
                 x, y, w, h = bb
                 boxes.append((x, y, x + w, y + h))
-            # positives: padded crops of corrosion boxes
             for x0, y0, x1, y1 in boxes:
                 w, h = x1 - x0, y1 - y0
                 if w * h < 16 * 16:
@@ -114,7 +100,6 @@ def build(sample_n: int = 0):
                     continue
                 items.append(dict(img=img.crop(tuple(int(round(v)) for v in c)), label="rust",
                                   source="rf100", group=gid, full=small))
-            # negatives: random crops with zero overlap with any corrosion box
             n_neg, tries = 0, 0
             want = 2 if boxes else 3
             while n_neg < want and tries < 60:
@@ -128,7 +113,6 @@ def build(sample_n: int = 0):
                 n_neg += 1
     print("rf100", len(items) - n0)
 
-    # ---------- 3. iamcloud/Corrosion_Dataset (all positives; 1 file per original stem) ----------
     n0 = len(items)
     fs = [f for f in list_repo_files(IAMCLOUD, repo_type="dataset") if f.endswith(".jpg")]
     by_stem = {}
@@ -144,7 +128,6 @@ def build(sample_n: int = 0):
         items.append(dict(img=img, label="rust", source="iamcloud", group=f"iamcloud:{stem}", full=img))
     print("iamcloud", len(items) - n0)
 
-    # ---------- resize + phash dedupe (union-find over output crops AND parent images) ----------
     for it in items:
         if min(it["img"].size) != SHORT_SIDE:
             it["img"] = _resize_short(it["img"])
@@ -175,7 +158,6 @@ def build(sample_n: int = 0):
                 out.append((i, i + 1 + int(j)))
         return out
 
-    # parent-level: one entry per distinct full image
     fulls, full_groups, seen = [], [], {}
     for it in items:
         k = id(it["full"])
@@ -197,7 +179,6 @@ def build(sample_n: int = 0):
     print(f"phash: {len(pp)} near-dup parent pairs, {len(ip)} near-dup item pairs; "
           f"{len(gsize)} groups, largest {gsize.most_common(3)}")
 
-    # exact-duplicate item removal within same label (keep first)
     seen_h, keep = set(), []
     for it, h in zip(items, hi):
         k = (int(h), it["label"])
@@ -208,7 +189,6 @@ def build(sample_n: int = 0):
     print(f"dropped {len(items) - len(keep)} exact-phash duplicate items")
     items = keep
 
-    # ---------- split by group ----------
     groups = sorted(set(it["group"] for it in items))
     rng.shuffle(groups)
     gcount = collections.Counter(it["group"] for it in items)
@@ -219,7 +199,6 @@ def build(sample_n: int = 0):
         split_of[g] = "train" if frac < SPLIT_FRAC["train"] else ("val" if frac < SPLIT_FRAC["train"] + SPLIT_FRAC["val"] else "test")
         acc += gcount[g]
 
-    # ---------- write ----------
     root = os.path.join(DATA_DIR, OUT_NAME)
     if os.path.exists(root):
         shutil.rmtree(root)
@@ -248,7 +227,6 @@ def build(sample_n: int = 0):
     for key in list(stats):
         if isinstance(stats[key], dict):
             stats[key] = dict(sorted(stats[key].items()))
-    # leakage check
     gsplits = collections.defaultdict(set)
     for r in rows:
         gsplits[r["group_id"]].add(r["split"])

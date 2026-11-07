@@ -1,13 +1,3 @@
-"""Render the rig USD scene on Modal with Blender Cycles (CUDA).
-
-Isaac Sim's RTX renderer needs Vulkan, which Modal's gVisor sandbox doesn't pass through
-(see infra/README.md). Cycles renders with CUDA compute, which does work there, and Blender
-imports the scene's UsdPreviewSurface materials and cameras directly. Output is close to, not
-identical to, the Isaac render: good for testing the detector and previewing motion.
-
-    MODAL_PROFILE=jacobyuan99 .venv/bin/modal run infra/render_blender.py \
-        --usd sim/output/rig_deck.usda --camera repair_closeup --out runs/render
-"""
 import pathlib
 
 import modal

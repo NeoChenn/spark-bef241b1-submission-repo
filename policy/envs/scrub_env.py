@@ -1,16 +1,3 @@
-"""SCRUB skill env: Isaac Lab DirectRLEnv. Import only after the Isaac Sim app is launched.
-
-The arm (default Franka on a fixed base at dog-back height, or the teammate URDF) holds a sphere brush and
-scrubs rust off a horizontal pipe. Brush-pipe contact is analytic (penetration -> spring force, tangential
-brush velocity -> slide speed) and drives policy.envs.rust_state.RustState. Everything the policy sees or
-commands is in the pipe frame, so the checkpoint transfers to the sim team's scene / Isaac version.
-
-Action (4, in [-1, 1]):  d(axial), d(ref), d(binormal) of the brush target (x action_scale m per step), and the
-normal-force setpoint F* = force_set_mid + force_set_half * a3. When the target is within `contact_snap` of the
-surface, its radial coordinate is replaced by r + brush_r - F*/k_nominal (simple hybrid force/position control);
-the true brush stiffness is randomised, so the policy must close the loop on the observed force.
-IK: damped-least-squares on the brush-point Jacobian (no controller-class API dependence).
-"""
 from __future__ import annotations
 
 import math
@@ -51,7 +38,6 @@ class ScrubEnv(DirectRLEnv):
                 pos=(0.0, 0.0, cfg.base_height), rot=(math.cos(yaw / 2), 0.0, 0.0, math.sin(yaw / 2))
             ),
         )
-        # recompute in case num_arm_joints was changed after construction (see ScrubEnvCfg.__post_init__)
         cfg.observation_space = 2 * cfg.num_arm_joints + 16 + 2 * PATCH_K * PATCH_K + COARSE_H * COARSE_W + 9
         super().__init__(cfg, render_mode, **kwargs)
         N, dev = self.num_envs, self.device
@@ -67,23 +53,19 @@ class ScrubEnv(DirectRLEnv):
         self.q_lo, self.q_hi = lim[:, 0], lim[:, 1]
 
         self.rust = RustState(N, GRID_H, GRID_W, cfg.pipe_length, device=dev, theta_window=cfg.rust_theta_window)
-        z3 = lambda: torch.zeros(N, 3, device=dev)  # noqa: E731
-        z1 = lambda: torch.zeros(N, device=dev)  # noqa: E731
-        # pipe geometry (env-local frame)
+        z3 = lambda: torch.zeros(N, 3, device=dev)
+        z1 = lambda: torch.zeros(N, device=dev)
         self.pipe_o, self.pipe_a, self.pipe_e = z3(), z3(), z3()
         self.pipe_b = torch.tensor([0.0, 0.0, 1.0], device=dev).repeat(N, 1)
         self.pipe_r, self.spring_k = z1(), z1()
-        # control state
         self.actions = torch.zeros(N, 4, device=dev)
         self.prev_actions = torch.zeros(N, 4, device=dev)
         self.p_tgt, self.p_cmd = z3(), z3()
         self.f_set = torch.full((N,), cfg.force_set_mid, device=dev)
-        # contact state
         self.brush_w, self.brush_v = z3(), z3()
         self.force, self.gap, self.theta, self.axial = z1(), z1(), z1(), z1()
         self.removed, self.max_force = z1(), z1()
         self.success = torch.zeros(N, dtype=torch.bool, device=dev)
-        # adaptation event
         self.event_step = torch.full((N,), -1, dtype=torch.long, device=dev)
         self.event_fired = torch.zeros(N, dtype=torch.bool, device=dev)
         self.clean_step = torch.full((N,), -1, dtype=torch.long, device=dev)
@@ -92,12 +74,11 @@ class ScrubEnv(DirectRLEnv):
         if cfg.viz:
             self._make_markers()
 
-    # ------------------------------------------------------------------ scene
     def _setup_scene(self):
         c = self.cfg
         self._robot = Articulation(c.robot_cfg)
         self.scene.articulations["robot"] = self._robot
-        if c.spawn_pipe_visual or c.spawn_dog_visual:  # cosmetic only; skipped for headless training
+        if c.spawn_pipe_visual or c.spawn_dog_visual:
             ground = sim_utils.GroundPlaneCfg()
             ground.func("/World/ground", ground)
         if c.spawn_pipe_visual:
@@ -137,7 +118,6 @@ class ScrubEnv(DirectRLEnv):
         )
         self._markers = VisualizationMarkers(mk)
 
-    # --------------------------------------------------------------- geometry
     def _to_pipe(self, p_local: torch.Tensor):
         d = p_local - self.pipe_o
         za = (d * self.pipe_a).sum(-1)
@@ -161,7 +141,6 @@ class ScrubEnv(DirectRLEnv):
         v = d.body_lin_vel_w[:, self.ee_idx] + torch.cross(d.body_ang_vel_w[:, self.ee_idx], r_off, dim=-1)
         return brush_w, v, r_off
 
-    # ---------------------------------------------------------------- actions
     def _pre_physics_step(self, actions: torch.Tensor):
         c = self.cfg
         a = actions.clamp(-1.0, 1.0)
@@ -185,11 +164,11 @@ class ScrubEnv(DirectRLEnv):
     def _apply_action(self):
         d = self._robot.data
         brush_w, _, r_off = self._brush_state()
-        jac = self._robot.root_physx_view.get_jacobians()[:, self.jac_idx][:, :, self.jac_cols]  # (N,6,J)
+        jac = self._robot.root_physx_view.get_jacobians()[:, self.jac_idx][:, :, self.jac_cols]
         Jv = jac[:, :3] - torch.bmm(_skew(r_off), jac[:, 3:])
         err = (self.p_cmd + self.scene.env_origins) - brush_w
         n = err.norm(dim=-1, keepdim=True)
-        err = err * torch.clamp(0.05 / n.clamp_min(1e-6), max=1.0)  # limit per-substep step
+        err = err * torch.clamp(0.05 / n.clamp_min(1e-6), max=1.0)
         lam2 = 0.05 ** 2
         JJt = torch.bmm(Jv, Jv.transpose(1, 2)) + lam2 * torch.eye(3, device=self.device)
         dq = torch.bmm(Jv.transpose(1, 2), torch.linalg.solve(JJt, err.unsqueeze(-1))).squeeze(-1)
@@ -197,7 +176,6 @@ class ScrubEnv(DirectRLEnv):
         q = torch.maximum(torch.minimum(q, self.q_hi), self.q_lo)
         self._robot.set_joint_position_target(q, joint_ids=self.arm_ids)
 
-    # ------------------------------------------------------------ post-physics
     def _update_contact(self):
         c = self.cfg
         brush_w, v_w, _ = self._brush_state()
@@ -209,7 +187,7 @@ class ScrubEnv(DirectRLEnv):
         self.theta[:], self.axial[:] = th, za
         pen = (self.pipe_r + c.brush_radius - rho).clamp_min(0.0)
         self.gap[:] = rho - self.pipe_r - c.brush_radius
-        on_pipe = za.abs() < c.pipe_length / 2 + 0.5  # physical pipe is long; grid only covers the segment
+        on_pipe = za.abs() < c.pipe_length / 2 + 0.5
         self.force[:] = self.spring_k * pen * on_pipe
         n = torch.cos(th)[:, None] * self.pipe_e + torch.sin(th)[:, None] * self.pipe_b
         v_t = v_w - (v_w * n).sum(-1, keepdim=True) * n
@@ -259,7 +237,6 @@ class ScrubEnv(DirectRLEnv):
                - c.w_dist * dist * has_rust)
         return rew
 
-    # ------------------------------------------------------------------ reset
     def _reset_idx(self, env_ids):
         if env_ids is None:
             env_ids = self._robot._ALL_INDICES
@@ -270,7 +247,6 @@ class ScrubEnv(DirectRLEnv):
         super()._reset_idx(env_ids)
         n, dev = len(env_ids), self.device
 
-        # pipe DR
         r = sample_uniform(*c.radius_range, (n,), dev)
         yaw = sample_uniform(*c.yaw_range, (n,), dev)
         standoff = sample_uniform(*c.standoff_range, (n,), dev)
@@ -282,7 +258,6 @@ class ScrubEnv(DirectRLEnv):
         self.pipe_e[env_ids] = torch.stack([-torch.sin(yaw), torch.cos(yaw), torch.zeros_like(yaw)], -1)
         self.spring_k[env_ids] = sample_uniform(*c.spring_k_range, (n,), dev)
 
-        # robot joints (lift first: it sets the shoulder position used for the reachability mask)
         jp = self._robot.data.default_joint_pos[env_ids].clone()
         lift = torch.zeros(n, device=dev)
         if self.lift_ids:
@@ -292,20 +267,17 @@ class ScrubEnv(DirectRLEnv):
         if c.reach_range is not None:
             reach = self._reachable_mask(env_ids, lift)
 
-        # rust DR
         soak = torch.where(torch.rand(n, device=dev) < c.prob_not_soaked,
                            sample_uniform(0.0, 25.0, (n,), dev), torch.full((n,), 60.0, device=dev))
         self.rust.reset(env_ids, radius=r, soak_time=soak, reachable=reach,
                         abrasion_coef=sample_uniform(*c.abrasion_coef_range, (n,), dev))
 
-        # arm joints
         jp[:, self.arm_ids] += sample_uniform(-c.init_joint_noise, c.init_joint_noise, (n, len(self.arm_ids)), dev)
         jp[:, self.arm_ids] = torch.maximum(torch.minimum(jp[:, self.arm_ids], self.q_hi), self.q_lo)
         jv = torch.zeros_like(jp)
         self._robot.set_joint_position_target(jp, env_ids=env_ids)
         self._robot.write_joint_state_to_sim(jp, jv, env_ids=env_ids)
 
-        # start target: hovering 3-12 cm off the reachable side of the pipe
         sub = env_ids
         th = c.rust_theta_window[0] + sample_uniform(-1.0, 1.0, (n,), dev) * c.rust_theta_window[1]
         za = sample_uniform(-0.15, 0.15, (n,), dev)
@@ -329,19 +301,18 @@ class ScrubEnv(DirectRLEnv):
                                                torch.full_like(steps, -1))
 
     def _reachable_mask(self, env_ids, lift):
-        """(n,H,W) bool: grid cells whose surface point is within cfg.reach_range of the UR3 shoulder."""
         c = self.cfg
         cy, sy = math.cos(c.robot_yaw), math.sin(c.robot_yaw)
         ox, oy, oz = c.shoulder_offset
         sh = torch.stack([torch.full_like(lift, cy * ox - sy * oy), torch.full_like(lift, sy * ox + cy * oy),
-                          c.base_height + oz + lift], -1)                                   # (n,3) env frame
+                          c.base_height + oz + lift], -1)
         th = self.rust.theta_c.view(1, 1, -1)
         z = self.rust.z_c.view(1, -1, 1)
         o, a = self.pipe_o[env_ids], self.pipe_a[env_ids]
         e, b = self.pipe_e[env_ids], self.pipe_b[env_ids]
         r = self.pipe_r[env_ids].view(-1, 1, 1, 1)
         nrm = torch.cos(th)[..., None] * e.view(-1, 1, 1, 3) + torch.sin(th)[..., None] * b.view(-1, 1, 1, 3)
-        p = o.view(-1, 1, 1, 3) + z[..., None] * a.view(-1, 1, 1, 3) + r * nrm               # (n,H,W,3)
+        p = o.view(-1, 1, 1, 3) + z[..., None] * a.view(-1, 1, 1, 3) + r * nrm
         d = (p - sh.view(-1, 1, 1, 3)).norm(dim=-1)
         return (d >= c.reach_range[0]) & (d <= c.reach_range[1])
 
@@ -359,14 +330,12 @@ class ScrubEnv(DirectRLEnv):
             "Episode/new_patch_success": (ev * succ).mean(),
         }
         self.extras.setdefault("log", {}).update({k: v.item() for k, v in log.items()})
-        # raw per-episode records for play_scrub.py
         self.last_episode_stats = {
             "env_ids": env_ids.clone(), "fraction_removed": 1.0 - frac, "success": self.success[env_ids].clone(),
             "max_force": self.max_force[env_ids].clone(), "time_to_clean_s": t_clean,
             "new_patch": self.event_fired[env_ids].clone(),
         }
 
-    # ------------------------------------------------------------ observations
     def _get_observations(self) -> dict:
         c = self.cfg
         d = self._robot.data
@@ -396,7 +365,6 @@ class ScrubEnv(DirectRLEnv):
         ], dim=-1)
         return {"policy": torch.nan_to_num(obs).clamp(-10.0, 10.0)}
 
-    # ----------------------------------------------------------------- viz
     def _draw_markers(self):
         n_show = min(self.num_envs, 4)
         pts, idx = [self.brush_w[:n_show] + self.scene.env_origins[:n_show]], [torch.zeros(n_show, dtype=torch.long, device=self.device)]
@@ -418,8 +386,8 @@ class ScrubEnv(DirectRLEnv):
 
 
 TASKS = {
-    "lift": ("Rig-Scrub-Go2UR3Lift-v0", "ScrubLiftEnvCfg"),     # main: real rig height, lift + brush_tip
-    "go2ur3": ("Rig-Scrub-Go2UR3-v0", "ScrubEnvCfg"),           # no lift, lowered pipe (z 0.5-0.75)
+    "lift": ("Rig-Scrub-Go2UR3Lift-v0", "ScrubLiftEnvCfg"),
+    "go2ur3": ("Rig-Scrub-Go2UR3-v0", "ScrubEnvCfg"),
     "franka": ("Rig-Scrub-Franka-v0", "ScrubFrankaEnvCfg"),
 }
 for _tid, _cfg in TASKS.values():

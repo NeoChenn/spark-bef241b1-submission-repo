@@ -1,17 +1,3 @@
-"""End-to-end CPU demo of the repair pipeline with no Isaac Sim.
-
-Fake world = RustState grid (policy/envs/rust_state.py, falls back to a tiny
-built-in model if unavailable) ray-cast into a pinhole camera image of the pipe;
-fake colour classifier; greedy scrub policy. Unscripted events the orchestrator
-must react to from perception alone:
-  * glare on the nominal view           -> UNSURE -> SECOND_VIEW
-  * a new rust patch appears mid-SOAK   -> RE-PLAN: spray it, extend soak
-  * a force spike during SCRUB          -> BACK_OFF, lower press, retry
-  * camera occluded at VERIFY           -> HOLD, resume
-  * a person walks within 3 m           -> PAUSE_PERSON, resume
-
-Run:  .venv/bin/python -m policy.demo_mock   (writes runs/decisions.jsonl)
-"""
 from __future__ import annotations
 
 import argparse
@@ -27,15 +13,13 @@ from policy.orchestrator import Orchestrator, OrchestratorConfig, S
 
 try:
     from policy.envs.rust_state import RustState as _RustStateBase
-except Exception:  # pragma: no cover - fallback keeps the demo independent
+except Exception:
     _RustStateBase = None
 
 TWO_PI = 2 * math.pi
 
 
-# ----------------------------------------------------------------------- world
 class _MiniRustState:
-    """Minimal stand-in with the RustState API used here (1 env)."""
 
     def __init__(self, num_envs=1, H=32, W=64, length=0.6, **_):
         self.num_envs, self.H, self.W, self.length = 1, H, W, length
@@ -89,7 +73,6 @@ _Base = _RustStateBase or _MiniRustState
 
 
 class MockRustWorld(_Base):
-    """RustState + paint layer + deterministic blob injection."""
 
     def __init__(self, H=32, W=64, length=0.6, radius=0.1):
         super().__init__(num_envs=1, H=H, W=W, length=length)
@@ -109,7 +92,6 @@ class MockRustWorld(_Base):
         self.initial_total = self.rust.sum(dim=(1, 2)).clamp_min(1e-6)
 
     def inject_patch(self, theta, z, size=0.04, level=0.8):
-        """Mid-run scene change: unsprayed patch appears (not told to the orchestrator)."""
         self.rust = torch.maximum(self.rust, self.blob(theta, z, size, level))
         self.initial_total = torch.maximum(self.initial_total, self.rust.sum(dim=(1, 2)))
 
@@ -117,7 +99,6 @@ class MockRustWorld(_Base):
         self.painted |= torch.as_tensor(mask).bool()
 
 
-# ---------------------------------------------------------------------- camera
 def look_at(eye, target, up=(0, 0, 1)):
     eye, target, up = (np.asarray(v, float) for v in (eye, target, up))
     zc = target - eye
@@ -131,26 +112,24 @@ def look_at(eye, target, up=(0, 0, 1)):
 
 
 class MockPerception:
-    """Ray-casts the pipe + RustState texture into an RGB frame."""
 
     def __init__(self, world: MockRustWorld, pipe: PipeGeometry, focus_theta: float,
                  W=320, H=240, focal_mm=35.0, h_aperture_mm=20.955):
         self.world, self.pipe = world, pipe
         self.W, self.H = W, H
-        f = focal_mm / h_aperture_mm * W            # USD camera -> pinhole fx (= fy)
+        f = focal_mm / h_aperture_mm * W
         self.K = np.array([[f, 0, W / 2], [0, f, H / 2], [0, 0, 1.0]])
-        # "wrist/closeup" views along the damage normal, like /World/Cameras/repair_closeup
         surf, n = pipe.surface_point(focus_theta, 0.0)
         n2 = pipe.surface_point(focus_theta + 0.35, 0.0)[1]
         n3 = pipe.surface_point(focus_theta - 0.35, 0.0)[1]
-        self.views = [look_at(surf + 0.85 * n, surf),                                     # nominal
-                      look_at(surf + 0.7 * n2 + 0.12 * pipe.axis, surf + 0.03 * pipe.axis),  # 2nd view
+        self.views = [look_at(surf + 0.85 * n, surf),
+                      look_at(surf + 0.7 * n2 + 0.12 * pipe.axis, surf + 0.03 * pipe.axis),
                       look_at(surf + 0.7 * n3 - 0.12 * pipe.axis, surf)]
         self.view = 0
-        self.glare_views = {0}          # specular glare on the nominal view
+        self.glare_views = {0}
         self.glare_alpha = 0.6
         self.glare_sx = 300.0
-        self.occluded_frames = 0        # >0: next frames are black (spray mist on lens)
+        self.occluded_frames = 0
         self.n_frames = 0
         self._cache = {}
 
@@ -183,9 +162,9 @@ class MockPerception:
         hit, i, j, shade = self._rays()
         tex = self.world.to_texture()[0, ..., :3].float().numpy()
         painted = self.world.painted[0].numpy()
-        tex[painted] = (112, 122, 110)                      # grey-green primer
+        tex[painted] = (112, 122, 110)
         img = np.empty((self.H, self.W, 3), np.float32)
-        img[:] = (38, 44, 52)                               # dark background
+        img[:] = (38, 44, 52)
         img[hit] = tex[i[hit], j[hit]] * shade[hit, None]
         if self.view in self.glare_views:
             yy, xx = np.mgrid[0:self.H, 0:self.W]
@@ -195,7 +174,6 @@ class MockPerception:
         return np.clip(img, 0, 255).astype(np.uint8)
 
 
-# ------------------------------------------------------------------ arm/bridge
 class MockArm:
     def __init__(self, world: MockRustWorld, pipe: PipeGeometry, seed=0):
         self.world, self.pipe = world, pipe
@@ -205,7 +183,7 @@ class MockArm:
         self.spike_at_step = None
         self.n_delta = 0
         self.rng = np.random.default_rng(seed)
-        self.drop_prob = 0.06           # brush lift-off / unreachable waypoint
+        self.drop_prob = 0.06
         self.contact_radius = 0.03
 
     def move_to(self, waypoints):
@@ -218,7 +196,7 @@ class MockArm:
     def apply_ee_delta(self, a):
         self.n_delta += 1
         if self.spike_at_step is not None and self.n_delta == self.spike_at_step:
-            self.spike_steps = 2        # brush snags on a weld bead
+            self.spike_steps = 2
         self.theta = (self.theta + float(np.clip(a[0], -0.15, 0.15))) % TWO_PI
         self.z = float(np.clip(self.z + np.clip(a[1], -0.03, 0.03), -self.pipe.length / 2, self.pipe.length / 2))
         press = float(np.clip(a[2], 0, 1))
@@ -242,7 +220,6 @@ class MockArm:
 
 
 class GreedyScrub:
-    """Mock ScrubPolicy: go to the nearest perceived-rust target cell, dwell, move on."""
 
     def __init__(self, pipe: PipeGeometry, dwell=3):
         self.pipe, self.dwell = pipe, dwell
@@ -256,12 +233,12 @@ class GreedyScrub:
     def step(self, obs):
         rust = obs["perceived_rust"]
         if self._last_map is None or not np.array_equal(rust > 0, self._last_map):
-            self.done, self.cur = set(), None    # fresh perception -> re-target
+            self.done, self.cur = set(), None
             self._last_map = rust > 0
         th, z = obs["ee_theta_z"]
         if self.cur is None:
             cand = [tuple(c) for c in np.argwhere(rust > 0) if tuple(c) not in self.done]
-            if not cand:   # nothing perceived: sweep the whole target
+            if not cand:
                 cand = [tuple(c) for c in np.argwhere(obs["target_mask"]) if tuple(c) not in self.done]
             if not cand:
                 self.done = set()
@@ -325,13 +302,10 @@ class MockBridge:
         self.hud = lines
 
 
-# ------------------------------------------------------------------------ main
 SCENE_META = "sim/output/rig_deck_meta.json"
 
 
 def scene_geometry(meta_path: str = SCENE_META):
-    """Pipe segment + damage from the sim team's rig_deck_meta.json (main pipe along +x at
-    y=0, z=1.1, r=0.15; theta measured from +Y toward +Z). Falls back to seed-7 values."""
     import json
     import os
     meta = {"main_pipe": {"z_m": 1.1, "y_m": 0.0, "radius_m": 0.15},
@@ -372,9 +346,7 @@ def main(argv=None):
     t0 = time.time()
     orch, bridge, world, perception, arm, pipe = build(args.log)
 
-    # Unscripted scene changes, keyed on sim time / control steps (orchestrator is not told).
     def on_spray_hook():
-        # 12 s into the first soak, a second patch shows up (paint flakes off)
         t_spray = bridge.t
         th_new = bridge.dmg_theta + 0.75
         bridge.events.append((t_spray + 12.0, f"NEW rust patch spawned at theta={th_new:.2f}, z=+0.13",
@@ -391,7 +363,7 @@ def main(argv=None):
             on_spray_hook()
         if orch.state == S.VERIFY and prev == S.SCRUB and not getattr(perception, "_occl_done", False):
             perception._occl_done = True
-            perception.occluded_frames = 2          # spray mist on lens
+            perception.occluded_frames = 2
             bridge.person_window = (bridge.t + 0.5, bridge.t + 2.5)
         if len(orch.records) > 400:
             break

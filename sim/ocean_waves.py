@@ -1,5 +1,3 @@
-"""Gerstner ocean: Pierson-Moskowitz wave sets, displacement and a polar sea mesh. Pure numpy."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -41,7 +39,6 @@ def make_waves(
     choppiness: float = 0.8,
     swell: tuple[float, float, float] | None = None,
 ) -> Waves:
-    """Sample a wind sea; ``swell`` adds (height m, wavelength m, dir deg) as three near-parallel components."""
     rng = np.random.default_rng(seed)
     w_peak = 0.877 * G / wind_speed
     w_max = np.sqrt(G * 2 * np.pi / min_wavelength)
@@ -77,7 +74,6 @@ def significant_height(w: Waves) -> float:
 
 
 def lod_weights(w: Waves, spacing: np.ndarray) -> np.ndarray:
-    """Per-vertex, per-wave weight: fade waves shorter than ~4 vertex spacings."""
     s = np.clip((w.wavelength[None, :] / spacing[:, None] - 3.0) / 3.0, 0.0, 1.0)
     return (s * s * (3 - 2 * s)).astype(np.float32)
 
@@ -148,7 +144,6 @@ def polar_grid(
 
 
 def jacobian(w: Waves, x: np.ndarray, y: np.ndarray, t: float) -> np.ndarray:
-    """Determinant of the horizontal Gerstner map; below ~0.5 the surface is folding into a breaking crest."""
     theta = (np.outer(x, w.dir[:, 0] * w.k) + np.outer(y, w.dir[:, 1] * w.k)) - (w.omega * t - w.phase)
     qs = (w.q * w.k * w.amp) * np.sin(theta)
     jxx = qs @ (w.dir[:, 0] ** 2)
@@ -158,12 +153,10 @@ def jacobian(w: Waves, x: np.ndarray, y: np.ndarray, t: float) -> np.ndarray:
 
 
 def whitecap_fraction(wind_speed: float) -> float:
-    """Monahan & O'Muircheartaigh (1980) whitecap coverage."""
     return 3.84e-6 * wind_speed**3.41
 
 
 def foam_threshold(w: Waves, coverage: float, seed: int = 0, samples: int = 20_000) -> float:
-    """Jacobian level below which the given fraction of the sea surface is covered."""
     rng = np.random.default_rng(seed)
     xy = rng.uniform(-500, 500, (samples, 2))
     j = jacobian(w, xy[:, 0], xy[:, 1], float(rng.uniform(0, 100)))

@@ -1,12 +1,9 @@
-"""Find where structure pierces the sea: slice meshes at sea level and cluster the cut into circles. Pure numpy."""
-
 from __future__ import annotations
 
 import numpy as np
 
 
 def waterline_points(points: np.ndarray, counts: np.ndarray, indices: np.ndarray, z: float) -> np.ndarray:
-    """XY points where polygon edges cross the plane at height z."""
     starts = np.repeat(np.cumsum(counts) - counts, counts)
     pos = np.arange(indices.size) - starts
     nxt = starts + (pos + 1) % np.repeat(counts, counts)
@@ -18,7 +15,6 @@ def waterline_points(points: np.ndarray, counts: np.ndarray, indices: np.ndarray
 
 
 def cluster_circles(xy: np.ndarray, link: float = 2.0, min_points: int = 6) -> list[tuple[float, float, float]]:
-    """Group points closer than ``link`` and fit each group as (cx, cy, radius)."""
     if len(xy) == 0:
         return []
     xy = np.unique(np.round(xy, 3), axis=0)

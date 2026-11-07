@@ -1,8 +1,3 @@
-"""Metrics, threshold selection, temperature scaling and the unsure band.
-
-All functions take raw logits (numpy, shape [N]) and integer labels (1 = rust).
-Calibrated probability: p = sigmoid(logit / T).
-"""
 from __future__ import annotations
 
 import numpy as np
@@ -37,9 +32,7 @@ def metrics_at(logits, labels, thr_logit: float = 0.0) -> dict:
 
 
 def pick_threshold(logits, labels, target_recall: float = TARGET_RECALL) -> float:
-    """Highest logit threshold whose recall on these samples is >= target (max precision)."""
     prec, rec, thr = precision_recall_curve(np.asarray(labels).astype(int), np.asarray(logits, np.float64))
-    # rec[i] corresponds to thr[i] for i < len(thr); recall is non-increasing in threshold.
     ok = np.where(rec[:-1] >= target_recall)[0]
     if len(ok) == 0:
         return float(np.min(logits))
@@ -64,7 +57,6 @@ def fit_temperature(logits, labels, iters: int = 200) -> float:
 
 
 def ece(probs, labels, n_bins: int = 15) -> float:
-    """Binary ECE on P(rust) (reliability of the positive-class probability)."""
     probs, labels = np.asarray(probs, np.float64), np.asarray(labels, np.float64)
     bins = np.linspace(0, 1, n_bins + 1)
     idx = np.clip(np.digitize(probs, bins[1:-1]), 0, n_bins - 1)
@@ -82,9 +74,6 @@ def unsure_fraction(logits, temperature: float, band=UNSURE_BAND) -> float:
 
 
 def full_report(split_logits: dict, split_labels: dict, val_domains=None) -> dict:
-    """split_* keyed by 'train'/'val'/'test'. Threshold + temperature are fitted on val only.
-    val_domains: optional list of boolean masks over val (e.g. real vs synthetic); the threshold is then the
-    lowest per-domain threshold so recall >= TARGET_RECALL holds in every domain, not just on the mix."""
     vz, vy = split_logits["val"], split_labels["val"]
     thr = pick_threshold(vz, vy)
     if val_domains:
@@ -116,8 +105,6 @@ def fmt_report(rep: dict, name: str = "") -> str:
     return "\n".join(lines)
 
 
-# Held-out sim-domain check: hand-picked crops of the sim/output renders that are NOT used for training
-# (file, (x0, y0, x1, y1), label, description); label 1 rust, 0 clean, -1 ambiguous (reported, not scored)
 SIM_HELDOUT = [
  ("preview_repair_closeup.png", (480, 335, 780, 440), 1, "damage patch (rust_coarse_01)"),
  ("preview_repair_closeup.png", (525, 0, 615, 150), 1, "rusty steel post (rusty_metal_02)"),

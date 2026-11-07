@@ -1,18 +1,3 @@
-"""Turn the AnsysLearn oil rig STL into a textured, full-scale Isaac Sim scene.
-
-    C:\\isaacsim\\python.bat sim\\build_full_rig.py
-    ./python.sh sim/build_full_rig.py                 (Linux and Docker)
-
-Outputs, all in sim/output/:
-    full_rig.usda          the scene; open it in Isaac Sim with File > Open
-    full_rig_meta.json     scale, deck heights and cameras
-    full_rig_*.png         rendered views
-
-The source STL has no textures, UVs or real-world size. This script splits it
-into its 36 connected parts, assigns a material to each one and adds box-projected
-UVs and smoothed normals. Sea level is z = 0, in metres with Z up.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -28,21 +13,20 @@ parser.add_argument("--width", type=int, default=1280)
 parser.add_argument("--height", type=int, default=720)
 args = parser.parse_args()
 
-from isaacsim import SimulationApp  # noqa: E402
+from isaacsim import SimulationApp
 
 simulation_app = SimulationApp({"headless": True, "width": args.width, "height": args.height})
 
-import numpy as np  # noqa: E402
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdPhysics, UsdShade, Vt  # noqa: E402
+import numpy as np
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdPhysics, UsdShade, Vt
 
-import rig_details  # noqa: E402
-from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel  # noqa: E402
+import rig_details
+from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
 
 STL_PATH = ASSETS / "oil_rig_ansyslearn" / "OilRig2.stl"
 SCENE_PATH = OUTPUT / "full_rig.usda"
 SMOOTH_ANGLE_COS = np.cos(np.radians(35.0))
 
-# name: (color, roughness, metallic, surface relief texture or None)
 PLATE = "metal_plate"
 CLADDING = "box_profile_metal_sheet"
 CONCRETE = "concrete_floor_damaged_01"
@@ -71,8 +55,6 @@ FULL_TEXTURES = {
 }
 SEA_TILE_METRES = 70.0
 SKY_ROTATION_DEG = 120.0
-# Sea haze, saved in the scene so it applies when anyone opens the rig. Distance fog stays at 0
-# because it also covers the sky and hides the clouds. Height fog clears as the view tilts up.
 HAZE_SETTINGS = {
     "rtx:fog:enabled": True,
     "rtx:fog:fogZup:enabled": True,
@@ -85,7 +67,7 @@ HAZE_SETTINGS = {
     "rtx:fog:fogEndDist": 2600.0,
     "rtx:fog:fogDistanceDensity": 0.0,
 }
-FACADE_MIN_AREA = 300.0  # STL units squared, about 19 square metres
+FACADE_MIN_AREA = 300.0
 MODULE_PAINTS = ("module_white", "module_blue", "module_grey")
 
 
@@ -117,7 +99,6 @@ def connected_parts(faces: np.ndarray, vertex_count: int) -> np.ndarray:
 
 
 def classify(points: np.ndarray, faces: np.ndarray, part_faces: np.ndarray, areas, normals) -> tuple[str, np.ndarray]:
-    """Return a part name and one material name per face, in STL units."""
     corners = points[faces[part_faces]]
     low = corners.reshape(-1, 3).min(0)
     size = corners.reshape(-1, 3).max(0) - low
@@ -162,7 +143,6 @@ def classify(points: np.ndarray, faces: np.ndarray, part_faces: np.ndarray, area
 
 
 def corner_normals(faces: np.ndarray, face_normals: np.ndarray, areas: np.ndarray) -> np.ndarray:
-    """Smooth across shallow edges so cylinders look round and boxes stay sharp."""
     neighbours: dict[int, list[int]] = {}
     for face, vertices in enumerate(faces.tolist()):
         for vertex in vertices:

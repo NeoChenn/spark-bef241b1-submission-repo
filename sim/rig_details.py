@@ -1,9 +1,3 @@
-"""Add inspection detail to the full rig: pipes, valves, gauges, props, markings.
-
-Import after SimulationApp has started. Gauge readings are saved with their
-positions, so renders can serve as labeled data for gauge-reading work.
-"""
-
 from __future__ import annotations
 
 import math
@@ -18,7 +12,6 @@ TOP_DECK_Z = 42.5
 GAUGE_RANGE_BAR = 16.0
 HELIDECK_CIRCLE_RADIUS = 8.0
 
-# Top deck loop in metres. route_blockages re-checks it against the geometry at build time.
 PATROL_ROUTE = [
     (-21.0, 20.5), (-10.0, 20.5), (-10.0, 11.0), (-1.0, 11.0), (-1.0, -4.5), (24.0, -4.5), (24.0, -9.0),
     (9.0, -9.0), (9.0, -4.5), (-1.0, -4.5), (-1.0, 11.0), (-21.0, 11.0), (-21.0, 20.5),
@@ -49,7 +42,6 @@ def image_material(stage, name: str, image, roughness: float = 0.35) -> UsdShade
 
 
 def face_disc(b: SceneBuilder, parent, name, center, facing, radius, material):
-    """Round disc facing a horizontal direction, mapped so +Z is up on the texture."""
     normal = np.array((facing[0], facing[1], 0.0))
     right = np.array((-facing[1], facing[0], 0.0))
     up = np.array((0.0, 0.0, 1.0))
@@ -116,7 +108,6 @@ def add_windows(b: SceneBuilder, low, high, name: str, glass) -> None:
 
 
 def _inside_any(triangles: np.ndarray, point: np.ndarray, margin: float) -> bool:
-    """True if a square around ``point`` is covered by the 2D triangles."""
     for offset in ((-margin, -margin), (margin, -margin), (margin, margin), (-margin, margin)):
         target = point + np.array(offset)
         a, b, c = triangles[:, 0], triangles[:, 1], triangles[:, 2]
@@ -132,7 +123,6 @@ def _inside_any(triangles: np.ndarray, point: np.ndarray, margin: float) -> bool
 
 
 def add_facade_windows(b: SceneBuilder, triangles: np.ndarray, normals: np.ndarray, glass) -> int:
-    """Add window rows to large flat walls. Triangles and normals are in world space."""
     planes: dict[tuple, list[np.ndarray]] = {}
     for triangle, normal in zip(triangles, normals):
         axis = 0 if abs(normal[0]) > abs(normal[1]) else 1
@@ -177,7 +167,6 @@ def add_facade_windows(b: SceneBuilder, triangles: np.ndarray, normals: np.ndarr
 
 
 def add_gauge(b, dial, steel, black, red, name, pipe_top, facing, value):
-    """Stem-mounted gauge facing a walkway. ``value`` runs from 0 to 1 across the dial."""
     parent = "/World/Details/Gauges"
     x, y, z = pipe_top
     head_z = z + 0.34
@@ -187,7 +176,6 @@ def add_gauge(b, dial, steel, black, red, name, pipe_top, facing, value):
     b.tube(parent, "body", back, front, 0.085, black, segments=28)
     face_disc(b, parent, "dial", front, facing, 0.085, dial)
 
-    # Dial runs clockwise from lower left (-135 deg) to lower right (+135 deg), seen from the front.
     angle = math.radians(135.0 - 270.0 * value)
     right = (-facing[1], facing[0])
     tip_right, tip_up = math.cos(angle) * 0.068, math.sin(angle) * 0.068
@@ -206,7 +194,6 @@ def add_gauge(b, dial, steel, black, red, name, pipe_top, facing, value):
 
 
 def add_splash_zone(b: SceneBuilder, leg_triangles: np.ndarray) -> None:
-    """Dark tide band where the four concrete legs meet the sea."""
     band = b.plain("splash_zone", (0.06, 0.08, 0.07), 0.7)
     points = leg_triangles.reshape(-1, 3)
     middle = (points[:, :2].min(0) + points[:, :2].max(0)) / 2
@@ -334,7 +321,6 @@ def add_walkway_lines(b: SceneBuilder, route) -> None:
 
 
 def route_blockages(world_triangles: np.ndarray, route, clearance: float = 0.45) -> list[list[float]]:
-    """Return route samples within ``clearance`` of geometry at robot height."""
     low, high = TOP_DECK_Z + 0.15, TOP_DECK_Z + 0.9
     z_low = world_triangles[:, :, 2].min(1)
     z_high = world_triangles[:, :, 2].max(1)

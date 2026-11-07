@@ -1,19 +1,3 @@
-"""Perception-driven repair orchestrator (explicit state machine).
-
-PATROL -> DETECT -> [SECOND_VIEW x<=2 -> ESCALATE_TO_HUMAN] -> APPROACH -> SPRAY ->
-SOAK (30 s sim, re-detect every 5 s; a NEW patch => SPRAY it, soak extended) ->
-SCRUB (ScrubPolicy; re-detect during scrub) -> VERIFY (perceived rust > 5% of
-target => SCRUB again, max 3 cycles, then ESCALATE_TO_HUMAN with evidence) ->
-PAINT -> VERIFY_PAINT -> DONE.
-
-Safety states are first class: BACK_OFF (force over limit -> retract, lower
-press, retry), HOLD (camera lost/occluded -> hold position, re-observe),
-PAUSE_PERSON (person within 3 m -> freeze until clear).
-
-Every transition is a DecisionRecord written to JSONL with the perception
-evidence behind it (detector confidence, perceived rust fraction, patch ids,
-contact force). ``overlay_text`` renders the HUD lines for the video.
-"""
 from __future__ import annotations
 
 import json
@@ -58,21 +42,21 @@ class OrchestratorConfig:
     redetect_s: float = 5.0
     max_second_views: int = 2
     max_scrub_cycles: int = 3
-    verify_frac: float = 0.05          # perceived rust / baseline above this => scrub again
-    force_limit: float = 40.0          # N (matches RustState max_force)
+    verify_frac: float = 0.05
+    force_limit: float = 40.0
     max_backoffs: int = 3
     person_radius: float = 3.0
     hold_dt: float = 1.0
     hold_max: int = 5
-    scrub_steps: int = 120             # control steps per scrub cycle
-    scrub_dt: float = 0.1              # s per scrub step (10 Hz decisions)
+    scrub_steps: int = 120
+    scrub_dt: float = 0.1
     scrub_redetect_every: int = 30
     new_patch_min_cells: int = 3
     target_margin: int = 1
     max_paint_attempts: int = 2
-    occluded_std: float = 6.0          # image std below this => camera occluded
-    clean_min_visible: float = 0.8     # a "clean" verdict needs >= 80% of target cells in view
-    clean_max_uncertain: float = 0.05  # ... and <= 5% of target cells with conf in [0.2, thr)
+    occluded_std: float = 6.0
+    clean_min_visible: float = 0.8
+    clean_max_uncertain: float = 0.05
     max_verify_views: int = 2
     log_path: Optional[str] = "runs/decisions.jsonl"
 
@@ -81,7 +65,7 @@ class OrchestratorConfig:
 class TrackedPatch:
     id: int
     mask: np.ndarray
-    centroid: tuple[float, float]      # (theta, z)
+    centroid: tuple[float, float]
     conf: float
     found_t: float
     found_in: str
@@ -90,8 +74,8 @@ class TrackedPatch:
 
 @dataclass
 class Perceived:
-    result: object                     # detection.localize.LocalizeResult
-    grid: np.ndarray                   # (n_z, n_theta) bool
+    result: object
+    grid: np.ndarray
     visible: np.ndarray
     conf: np.ndarray
 
@@ -127,20 +111,19 @@ class Orchestrator:
         self.view_idx = 0
         self.verify_views = 0
         self.n_views = 3
-        self.resume: Optional[S] = None        # where HOLD / BACK_OFF return to
-        self.pause_resume: Optional[S] = None  # where PAUSE_PERSON returns to
+        self.resume: Optional[S] = None
+        self.pause_resume: Optional[S] = None
         self._log_f = None
         if self.cfg.log_path:
             Path(self.cfg.log_path).parent.mkdir(parents=True, exist_ok=True)
             self._log_f = open(self.cfg.log_path, "w")
 
-    # ------------------------------------------------------------- utilities
     @property
     def t(self) -> float:
         return float(self.bridge.sim_time())
 
     def _advance(self, dt: float):
-        self.world.step_soak(dt)        # orchestrator owns RustState soak clock
+        self.world.step_soak(dt)
         self.bridge.advance(dt)
 
     def _evidence(self, **extra) -> dict:
@@ -172,7 +155,7 @@ class Orchestrator:
         if img is None or float(np.asarray(img, np.float32).std()) < self.cfg.occluded_std:
             return None
         res = self.localizer.localize(img)
-        self.pipe = self.bridge.pipe()          # pipe may be moved mid-run (demo hook)
+        self.pipe = self.bridge.pipe()
         grid, vis, conf = project_mask_to_grid(res.mask, self.perception.camera(), self.pipe, res.prob_map)
         self.last = Perceived(res, grid, vis, conf)
         if self.baseline_cells:
@@ -185,7 +168,6 @@ class Orchestrator:
         return S.HOLD, "perception lost (no frame / occluded) -> hold position", self._evidence()
 
     def _new_patches(self, p: Perceived) -> list[TrackedPatch]:
-        """Rust components not overlapping the known (dilated) target = new patches."""
         known = dilate(self.target, 2)
         out = []
         for comp in _components(p.grid & ~known):
@@ -209,7 +191,6 @@ class Orchestrator:
         self.pending_spray |= m
         return tp
 
-    # --------------------------------------------------------------- driving
     def run(self, max_steps: int = 500) -> S:
         for _ in range(max_steps):
             if self.state in TERMINAL:
@@ -222,7 +203,6 @@ class Orchestrator:
     def step(self):
         if self.state in TERMINAL:
             return
-        # person proximity hook (pre-empts any non-terminal state)
         d = self.bridge.person_distance() if hasattr(self.bridge, "person_distance") else None
         if d is not None and d < self.cfg.person_radius and self.state != S.PAUSE_PERSON:
             self.pause_resume = self.state
@@ -233,7 +213,6 @@ class Orchestrator:
         if nxt is not None:
             self._record(nxt, reason, ev)
 
-    # ---------------------------------------------------------------- states
     def _s_patrol(self):
         poses = self.bridge.patrol_poses()
         if self.patrol_idx >= len(poses):
@@ -270,14 +249,12 @@ class Orchestrator:
                 self._evidence(new_patches=[_pdesc(t) for t in new]))
 
     def _clean_evidence(self, p: Perceived) -> tuple[bool, float, float]:
-        """Is a 'clean' verdict backed by confident negatives? (visible frac, uncertain frac)"""
         n = max(int(self.target.sum()), 1)
         vis = float(p.visible[self.target].sum() / n)
         unc = float(((p.conf >= 0.2) & (p.conf < p.result.threshold) & self.target).sum() / n)
         return (vis >= self.cfg.clean_min_visible and unc <= self.cfg.clean_max_uncertain), vis, unc
 
     def _weak_clean(self, p: Perceived, where: S):
-        """Looks clean but evidence is weak (glare/oblique/out of view): re-view or escalate."""
         ok, vis, unc = self._clean_evidence(p)
         if ok:
             return None
@@ -366,7 +343,7 @@ class Orchestrator:
                 new = self._new_patches(p)
                 if new:
                     self.scrub_steps_left = 0
-                    self.scrub_cycles -= 1   # interrupted cycle does not count as a failure
+                    self.scrub_cycles -= 1
                     return (S.SPRAY, "RE-PLAN: new rust " + ", ".join(_pdesc(t) for t in new) +
                             " appeared mid-scrub -> pause scrub, spray + soak it first",
                             self._evidence(new_patches=[_pdesc(t) for t in new]))
@@ -418,7 +395,6 @@ class Orchestrator:
         return S.ESCALATE_TO_HUMAN, f"paint coverage {cov:.1%} after {self.paint_attempts} attempts", \
             self._evidence(paint_coverage=round(cov, 4))
 
-    # safety states
     def _s_back_off(self):
         self.backoffs += 1
         self.arm.back_off(0.05)
@@ -448,7 +424,6 @@ class Orchestrator:
             return nxt, f"person clear ({'none' if d is None else f'{d:.1f} m'}) -> resume {nxt.value}", self._evidence()
         return None, "", {}
 
-    # ------------------------------------------------------------------- HUD
     def overlay_text(self) -> list[str]:
         return overlay_text(self)
 
@@ -486,8 +461,6 @@ def _json_default(o):
 
 
 def draw_hud(rgb: np.ndarray, lines: list[str], state: str = "") -> np.ndarray:
-    """Burn HUD lines into an RGB uint8 frame (PIL). For rig/sim/main.py: call right
-    before JPEG encoding, or send ``lines`` in the frame header as ``"hud"``."""
     from PIL import Image, ImageDraw
     im = Image.fromarray(np.ascontiguousarray(rgb[..., :3]))
     d = ImageDraw.Draw(im, "RGBA")

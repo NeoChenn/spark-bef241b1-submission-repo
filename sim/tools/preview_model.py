@@ -1,10 +1,3 @@
-"""Path-traced wide and deck-level previews of an imported model.
-
-    /isaac-sim/python.sh sim/tools/preview_model.py sim/assets/rig_model/rig/rig.usd --out sim/output/import --sea-z -20
-
-Writes <out>/<name>_wide.png and <out>/<name>_deck.png at 1280x720.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -27,20 +20,20 @@ parser.add_argument("--width", type=int, default=1280)
 parser.add_argument("--height", type=int, default=720)
 args = parser.parse_args()
 
-from isaacsim import SimulationApp  # noqa: E402
+from isaacsim import SimulationApp
 
 simulation_app = SimulationApp(
     {"headless": True, "renderer": "RealTimePathTracing", "width": args.width, "height": args.height}
 )
 
-import numpy as np  # noqa: E402
-import omni.kit.app  # noqa: E402
-import omni.usd  # noqa: E402
-from PIL import Image  # noqa: E402
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade  # noqa: E402
+import numpy as np
+import omni.kit.app
+import omni.usd
+from PIL import Image
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from model_fix import preview_cameras  # noqa: E402
+from model_fix import preview_cameras
 
 
 def material(stage, path, color, roughness, metallic=0.0):

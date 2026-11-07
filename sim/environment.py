@@ -1,9 +1,3 @@
-"""Sky, sun, animated ocean and renderer look for the offshore rig. Call after SimulationApp has started.
-
-    env = add_environment(stage, preset="clear", sea_level_z=-25.0)
-    env.update(t)   # once per frame, t = sim time in seconds
-"""
-
 from __future__ import annotations
 
 import tempfile
@@ -30,7 +24,6 @@ def _smooth_fade(r: np.ndarray) -> np.ndarray:
 
 
 class _Displacer:
-    """Gerstner displacement of the active ring of the mesh; Warp on GPU when available, else numpy."""
 
     def __init__(self, waves: Waves, rest: np.ndarray, base_z: np.ndarray, fade: np.ndarray, spacing: np.ndarray):
         self.waves, self.rest, self.base_z, self.fade, self.spacing = waves, rest, base_z, fade, spacing
@@ -41,7 +34,7 @@ class _Displacer:
             wp.init()
             self.wp = wp
             self._setup_warp()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"[environment] warp unavailable ({exc}); using numpy waves", flush=True)
 
     def _setup_warp(self) -> None:
@@ -126,7 +119,6 @@ class Environment:
         self._points_attr = mesh.GetPointsAttr()
 
     def update(self, t: float, camera: str | tuple[float, float, float] | None = None) -> None:
-        """Animate the sea to time t. ``camera`` (prim path or xyz) sharpens wave detail for that viewpoint."""
         self.points[: self.active] = self.displacer(t)
         self._points_attr.Set(Vt.Vec3fArray.FromNumpy(self.points))
         self.time_input.Set(float(t))
@@ -138,7 +130,6 @@ class Environment:
 
 
 def find_legs(stage: Usd.Stage, sea_level_z: float) -> list[tuple[float, float, float]]:
-    """Members that pierce the sea surface, as (x, y, radius), from the waterline cut of every mesh."""
     cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
     cuts = []
     for prim in stage.Traverse():
@@ -206,7 +197,6 @@ def _add_material(stage: Usd.Stage, preset: Preset, mdl_path: Path, foam_level: 
 
 
 def _add_splash_zones(stage: Usd.Stage, mdl_path: Path, legs, sea_level_z: float) -> None:
-    """Wet, marine-growth band around each leg at the waterline, as a thin sleeve with a ragged cutout top."""
     mat = UsdShade.Material.Define(stage, f"{ROOT}/Looks/SplashZone")
     shader = UsdShade.Shader.Define(stage, f"{ROOT}/Looks/SplashZone/Shader")
     shader.SetSourceAsset(Sdf.AssetPath(str(mdl_path)), "mdl")

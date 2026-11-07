@@ -1,9 +1,3 @@
-"""UsdPreviewSurface material from a texture folder in sim/assets/third_party/textures/<id>/.
-
-Folders hold diff, nor_gl (OpenGL, +Y up), rough, metal, ao, disp and opacity maps as
-.jpg or .png. Missing maps are skipped. Needs pxr (Isaac Sim python.sh).
-"""
-
 from __future__ import annotations
 
 from pathlib import Path

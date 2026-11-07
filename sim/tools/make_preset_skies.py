@@ -1,10 +1,3 @@
-"""Grade Poly Haven's CC0 pure-sky HDRIs into the cinematic sky presets.
-
-    C:\\isaacsim\\python.bat sim\\tools\\make_preset_skies.py
-
-Writes sky_night.hdr, sky_storm.hdr and foam.png to sim/assets/generated/.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -56,7 +49,6 @@ def write_hdr(path: Path, image: np.ndarray) -> None:
 
 
 def grade(image: np.ndarray, tint, gain: float, contrast: float, saturation: float) -> np.ndarray:
-    """Push clouds toward a tint, deepening the darks. Sky above and below the horizon stays smooth."""
     luminance = np.maximum(image @ LUMA, 1e-6)
     middle = np.exp(np.log(luminance).mean())
     shaped = np.power(luminance / middle, contrast) * middle

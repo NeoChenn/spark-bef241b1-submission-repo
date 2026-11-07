@@ -1,10 +1,3 @@
-"""Download a candidate platform model listed in sim/assets/rig_model/candidates.json into .work/sources/<key>/.
-
-    SKETCHFAB_TOKEN=... python3 sim/tools/fetch_model.py deepwater_horizon
-
-Sketchfab needs a free account's API token (sketchfab.com/settings/password). Prints the downloaded file path.
-"""
-
 from __future__ import annotations
 
 import json

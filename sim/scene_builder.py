@@ -1,5 +1,3 @@
-"""Shared USD helpers for the rig scenes. Import after SimulationApp has started."""
-
 from __future__ import annotations
 
 import math
@@ -28,7 +26,6 @@ class SceneBuilder:
         self.count += 1
         return f"{parent}/{name}_{self.count:03d}"
 
-    # Materials ----------------------------------------------------------
     def plain(self, name: str, color, roughness=0.5, metallic=0.0) -> UsdShade.Material:
         if name in self.materials:
             return self.materials[name]
@@ -89,7 +86,6 @@ class SceneBuilder:
         self.materials[name] = material
         return material, shader
 
-    # Geometry -----------------------------------------------------------
     def _mesh(self, path, points, normals, uvs, counts, indices, material, collide):
         mesh = UsdGeom.Mesh.Define(self.stage, path)
         mesh.CreatePointsAttr(Vt.Vec3fArray([Gf.Vec3f(*p) for p in points]))
@@ -167,7 +163,6 @@ class SceneBuilder:
         return mesh
 
     def disc(self, parent, name, center, axis_x, radius, material):
-        """Flat ring face closing the end of a tube along +X or -X."""
         points, normals, uvs, indices = [(center[0], center[1], center[2])], [(axis_x, 0, 0)], [(0.5, 0.5)], []
         segments = 32
         for step in range(segments):
@@ -189,11 +184,6 @@ class SceneBuilder:
         self.disc(parent, "flange_face", (x + width, y, z), 1, radius, material)
 
     def asset(self, parent, asset_id, position, rotate_z=0.0, rotate_y=0.0, part=None, scale=1.0, on_deck=True):
-        """Reference a downloaded model, optionally keeping one part of a modular kit.
-
-        Without on_deck, ``position`` sets the model's center, which suits pipe
-        fittings. With on_deck, the model's base sits at position.z.
-        """
         files = sorted((ASSETS / "models" / asset_id).glob("*.usdc"))
         if not files:
             raise FileNotFoundError(f"{asset_id} is missing. Run sim/tools/fetch_assets.py first.")
@@ -222,8 +212,6 @@ class SceneBuilder:
         offset_z = -box.GetMin()[2] if on_deck else -middle[2]
         UsdGeom.Xformable(inner).AddTranslateOp().Set(Gf.Vec3d(-middle[0], -middle[1], offset_z))
 
-        # Poly Haven's USD files keep absolute paths from their build server.
-        # Point those at the textures downloaded alongside each model.
         local_textures = {file.stem: file for file in (ASSETS / "models" / asset_id).rglob("*.*")}
         for prim in Usd.PrimRange(inner.GetPrim()):
             for attribute in prim.GetAttributes():

@@ -5,7 +5,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sim" / "tools"))
 
-from model_fix import (  # noqa: E402
+from model_fix import (
     converter_for,
     deck_level,
     guess_scale,

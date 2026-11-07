@@ -1,18 +1,3 @@
-"""Train the SCRUB skill (PPO, rsl_rl) on Modal L40S with Isaac Lab.
-
-    MODAL_PROFILE=jacobyuan99 .venv/bin/modal run policy/train_scrub.py --smoke                        # 64 envs, 20 iters
-    MODAL_PROFILE=jacobyuan99 .venv/bin/modal run --detach policy/train_scrub.py --run scrub_v1        # full run (2048 envs)
-    MODAL_PROFILE=jacobyuan99 .venv/bin/modal run --detach policy/train_scrub.py --run scrub_v1 --resume --iters 2000
-
-Robust long runs (survive the local client dying):  modal deploy policy/train_scrub.py, then
-    modal.Function.from_name("rig-scrub-train", "train").spawn(run, num_envs, iters, resume, urdf, robot, init_from)
-
-Checkpoints + tensorboard: rust-ckpt volume, /ckpt/scrub/<run>/model_<it>.pt (committed every ~2 min).
-Monitor:  .venv/bin/modal app logs <app-id>    |   .venv/bin/modal volume ls rust-ckpt scrub/<run>
-          .venv/bin/modal volume get rust-ckpt scrub/<run>/progress.jsonl .
-
-The same file is the in-container worker:  python -m policy.train_scrub --worker ...  (run under ISAACLAB_PY).
-"""
 from __future__ import annotations
 
 import argparse
@@ -29,7 +14,6 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 
-
 def latest_checkpoint(run_dir: str) -> str | None:
     cks = glob.glob(os.path.join(run_dir, "model_*.pt"))
     if not cks:
@@ -37,7 +21,6 @@ def latest_checkpoint(run_dir: str) -> str | None:
     return max(cks, key=lambda p: int(re.search(r"model_(\d+)\.pt", p).group(1)))
 
 
-# =============================================================================== worker (inside Isaac python)
 def worker(argv):
     p = argparse.ArgumentParser()
     p.add_argument("--worker", action="store_true")
@@ -63,7 +46,7 @@ def worker(argv):
     from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
 
     from policy.envs import scrub_env_cfg as C
-    from policy.envs.scrub_env import TASKS  # registers the tasks
+    from policy.envs.scrub_env import TASKS
     from policy.envs.scrub_env_cfg import ScrubPPORunnerCfg
 
     torch.backends.cuda.matmul.allow_tf32 = True
@@ -100,13 +83,12 @@ def worker(argv):
     runner.learn(num_learning_iterations=args.iters, init_at_random_ep_len=True)
     print(f"[scrub] TRAINING_DONE {time.time() - t0:.0f}s", flush=True)
     sys.stdout.flush()
-    os._exit(0)  # simulation_app.close() can hang on Modal
+    os._exit(0)
 
 
-# =============================================================================== Modal app
 try:
     if "--worker" in sys.argv:
-        raise ImportError  # the worker never needs modal
+        raise ImportError
     import modal
 
     from infra.common import CKPT_DIR, CKPT_VOL, ASSET_DIR, ASSET_VOL
@@ -174,7 +156,7 @@ try:
         res = {"returncode": proc.returncode, "done": done, "run_dir": run_dir, "latest_ckpt": ck, "iters_logged": len(history),
                "first": history[0] if history else None, "last": history[-1] if history else None}
         print("[scrub] RESULT", json.dumps(res), flush=True)
-        if proc.returncode != 0 or not done:  # Kit can exit 0 after a Python exception
+        if proc.returncode != 0 or not done:
             raise RuntimeError(f"worker failed rc={proc.returncode} done={done}")
         return res
 
@@ -188,7 +170,7 @@ try:
         print(f"[scrub] run={run} robot={robot} num_envs={num_envs} iters={iters} resume={resume}")
         print(train.remote(run, num_envs, iters, resume, urdf, robot, init_from))
 
-except ImportError:  # inside the Isaac worker without modal/infra available
+except ImportError:
     app = None
 
 

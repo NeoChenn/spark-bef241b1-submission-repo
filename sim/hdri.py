@@ -1,5 +1,3 @@
-"""Minimal Radiance .hdr (RLE RGBE) reader and sky statistics for matching haze to the dome. Pure numpy."""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -55,7 +53,6 @@ def write_hdr(path: str | Path, img: np.ndarray) -> None:
 
 
 def horizon_color(img: np.ndarray, max_elevation_deg: float = 4.0) -> np.ndarray:
-    """Mean radiance of the band just above the horizon of a lat-long sky."""
     h = img.shape[0]
     rows = max(1, int(round(h * max_elevation_deg / 180.0)))
     return img[h // 2 - rows : h // 2].reshape(-1, 3).mean(0)

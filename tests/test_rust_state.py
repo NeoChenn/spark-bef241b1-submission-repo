@@ -19,7 +19,6 @@ def make(seed=0, soak=60.0):
 
 
 def centre_uv(rs):
-    """uv of the rustiest cell per env."""
     flat = rs.rust.view(N, -1).argmax(1)
     row, col = flat // W, flat % W
     return torch.stack([(col.float() + 0.5) / W, (row.float() + 0.5) / H], -1)
@@ -59,7 +58,7 @@ def test_removal_proportional_to_force_and_speed():
     out = []
     for F, v in [(10.0, 0.1), (20.0, 0.1), (10.0, 0.2)]:
         rs = make()
-        rs.rust.fill_(1.0)  # avoid clamping at 0
+        rs.rust.fill_(1.0)
         rs.sprayed.fill_(True)
         rs.soak_time.fill_(60.0)
         out.append(rs.abrade(torch.full((N, 2), 0.5), 0.03, torch.full((N,), F), torch.full((N,), v), 0.01))
@@ -96,7 +95,6 @@ def test_excess_force_flag_and_bounds():
 
 
 def test_scrubbing_cleans_patch_to_completion():
-    """Raster-scan the whole surface with a reasonable brush; fraction remaining must drop below 5%."""
     rs = make()
     dt, v, R = 1 / 30, 0.15, 0.025
     circ = 2 * math.pi * rs.radius
@@ -104,7 +102,7 @@ def test_scrubbing_cleans_patch_to_completion():
     for sweep in range(2):
         for row in range(0, H, 2):
             for s in range(steps):
-                u = (s * v * dt / circ).clamp(max=1.0)  # physically consistent slide speed per env
+                u = (s * v * dt / circ).clamp(max=1.0)
                 uv = torch.stack([u, torch.full((N,), (row + 0.5) / H)], -1)
                 rs.abrade(uv, R, torch.full((N,), 20.0), torch.full((N,), v), dt)
     assert (rs.fraction_remaining() < 0.05).all(), rs.fraction_remaining()
@@ -129,8 +127,8 @@ def test_local_patch_and_sprayed_crop():
     p = rs.local_patch(uv, 5)
     assert p.shape == (2, 5, 5)
     assert math.isclose(p[0, 2, 2].item(), 0.7, rel_tol=1e-6)
-    assert math.isclose(p[1, 2, 1].item(), 0.9, rel_tol=1e-6)  # wrapped theta, col 63 left of col 0
-    assert (p[1, :2] == 0).all()  # rows off the segment
+    assert math.isclose(p[1, 2, 1].item(), 0.9, rel_tol=1e-6)
+    assert (p[1, :2] == 0).all()
     s = rs.local_sprayed(uv, 5)
     assert s[0, 2, 2] == 1.0
 
@@ -173,7 +171,6 @@ def test_texture():
     assert (tex[..., 3] == 255).all()
     clean = rs.rust[0] < 0.01
     rusty = rs.rust[0] > 0.5
-    # rust is redder than steel
     assert tex[0][rusty][:, 0].float().mean() - tex[0][rusty][:, 2].float().mean() > 30
     assert (tex[0][clean & ~rs.sprayed[0]][:, :3].float() - torch.tensor([150.0, 152, 158])).abs().max() < 2
     ov = rs.to_texture([1], overlay=True)
@@ -216,8 +213,7 @@ def test_rig_meta_scene():
 
     m = rig_meta_scene(path)
     assert math.isclose(m["pipe_radius"], 0.15) and math.isclose(m["pipe_origin"][2], 1.1)
-    assert 0.85 < m["damage_theta"] < 0.95  # normal [0, .62, .78]
-    # damage point lies on the surface at that theta
+    assert 0.85 < m["damage_theta"] < 0.95
     th = m["damage_theta"]
     y = m["pipe_origin"][1] + m["pipe_ref"][1] * 0.15 * math.cos(th)
     z = m["pipe_origin"][2] + 0.15 * math.sin(th)
@@ -229,7 +225,7 @@ def test_reachable_mask_limits_rust():
     reach = torch.zeros(N, H, W, dtype=torch.bool)
     reach[:, 8:24, :] = True
     reach[0] = False
-    reach[0, 15:18, 12:16] = True  # tiny reachable area -> fallback blob
+    reach[0, 15:18, 12:16] = True
     rs.reset(radius=0.15, reachable=reach, generator=torch.Generator().manual_seed(2))
     assert (rs.rust[~reach] == 0).all()
     assert (rs.rust.sum(dim=(1, 2)) > 0).all()

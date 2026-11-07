@@ -1,9 +1,3 @@
-"""Cinematic layer for the full rig: skies, ocean, rig lighting and presets.
-
-This layer sits on top of sim/output/full_rig.usda, so the engineering scene and
-its data stay unchanged. Import after SimulationApp has started.
-"""
-
 from __future__ import annotations
 
 import math
@@ -75,7 +69,6 @@ PRESETS = {
 
 
 def render_settings(name: str) -> dict:
-    """Settings saved in the scene file, so opening it gives the same look."""
     preset = PRESETS[name]
     return {
         **GLOW_SETTINGS,
@@ -116,7 +109,6 @@ def add_lamp(stage, material, index: int, position, color, radius: float, intens
 
 
 def lamp_positions() -> list[tuple]:
-    """Lamp posts along the deck edges of the three levels, chosen from the deck outline."""
     points = []
     for x in np.arange(-25, 37, 9.0):
         points.append((float(x), 26.6, 46.0))
@@ -241,18 +233,55 @@ def build_foam(stage) -> None:
         UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material)
 
 
+RED = (1.0, 0.05, 0.03)
+LED_COLOR = (0.78, 0.88, 1.0)
+HELIDECK = (-22.5, -22.5, 51.4)
+RED_BEACONS = (
+    (900, DERRICK_TOP, 1.0, 1200000.0, 1.3),
+    (901, (-36.0, -32.0, 52.5), 0.3, 60000.0, 0.4),
+    (902, (37.2, 26.8, 47.5), 0.3, 60000.0, 0.4),
+    (903, (15.0, 15.0, 66.0), 0.3, 90000.0, 0.45),
+    (904, (25.0, 25.0, 66.0), 0.3, 90000.0, 0.45),
+    (905, (15.0, 25.0, 54.0), 0.3, 90000.0, 0.45),
+    (906, (25.0, 15.0, 54.0), 0.3, 90000.0, 0.45),
+    (907, (34.7, -4.5, 51.6), 0.3, 90000.0, 0.45),
+    (908, (-55.0, 8.0, 66.5), 0.4, 150000.0, 0.5),
+    (909, (-11.6, 20.8, 41.6), 0.3, 60000.0, 0.4),
+)
+STROBES = ((970, (-27.2, 27.0, 49.2)), (971, (37.2, -27.2, 49.2)), (972, (-27.2, -27.4, 49.2)), (973, (37.2, 27.2, 49.6)))
+STATUS = ((980, (1.1, -5.8, 23.0), (0.1, 0.45, 1.0)), (981, (11.1, -5.8, 23.0), (0.1, 0.45, 1.0)),
+          (982, (-3.9, -5.8, 23.0), (0.1, 1.0, 0.3)), (983, (6.1, -5.8, 23.0), (1.0, 0.75, 0.05)))
+
+
+def ring(center, radius: float, count: int) -> list[tuple]:
+    return [(center[0] + radius * math.cos(2 * math.pi * k / count), center[1] + radius * math.sin(2 * math.pi * k / count),
+             center[2]) for k in range(count)]
+
+
 def build_rig_lights(stage) -> None:
     amber = emissive_material(stage, "lamp_amber", tuple(c * 7 for c in LAMP_COLOR))
+    led = emissive_material(stage, "lamp_led", tuple(c * 9 for c in LED_COLOR))
     red = emissive_material(stage, "lamp_red", (26.0, 0.9, 0.4))
+    green = emissive_material(stage, "lamp_green", (0.6, 22.0, 2.0))
+    yellow = emissive_material(stage, "lamp_yellow", (20.0, 14.0, 0.5))
+    white = emissive_material(stage, "lamp_white", (30.0, 30.0, 30.0))
     for index, position in enumerate(lamp_positions()):
-        add_lamp(stage, amber, index, position, LAMP_COLOR, 0.25, 240000.0, 0.34)
-    add_lamp(stage, red, 900, DERRICK_TOP, (1.0, 0.05, 0.03), 1.0, 1200000.0, 1.3)
-    add_lamp(stage, red, 901, (-36.0, -32.0, 52.5), (1.0, 0.05, 0.03), 0.3, 60000.0, 0.4)
-    add_lamp(stage, red, 902, (37.2, 26.8, 47.5), (1.0, 0.05, 0.03), 0.3, 60000.0, 0.4)
+        warm = index % 3 != 2
+        add_lamp(stage, amber if warm else led, index, position, LAMP_COLOR if warm else LED_COLOR, 0.25, 240000.0, 0.34)
+    for index, position, radius, intensity, sphere in RED_BEACONS:
+        add_lamp(stage, red, index, position, RED, radius, intensity, sphere)
+    for k, position in enumerate(ring(HELIDECK, 10.5, 16)):
+        add_lamp(stage, green, 930 + k, position, (0.05, 1.0, 0.15), 0.15, 20000.0, 0.22)
+    for k, position in enumerate(ring(HELIDECK, 8.2, 12)):
+        add_lamp(stage, yellow, 950 + k, position, (1.0, 0.75, 0.05), 0.12, 12000.0, 0.16)
+    for index, position in STROBES:
+        add_lamp(stage, white, index, position, (1.0, 1.0, 1.0), 0.3, 200000.0, 0.35)
+    for index, position, color in STATUS:
+        add_lamp(stage, emissive_material(stage, f"lamp_status_{index}", tuple(c * 18 for c in color)), index, position,
+                 color, 0.12, 15000.0, 0.15)
 
 
 def build_floodlights(stage) -> None:
-    """Unseen lights that make warm pools on the decks and on the sea below."""
     deck_floods = (
         (-15, 10, 50), (10, -6, 50), (28, 10, 50), (-5, -20, 38), (20, -20, 38), (-10, -20, 27), (15, -20, 27),
     )
@@ -263,7 +292,6 @@ def build_floodlights(stage) -> None:
 
 
 def build_flare(stage) -> None:
-    """Flare boom and flame. The flame is emissive geometry shaped for bloom, not a fluid sim."""
     b = SceneBuilder(stage)
     steel = b.plain("flare_steel", (0.1, 0.11, 0.12), 0.5, 0.5)
     base = (-26.0, 8.0, 42.0)
@@ -291,7 +319,6 @@ def build_flare(stage) -> None:
 
 
 def add_ship(stage) -> None:
-    """Distant supply vessel, kept simple because it reads as a silhouette."""
     b = SceneBuilder(stage)
     hull = b.plain("ship_hull", (0.05, 0.07, 0.09), 0.6, 0.2)
     deck = b.plain("ship_deck", (0.3, 0.32, 0.34), 0.6, 0.1)
@@ -379,7 +406,6 @@ SEQUENCE_SECONDS = CAMERA_KEYS[-1][0]
 
 
 def camera_at(time: float):
-    """Return eye, target and focal length, smoothly interpolated through CAMERA_KEYS."""
     times = [key[0] for key in CAMERA_KEYS]
     time = min(max(time, 0.0), times[-1] - 1e-6)
     index = int(np.searchsorted(times, time, side="right")) - 1
@@ -407,17 +433,18 @@ def set_camera(stage, path: str, time: float) -> None:
 
 
 def animate_effects(stage, time: float) -> None:
-    """Flame flicker and a slow pulse on the derrick beacon."""
     for index in range(5):
         prim = stage.GetPrimAtPath(f"/World/Cinematic/Flare/flame_{index}")
         wave = math.sin(time * (7.0 + index * 1.7) + index * 2.1) * 0.5 + math.sin(time * 13.0 + index) * 0.5
         stretch = 2.2 + 0.32 * wave
         prim.GetAttribute("xformOp:scale").Set(Gf.Vec3f(1.0 + 0.12 * wave, 1.0 + 0.12 * wave, stretch))
-    beacon = stage.GetPrimAtPath("/World/Cinematic/Lamps/lamp_900/light")
-    base = beacon.GetAttribute("spark:baseIntensity")
-    if base.IsValid():
-        pulse = 0.55 + 0.45 * max(math.sin(time * 2.2), 0.0)
-        beacon.GetAttribute("inputs:intensity").Set(base.Get() * pulse)
+    pulse = 0.55 + 0.45 * max(math.sin(time * 2.2), 0.0)
+    strobe = 1.0 if (time % 1.6) < 0.12 else 0.02
+    for index, level in [(b[0], pulse) for b in RED_BEACONS] + [(i, strobe) for i, _ in STROBES]:
+        light = stage.GetPrimAtPath(f"/World/Cinematic/Lamps/lamp_{index:03d}/light")
+        base = light.GetAttribute("spark:baseIntensity")
+        if base.IsValid():
+            light.GetAttribute("inputs:intensity").Set(base.Get() * level)
 
 
 def animate_ocean(stage, rest, distance, time: float, height: float) -> None:

@@ -1,13 +1,3 @@
-"""Path-traced contact sheets for the assets in sim/assets/manifest.json.
-
-    /isaac-sim/python.sh sim/tools/render_asset_sheets.py swatches
-    /isaac-sim/python.sh sim/tools/render_asset_sheets.py hdris
-    /isaac-sim/python.sh sim/tools/render_asset_sheets.py props
-
-Writes 1280x720 PNGs to sim/output/assets/: swatches_<n>.png (plate + sphere per
-texture set), hdris.png (chrome and grey ball under each sky) and props_<source>_<n>.png.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -26,19 +16,19 @@ parser.add_argument("--exposure", type=float, default=None, help="fixed exposure
 parser.add_argument("--intensity", type=float, default=1000.0, help="dome light intensity")
 args = parser.parse_args()
 
-from isaacsim import SimulationApp  # noqa: E402
+from isaacsim import SimulationApp
 
 app = SimulationApp({"headless": True, "renderer": "RealTimePathTracing", "width": 1280, "height": 720})
 
-import carb  # noqa: E402
-import numpy as np  # noqa: E402
-import omni.replicator.core as rep  # noqa: E402
-import omni.usd  # noqa: E402
-from PIL import Image, ImageDraw, ImageFont  # noqa: E402
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt  # noqa: E402
+import carb
+import numpy as np
+import omni.replicator.core as rep
+import omni.usd
+from PIL import Image, ImageDraw, ImageFont
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
-from asset_manifest import load_assets  # noqa: E402
-from pbr_material import texture_material  # noqa: E402
+from asset_manifest import load_assets
+from pbr_material import texture_material
 
 SIM = Path(__file__).resolve().parents[1]
 ASSETS = SIM / "assets" / "third_party"
@@ -327,6 +317,6 @@ def render_props():
 
 OUT.mkdir(parents=True, exist_ok=True)
 {"swatches": render_swatches, "hdris": render_hdris, "props": render_props}[args.mode]()
-import os  # noqa: E402
+import os
 
 os._exit(0)

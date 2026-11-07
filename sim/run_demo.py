@@ -17,17 +17,17 @@ parser.add_argument("--preset", default="night")
 parser.add_argument("--self-test", action="store_true")
 args = parser.parse_args()
 
-from isaacsim import SimulationApp  # noqa: E402
+from isaacsim import SimulationApp
 
 simulation_app = SimulationApp({"headless": args.self_test, "width": 1600, "height": 900})
 
-import carb.input  # noqa: E402
-import omni.appwindow  # noqa: E402
-import omni.usd  # noqa: E402
-from pxr import Gf, UsdGeom  # noqa: E402
+import carb.input
+import omni.appwindow
+import omni.usd
+from pxr import Gf, UsdGeom
 
-import cinematic  # noqa: E402
-import ocean  # noqa: E402
+import cinematic
+import ocean
 
 CAMERA_PATH = "/World/Cinematic/Cameras/sequence"
 PRESET_KEYS = {

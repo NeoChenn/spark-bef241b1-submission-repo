@@ -20,27 +20,27 @@ parser.add_argument("--max-frames", type=int, default=0, help="stop early, for q
 parser.add_argument("--stills", default="", help="folder for sample frames, used to check the shots")
 args = parser.parse_args()
 
-from isaacsim import SimulationApp  # noqa: E402
+from isaacsim import SimulationApp
 
 simulation_app = SimulationApp({"headless": True, "width": args.width, "height": args.height})
 
-import numpy as np  # noqa: E402
-import omni.kit.app  # noqa: E402
-import omni.usd  # noqa: E402
-from PIL import Image  # noqa: E402
-from pxr import Gf, UsdGeom  # noqa: E402
+import numpy as np
+import omni.kit.app
+import omni.usd
+from PIL import Image
+from pxr import Gf, UsdGeom
 
-import cinematic  # noqa: E402
-import ocean  # noqa: E402
-from scene_builder import OUTPUT  # noqa: E402
+import cinematic
+import ocean
+from scene_builder import OUTPUT
 
 CAMERA_PATH = "/World/Cinematic/Cameras/sequence"
 
 manager = omni.kit.app.get_app().get_extension_manager()
 manager.set_extension_enabled_immediate("omni.replicator.core", True)
 manager.set_extension_enabled_immediate("omni.videoencoding", True)
-import omni.replicator.core as rep  # noqa: E402
-from video_encoding import get_video_encoding_interface  # noqa: E402
+import omni.replicator.core as rep
+from video_encoding import get_video_encoding_interface
 
 context = omni.usd.get_context()
 context.open_stage(str(cinematic.SCENE_PATH))

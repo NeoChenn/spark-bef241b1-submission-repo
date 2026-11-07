@@ -1,17 +1,3 @@
-"""Build rust_v2 = rust_v1 + a synthetic sim-domain set rendered from the scene's own Poly Haven textures.
-
-  .venv/bin/python -m detection.synth_sim --v1 runs/data/rust_v1 --out runs/data/rust_v2
-
-Positives : crops of rust_coarse_01 / rusty_metal_02 / metal_grate_rusty, plus rust blobs composited onto
-            clean painted pipes; green_metal_rust crops with >15 % rust-coloured pixels.
-Negatives : metal_plate / blue_metal_plate / box_profile_metal_sheet / concrete, plain pipe paints,
-            green_metal_rust crops with <3 % rust pixels, crops of the clean full_rig_* renders.
-Every crop goes through a "looks like the sim" pipeline: cylindrical pipe shading with a specular streak,
-optional clean background, exposure / gamma / white balance, blur, noise, JPEG.
-Leak-free split: each texture is cut into a 4x4 grid of regions (group_id = texture:region); regions,
-paint colours and render images are assigned to exactly one split.
-The sim/output/preview_* renders and full_rig_gauge_closeup.png are NOT used (held-out sim test set).
-"""
 from __future__ import annotations
 
 import argparse
@@ -33,13 +19,13 @@ TRAIN_RENDERS = {"full_rig_helideck.png": "train", "full_rig_on_deck.png": "trai
 POS_TEX = {"rust_coarse_01": 450, "rusty_metal_02": 400, "metal_grate_rusty": 250}
 NEG_TEX = {"metal_plate": 250, "blue_metal_plate": 250, "box_profile_metal_sheet": 250,
            "concrete_floor_damaged_01": 150}
-PAINTS = {  # sRGB-ish albedos close to the scene's plain materials + generic pipe colours
+PAINTS = {
     "yellow": (217, 153, 13), "blue": (40, 95, 150), "green": (60, 100, 55), "grey": (84, 89, 92),
     "orange_paint": (191, 77, 15), "white": (215, 215, 210), "red_paint": (160, 30, 25), "dark_grey": (50, 52, 55),
 }
 N_PAINT, N_COMPOSITE, N_RENDER, N_GREEN = 450, 400, 250, 300
 OUT = 224
-SPLIT_FRAC = {"train": 12, "val": 2, "test": 2}  # of 16 regions
+SPLIT_FRAC = {"train": 12, "val": 2, "test": 2}
 
 
 def region_splits(rng) -> dict[int, str]:
@@ -49,7 +35,6 @@ def region_splits(rng) -> dict[int, str]:
 
 
 def tex_crop(tex: np.ndarray, region: int, rng) -> np.ndarray:
-    """Random square crop (64-256 px) fully inside one of the 4x4 regions of a 1024 texture."""
     h, w = tex.shape[:2]
     rh, rw = h // 4, w // 4
     ry, rx = divmod(region, 4)
@@ -72,7 +57,7 @@ def paint_tex(rgb, rng) -> np.ndarray:
     base = np.array(rgb, np.float32) * rng.uniform(0.85, 1.15, 3)
     img = base[None, None] * (0.9 + 0.2 * lowfreq(rng, cells=int(rng.integers(3, 10))))[..., None]
     img += rng.normal(0, 3, img.shape)
-    if rng.random() < 0.3:  # a few scuffs (dark, not rust coloured)
+    if rng.random() < 0.3:
         for _ in range(int(rng.integers(1, 4))):
             y, x = rng.integers(0, OUT, 2)
             img[max(0, y - 1):y + 1, max(0, x - 30):x + 30] *= 0.7
@@ -80,7 +65,6 @@ def paint_tex(rgb, rng) -> np.ndarray:
 
 
 def blob_mask(rng, target_frac) -> np.ndarray:
-    """Soft irregular blob (like sim damage_patch) covering ~target_frac of the image."""
     yy, xx = np.mgrid[:OUT, :OUT].astype(np.float32) / OUT
     cy, cx = rng.uniform(0.25, 0.75, 2)
     ry, rx = rng.uniform(0.2, 0.6, 2)
@@ -94,12 +78,11 @@ def blob_mask(rng, target_frac) -> np.ndarray:
 
 
 def shade(img: np.ndarray, rng) -> np.ndarray:
-    """Cylindrical pipe shading (0.7) or flat/gradient lighting (0.3), with optional clean background."""
     yy, xx = np.mgrid[:OUT, :OUT].astype(np.float32) / (OUT - 1) * 2 - 1
     ang = rng.choice([0.0, np.pi / 2, rng.uniform(0, np.pi)])
-    u = np.cos(ang) * yy - np.sin(ang) * xx  # coordinate across the pipe axis
+    u = np.cos(ang) * yy - np.sin(ang) * xx
     if rng.random() < 0.7:
-        half = rng.uniform(0.6, 1.6)  # pipe half-width in image units (>1 => pipe fills the crop)
+        half = rng.uniform(0.6, 1.6)
         uc = np.clip(u / half, -1, 1)
         normal = np.arcsin(uc)
         light = rng.uniform(-1.0, 1.0)
@@ -108,7 +91,7 @@ def shade(img: np.ndarray, rng) -> np.ndarray:
         sh = amb + (1 - amb) * lam
         spec = rng.uniform(0, 0.45) * np.exp(-((uc - np.sin(light) * 0.6) / rng.uniform(0.05, 0.2)) ** 2)
         out = img * sh[..., None] + 255 * spec[..., None]
-        if half < 1.0:  # background outside the pipe: sky / sea / grey steel, all clean
+        if half < 1.0:
             bg_col = [(200, 205, 212), (25, 55, 65), (110, 112, 115), (160, 165, 170)][int(rng.integers(4))]
             bg = np.array(bg_col, np.float32) * (0.85 + 0.3 * lowfreq(rng, cells=3))[..., None]
             inside = (np.abs(u) <= half)[..., None]
@@ -166,7 +149,6 @@ def generate(out: Path, seed=0):
             img = camera(shade(resize(tex_crop(texs[name], r, rng)), rng), rng)
             save(img, splits[name][r], label, name, f"synth:{name}:{r}")
 
-    # green_metal_rust: label by rust-pixel coverage, drop the ambiguous middle.
     kept = 0
     for _ in range(N_GREEN * 4):
         if kept >= N_GREEN:
@@ -182,7 +164,7 @@ def generate(out: Path, seed=0):
 
     paint_split = {}
     pnames = list(PAINTS)
-    for i, p in enumerate(pnames):  # each paint colour x variant-bucket is one group
+    for i, p in enumerate(pnames):
         for b in range(4):
             paint_split[(p, b)] = ["train", "train", "val", "test"][(i + b) % 4] if b else "train"
     for _ in range(N_PAINT):
@@ -190,7 +172,6 @@ def generate(out: Path, seed=0):
         save(camera(shade(paint_tex(PAINTS[p], rng), rng), rng), paint_split[(p, b)], 0, f"paint_{p}",
              f"synth:paint:{p}:{b}")
 
-    # Rust blobs composited onto clean painted pipes (blob texture region decides the split).
     pos_names = list(POS_TEX)[:2]
     for _ in range(N_COMPOSITE):
         name = pos_names[int(rng.integers(2))]
@@ -202,7 +183,6 @@ def generate(out: Path, seed=0):
         img = camera(shade(base * (1 - m) + blob * m, rng), rng)
         save(img, splits[name][r], 1, f"blob_{name}", f"synth:{name}:{r}")
 
-    # Clean crops of the full_rig renders (plain-coloured rig, no rust textures).
     renders = {k: np.asarray(Image.open(RENDERS / k).convert("RGB"), np.float32)
                for k in TRAIN_RENDERS if (RENDERS / k).exists()}
     keys = list(renders)
