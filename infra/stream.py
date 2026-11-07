@@ -1,4 +1,7 @@
-"""Headless video recording on Modal.
+"""Headless video recording.
+
+STATUS: crashes on Modal L40S. The RTX Hydra engine segfaults under gVisor (see infra/README.md).
+Physics and PPO work there; cameras don't. Use this where RTX works, or log rollouts and replay them.
 
 1. record_video: headless Isaac Sim renders a camera to an mp4 on the
    rust-ckpt volume (/ckpt/videos/<name>.mp4) and the local entrypoint downloads it.
@@ -24,7 +27,7 @@ import modal
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from infra.common import ASSET_DIR, ASSET_VOL, CKPT_DIR, CKPT_VOL  # noqa: E402
-from infra.isaac_image import ISAAC_GPU, ISAACLAB_PY, isaac_env, isaac_image  # noqa: E402
+from infra.isaac_image import ISAAC_GPU, ISAACLAB_PY, isaac_image, run_isaac  # noqa: E402
 
 app = modal.App("rig-isaac-record")
 VIDEO_DIR = f"{CKPT_DIR}/videos"
@@ -102,7 +105,9 @@ for i in range(n):
 writer.close()
 print(f"[rec] {n} frames in {time.time() - t0:.1f}s -> {cfg['out']}", flush=True)
 print("[rec] VIDEO_OK", flush=True)
-simulation_app.close()
+import os, sys
+sys.stdout.flush()
+os._exit(0)  # simulation_app.close() hangs on Modal
 '''
 
 
@@ -110,7 +115,7 @@ simulation_app.close()
               volumes={CKPT_DIR: CKPT_VOL, ASSET_DIR: ASSET_VOL})
 def record_video(usd_path: str | None = None, seconds: float = 10.0, name: str = "demo",
                  eye=(3.0, 3.0, 2.0), target=(0.0, 0.0, 0.3), width: int = 1280, height: int = 720,
-                 fps: int = 30, focal_length: float = 18.0, warmup_frames: int = 30) -> bytes:
+                 fps: int = 30, focal_length: float = 18.0, warmup_frames: int = 30, kit_args: str = "") -> bytes:
     """Render `seconds` of the stage at usd_path (None = demo Go2 scene) to /ckpt/videos/<name>.mp4."""
     import json
     os.makedirs(VIDEO_DIR, exist_ok=True)
@@ -120,8 +125,9 @@ def record_video(usd_path: str | None = None, seconds: float = 10.0, name: str =
     with open("/tmp/record.py", "w") as f:
         f.write(RECORD_SCRIPT)
     t = time.time()
-    subprocess.run([ISAACLAB_PY, "/tmp/record.py", "--headless", "--enable_cameras", "--cfg", json.dumps(cfg)],
-                   env=isaac_env(), check=False, timeout=3000)
+    extra = ["--kit_args", kit_args] if kit_args else []
+    run_isaac([ISAACLAB_PY, "/tmp/record.py", "--headless", "--enable_cameras", "--cfg", json.dumps(cfg)] + extra,
+              timeout=3000, done_marker="VIDEO_OK", grace=10)
     print(f"[rec] wall {time.time() - t:.1f}s", flush=True)
     if not os.path.exists(out):
         raise RuntimeError("video was not written; see logs above")
@@ -132,10 +138,10 @@ def record_video(usd_path: str | None = None, seconds: float = 10.0, name: str =
 
 @app.local_entrypoint()
 def main(usd_path: str = "", seconds: float = 10.0, name: str = "demo", eye: str = "3,3,2",
-         target: str = "0,0,0.3", out: str = ""):
+         target: str = "0,0,0.3", out: str = "", kit_args: str = ""):
     data = record_video.remote(usd_path or None, seconds, name,
                                tuple(float(x) for x in eye.split(",")),
-                               tuple(float(x) for x in target.split(",")))
+                               tuple(float(x) for x in target.split(",")), kit_args=kit_args)
     out = out or f"{name}.mp4"
     with open(out, "wb") as f:
         f.write(data)

@@ -70,7 +70,9 @@ isaac_image = (
         # isaaclab deps sometimes bump torch; force back the cu128 build Isaac Sim 5.1 expects
         "python -m pip install torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorch.org/whl/cu128",
     )
-    .pip_install("imageio[ffmpeg]", "tensorboard")
+    # tensordict>=0.10 needs torch>=2.8 (is_structseq_instance); 0.9.x is the torch-2.7 line
+    .pip_install("tensordict==0.9.1", "torch==2.7.0", "torchvision==0.22.0", "imageio[ffmpeg]", "tensorboard",
+                 extra_index_url="https://download.pytorch.org/whl/cu128")
     # repo code last: mounted at container start, no rebuild when it changes
     .add_local_python_source("policy", "infra")
 )
@@ -82,3 +84,38 @@ def isaac_env(**extra) -> dict:
     env.update(_ENV)
     env.update({k: str(v) for k, v in extra.items()})
     return env
+
+
+def run_isaac(cmd, cwd=None, timeout=1800, done_marker=None, grace=60):
+    """Stream a subprocess to stdout; kill it on timeout, or `grace` s after `done_marker` is
+    printed (Kit's simulation_app.close() can hang forever on Modal)."""
+    import queue
+    import subprocess
+    import sys
+    import threading
+    import time
+    print("+", " ".join(cmd), flush=True)
+    p = subprocess.Popen(cmd, cwd=cwd, env=isaac_env(), stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT, text=True, bufsize=1)
+    q = queue.Queue()
+    threading.Thread(target=lambda: ([q.put(l) for l in p.stdout], q.put(None)), daemon=True).start()
+    out, t0, t_done = [], time.time(), None
+    while True:
+        try:
+            line = q.get(timeout=1.0)
+        except queue.Empty:
+            line = ""
+        if line is None:
+            break
+        if line:
+            out.append(line)
+            sys.stdout.write(line)
+            if done_marker and t_done is None and done_marker in line:
+                t_done = time.time()
+        now = time.time()
+        if now - t0 > timeout or (t_done and now - t_done > grace):
+            print(f"[run_isaac] killing subprocess ({'done+grace' if t_done else 'timeout'})", flush=True)
+            p.kill()
+            break
+    p.wait()
+    return p.returncode, "".join(out)

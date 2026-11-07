@@ -20,16 +20,13 @@ separate sets of volumes.
 |---|---|
 | `isaac_image.py` | `isaac_image`, `ISAAC_GPU="L40S"`, `ISAACLAB_PY`, `ISAACLAB_DIR`, `isaac_env()` |
 | `smoke_test.py` | nvidia-smi, then headless AppLauncher with a Go2 on a ground plane for 100 steps, then 50 iters of stock Go2 PPO with 512 envs (logs in `/ckpt/smoke/`) |
-| `stream.py` | `record_video()` renders a headless camera to an mp4 on the volume (works). `stream()` is WebRTC and does not work on Modal (see below) |
+| `stream.py` | `record_video()` renders a headless camera to an mp4 on the volume. It **crashes on Modal** (RTX doesn't work under gVisor, see below) |
 
 ## Commands
 
 ```bash
 MODAL_PROFILE=jacobyuan99 .venv/bin/modal run --detach infra/smoke_test.py               # full smoke test
 MODAL_PROFILE=jacobyuan99 .venv/bin/modal run --detach infra/smoke_test.py --iters 0     # sim only
-MODAL_PROFILE=jacobyuan99 .venv/bin/modal run infra/stream.py                            # demo mp4 -> ./demo.mp4
-MODAL_PROFILE=jacobyuan99 .venv/bin/modal run infra/stream.py --usd-path /assets/rig.usd \
-    --seconds 10 --eye 6,6,4 --target 0,0,1 --name rig
 ```
 
 Use `--detach` for anything long. Without it, a dropped local connection (we've already hit
@@ -86,22 +83,56 @@ def train():
 
 ## Timings (L40S, measured)
 
-FILLED_BY_SMOKE
+Measured with `smoke_test.py` on 2026-11-07, image `im-Qn4Tzv1YCcVmLkFbtCtmOW`:
 
-## Streaming
+| Step | Time |
+|---|---|
+| First image build (torch + isaacsim pip + Isaac Lab) | about 12 min (torch 75 s, isaacsim 230 s, Isaac Lab 310 s). Later builds hit the cache. |
+| Container cold start (image already built) | 7 to 90 s (90 s the first time the image is pulled to a worker) |
+| Kit / AppLauncher headless startup | 9 to 15 s |
+| Go2 on a ground plane, single robot, 100 steps | about 150 steps/s |
+| go2_ur3 URDF import (UrdfFileCfg, fix_base) plus 100 steps | 24 s wall: 18 joints, 52 bodies, base held at 0.50 m |
+| **PPO**: Isaac-Velocity-Flat-Unitree-Go2-v0, 512 envs, 50 iters | **about 22,000 env-steps/s**, 51 s wall including startup. Checkpoints go to `/ckpt/smoke/logs/rsl_rl/unitree_go2_flat/<ts>/model_49.pt` |
+| Full smoke test, total container time | about 100 s |
 
-Isaac Sim 5.1 WebRTC livestreaming (`LIVESTREAM=1` / `--livestream 1` in AppLauncher) needs
-**TCP 49100** for signalling and **UDP 47998** for media. `modal.forward()` only tunnels TCP,
-so the WebRTC client can complete signalling but never gets any video. Live viewing on Modal is
-therefore not possible. The fallback is `record_video()`, which renders a headless RTX camera
-through an Isaac Lab `Camera` sensor, encodes with imageio/ffmpeg (libx264), and writes to
-`rust-ckpt:/videos/<name>.mp4`. That same mp4 is what we use for the demo video.
+## Rendering and video: BLOCKED on Modal
+
+* **RTX rendering crashes on Modal.** Anything that creates an RTX Hydra engine segfaults
+  inside `librtx.scenedb.plugin.so` at startup: `--enable_cameras`, Camera/TiledCamera sensors,
+  replicator annotators, and gym RecordVideo all hit it. The log line just before the crash is
+  `rtx.neuraylib: It appears that the "nvidia" kernel module is not loaded`. Modal containers
+  run under gVisor (`Kernel: 4.19.0-gvisor`), which proxies CUDA but not the full Vulkan/RTX
+  path. Disabling driver checks, multi-GPU and texture streaming via kit args didn't help.
+  **Physics plus PPO without cameras works fine.**
+* Consequences:
+  * The scrub env must not use camera observations. Use privileged state (rust mask from the
+    pure-torch rust model).
+  * `stream.py:record_video` is implemented but crashes on Modal. It should work on a machine
+    where RTX works (for example the sim team's box), with `--usd-path` pointing at a local path.
+  * For demo or eval clips: log rollouts on Modal (root pose plus joint positions per frame, and
+    rust state) to `/ckpt/...` as npz, then replay and render them on the sim team's Isaac Sim
+    6.2 machine, which already has a camera to JPEG to websocket path (`rig/sim/sender.py`).
+* Streaming: dropped. The sim team streams through their own path, and Isaac Sim WebRTC needs
+  UDP 47998, which `modal.forward` (TCP only) can't carry anyway.
 
 ## Gotchas
 
-* The first launch in a fresh container compiles RTX shaders and loads extensions, which takes
-  a few minutes. Later launches in the **same** container are faster. Ground-plane and robot
-  USDs are fetched from NVIDIA's S3 asset server, so the container needs internet.
+* **`simulation_app.close()` hangs forever on Modal.** End your own scripts with
+  `sys.stdout.flush(); os._exit(0)`. The stock `train.py` and `play.py` also call `close()`
+  after saving, so launch them with `infra.isaac_image.run_isaac(cmd, cwd=..., done_marker=...,
+  grace=...)`, which kills the process after the marker line appears. For rsl_rl, use
+  `done_marker=f"Learning iteration {N-1}/{N}"`. Commit the volume afterwards.
+* Dependency pins that matter: `torch==2.7.0+cu128` (Isaac Sim 5.1),
+  `tensordict==0.9.1` (0.10 and later need torch 2.8 and fail with `is_structseq_instance`), and
+  `setuptools<80` plus `flatdict==4.0.1 --no-build-isolation` (flatdict's sdist needs
+  `pkg_resources`).
+* The URDF importer rejects default joint positions that fall outside the joint limits. On
+  go2_ur3 the calf range is [-2.72, -0.84], so use a standing pose (thigh 0.8, calf -1.5).
+* **Assets must be on the `rig-assets` volume in the jacobyuan99 workspace.** The lead uploaded
+  go2_ur3 to the *team* workspace's volume, so I re-uploaded `sim/assets/go2_ur3` there:
+  `MODAL_PROFILE=jacobyuan99 .venv/bin/modal volume put rig-assets sim/assets/go2_ur3 /go2_ur3`.
+* Ground-plane and Go2 USDs are fetched from NVIDIA's S3 asset server, so the container needs
+  internet.
 * The `team` profile cannot use L40S (see top).
 * Kit prints a lot of harmless warnings (IOMMU, `omni.kit.registry`, missing display); you can
   ignore them.
