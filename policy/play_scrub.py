@@ -1,8 +1,8 @@
 """Evaluate a trained SCRUB policy (and export it) on Modal.
 
-    .venv/bin/modal run policy/play_scrub.py --run scrub_v1                         # 256 episodes, stats
-    .venv/bin/modal run policy/play_scrub.py --run scrub_v1 --video --meta          # rig-scene demo video
-    .venv/bin/modal run policy/play_scrub.py --run scrub_v1 --force-patch           # every episode gets a mid-run patch
+    MODAL_PROFILE=jacobyuan99 .venv/bin/modal run policy/play_scrub.py --run scrub_v1                         # 256 episodes, stats
+    MODAL_PROFILE=jacobyuan99 .venv/bin/modal run policy/play_scrub.py --run scrub_v1 --video --meta          # rig-scene demo video
+    MODAL_PROFILE=jacobyuan99 .venv/bin/modal run policy/play_scrub.py --run scrub_v1 --force-patch           # every episode gets a mid-run patch
 
 Reports success rate, mean time to clean, max contact force, % of episodes with a mid-run patch that were still
 completed. Writes /ckpt/scrub/<run>/eval.json, exported/policy.pt (TorchScript) + policy.onnx (obs normaliser
@@ -30,14 +30,31 @@ def apply_meta(env_cfg, meta_path: str):
     """Collapse the domain randomisation onto the sim team's rig scene."""
     from policy.envs.rust_state import rig_meta_scene
 
-    m = rig_meta_scene(meta_path, standoff=0.30, base_height=env_cfg.base_height)
+    standoff = 0.5 * sum(env_cfg.standoff_range)
+    m = rig_meta_scene(meta_path, standoff=standoff, base_height=env_cfg.base_height)
     r = m["pipe_radius"]
     env_cfg.radius_range = (r, r)
-    env_cfg.height_range = (m["pipe_origin"][2],) * 2
+    z = m["pipe_origin"][2]
+    if z > env_cfg.max_reach_z:
+        z_new = 0.5 * sum(env_cfg.height_range)
+        print(f"[play] WARNING: rig pipe axis z={z:.2f} m is out of the arm's reach (> {env_cfg.max_reach_z} m); "
+              f"using z={z_new:.2f} m instead", flush=True)
+        m["pipe_origin"] = (m["pipe_origin"][0], m["pipe_origin"][1], z_new)
+        m["robot_pos_world"] = (m["robot_pos_world"][0], m["robot_pos_world"][1], env_cfg.base_height)
+        z = z_new
+    env_cfg.height_range = (z, z)
     env_cfg.standoff_range = (m["standoff"],) * 2
+    # robot pose actually used by this variant (env frame = world shifted so the trunk is at the env origin)
+    d_axis = (0.5 * sum(env_cfg.axis_dist_range)) if env_cfg.axis_dist_range is not None else m["standoff"] + r
+    if env_cfg.axis_dist_range is not None:
+        env_cfg.axis_dist_range = (d_axis, d_axis)
+    po = m["pipe_origin"]
+    m["robot_pos_world"] = (po[0], po[1] + d_axis, env_cfg.base_height)
+    m["robot_yaw_world"] = env_cfg.robot_yaw
+    m["env_to_world"] = {"translation": (po[0], po[1] + d_axis, 0.0), "yaw": 0.0}
     env_cfg.axial_range = (0.0, 0.0)
     env_cfg.yaw_range = (0.0, 0.0)
-    env_cfg.rust_theta_window = (m["damage_theta"], min(0.6, m["damage_radius"] / r * 0.5))
+    env_cfg.rust_theta_window = (m["damage_theta"], min(env_cfg.rust_theta_window[1], m["damage_radius"] / r * 0.5))
     return m
 
 
@@ -52,6 +69,7 @@ def worker(argv):
     p.add_argument("--video_steps", type=int, default=600)
     p.add_argument("--meta", type=str, default="")
     p.add_argument("--force_patch", action="store_true")
+    p.add_argument("--robot", type=str, default="lift", choices=["lift", "go2ur3", "franka"])
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -67,10 +85,12 @@ def worker(argv):
 
     from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper, export_policy_as_jit, export_policy_as_onnx
 
-    import policy.envs.scrub_env  # noqa: F401
-    from policy.envs.scrub_env_cfg import ScrubEnvCfg, ScrubPPORunnerCfg
+    from policy.envs import scrub_env_cfg as C
+    from policy.envs.scrub_env import TASKS
+    from policy.envs.scrub_env_cfg import ScrubPPORunnerCfg
 
-    env_cfg = ScrubEnvCfg()
+    task, cfg_name = TASKS[args.robot]
+    env_cfg = getattr(C, cfg_name)()
     env_cfg.scene.num_envs = args.num_envs
     if args.meta:
         print("[play] rig meta:", apply_meta(env_cfg, args.meta), flush=True)
@@ -81,17 +101,19 @@ def worker(argv):
             env_cfg.radius_range = (r, r)
             env_cfg.height_range = (0.5 * sum(env_cfg.height_range),) * 2
             env_cfg.standoff_range = (0.5 * sum(env_cfg.standoff_range),) * 2
+            if env_cfg.axis_dist_range is not None:
+                env_cfg.axis_dist_range = (0.5 * sum(env_cfg.axis_dist_range),) * 2
             env_cfg.axial_range = (0.0, 0.0)
             env_cfg.yaw_range = (0.0, 0.0)
     if args.force_patch:
         env_cfg.prob_new_patch = 1.0
     env_cfg.viz = args.video
     env_cfg.spawn_pipe_visual = args.video
-    env_cfg.spawn_dog_visual = args.video
+    env_cfg.spawn_dog_visual = args.video and args.robot == "franka"
     agent_cfg = ScrubPPORunnerCfg()
     agent_cfg.device = "cuda:0"
 
-    env = gym.make("Rig-Scrub-Franka-v0", cfg=env_cfg, render_mode="rgb_array" if args.video else None)
+    env = gym.make(task, cfg=env_cfg, render_mode="rgb_array" if args.video else None)
     base = env.unwrapped
     env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
@@ -150,8 +172,8 @@ def worker(argv):
         path = os.path.join(vdir, time.strftime("scrub_%m%d_%H%M%S.mp4"))
         imageio.mimsave(path, [f for f in frames if f is not None], fps=int(round(1 / base.step_dt)))
         print(f"[play] video -> {path}", flush=True)
-    env.close()
-    app.close()
+    sys.stdout.flush()
+    os._exit(0)  # simulation_app.close() can hang on Modal
 
 
 try:
@@ -159,16 +181,17 @@ try:
         raise ImportError
     import modal
 
-    from infra.common import CKPT_DIR, CKPT_VOL
+    from infra.common import ASSET_DIR, ASSET_VOL, CKPT_DIR, CKPT_VOL
     from infra.isaac_image import ISAAC_GPU, ISAACLAB_PY, isaac_env, isaac_image
 
     _meta_local = os.path.join(ROOT, "sim", "output", "rig_deck_meta.json")
     play_image = isaac_image.add_local_file(_meta_local, META_PATH_IN_IMAGE) if os.path.exists(_meta_local) else isaac_image
     app = modal.App("rig-scrub-play")
 
-    @app.function(image=play_image, gpu=ISAAC_GPU, cpu=8, memory=32768, timeout=3600, volumes={CKPT_DIR: CKPT_VOL})
+    @app.function(image=play_image, gpu=ISAAC_GPU, cpu=8, memory=32768, timeout=3600,
+                  volumes={CKPT_DIR: CKPT_VOL, ASSET_DIR: ASSET_VOL})
     def play(run: str, ckpt: str = "", episodes: int = 256, num_envs: int = 64, video: bool = False,
-             meta: bool = False, force_patch: bool = False) -> dict:
+             meta: bool = False, force_patch: bool = False, robot: str = "lift") -> dict:
         from policy.train_scrub import latest_checkpoint
 
         CKPT_VOL.reload()
@@ -177,7 +200,8 @@ try:
         if not ck:
             raise FileNotFoundError(f"no checkpoint in {run_dir}")
         cmd = [ISAACLAB_PY, "-m", "policy.play_scrub", "--worker", "--ckpt", ck, "--out_dir", run_dir,
-               "--episodes", str(episodes), "--num_envs", str(4 if video else num_envs), "--headless"]
+               "--episodes", str(episodes), "--num_envs", str(4 if video else num_envs), "--robot", robot,
+               "--headless"]
         if video:
             cmd.append("--video")
         if meta:
@@ -201,12 +225,19 @@ try:
 
     @app.local_entrypoint()
     def main(run: str, ckpt: str = "", episodes: int = 256, num_envs: int = 64, video: bool = False,
-             meta: bool = False, force_patch: bool = False):
-        print(play.remote(run, ckpt, episodes, num_envs, video, meta, force_patch))
+             meta: bool = False, force_patch: bool = False, robot: str = "lift"):
+        print(play.remote(run, ckpt, episodes, num_envs, video, meta, force_patch, robot))
 
 except ImportError:
     app = None
 
 
 if __name__ == "__main__" and "--worker" in sys.argv:
-    worker(sys.argv[1:])
+    try:
+        worker(sys.argv[1:])
+    except BaseException:
+        import traceback
+
+        traceback.print_exc()
+        sys.stdout.flush()
+        os._exit(1)

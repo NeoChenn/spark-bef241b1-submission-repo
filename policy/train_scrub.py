@@ -1,8 +1,11 @@
 """Train the SCRUB skill (PPO, rsl_rl) on Modal L40S with Isaac Lab.
 
-    .venv/bin/modal run policy/train_scrub.py --smoke                        # 64 envs, 20 iters
-    .venv/bin/modal run --detach policy/train_scrub.py --run scrub_v1        # full run (2048 envs)
-    .venv/bin/modal run --detach policy/train_scrub.py --run scrub_v1 --resume --iters 2000
+    MODAL_PROFILE=jacobyuan99 .venv/bin/modal run policy/train_scrub.py --smoke                        # 64 envs, 20 iters
+    MODAL_PROFILE=jacobyuan99 .venv/bin/modal run --detach policy/train_scrub.py --run scrub_v1        # full run (2048 envs)
+    MODAL_PROFILE=jacobyuan99 .venv/bin/modal run --detach policy/train_scrub.py --run scrub_v1 --resume --iters 2000
+
+Robust long runs (survive the local client dying):  modal deploy policy/train_scrub.py, then
+    modal.Function.from_name("rig-scrub-train", "train").spawn(run, num_envs, iters, resume, urdf, robot, init_from)
 
 Checkpoints + tensorboard: rust-ckpt volume, /ckpt/scrub/<run>/model_<it>.pt (committed every ~2 min).
 Monitor:  .venv/bin/modal app logs <app-id>    |   .venv/bin/modal volume ls rust-ckpt scrub/<run>
@@ -25,7 +28,6 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-TASK = "Rig-Scrub-Franka-v0"
 
 
 def latest_checkpoint(run_dir: str) -> str | None:
@@ -43,8 +45,10 @@ def worker(argv):
     p.add_argument("--iters", type=int, default=3000)
     p.add_argument("--run_dir", type=str, required=True)
     p.add_argument("--resume", action="store_true")
+    p.add_argument("--init_from", type=str, default="", help="checkpoint to initialise weights from (fine-tune)")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--urdf", type=str, default="")
+    p.add_argument("--robot", type=str, default="lift", choices=["lift", "go2ur3", "franka"])
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -58,25 +62,26 @@ def worker(argv):
 
     from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
 
-    import policy.envs.scrub_env  # noqa: F401  (registers the task)
-    from policy.envs.scrub_env_cfg import ScrubEnvCfg, ScrubPPORunnerCfg
+    from policy.envs import scrub_env_cfg as C
+    from policy.envs.scrub_env import TASKS  # registers the tasks
+    from policy.envs.scrub_env_cfg import ScrubPPORunnerCfg
 
     torch.backends.cuda.matmul.allow_tf32 = True
-    env_cfg = ScrubEnvCfg()
+    task, cfg_name = TASKS[args.robot]
+    env_cfg = getattr(C, cfg_name)()
     env_cfg.scene.num_envs = args.num_envs
     env_cfg.seed = args.seed
     env_cfg.spawn_pipe_visual = False
     env_cfg.spawn_dog_visual = False
     if args.urdf:
-        from policy.envs.scrub_env_cfg import urdf_robot_cfg
-
-        env_cfg.robot_cfg = urdf_robot_cfg(args.urdf)
+        env_cfg.robot_cfg = C.urdf_robot_cfg(args.urdf)
     agent_cfg = ScrubPPORunnerCfg()
     agent_cfg.seed = args.seed
     agent_cfg.max_iterations = args.iters
     agent_cfg.device = "cuda:0"
 
-    env = gym.make(TASK, cfg=env_cfg)
+    print(f"[scrub] task={task} robot={args.robot} obs={env_cfg.observation_space}", flush=True)
+    env = gym.make(task, cfg=env_cfg)
     env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
     os.makedirs(args.run_dir, exist_ok=True)
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=args.run_dir, device=agent_cfg.device)
@@ -85,13 +90,17 @@ def worker(argv):
         if ck:
             print(f"[scrub] resuming from {ck}", flush=True)
             runner.load(ck)
+    elif args.init_from:
+        print(f"[scrub] initialising weights from {args.init_from}", flush=True)
+        runner.load(args.init_from, load_optimizer=False)
+        runner.current_learning_iteration = 0
     with open(os.path.join(args.run_dir, "config.json"), "w") as f:
         json.dump({"env": env_cfg.to_dict(), "agent": agent_cfg.to_dict()}, f, default=str, indent=1)
     t0 = time.time()
     runner.learn(num_learning_iterations=args.iters, init_at_random_ep_len=True)
     print(f"[scrub] TRAINING_DONE {time.time() - t0:.0f}s", flush=True)
-    env.close()
-    app.close()
+    sys.stdout.flush()
+    os._exit(0)  # simulation_app.close() can hang on Modal
 
 
 # =============================================================================== Modal app
@@ -117,22 +126,26 @@ try:
 
     @app.function(image=isaac_image, gpu=ISAAC_GPU, cpu=8, memory=32768, timeout=6 * 3600,
                   volumes={CKPT_DIR: CKPT_VOL, ASSET_DIR: ASSET_VOL})
-    def train(run: str, num_envs: int, iters: int, resume: bool = False, urdf: str = "") -> dict:
+    def train(run: str, num_envs: int, iters: int, resume: bool = False, urdf: str = "", robot: str = "lift",
+              init_from: str = "") -> dict:
         run_dir = f"{CKPT_DIR}/scrub/{run}"
         os.makedirs(run_dir, exist_ok=True)
         cmd = [ISAACLAB_PY, "-m", "policy.train_scrub", "--worker", "--num_envs", str(num_envs),
-               "--iters", str(iters), "--run_dir", run_dir, "--headless"]
+               "--iters", str(iters), "--run_dir", run_dir, "--robot", robot, "--headless"]
         if resume:
             cmd.append("--resume")
         if urdf:
             cmd += ["--urdf", urdf]
+        if init_from:
+            cmd += ["--init_from", init_from if init_from.startswith("/") else f"{CKPT_DIR}/scrub/{init_from}"]
         print("+", " ".join(cmd), flush=True)
         proc = subprocess.Popen(cmd, cwd="/root", env=isaac_env(), stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True, bufsize=1)
-        last_commit, cur, history = time.time(), {}, []
+        last_commit, cur, history, done = time.time(), {}, [], False
         prog = open(os.path.join(run_dir, "progress.jsonl"), "a")
         for line in proc.stdout:
             sys.stdout.write(line)
+            done = done or "[scrub] TRAINING_DONE" in line
             m = _ITER_RE.search(line)
             if m:
                 if cur.get("iter") is not None:
@@ -158,26 +171,33 @@ try:
         prog.close()
         CKPT_VOL.commit()
         ck = latest_checkpoint(run_dir)
-        res = {"returncode": proc.returncode, "run_dir": run_dir, "latest_ckpt": ck, "iters_logged": len(history),
+        res = {"returncode": proc.returncode, "done": done, "run_dir": run_dir, "latest_ckpt": ck, "iters_logged": len(history),
                "first": history[0] if history else None, "last": history[-1] if history else None}
         print("[scrub] RESULT", json.dumps(res), flush=True)
-        if proc.returncode != 0:
-            raise RuntimeError(f"worker failed rc={proc.returncode}")
+        if proc.returncode != 0 or not done:  # Kit can exit 0 after a Python exception
+            raise RuntimeError(f"worker failed rc={proc.returncode} done={done}")
         return res
 
     @app.local_entrypoint()
     def main(run: str = "", smoke: bool = False, num_envs: int = 2048, iters: int = 3000, resume: bool = False,
-             urdf: str = ""):
+             urdf: str = "", robot: str = "lift", init_from: str = ""):
         if smoke:
             num_envs, iters = 64, 20
             run = run or "smoke"
         run = run or time.strftime("scrub_%m%d_%H%M")
-        print(f"[scrub] run={run} num_envs={num_envs} iters={iters} resume={resume}")
-        print(train.remote(run, num_envs, iters, resume, urdf))
+        print(f"[scrub] run={run} robot={robot} num_envs={num_envs} iters={iters} resume={resume}")
+        print(train.remote(run, num_envs, iters, resume, urdf, robot, init_from))
 
 except ImportError:  # inside the Isaac worker without modal/infra available
     app = None
 
 
 if __name__ == "__main__" and "--worker" in sys.argv:
-    worker(sys.argv[1:])
+    try:
+        worker(sys.argv[1:])
+    except BaseException:
+        import traceback
+
+        traceback.print_exc()
+        sys.stdout.flush()
+        os._exit(1)

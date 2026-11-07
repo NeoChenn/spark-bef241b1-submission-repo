@@ -134,6 +134,7 @@ class RustState:
         self.rust = torch.zeros(num_envs, H, W, device=d)
         self.sprayed = torch.zeros(num_envs, H, W, dtype=torch.bool, device=d)
         self.soak_time = torch.zeros(num_envs, H, W, device=d)
+        self.reachable = torch.ones(num_envs, H, W, dtype=torch.bool, device=d)  # rust only spawns here
         self.radius = torch.full((num_envs,), 0.1, device=d)
         self.abrasion_coef = torch.ones(num_envs, device=d)
         self.initial_total = torch.ones(num_envs, device=d)
@@ -160,6 +161,7 @@ class RustState:
         soak_time: torch.Tensor | float = 60.0,
         abrasion_coef: torch.Tensor | float | None = None,
         generator: torch.Generator | None = None,
+        reachable: torch.Tensor | None = None,
     ):
         """Re-initialise envs. If `rust` is None random patches are generated. By default rust (dilated by
         ~2 cells) is marked sprayed with the given soak time (the scrub skill runs after spray+wait)."""
@@ -171,15 +173,38 @@ class RustState:
             self.radius[ids] = _per_env(radius, n, self.device)
         if abrasion_coef is not None:
             self.abrasion_coef[ids] = _per_env(abrasion_coef, n, self.device)
+        if reachable is not None:
+            self.reachable[ids] = reachable.to(self.device).bool()
         if rust is None:
+            reach = self.reachable[ids].float()
             rust = random_patches(n, self.H, self.W, self.radius[ids], self.length, device=self.device,
-                                  generator=generator, theta_window=self.theta_window)
+                                  generator=generator, theta_window=self.theta_window) * reach
+            empty = rust.sum(dim=(1, 2)) < 1.0  # patches fell outside the reachable area -> central blob
+            if empty.any():
+                rust[empty] = self._central_blob(ids[empty]) * reach[empty]
         self.rust[ids] = rust.to(self.device).float().clamp(0, 1)
         self.sprayed[ids] = False
         self.soak_time[ids] = 0.0
         if spray_all_rust:
             self.spray(self.dilate(self.rust[ids] > self.p.rust_eps, 2), env_ids=ids, soak_time=soak_time)
         self.initial_total[ids] = self.rust[ids].sum(dim=(1, 2)).clamp_min(1e-6)
+
+    def _central_blob(self, ids, sigma: float = 0.04) -> torch.Tensor:
+        """Gaussian blob centred on the reachable cell closest to (theta_window centre, z=0)."""
+        th0 = self.theta_window[0] if self.theta_window else 0.0
+        uv0 = self.surface_to_uv(torch.full((self.num_envs,), th0, device=self.device),
+                                 torch.zeros(self.num_envs, device=self.device))
+        darc, dz = self._surface_dist(uv0)
+        d2 = (darc ** 2 + dz ** 2)[ids]
+        d2r = torch.where(self.reachable[ids], d2, torch.full_like(d2, 1e6)).view(len(ids), -1)
+        c = d2r.argmin(1)
+        row, col = c // self.W, c % self.W
+        uv = torch.stack([(col.float() + 0.5) / self.W, (row.float() + 0.5) / self.H], -1)
+        full = torch.zeros(self.num_envs, 2, device=self.device)
+        full[ids] = uv
+        darc, dz = self._surface_dist(full)
+        blob = torch.exp(-0.5 * (darc[ids] ** 2 + dz[ids] ** 2) / sigma ** 2)
+        return (blob > 0.3).float() * 0.8
 
     def dilate(self, mask: torch.Tensor, cells: int = 1) -> torch.Tensor:
         """Binary dilation (theta-periodic, z zero-padded)."""
@@ -215,7 +240,7 @@ class RustState:
             return torch.zeros(0, self.H, self.W, device=self.device)
         patch = random_patches(ids.numel(), self.H, self.W, self.radius[ids], self.length, n_min=1, n_max=1,
                                size_range=size_range, device=self.device, generator=generator,
-                               theta_window=self.theta_window)
+                               theta_window=self.theta_window) * self.reachable[ids].float()
         self.rust[ids] = torch.maximum(self.rust[ids], patch)
         if sprayed:
             self.spray(self.dilate(patch > self.p.rust_eps, 2), env_ids=ids, soak_time=soak_time)

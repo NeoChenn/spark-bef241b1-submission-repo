@@ -222,3 +222,16 @@ def test_rig_meta_scene():
     y = m["pipe_origin"][1] + m["pipe_ref"][1] * 0.15 * math.cos(th)
     z = m["pipe_origin"][2] + 0.15 * math.sin(th)
     assert abs(y - 0.095) < 0.01 and abs(z - 1.2199) < 0.01
+
+
+def test_reachable_mask_limits_rust():
+    rs = RustState(N, H, W, theta_window=(0.9, 0.35))
+    reach = torch.zeros(N, H, W, dtype=torch.bool)
+    reach[:, 8:24, :] = True
+    reach[0] = False
+    reach[0, 15:18, 12:16] = True  # tiny reachable area -> fallback blob
+    rs.reset(radius=0.15, reachable=reach, generator=torch.Generator().manual_seed(2))
+    assert (rs.rust[~reach] == 0).all()
+    assert (rs.rust.sum(dim=(1, 2)) > 0).all()
+    rs.add_patch(torch.arange(N))
+    assert (rs.rust[~reach] == 0).all()
