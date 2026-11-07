@@ -32,7 +32,7 @@ services:
       - --camera=/World/Cameras/wide
       - --orbit=180
       - --orbit-target=0,-5,38
-      - --env=clear
+      - --env=mood
       - --renderer=RealTimePathTracing
       - --width=1280
       - --height=720

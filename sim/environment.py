@@ -12,10 +12,11 @@ from pathlib import Path
 import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
-from sim.hdri import horizon_color, read_hdr
+from sim.hdri import horizon_color, read_hdr, write_hdr
 from sim.ocean_legs import cluster_circles, waterline_points
 from sim.ocean_mdl import MODULE, build_mdl
 from sim.ocean_presets import Preset, get_preset, render_settings
+from sim.sky_gen import render_sky
 from sim.ocean_waves import EARTH_RADIUS, Waves, foam_threshold, make_waves, polar_grid, whitecap_fraction
 
 ROOT = "/Environment"
@@ -122,7 +123,7 @@ class Environment:
         self.active = active
         self.displacer = displacer
         self.time_input = shader.GetInput("time")
-        self.camera_input = shader.GetInput("camera_position")
+        self.camera_inputs = [shader.GetInput("camera_position")]
         self._points_attr = mesh.GetPointsAttr()
 
     def update(self, t: float, camera: str | tuple[float, float, float] | None = None) -> None:
@@ -134,7 +135,8 @@ class Environment:
             if isinstance(camera, str):
                 prim = self.mesh.GetPrim().GetStage().GetPrimAtPath(camera)
                 camera = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()).ExtractTranslation()
-            self.camera_input.Set(Gf.Vec3f(*camera))
+            for inp in self.camera_inputs:
+                inp.Set(Gf.Vec3f(*camera))
 
 
 def find_legs(stage: Usd.Stage, sea_level_z: float) -> list[tuple[float, float, float]]:
@@ -165,9 +167,19 @@ def _disable_other_lights(stage: Usd.Stage) -> None:
             prim.SetActive(False)
 
 
-def _add_sky(stage: Usd.Stage, preset: Preset) -> None:
+def _sky_image(preset: Preset, workdir: Path) -> tuple[Path, np.ndarray]:
+    if preset.sky is None:
+        path = HDRI_DIR / f"{preset.hdri}.hdr"
+        return path, read_hdr(path)
+    img = render_sky(preset.sky)
+    path = workdir / "sky.hdr"
+    write_hdr(path, img)
+    return path, img
+
+
+def _add_sky(stage: Usd.Stage, preset: Preset, sky_path: Path) -> None:
     dome = UsdLux.DomeLight.Define(stage, f"{ROOT}/Sky")
-    dome.CreateTextureFileAttr(str(HDRI_DIR / f"{preset.hdri}.hdr"))
+    dome.CreateTextureFileAttr(str(sky_path))
     dome.CreateTextureFormatAttr(UsdLux.Tokens.latlong)
     dome.CreateIntensityAttr(preset.dome_intensity)
     UsdGeom.Xformable(dome).AddRotateZOp().Set(preset.dome_rotate_z)
@@ -182,7 +194,7 @@ def _add_sky(stage: Usd.Stage, preset: Preset) -> None:
         xf.AddRotateYOp().Set(90.0 - elevation)
 
 
-def _add_material(stage: Usd.Stage, preset: Preset, mdl_path: Path, foam_level: float) -> tuple[UsdShade.Material, UsdShade.Shader]:
+def _add_material(stage: Usd.Stage, preset: Preset, mdl_path: Path, foam_level: float, horizon: np.ndarray) -> tuple[UsdShade.Material, UsdShade.Shader]:
     mat = UsdShade.Material.Define(stage, f"{ROOT}/Looks/OceanWater")
     shader = UsdShade.Shader.Define(stage, f"{ROOT}/Looks/OceanWater/Shader")
     shader.SetSourceAsset(Sdf.AssetPath(str(mdl_path)), "mdl")
@@ -192,13 +204,14 @@ def _add_material(stage: Usd.Stage, preset: Preset, mdl_path: Path, foam_level: 
     mat.CreateVolumeOutput("mdl").ConnectToSource(out)
     mat.CreateDisplacementOutput("mdl").ConnectToSource(out)
     color = Sdf.ValueTypeNames.Color3f
-    haze = horizon_color(read_hdr(HDRI_DIR / f"{preset.hdri}.hdr")) * preset.dome_intensity * preset.haze_gain
+    haze = horizon * preset.dome_intensity * preset.haze_gain
     for name, value in (("deep_color", preset.deep_color), ("crest_color", preset.crest_color),
                         ("haze_radiance", tuple(float(v) for v in haze))):
         shader.CreateInput(name, color).Set(Gf.Vec3f(*value))
     for name in ("foam_amount", "roughness", "haze_distance"):
         shader.CreateInput(name, Sdf.ValueTypeNames.Float).Set(float(getattr(preset, name)))
     shader.CreateInput("foam_threshold", Sdf.ValueTypeNames.Float).Set(foam_level)
+    shader.CreateInput("leg_foam_amount", Sdf.ValueTypeNames.Float).Set(float(preset.leg_foam))
     time_input = shader.CreateInput("time", Sdf.ValueTypeNames.Float)
     time_input.Set(0.0)
     shader.CreateInput("camera_position", Sdf.ValueTypeNames.Float3).Set(Gf.Vec3f(0.0, 0.0, 40.0))
@@ -223,6 +236,37 @@ def _add_splash_zones(stage: Usd.Stage, mdl_path: Path, legs, sea_level_z: float
         UsdShade.MaterialBindingAPI.Apply(c.GetPrim()).Bind(mat)
 
 
+def _add_ground_fog(stage: Usd.Stage, preset: Preset, mdl_path: Path, horizon: np.ndarray,
+                    sea_level_z: float) -> UsdShade.Input:
+    """Stacked camera-aware fog sheets: an exponential layer that thickens towards the horizon, without noise."""
+    density, scale_height, height, sheets = preset.ground_fog
+    mat = UsdShade.Material.Define(stage, f"{ROOT}/Looks/GroundFog")
+    shader = UsdShade.Shader.Define(stage, f"{ROOT}/Looks/GroundFog/Shader")
+    shader.SetSourceAsset(Sdf.AssetPath(str(mdl_path)), "mdl")
+    shader.SetSourceAssetSubIdentifier("FogSheet", "mdl")
+    out = shader.CreateOutput("out", Sdf.ValueTypeNames.Token)
+    mat.CreateSurfaceOutput("mdl").ConnectToSource(out)
+    slab = height / sheets
+    for name, value in (("sea_level", sea_level_z), ("density", density), ("scale_height", scale_height), ("slab", slab)):
+        shader.CreateInput(name, Sdf.ValueTypeNames.Float).Set(float(value))
+    radiance = horizon * preset.dome_intensity * preset.fog_gain
+    shader.CreateInput("fog_radiance", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*(float(v) for v in radiance)))
+    camera = shader.CreateInput("camera_position", Sdf.ValueTypeNames.Float3)
+    camera.Set(Gf.Vec3f(0.0, 0.0, 40.0))
+    size = 30000.0
+    for i in range(sheets):
+        z = sea_level_z + (i + 0.5) * slab
+        sheet = UsdGeom.Mesh.Define(stage, f"{ROOT}/GroundFog/sheet_{i}")
+        sheet.CreatePointsAttr([Gf.Vec3f(-size, -size, z), Gf.Vec3f(size, -size, z), Gf.Vec3f(size, size, z), Gf.Vec3f(-size, size, z)])
+        sheet.CreateFaceVertexCountsAttr([4])
+        sheet.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+        sheet.CreateDoubleSidedAttr(True)
+        sheet.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+        UsdGeom.PrimvarsAPI(sheet).CreatePrimvar("doNotCastShadows", Sdf.ValueTypeNames.Bool).Set(True)
+        UsdShade.MaterialBindingAPI.Apply(sheet.GetPrim()).Bind(mat)
+    return camera
+
+
 def _apply_render_settings(preset: Preset) -> None:
     try:
         import carb
@@ -244,17 +288,18 @@ def add_environment(
     p = get_preset(preset)
     UsdGeom.Scope.Define(stage, ROOT)
     _disable_other_lights(stage)
-    _add_sky(stage, p)
+    workdir = Path(tempfile.mkdtemp(prefix="rig_ocean_"))
+    sky_path, sky_img = _sky_image(p, workdir)
+    _add_sky(stage, p, sky_path)
     _apply_render_settings(p)
 
     waves = make_waves(p.wind_speed, p.wind_dir_deg, seed=seed, swell=p.swell, choppiness=p.choppiness)
     if legs is None:
         legs = find_legs(stage, sea_level_z)
-    mdl_dir = Path(tempfile.mkdtemp(prefix="rig_ocean_"))
-    mdl_path = mdl_dir / f"{MODULE}.mdl"
+    mdl_path = workdir / f"{MODULE}.mdl"
     mdl_path.write_text(build_mdl(waves, legs))
     foam_level = foam_threshold(waves, min(0.5, whitecap_fraction(p.wind_speed) * p.foam_coverage))
-    mat, shader = _add_material(stage, p, mdl_path, foam_level)
+    mat, shader = _add_material(stage, p, mdl_path, foam_level, horizon_color(sky_img))
     if splash_zone and legs:
         _add_splash_zones(stage, mdl_path, legs, sea_level_z)
 
@@ -280,5 +325,7 @@ def add_environment(
                            grid.spacing[:active].astype(np.float32))
     env = Environment(p, mesh, points, active, displacer, shader)
     env.legs = legs
+    if p.ground_fog:
+        env.camera_inputs.append(_add_ground_fog(stage, p, mdl_path, horizon_color(sky_img), sea_level_z))
     env.update(0.0)
     return env

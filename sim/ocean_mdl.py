@@ -150,6 +150,34 @@ export material SplashZone(
     ),
     geometry: material_geometry(cutout_opacity: h < top ? 1.0 : 0.0)
 );
+
+export material FogSheet(
+    float3 camera_position = float3(0.0, 0.0, 40.0),
+    float sea_level = 0.0,
+    float density = 0.02,
+    float scale_height = 5.0,
+    float slab = 3.0,
+    color fog_radiance = color(0.0),
+    float max_opacity = 0.97
+)
+= let {
+    float3 pw = state::transform_point(state::coordinate_internal, state::coordinate_world, state::position());
+    float3 v = camera_position - pw;
+    float cosv = math::abs(v.z) / math::max(math::length(v), 1e-3);
+    float tau = density * math::exp(-(pw.z - sea_level) / scale_height) * slab / math::max(cosv, 0.004);
+    float alpha = math::min(1.0 - math::exp(-tau), max_opacity);
+} in material(
+    thin_walled: true,
+    surface: material_surface(
+        scattering: df::specular_bsdf(tint: color(1.0 - alpha), mode: df::scatter_transmit),
+        emission: material_emission(emission: df::diffuse_edf(), intensity: fog_radiance * (alpha * math::PI), mode: intensity_radiant_exitance)
+    ),
+    backface: material_surface(
+        scattering: df::specular_bsdf(tint: color(1.0 - alpha), mode: df::scatter_transmit),
+        emission: material_emission(emission: df::diffuse_edf(), intensity: fog_radiance * (alpha * math::PI), mode: intensity_radiant_exitance)
+    ),
+    ior: color(1.0)
+);
 """
 
 
