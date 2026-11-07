@@ -1,0 +1,13 @@
+{
+  "_comment": "Sky HDRIs for sim/environment.py presets. All CC0 from polyhaven.com (polyhaven.com/license). Fetch with: python sim/tools/fetch_assets.py --manifest sim/assets/ocean_manifest.json",
+  "resolution": "1k",
+  "hdri_resolution": "4k",
+  "models": [],
+  "textures": [],
+  "hdris": [
+    "kloofendal_48d_partly_cloudy_puresky",
+    "belfast_sunset_puresky",
+    "industrial_sunset_puresky",
+    "overcast_soil_puresky"
+  ]
+}
