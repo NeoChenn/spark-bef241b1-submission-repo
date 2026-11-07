@@ -64,3 +64,46 @@ scripts/remote.sh down     # keeps the shader cache volumes
 | Page says "waiting for sim" | `scripts/remote.sh logs sim`: look for a Traceback, or `connected=False` (web not up). |
 | Low fps | Lower `--fps`, or use `RaytracedLighting`. |
 | `Permission denied` under `/logs` | `chmod 777 logs` (Isaac runs as uid 1234). `remote.sh up` does this. |
+
+## Rig deck scene
+
+A first offshore rig deck for Isaac Sim 6.2, separate from the Docker test world above.
+
+1. Open Isaac Sim 6.2.
+2. Choose **File > Open** and select `sim/output/rig_deck.usda`.
+
+The first load can take a few minutes while shaders build.
+
+To rebuild the scene, run this from the repo root. Changing the seed moves the pipe damage.
+
+```bat
+C:\isaacsim\python.bat sim\build_rig_deck.py --seed 7
+```
+
+This rewrites `sim/output/`, including the preview images. `sim/output/rig_deck_meta.json` gives the damage location,
+work zone and cameras for the robotics and training teams.
+
+Everything in `sim/assets/third_party/` comes from [Poly Haven](https://polyhaven.com/license) under CC0, so it's free
+to use and redistribute. To add an asset, put its Poly Haven ID in `sim/assets/manifest.json`, then run
+`python sim/tools/fetch_assets.py`.
+
+| Path | Contents |
+|---|---|
+| `sim/build_rig_deck.py` | Builds the scene and renders previews |
+| `sim/assets/` | Asset list and downloaded models, textures and skies |
+| `sim/output/` | Generated scene, metadata and preview images |
+| `sim/tools/` | Asset download and inspection scripts |
+
+## Full oil rig scene
+
+A textured, full-scale rig for Isaac Sim 6.2. Open `sim/output/full_rig.usda` with **File > Open**, or rebuild it from the
+repo root:
+
+```bat
+C:\isaacsim\python.bat sim\build_full_rig.py
+```
+
+The rig model is [Oil Rig](https://sketchfab.com/3d-models/oil-rig-2a9fadae585f4bbfa030772e54e64ace) by AnsysLearn under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), split, rescaled, textured and placed at sea for this project.
+See `sim/assets/third_party/oil_rig_ansyslearn/CREDITS.md`. The source gives no real-world size, so the 0.25 m per unit
+scale is an estimate. `sim/output/full_rig_meta.json` lists the rig's bounds, deck heights and parts.

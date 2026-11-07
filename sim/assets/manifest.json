@@ -1,0 +1,37 @@
+{
+  "_comment": "Third-party assets for the rig deck. Everything here is CC0 (polyhaven.com/license). Run sim/tools/fetch_assets.py to download them into sim/assets/third_party/, which is ignored by Git.",
+  "resolution": "1k",
+  "hdri_resolution": "2k",
+  "models": [
+    "modular_industrial_pipes_01",
+    "modular_pipes",
+    "modular_fire_escape",
+    "portable_welding_cart",
+    "portable_generator",
+    "utility_box_01",
+    "utility_box_02",
+    "power_box_01",
+    "propane_tank",
+    "korean_fire_extinguisher_01",
+    "caged_hanging_light",
+    "metal_toolbox",
+    "barrel_03",
+    "worn_metal_rack",
+    "modular_electric_cables"
+  ],
+  "textures": [
+    "metal_grate_rusty",
+    "rusty_metal_02",
+    "rust_coarse_01",
+    "rusty_painted_metal",
+    "green_metal_rust",
+    "blue_metal_plate",
+    "metal_plate",
+    "concrete_floor_damaged_01"
+  ],
+  "hdris": [
+    "gray_pier",
+    "cannon",
+    "aristea_wreck"
+  ]
+}

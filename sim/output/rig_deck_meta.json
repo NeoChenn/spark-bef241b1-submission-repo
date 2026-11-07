@@ -1,0 +1,47 @@
+{
+  "seed": 7,
+  "units": "metres, Z up, deck surface at z=0",
+  "deck_half_extents_m": [
+    8.0,
+    5.0
+  ],
+  "work_zone_m": {
+    "x": [
+      -2.5,
+      2.5
+    ],
+    "y": [
+      -2.2,
+      2.2
+    ]
+  },
+  "main_pipe": {
+    "z_m": 1.1,
+    "y_m": 0.0,
+    "radius_m": 0.15,
+    "x_range_m": [
+      -7.6,
+      7.6
+    ]
+  },
+  "damage": {
+    "position_m": [
+      -0.4933,
+      0.095,
+      1.2199
+    ],
+    "surface_normal": [
+      0.0,
+      0.6212,
+      0.7836
+    ],
+    "approx_radius_m": 0.233,
+    "pipe_radius_m": 0.15
+  },
+  "cameras": {
+    "hero": "/World/Cameras/hero",
+    "deck_end": "/World/Cameras/deck_end",
+    "repair_closeup": "/World/Cameras/repair_closeup",
+    "overview": "/World/Cameras/overview"
+  }
+}
