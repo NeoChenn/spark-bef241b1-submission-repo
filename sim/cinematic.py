@@ -336,6 +336,9 @@ def build_stage() -> Usd.Stage:
         SCENE_PATH.unlink()
     stage = Usd.Stage.CreateNew(str(SCENE_PATH))
     stage.GetRootLayer().subLayerPaths.append(rel(OUTPUT / "full_rig.usda"))
+    leak = OUTPUT / "leak_flanges.usda"
+    if leak.exists():
+        stage.GetRootLayer().subLayerPaths.insert(0, rel(leak))
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     stage.SetDefaultPrim(stage.GetPrimAtPath("/World"))
