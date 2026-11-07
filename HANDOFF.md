@@ -24,7 +24,7 @@ single take), 5-min live pitch.
 | Robot with lift mast | ✅ | `sim/assets/go2_ur3/go2_ur3_lift.urdf`, generator `integration/make_go2_ur3_lift.py` |
 | Isaac Sim 5.1 + Isaac Lab 2.3.2 on Modal | ✅ physics + PPO; ❌ rendering | `infra/` |
 | Scrub PPO policy | ✅ 99.2% success; ⚠ presses too hard (mean max ~46–52 N vs 40 N limit) | `policy/envs/`, `policy/train_scrub.py` |
-| Blender render on Modal (workaround for no RTX) | 🟡 first test launched, result unknown | `infra/render_blender.py` (uncommitted) |
+| Blender render on Modal (workaround for no RTX) | 🟡 untested: first run was killed by a 15-min local `timeout` before any output (image build + 252 MB `sim/` upload + possible OptiX kernel compile). Rerun WITHOUT a timeout/pipe, ideally `--samples 16`; if OptiX stalls, force `CUDA` in the device loop | `infra/render_blender.py` |
 | Sim integration contract | ✅ written, sim team hasn't implemented yet | `integration/INTERFACE.md` |
 | Demo video, PDF summary, pitch | ❌ not started | — |
 
