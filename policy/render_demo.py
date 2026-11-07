@@ -136,6 +136,7 @@ def worker(argv):
     p.add_argument("--scene", default=os.path.join(ROOT, "sim/output/rig_deck.usda"))
     p.add_argument("--shots", default="push,close,medium")
     p.add_argument("--seed", type=int, default=7)
+    p.add_argument("--robot", default="lift", choices=["lift", "lift_v2"])
     p.add_argument("--patch_when", type=float, default=0.25, help="inject a new patch once rust left < this")
     p.add_argument("--abrasion", type=float, default=0.7, help="abrasion coefficient (training DR 0.7-1.3)")
     p.add_argument("--preroll", type=float, default=1.5)
@@ -167,11 +168,13 @@ def worker(argv):
     from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
 
     from policy.envs.scrub_env import TASKS
-    from policy.envs.scrub_env_cfg import ScrubLiftEnvCfg, ScrubPPORunnerCfg
+    from policy.envs import scrub_env_cfg as C
+    from policy.envs.scrub_env_cfg import ScrubPPORunnerCfg
     from policy.play_scrub import apply_meta
     from policy.rust_overlay import camera_path, rig_translation
 
-    env_cfg = ScrubLiftEnvCfg()
+    task, cfg_name = TASKS[args.robot]
+    env_cfg = getattr(C, cfg_name)()
     env_cfg.scene.num_envs = 1
     meta = apply_meta(env_cfg, args.meta)
     env_cfg.prob_new_patch = 0.0
@@ -190,7 +193,7 @@ def worker(argv):
     agent_cfg = ScrubPPORunnerCfg()
     agent_cfg.device = "cuda:0"
 
-    env = gym.make(TASKS["lift"][0], cfg=env_cfg, render_mode="rgb_array")
+    env = gym.make(task, cfg=env_cfg, render_mode="rgb_array")
     base = env.unwrapped
     print("[demo] env origin", base.scene.env_origins[0].tolist(), "backdrop", env_cfg.backdrop_translation, flush=True)
     env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
