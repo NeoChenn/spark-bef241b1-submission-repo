@@ -11,6 +11,7 @@ from model_fix import (  # noqa: E402
     guess_scale,
     guess_up_axis,
     is_walkable,
+    preview_cameras,
     TextureMap,
 )
 
@@ -180,3 +181,20 @@ def test_texture_map_leaves_builtin_mdl_alone(tmp_path):
     tex = TextureMap(out_dir=tmp_path / "out", search_dirs=[])
     assert tex.map("OmniPBR.mdl", tmp_path / "raw") == "OmniPBR.mdl"
     assert tex.missing == []
+
+
+def test_preview_cameras_wide_shot_sees_whole_model():
+    cams = preview_cameras([-30.0, -20.0, -40.0], [30.0, 20.0, 50.0])
+    eye, target = cams["wide"]["eye"], cams["wide"]["target"]
+    assert target == pytest.approx([0.0, 0.0, 5.0])
+    distance = sum((e - t) ** 2 for e, t in zip(eye, target)) ** 0.5
+    assert distance > 100.0
+    assert eye[2] > target[2]
+
+
+def test_preview_cameras_deck_shot_stands_on_deck():
+    cams = preview_cameras([-30.0, -20.0, -40.0], [30.0, 20.0, 50.0])
+    eye, target = cams["deck"]["eye"], cams["deck"]["target"]
+    assert eye[2] == pytest.approx(1.7)
+    assert abs(eye[0]) < 30.0 and abs(eye[1]) < 20.0
+    assert target[2] > eye[2]
