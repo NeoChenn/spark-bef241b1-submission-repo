@@ -80,7 +80,7 @@ def preview_cameras(lo: list[float], hi: list[float]) -> dict[str, dict]:
     """A wide three-quarter shot of the whole model and an eye-level shot from a deck corner (deck at z = 0)."""
     centre = [(a + b) / 2.0 for a, b in zip(lo, hi)]
     size = [b - a for a, b in zip(lo, hi)]
-    distance = 1.25 * math.dist(lo, hi)
+    distance = 1.7 * math.dist(lo, hi)
     az, el = math.radians(-50.0), math.radians(16.0)
     wide_eye = [
         centre[0] + distance * math.cos(el) * math.cos(az),

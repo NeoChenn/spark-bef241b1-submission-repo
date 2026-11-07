@@ -78,9 +78,9 @@ def build(stage) -> dict:
     if hdri.exists():
         dome.CreateTextureFileAttr().Set(str(hdri))
         dome.CreateTextureFormatAttr().Set("latlong")
-    dome.CreateIntensityAttr(1000.0)
+    dome.CreateIntensityAttr(450.0)
     sun = UsdLux.DistantLight.Define(stage, "/World/Env/sun")
-    sun.CreateIntensityAttr(2500.0)
+    sun.CreateIntensityAttr(1600.0)
     sun.CreateAngleAttr(0.8)
     sun.CreateColorAttr(Gf.Vec3f(1.0, 0.95, 0.88))
     UsdGeom.Xformable(sun).AddRotateXYZOp().Set(Gf.Vec3f(48, 12, 35))

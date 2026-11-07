@@ -213,6 +213,7 @@ def apply_fix(model: Usd.Prim, scale: float, up: str, offset: np.ndarray) -> Non
 
 
 def add_collision(meshes: list[dict], rot: np.ndarray, mode: str) -> list[str]:
+    """Static triangle-mesh colliders on walkable meshes; auto falls back to all meshes if none look walkable."""
     chosen = []
     for m in meshes:
         prim = m["prim"]
@@ -224,10 +225,13 @@ def add_collision(meshes: list[dict], rot: np.ndarray, mode: str) -> list[str]:
         if mode == "all" or (mode == "names" and is_walkable(name, 0.0)) or (
             mode == "auto" and is_walkable(name, up_area / total, up_area=up_area)
         ):
-            UsdPhysics.CollisionAPI.Apply(prim)
-            UsdPhysics.MeshCollisionAPI.Apply(prim).CreateApproximationAttr(UsdPhysics.Tokens.none)
-            chosen.append(str(prim.GetPath()))
-    return chosen
+            chosen.append(prim)
+    if mode == "auto" and not chosen:
+        chosen = [m["prim"] for m in meshes]
+    for prim in chosen:
+        UsdPhysics.CollisionAPI.Apply(prim)
+        UsdPhysics.MeshCollisionAPI.Apply(prim).CreateApproximationAttr(UsdPhysics.Tokens.none)
+    return [str(p.GetPath()) for p in chosen]
 
 
 def remap_textures(stage: Usd.Stage, textures: TextureMap, layer_dir: Path) -> int:
