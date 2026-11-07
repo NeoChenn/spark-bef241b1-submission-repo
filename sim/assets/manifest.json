@@ -1371,42 +1371,6 @@
       "note": "USD, loaded by URL at runtime"
     },
     {
-      "id": "nv_extinguisher",
-      "kind": "model",
-      "source": "nvidia",
-      "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/Fire_Protection_Extinguisher_Portable_A01/sm_fireProtection_extinguisher_portable_a01_01.usd",
-      "licence": "NVIDIA Omniverse content licence (use with Omniverse/Isaac Sim; not redistributed)",
-      "resolution": "n/a",
-      "path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/Fire_Protection_Extinguisher_Portable_A01/sm_fireProtection_extinguisher_portable_a01_01.usd",
-      "category": "safety",
-      "remote": true,
-      "note": "USD, loaded by URL at runtime"
-    },
-    {
-      "id": "nv_suppression_cylinders",
-      "kind": "model",
-      "source": "nvidia",
-      "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/Fire_Protection_Suppression_Cylinder_Fixed_B01/sm_fireProtection_suppressionCylinder_fixed_b01_01.usd",
-      "licence": "NVIDIA Omniverse content licence (use with Omniverse/Isaac Sim; not redistributed)",
-      "resolution": "n/a",
-      "path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/Fire_Protection_Suppression_Cylinder_Fixed_B01/sm_fireProtection_suppressionCylinder_fixed_b01_01.usd",
-      "category": "gas cylinder rack",
-      "remote": true,
-      "note": "USD, loaded by URL at runtime"
-    },
-    {
-      "id": "nv_first_aid_cabinet",
-      "kind": "model",
-      "source": "nvidia",
-      "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/First_Aid_Cabinet_Wall_Mounted_A01/sm_safety_firstAidCabinet_wallMounted_a01_01.usd",
-      "licence": "NVIDIA Omniverse content licence (use with Omniverse/Isaac Sim; not redistributed)",
-      "resolution": "n/a",
-      "path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/First_Aid_Cabinet_Wall_Mounted_A01/sm_safety_firstAidCabinet_wallMounted_a01_01.usd",
-      "category": "safety",
-      "remote": true,
-      "note": "USD, loaded by URL at runtime"
-    },
-    {
       "id": "nv_hse_board",
       "kind": "model",
       "source": "nvidia",
@@ -1415,78 +1379,6 @@
       "resolution": "n/a",
       "path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/HSE_Information_Board_A01/sm_safetyBoard_hseInformation_a01_01.usd",
       "category": "safety sign",
-      "remote": true,
-      "note": "USD, loaded by URL at runtime"
-    },
-    {
-      "id": "nv_flood_light",
-      "kind": "model",
-      "source": "nvidia",
-      "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Tripod_Flood_Task_Light_A01/sm_lighting_taskLight_tripodFlood_a01_01.usd",
-      "licence": "NVIDIA Omniverse content licence (use with Omniverse/Isaac Sim; not redistributed)",
-      "resolution": "n/a",
-      "path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Tripod_Flood_Task_Light_A01/sm_lighting_taskLight_tripodFlood_a01_01.usd",
-      "category": "lighting",
-      "remote": true,
-      "note": "USD, loaded by URL at runtime"
-    },
-    {
-      "id": "nv_hose_reel",
-      "kind": "model",
-      "source": "nvidia",
-      "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Equipment_AirHoseReel_Retractable_A01/sm_equipment_airHoseReel_retractable_a01_01.usd",
-      "licence": "NVIDIA Omniverse content licence (use with Omniverse/Isaac Sim; not redistributed)",
-      "resolution": "n/a",
-      "path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Equipment_AirHoseReel_Retractable_A01/sm_equipment_airHoseReel_retractable_a01_01.usd",
-      "category": "hose reel",
-      "remote": true,
-      "note": "USD, loaded by URL at runtime"
-    },
-    {
-      "id": "nv_alarm_siren",
-      "kind": "model",
-      "source": "nvidia",
-      "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Alarm_Siren_A01/sm_equipment_alarm_siren_a01_01.usd",
-      "licence": "NVIDIA Omniverse content licence (use with Omniverse/Isaac Sim; not redistributed)",
-      "resolution": "n/a",
-      "path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Alarm_Siren_A01/sm_equipment_alarm_siren_a01_01.usd",
-      "category": "safety",
-      "remote": true,
-      "note": "USD, loaded by URL at runtime"
-    },
-    {
-      "id": "nv_main_terminal",
-      "kind": "model",
-      "source": "nvidia",
-      "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Electrical_Main_Terminal_A01/sm_electrical_main_terminal_a01_01.usd",
-      "licence": "NVIDIA Omniverse content licence (use with Omniverse/Isaac Sim; not redistributed)",
-      "resolution": "n/a",
-      "path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Electrical_Main_Terminal_A01/sm_electrical_main_terminal_a01_01.usd",
-      "category": "junction box",
-      "remote": true,
-      "note": "USD, loaded by URL at runtime"
-    },
-    {
-      "id": "nv_power_shutoff",
-      "kind": "model",
-      "source": "nvidia",
-      "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Power_Shutoff_A01/sm_electrical_power_shutoff_a01_01.usd",
-      "licence": "NVIDIA Omniverse content licence (use with Omniverse/Isaac Sim; not redistributed)",
-      "resolution": "n/a",
-      "path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Power_Shutoff_A01/sm_electrical_power_shutoff_a01_01.usd",
-      "category": "junction box",
-      "remote": true,
-      "note": "USD, loaded by URL at runtime"
-    },
-    {
-      "id": "nv_air_compressor",
-      "kind": "model",
-      "source": "nvidia",
-      "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Equipment_AirCompressor_A01/sm_equipment_airCompressor_a01_01.usd",
-      "licence": "NVIDIA Omniverse content licence (use with Omniverse/Isaac Sim; not redistributed)",
-      "resolution": "n/a",
-      "path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Equipment_AirCompressor_A01/sm_equipment_airCompressor_a01_01.usd",
-      "category": "machinery",
       "remote": true,
       "note": "USD, loaded by URL at runtime"
     },
@@ -1631,18 +1523,6 @@
       "resolution": "n/a",
       "path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Assets/Warehouse/Safety/Tape/Deluxe/Safety_A/DeluxeSafetyTape_A03_6M5CM_PR_V_NVD_01.usd",
       "category": "hazard tape",
-      "remote": true,
-      "note": "USD, loaded by URL at runtime"
-    },
-    {
-      "id": "nv_metal_fencing",
-      "kind": "model",
-      "source": "nvidia",
-      "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/ArchVis/Industrial/Railing/MetalFencing_A1.usd",
-      "licence": "NVIDIA Omniverse content licence (use with Omniverse/Isaac Sim; not redistributed)",
-      "resolution": "n/a",
-      "path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/ArchVis/Industrial/Railing/MetalFencing_A1.usd",
-      "category": "railing",
       "remote": true,
       "note": "USD, loaded by URL at runtime"
     }
