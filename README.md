@@ -128,3 +128,52 @@ detect → spray → wait 30 s → scrub (PPO) → re-detect → paint → verif
 | `integration/INTERFACE.md` | Contract with the rig scene (prim paths, rust texture, robot). |
 
 Setup: `uv sync` (tests: `uv run pytest`); add `--group train` for Modal training and data prep tools.
+
+scale is an estimate. `sim/output/full_rig_meta.json` lists the rig's bounds, deck heights and parts.
+
+## Importing a full rig model
+
+`scripts/import_model.sh` (on watson) turns any model into `sim/assets/rig_model/<name>/<name>.usd`. The output is in metres,
+Z up, with the main deck at z = 0 and the topside centred. It also writes `textures/` with relative paths,
+UsdPreviewSurface materials, static triangle-mesh collision on walkable meshes, and `report.json`. The report has bounds,
+triangle, mesh and material counts, and lists missing textures.
+
+```bash
+scripts/import_model.sh path/in/repo/rig.glb --name rig                 # glb gltf fbx obj stl ply usd usdz step stp iges
+scripts/import_model.sh path/in/repo/rig.blend --name rig               # blend dae 3ds x3d abc: Blender (rig-import-blender) -> GLB first
+scripts/import_model.sh rig.fbx --name rig --units cm --up Y --deck-z 32 --drop 'sea|boat'   # overrides when detection is wrong
+/isaac-sim/python.sh sim/tools/preview_model.py sim/assets/rig_model/rig/rig.usd --sea-z -20   # in rig-sim:6.2.0; wide + deck PNGs
+```
+
+**Converters on aarch64 (Isaac 6.2):**
+- `omni.kit.asset_converter` (assimp) handles glTF/GLB, FBX, OBJ, STL, PLY, LXO, MD5, BVH and USD.
+- `omni.kit.converter.hoops_core` handles STEP and IGES.
+- `.blend` is rejected by both, so it goes through Blender 4.0.2 (Ubuntu arm64, `docker/blender.Dockerfile`).
+
+**Detection:**
+- Units come from the stage's metadata unless that gives a size under 1 m or over 2 km, or the format is unitless (STL, OBJ, PLY). Then the importer picks
+  the m/cm/mm/in/ft scale that gives a platform-sized result.
+- The up axis is the metadata axis unless twice as much flat area faces another axis.
+- The deck is the height band with the most upward-facing area, ignoring sea or seabed planes at the very bottom.
+- Pass `--units`, `--up` or `--deck-z` (in metres, after the fix) when a model fools these.
+
+Candidate platforms are listed with their licences in `sim/assets/rig_model/candidates.json`. To download one, run
+`SKETCHFAB_TOKEN=... python3 sim/tools/fetch_model.py <key>`; this needs a free Sketchfab account.
+
+## Cinematic demo
+
+A separate layer on top of `sim/output/full_rig.usda`, with an animated ocean, rig lighting, a flare and three presets. It
+doesn't change the rig scene or its data.
+
+```bat
+C:\isaacsim\python.bat sim\tools\make_preset_skies.py
+C:\isaacsim\python.bat sim\build_cinematic.py --preset all
+C:\isaacsim\python.bat sim\render_sequence.py --preset night
+C:\isaacsim\python.bat sim\run_demo.py
+```
+
+In `run_demo.py`, press **1** for Night Operations, **2** for Golden Hour, **3** for Storm, and **C** to play the camera
+sequence. Run `run_demo.py --self-test` to check every preset without a window.
+
+The skies come from Poly Haven's CC0 `overcast_soil_puresky` and `evening_road_01_puresky`. The flame is emissive geometry,
+not a fluid simulation, and the waves are visual only.

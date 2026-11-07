@@ -1,0 +1,38 @@
+{
+  "deepwater_horizon": {
+    "title": "Deepwater Horizon Oil Platform",
+    "author": "apreeves",
+    "url": "https://sketchfab.com/3d-models/800cec2552164d6682e556742f024344",
+    "sketchfab_uid": "800cec2552164d6682e556742f024344",
+    "licence": "CC-BY-4.0",
+    "faces": 88334,
+    "drop": ["sea", "water", "ocean", "boat", "ship"]
+  },
+  "benkos_oil_rig": {
+    "title": "Oil Rig - Low Poly",
+    "author": "Benkos",
+    "url": "https://sketchfab.com/3d-models/9bbb61d0e1434d9f8dba7a0ecf28a2fe",
+    "sketchfab_uid": "9bbb61d0e1434d9f8dba7a0ecf28a2fe",
+    "licence": "CC-BY-4.0",
+    "faces": 58620,
+    "drop": []
+  },
+  "piattaforma": {
+    "title": "piattaforma",
+    "author": "lucasassone",
+    "url": "https://sketchfab.com/3d-models/216c94f15e2b4e72949d57de4d2be5c8",
+    "sketchfab_uid": "216c94f15e2b4e72949d57de4d2be5c8",
+    "licence": "CC-BY-4.0",
+    "faces": 746392,
+    "drop": ["sea", "water", "ocean", "plane"]
+  },
+  "enderocean_oil": {
+    "title": "oil_platform (game asset)",
+    "author": "enderocean",
+    "url": "https://github.com/enderocean/videogame/tree/main/assets/models/buildings/oil_platform",
+    "direct": "https://raw.githubusercontent.com/enderocean/videogame/main/assets/models/buildings/oil_platform/oil.obj",
+    "licence": "AGPL-3.0",
+    "faces": 4158,
+    "drop": []
+  }
+}

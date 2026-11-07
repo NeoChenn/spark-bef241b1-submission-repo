@@ -1,21 +1,120 @@
-import argparse
 import io
 import os
 import time
 
+from rig.sim.cli import parse_args, parse_setting
+
 STATS_EVERY_S = 5.0
 WARMUP_UPDATES = 30
+KEEPALIVE_S = 1.0
+LOAD_TIMEOUT_S = 300.0
+ORBIT_CAMERA = "/RigStream/OrbitCamera"
 
 
-def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Headless Isaac Sim camera stream for the rig test world")
-    p.add_argument("--sim", default="127.0.0.1:9000", help="host:port of the web relay's frame ingest")
-    p.add_argument("--fps", type=float, default=15.0)
-    p.add_argument("--renderer", default="RealTimePathTracing")
-    p.add_argument("--quality", type=int, default=80)
-    p.add_argument("--duration", type=float, default=0.0, help="seconds to run; 0 = forever")
-    p.add_argument("--snapshot", default="", help="save the first non-black frame as a PNG here")
-    return p.parse_args()
+def render_settings(args) -> dict:
+    pt = "/rtx/pathtracing" if args.renderer == "PathTracing" else "/rtx/rtpt"
+    out = {
+        "/rtx/post/motionblur/enabled": False,
+        "/rtx/post/dof/enabled": False,
+        "/rtx/post/lensFlares/enabled": False,
+        f"{pt}/spp": args.spp,
+    }
+    if args.renderer == "PathTracing":
+        out["/rtx/pathtracing/totalSpp"] = args.spp * args.subframes
+    if args.bounces:
+        out[f"{pt}/maxBounces"] = args.bounces
+    out.update(parse_setting(item) for item in args.set)
+    return out
+
+
+def open_scene(app, ctx, path: str) -> None:
+    if not ctx.open_stage(path):
+        raise SystemExit(f"rig sim: could not open {path}")
+    deadline = time.monotonic() + LOAD_TIMEOUT_S
+    while time.monotonic() < deadline:
+        app.update()
+        _, loaded, total = ctx.get_stage_loading_status()
+        if total == 0 or loaded >= total:
+            return
+    print(f"rig sim: stage still loading after {LOAD_TIMEOUT_S:.0f}s, continuing", flush=True)
+
+
+def hide_builtin_environment(stage) -> list[str]:
+    from rig.sim.envhide import is_builtin_environment
+
+    hidden = [p for p in stage.Traverse() if is_builtin_environment(p.GetName(), p.GetTypeName())]
+    for prim in hidden:
+        prim.SetActive(False)
+    return [str(p.GetPath()) for p in hidden]
+
+
+def load_environment(stage, preset: str, sea_level: float):
+    if not preset:
+        return None
+    try:
+        from sim.environment import add_environment
+    except ImportError as exc:
+        print(f"rig sim: --env {preset} skipped, sim.environment unavailable ({exc})", flush=True)
+        return None
+    hidden = hide_builtin_environment(stage)
+    env = add_environment(stage, preset, sea_level_z=sea_level)
+    print(f"rig sim: environment preset {preset} added at sea level {sea_level}, hid {hidden}", flush=True)
+    return env
+
+
+def load_cinematic(app, ctx, preset: str):
+    import sys
+
+    sys.path.insert(0, "/rig/sim")
+    import cinematic
+    import ocean
+    from pxr import Gf, UsdGeom
+
+    open_scene(app, ctx, str(cinematic.SCENE_PATH))
+    stage = ctx.get_stage()
+    path = "/World/Cinematic/Cameras/stream"
+    cam = UsdGeom.Camera.Define(stage, path)
+    cam.CreateClippingRangeAttr(Gf.Vec2f(0.5, 60000))
+    cam.CreateFocalLengthAttr(28.0)
+    UsdGeom.Xformable(cam).AddTransformOp().Set(Gf.Matrix4d(1))
+    cinematic.apply_preset(stage, preset)
+    rest, distance, _, _ = ocean.make_grid()
+    height = cinematic.PRESETS[preset]["wave_height"]
+
+    def update(t: float) -> None:
+        cinematic.animate_ocean(stage, rest, distance, t, height)
+        cinematic.animate_effects(stage, t)
+        cinematic.set_camera(stage, path, t % cinematic.SEQUENCE_SECONDS)
+
+    update(0.0)
+    print(f"rig sim: cinematic preset {preset}", flush=True)
+    return path, update
+
+
+def make_orbit_camera(stage, src_path: str, args):
+    from pxr import Gf, Usd, UsdGeom
+
+    from rig.sim.orbit import Orbit, look_at_rows, orbit_eye, view_target
+
+    src = UsdGeom.Camera(stage.GetPrimAtPath(src_path))
+    m = src.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    rows = [tuple(m.GetRow(i)) for i in range(4)]
+    target = args.orbit_target or view_target(rows, args.orbit_z)
+    period = args.orbit
+    orbit = Orbit.from_eye(rows[3][:3], target, period, radius=args.orbit_radius, z=args.orbit_eye_z)
+    cam = UsdGeom.Camera.Define(stage, ORBIT_CAMERA)
+    for name in ("focalLength", "horizontalAperture", "verticalAperture", "clippingRange"):
+        value = src.GetPrim().GetAttribute(name).Get()
+        if value is not None:
+            cam.GetPrim().GetAttribute(name).Set(value)
+    op = cam.AddTransformOp()
+
+    def update(t: float) -> None:
+        op.Set(Gf.Matrix4d(look_at_rows(orbit_eye(orbit, t), orbit.target)))
+
+    update(0.0)
+    print(f"rig sim: orbit r={orbit.radius:.1f} z={orbit.z:.1f} target={tuple(round(c, 2) for c in orbit.target)} period={period}s", flush=True)
+    return ORBIT_CAMERA, update
 
 
 def main() -> None:
@@ -23,9 +122,7 @@ def main() -> None:
 
     from isaacsim import SimulationApp
 
-    from rig.sim import CAM_H, CAM_W
-
-    app = SimulationApp({"headless": True, "renderer": args.renderer, "width": CAM_W, "height": CAM_H})
+    app = SimulationApp({"headless": True, "renderer": args.renderer, "width": args.width, "height": args.height})
 
     import carb
     import numpy as np
@@ -34,15 +131,37 @@ def main() -> None:
     import omni.usd
     from PIL import Image
 
-    from rig.sim.scene import CAMERA_PATH, build_scene, spin
     from rig.sim.sender import FrameSender
 
     settings = carb.settings.get_settings()
-    for key in ("/rtx/post/motionblur/enabled", "/rtx/post/dof/enabled", "/rtx/post/lensFlares/enabled"):
-        settings.set(key, False)
+    for key, value in render_settings(args).items():
+        settings.set(key, value)
 
-    scene = build_scene(omni.usd.get_context().get_stage())
-    rp = rep.create.render_product(CAMERA_PATH, (CAM_W, CAM_H))
+    ctx = omni.usd.get_context()
+    tickers = []
+    if args.scene == "test":
+        from rig.sim.scene import CAMERA_PATH, build_scene, spin
+
+        scene = build_scene(ctx.get_stage())
+        cam_path = CAMERA_PATH
+        tickers.append(lambda t: spin(scene, t))
+    elif args.cinematic:
+        cam_path, cine_update = load_cinematic(app, ctx, args.cinematic)
+        tickers.append(cine_update)
+    else:
+        open_scene(app, ctx, args.scene)
+        cam_path = args.camera
+    stage = ctx.get_stage()
+    if not stage.GetPrimAtPath(cam_path).IsValid():
+        raise SystemExit(f"rig sim: camera {cam_path} not in scene")
+    if args.orbit:
+        cam_path, orbit_update = make_orbit_camera(stage, cam_path, args)
+        tickers.append(orbit_update)
+    env = load_environment(stage, args.env, args.sea_level)
+    if env is not None:
+        tickers.append(lambda t: env.update(t, camera=cam_path))
+
+    rp = rep.create.render_product(cam_path, (args.width, args.height))
     ann = rep.AnnotatorRegistry.get_annotator("rgb")
     ann.attach(rp)
     omni.timeline.get_timeline_interface().play()
@@ -54,37 +173,54 @@ def main() -> None:
     period = 1.0 / args.fps
     start = next_tick = time.monotonic()
     stats_at = start + STATS_EVERY_S
+    snap_at = None if not args.snapshot else start
     seq = frames = 0
+    stats_frames, stats_fresh, stats_start = 0, 0, start
+    last_sample = b""
+    last_sent = 0.0
     mean = 0.0
-    snapshot_done = not args.snapshot
-    print(f"rig sim: renderer={args.renderer} {CAM_W}x{CAM_H} target_fps={args.fps} -> {args.sim}", flush=True)
+    jpeg_kb = 0.0
+    print(
+        f"rig sim: scene={args.scene} camera={cam_path} renderer={args.renderer} {args.width}x{args.height} "
+        f"spp={args.spp} subframes={args.subframes} wait={args.wait_render} -> {args.sim}",
+        flush=True,
+    )
 
     while app.is_running():
         now = time.monotonic()
         t = now - start
-        spin(scene, t)
-        rep.orchestrator.step(rt_subframes=1, pause_timeline=False, wait_for_render=False)
+        for tick in tickers:
+            tick(t)
+        rep.orchestrator.step(rt_subframes=args.subframes, pause_timeline=False, wait_for_render=args.wait_render)
         data = np.asarray(ann.get_data())
-        if data.ndim == 3 and data.size:
+        sample = data[::24, ::24, :3].tobytes() if data.ndim == 3 and data.size else b""
+        fresh = bool(sample) and sample != last_sample
+        last_sample = sample or last_sample
+        stats_fresh += fresh
+        if fresh or (sample and now - last_sent >= KEEPALIVE_S):
+            last_sent = now
             rgb = np.ascontiguousarray(data[..., :3], dtype=np.uint8)
             mean = float(rgb.mean())
             buf = io.BytesIO()
             Image.fromarray(rgb).save(buf, "JPEG", quality=args.quality)
+            jpeg_kb = buf.tell() / 1024
             sender.send({"type": "frame", "w": rgb.shape[1], "h": rgb.shape[0], "seq": seq, "t": t, "mean": round(mean, 1)}, buf.getvalue())
             seq += 1
-            if not snapshot_done and mean > 3:
-                Image.fromarray(rgb).save(args.snapshot)
-                snapshot_done = True
-                print(f"snapshot saved to {args.snapshot}", flush=True)
+            if snap_at is not None and now >= snap_at and mean > 3:
+                path = args.snapshot if not args.snapshot_every else args.snapshot.replace(".png", f"_{int(t):04d}.png")
+                Image.fromarray(rgb).save(path)
+                print(f"snapshot saved to {path}", flush=True)
+                snap_at = now + args.snapshot_every if args.snapshot_every else None
         frames += 1
+        stats_frames += 1
         if now >= stats_at:
-            span = now - start
             print(
-                f"t={span:.0f}s fps={frames / span:.1f} sent={sender.sent} dropped={sender.dropped} "
-                f"connected={sender.connected.is_set()} mean={mean:.1f}",
+                f"t={t:.0f}s fps={stats_fresh / (now - stats_start):.1f} steps={stats_frames / (now - stats_start):.1f} sent={sender.sent} dropped={sender.dropped} "
+                f"connected={sender.connected.is_set()} mean={mean:.1f} jpeg={jpeg_kb:.0f}KB",
                 flush=True,
             )
             stats_at = now + STATS_EVERY_S
+            stats_frames, stats_fresh, stats_start = 0, 0, now
         if args.duration and t >= args.duration:
             break
         next_tick += period
