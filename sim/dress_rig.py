@@ -302,7 +302,7 @@ def place_model(stage, prop, source: str, folder: Path | None):
     holder = xform_at(stage, f"{ROOT}/Props/{prop.name}", translate=prop.pos, rot_z=prop.rot_z)
     fit = UsdGeom.Xform.Define(stage, f"{holder.GetPath()}/fit")
     model = UsdGeom.Xform.Define(stage, f"{fit.GetPath()}/model")
-    model.GetPrim().GetReferences().AddReference(source)
+    model.GetPrim().GetReferences().AddReference(source if folder is None else rel(Path(source)))
     layer = Usd.Stage.Open(source)
     move = fit.AddTranslateOp()
     fit.AddScaleOp().Set(Gf.Vec3f(UsdGeom.GetStageMetersPerUnit(layer) if layer else 1.0))
@@ -341,7 +341,7 @@ def add_props(stage, looks, cloud) -> None:
             place_model(stage, prop, remote[prop.asset], None)
         else:
             folder = ASSETS / "third_party" / "models" / prop.asset
-            place_model(stage, prop, rel(sorted(folder.glob("*.usd*"))[0]), folder)
+            place_model(stage, prop, str(sorted(folder.glob("*.usd*"))[0]), folder)
 
 
 def add_cameras(stage) -> None:
