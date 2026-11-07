@@ -12,6 +12,31 @@ services:
       SIM_PORT: "9000"
     restart: unless-stopped
 
+  sim:
+    build:
+      context: docker
+      dockerfile: sim.Dockerfile
+    image: rig-sim:6.2.0
+    devices:
+      - nvidia.com/gpu=all
+    network_mode: host
+    depends_on: [web]
+    environment:
+      ACCEPT_EULA: "Y"
+      PRIVACY_CONSENT: "Y"
+      NVIDIA_DRIVER_CAPABILITIES: all
+    command: ["/rig/rig/sim/main.py", "--sim", "127.0.0.1:9000"]
+    volumes:
+      - ./rig:/rig/rig:ro
+      - ./logs:/logs
+      - rig-isaac-cache-main:/isaac-sim/.cache
+      - rig-isaac-cache-compute:/isaac-sim/.nv/ComputeCache
+      - rig-isaac-cache-kit:/isaac-sim/kit/cache
+      - rig-isaac-ovlogs:/isaac-sim/.nvidia-omniverse/logs
+      - rig-isaac-config:/isaac-sim/.nvidia-omniverse/config
+      - rig-isaac-data:/isaac-sim/.local/share/ov/data
+    restart: unless-stopped
+
   tunnel:
     profiles: ["public"]
     image: cloudflare/cloudflared:2026.9.3
@@ -20,3 +45,17 @@ services:
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
     restart: unless-stopped
+
+volumes:
+  rig-isaac-cache-main:
+    name: rig-isaac-cache-main
+  rig-isaac-cache-compute:
+    name: rig-isaac-cache-compute
+  rig-isaac-cache-kit:
+    name: rig-isaac-cache-kit
+  rig-isaac-ovlogs:
+    name: rig-isaac-ovlogs
+  rig-isaac-config:
+    name: rig-isaac-config
+  rig-isaac-data:
+    name: rig-isaac-data
