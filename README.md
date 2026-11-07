@@ -106,4 +106,9 @@ C:\isaacsim\python.bat sim\build_full_rig.py
 The rig model is [Oil Rig](https://sketchfab.com/3d-models/oil-rig-2a9fadae585f4bbfa030772e54e64ace) by AnsysLearn under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), split, rescaled, textured and placed at sea for this project.
 See `sim/assets/third_party/oil_rig_ansyslearn/CREDITS.md`. The source gives no real-world size, so the 0.25 m per unit
-scale is an estimate. `sim/output/full_rig_meta.json` lists the rig's bounds, deck heights and parts.
+scale is an estimate. `sim/output/full_rig_meta.json` lists the rig's bounds, deck heights, parts, valves, gauges,
+true gauge readings and a patrol route checked against the geometry.
+
+`sim/rig_details.py` adds the process pipes, valves, gauges, props, helideck markings and windows.
+`sim/tools/make_generated_assets.py` makes the files in `sim/assets/generated/`: an ocean sky with the coastline removed
+from Poly Haven's CC0 `aristea_wreck`, a sea ripple map and a gauge dial.
