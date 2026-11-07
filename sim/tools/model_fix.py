@@ -10,6 +10,7 @@ from pathlib import Path, PureWindowsPath
 UNITS = {"m": 1.0, "cm": 0.01, "mm": 0.001, "in": 0.0254, "ft": 0.3048}
 SCALE_CANDIDATES = (1.0, 0.01, 0.001, 0.0254, 0.3048, 0.1, 10.0, 100.0)
 PLAUSIBLE_EXTENT_M = (8.0, 400.0)
+SANE_EXTENT_M = (1.0, 2000.0)
 TYPICAL_EXTENT_M = 60.0
 
 CONVERTERS = {
@@ -35,9 +36,9 @@ def guess_scale(extent: float, meters_per_unit: float, units: str = "auto") -> f
     """Metres per source unit, given the model's largest bounding-box extent in source units."""
     if units != "auto":
         return UNITS[units]
-    low, high = PLAUSIBLE_EXTENT_M
-    if low <= extent * meters_per_unit <= high:
+    if SANE_EXTENT_M[0] <= extent * meters_per_unit <= SANE_EXTENT_M[1]:
         return meters_per_unit
+    low, high = PLAUSIBLE_EXTENT_M
     plausible = [s for s in SCALE_CANDIDATES if low <= extent * s <= high]
     pool = plausible or list(SCALE_CANDIDATES)
     return min(pool, key=lambda s: abs(math.log(max(extent * s, 1e-9) / TYPICAL_EXTENT_M)))

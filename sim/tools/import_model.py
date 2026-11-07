@@ -85,7 +85,8 @@ def convert(src: Path, raw_dir: Path) -> Path:
         enable("omni.kit.converter.hoops_core")
         import omni.kit.converter.hoops_core as hoops
 
-        _, status = hoops.get_instance().create_converter_task(str(src), str(dst), {})
+        task = hoops.get_instance().create_converter_task(str(src), str(dst), {})
+        _, status = asyncio.get_event_loop().run_until_complete(task) if asyncio.iscoroutine(task) else task
         if status.error_code:
             raise SystemExit(f"CAD converter failed: {status.error_msg}")
     else:

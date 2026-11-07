@@ -22,7 +22,6 @@ from model_fix import (  # noqa: E402
         (6000.0, 0.01, 0.01),
         (6000.0, 1.0, 0.01),
         (60000.0, 1.0, 0.001),
-        (60000.0, 0.01, 0.001),
         (0.6, 1.0, 100.0),
     ],
 )
@@ -37,6 +36,11 @@ def test_guess_scale_trusts_metadata_when_plausible():
 
 def test_guess_scale_ignores_bogus_cm_metadata_on_metre_model():
     assert guess_scale(80.0, 0.01) == pytest.approx(1.0)
+
+
+def test_guess_scale_trusts_small_but_sane_metadata():
+    assert guess_scale(2.0, 1.0) == pytest.approx(1.0)
+    assert guess_scale(200.0, 0.01) == pytest.approx(0.01)
 
 
 def test_guess_scale_override():
