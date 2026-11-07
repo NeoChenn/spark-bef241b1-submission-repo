@@ -165,7 +165,7 @@ def test_onnx_checkpoint_roundtrip(tmp_path):
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)])
     model.ir_version = 8
     onnx.save(model, tmp_path / "model.onnx")
-    (tmp_path / "meta.json").write_text('{"model": "test", "input_size": 32, "mean": [0,0,0], "std": [1,1,1], '
+    (tmp_path / "meta.json").write_text('{"model": "test", "input_size": [3, 32, 32], "unsure_band": [0.35, 0.65], "mean": [0,0,0], "std": [1,1,1], '
                                         '"threshold": 0.5, "temperature": 1.0}')
     lz = RustLocalizer.from_checkpoint(str(tmp_path), patch=16, stride=8)
     img = canvas()

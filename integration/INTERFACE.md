@@ -105,5 +105,5 @@ Control rates: physics 60–120 Hz; the orchestrator makes a scrub decision ever
 * HUD (`Orchestrator.overlay_text()`): `STATE`, rust-left %, detector confidence, patch ids, force, last reason.
 * Detector checkpoint: `/ckpt/detector/best/{model.onnx, meta.json}` on volume `rust-ckpt`. Load with
   `RustLocalizer.from_checkpoint("/ckpt/detector/best", patch=96, stride=48)` (patch is resized to `meta.input_size`).
-  meta keys read: `input_size` (or `img_size`/`image_size`), `mean`, `std`, `threshold`, `temperature`. ONNX input
+  meta keys read: `input_size` (int or `[3,H,W]`), `mean`, `std`, `threshold`, `temperature`, `unsure_band`. ONNX input
   NCHW float32 normalised, output `(N, 1)` rust logit.

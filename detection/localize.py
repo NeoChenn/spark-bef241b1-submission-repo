@@ -80,7 +80,8 @@ class OnnxPatchClassifier:
         import onnxruntime as ort
         self.sess = ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
         self.input_name = self.sess.get_inputs()[0].name
-        self.size = int(meta.get("input_size", meta.get("img_size", meta.get("image_size", 224))))
+        size = meta.get("input_size", meta.get("img_size", meta.get("image_size", 224)))
+        self.size = int(size[-1] if isinstance(size, (list, tuple)) else size)   # [3,224,224] or 224
         self.mean = np.asarray(meta.get("mean", [0.485, 0.456, 0.406]), np.float32).reshape(1, 3, 1, 1)
         self.std = np.asarray(meta.get("std", [0.229, 0.224, 0.225]), np.float32).reshape(1, 3, 1, 1)
         self.batch_size = batch_size
@@ -126,6 +127,8 @@ class RustLocalizer:
         clf = OnnxPatchClassifier(d / "model.onnx", meta)
         kw.setdefault("threshold", float(meta.get("threshold", 0.5)))
         kw.setdefault("temperature", float(meta.get("temperature", 1.0)))
+        if "unsure_band" in meta:
+            kw.setdefault("unsure_band", tuple(meta["unsure_band"]))
         return cls(clf, **kw)
 
     def _grid(self, H, W):
