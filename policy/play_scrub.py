@@ -24,6 +24,9 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 META_PATH_IN_IMAGE = "/root/rig_deck_meta.json"
+# lift variant, env-local frame: pipe axis at y=-0.5, z=1.1; damage spot ~(0, -0.41, 1.22)
+CAMS = {"close": ((0.55, 0.05, 1.55), (0.0, -0.42, 1.18)),
+        "wide": ((1.9, 1.5, 1.6), (0.0, -0.25, 0.75))}
 
 
 def apply_meta(env_cfg, meta_path: str):
@@ -70,6 +73,7 @@ def worker(argv):
     p.add_argument("--meta", type=str, default="")
     p.add_argument("--force_patch", action="store_true")
     p.add_argument("--robot", type=str, default="lift", choices=["lift", "go2ur3", "franka"])
+    p.add_argument("--cam", type=str, default="", choices=["", "close", "wide"])
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -107,6 +111,11 @@ def worker(argv):
             env_cfg.yaw_range = (0.0, 0.0)
     if args.force_patch:
         env_cfg.prob_new_patch = 1.0
+    if args.cam:
+        from isaaclab.envs import ViewerCfg
+
+        eye, look = CAMS[args.cam]
+        env_cfg.viewer = ViewerCfg(eye=eye, lookat=look, resolution=(1280, 720), origin_type="env", env_index=0)
     env_cfg.viz = args.video
     env_cfg.spawn_pipe_visual = args.video
     env_cfg.spawn_dog_visual = args.video and args.robot == "franka"
@@ -122,12 +131,12 @@ def worker(argv):
     policy_nn = runner.alg.policy
     normalizer = getattr(policy_nn, "actor_obs_normalizer", None)
     exp_dir = os.path.join(args.out_dir, "exported")
-    try:
-        export_policy_as_jit(policy_nn, normalizer=normalizer, path=exp_dir, filename="policy.pt")
-        export_policy_as_onnx(policy_nn, normalizer=normalizer, path=exp_dir, filename="policy.onnx")
-        print(f"[play] exported policy to {exp_dir}", flush=True)
-    except Exception as e:  # export is a nice-to-have
-        print(f"[play] export failed: {e}", flush=True)
+    for fn, name in ((export_policy_as_onnx, "policy.onnx"), (export_policy_as_jit, "policy.pt")):
+        try:  # export is a nice-to-have; JIT export fails under PYTORCH_JIT=0 (GB10)
+            fn(policy_nn, normalizer=normalizer, path=exp_dir, filename=name)
+            print(f"[play] exported {exp_dir}/{name}", flush=True)
+        except Exception as e:
+            print(f"[play] export {name} failed: {e}", flush=True)
 
     recs = {k: [] for k in ("fraction_removed", "success", "max_force", "time_to_clean_s", "new_patch")}
     frames = []
@@ -148,6 +157,7 @@ def worker(argv):
             frames.append(base.render())
     n = len(recs["success"])
     succ = recs["success"]
+    mf = sorted(recs["max_force"])
     np_ = [s for s, e in zip(succ, recs["new_patch"]) if e]
     res = {
         "ckpt": args.ckpt, "episodes": n, "meta": bool(args.meta),
@@ -156,6 +166,8 @@ def worker(argv):
         "mean_time_to_clean_s": (sum(t for t, s in zip(recs["time_to_clean_s"], succ) if s) / max(sum(succ), 1)),
         "max_force_N": max(recs["max_force"]) if n else None,
         "mean_episode_max_force_N": sum(recs["max_force"]) / max(n, 1),
+        "p95_episode_max_force_N": mf[min(int(0.95 * n), n - 1)] if n else None,
+        "frac_episodes_over_40N": sum(f > 40.0 for f in mf) / max(n, 1),
         "episodes_with_new_patch": len(np_),
         "new_patch_handled_rate": (sum(np_) / len(np_)) if np_ else None,
         "wall_s": round(time.time() - t0, 1),
@@ -164,12 +176,14 @@ def worker(argv):
     os.makedirs(args.out_dir, exist_ok=True)
     with open(os.path.join(args.out_dir, "eval_meta.json" if args.meta else "eval.json"), "w") as f:
         json.dump(res, f, indent=1)
+    with open(os.path.join(args.out_dir, "episodes_meta.json" if args.meta else "episodes.json"), "w") as f:
+        json.dump(recs, f)
     if frames:
         import imageio
 
         vdir = os.path.join(args.out_dir, "videos")
         os.makedirs(vdir, exist_ok=True)
-        path = os.path.join(vdir, time.strftime("scrub_%m%d_%H%M%S.mp4"))
+        path = os.path.join(vdir, time.strftime(f"scrub_{args.cam or 'view'}_%m%d_%H%M%S.mp4"))
         imageio.mimsave(path, [f for f in frames if f is not None], fps=int(round(1 / base.step_dt)))
         print(f"[play] video -> {path}", flush=True)
     sys.stdout.flush()
