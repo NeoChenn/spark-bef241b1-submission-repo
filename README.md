@@ -127,4 +127,4 @@ detect → spray → wait 30 s → scrub (PPO) → re-detect → paint → verif
 | `infra/` | Shared Modal image + volumes for training. |
 | `integration/INTERFACE.md` | Contract with the rig scene (prim paths, rust texture, robot). |
 
-Setup: `uv venv --python 3.11 .venv && uv pip install --python .venv modal torch numpy pytest`
+Setup: `uv sync` (tests: `uv run pytest`); add `--group train` for Modal training and data prep tools.
