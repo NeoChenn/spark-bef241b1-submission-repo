@@ -29,7 +29,7 @@ class Mat:
 
 MATERIALS = {
     "rail_yellow": Mat("Paint006", 2.0, (0.95, 0.78, 0.3), 0.0),
-    "crane_yellow": Mat("PaintedMetal009", 3.0, (1.0, 0.85, 0.45)),
+    "crane_yellow": Mat("Paint006", 2.0, (1.0, 0.72, 0.18), 0.0),
     "derrick_white": Mat("PaintedMetal010", 2.0, (0.9, 0.9, 0.88)),
     "pipe_orange": Mat("PaintedMetal008", 1.5),
     "tank_white": Mat("Paint004", 2.0, (0.8, 0.81, 0.79), 0.0),
@@ -37,7 +37,8 @@ MATERIALS = {
     "module_white": Mat("Paint004", 2.0, (0.82, 0.83, 0.8), 0.0),
     "module_blue": Mat("Paint004", 2.0, (0.2, 0.33, 0.45), 0.0),
     "module_grey": Mat("Paint004", 2.0, (0.45, 0.48, 0.49), 0.0),
-    "steel_grey": Mat("PaintedMetal014", 3.0, (0.8, 0.82, 0.84)),
+    "steel_grey": Mat("Paint004", 2.0, (0.5, 0.53, 0.55), 0.0),
+    "steel_weathered": Mat("PaintedMetal014", 3.0, (0.8, 0.82, 0.84)),
     "deck_plate": Mat("Asphalt031", 2.0, (0.42, 0.47, 0.44), 0.0),
     "deck_edge": Mat("MetalPlates010", 3.0, (0.85, 0.85, 0.83)),
     "underside": Mat("Metal053C", 3.0, (0.7, 0.7, 0.7)),
@@ -49,6 +50,7 @@ MATERIALS = {
 }
 
 MESH_SUFFIXES = (
+    ("legs_and_lower_deck_frame", "steel_weathered"), ("helideck_frame", "steel_weathered"),
     ("_rail", "rail_yellow"), ("crane_crane", "crane_yellow"), ("derrick_derrick", "derrick_white"),
     ("_pipe", "pipe_orange"), ("_tank", "tank_white"), ("_vessel", "vessel_blue"),
     ("_module_white", "module_white"), ("_module_blue", "module_blue"), ("_module_grey", "module_grey"),
@@ -300,14 +302,14 @@ def props() -> list[Prop]:
     out += _row("drum_mid", "nv_steel_drum", DRUM, (35.6, -24.0, mid), (0, 0.8, 0), 4)
     out += _row("lpg_mid", "small_lpg_tank", LPG, (35.6, -18.5, mid), (0, 0.55, 0), 5)
     out += _row("ibc_low", "nv_ibc_tank", IBC, (-21.0, -12.0, low), (0, 1.5, 0), 3)
-    out += _row("drum_low", "nv_steel_drum", DRUM, (-23.0, -12.0, low), (0, 0.8, 0), 5)
+    out += _row("drum_low", "nv_steel_drum", DRUM, (-23.0, -12.0, low), (0, 0.8, 0), 4)
     out += _row("drum_low_b", "Barrel_01", DRUM, (-23.9, -12.0, low), (0, 0.8, 0), 4)
-    out += _row("lpg_top", "small_lpg_tank", LPG, (-26.2, 6.0, top), (0, 0.55, 0), 6)
+    out += _row("lpg_top", "small_lpg_tank", LPG, (-24.6, 6.0, top), (0, 0.55, 0), 6)
     out += _row("ibc_top", "nv_ibc_tank", IBC, (-12.0, 9.0, top), (1.4, 0, 0), 3)
     out += [
         Prop("toolchest_0", "metal_tool_chest", (16.5, -14.0, low), (0.7, 0.5, 1.0)),
         Prop("toolcart_0", "tool_cart", (16.5, -16.0, low), (0.8, 0.5, 1.0)),
-        Prop("rack_0", "worn_metal_rack", (-22.5, 8.0, low), (1.8, 0.6, 2.0), 90.0),
+        Prop("rack_0", "worn_metal_rack", (-8.0, 22.6, low), (1.8, 0.6, 2.0)),
         Prop("eyewash_0", "nv_eyewash_shower", (-24.5, -16.0, low), (1.13, 0.38, 2.32), 90.0),
         Prop("fire_cabinet_0", "nv_fire_cabinet", (36.9, -12.0, mid), (1.22, 0.4, 1.46), 90.0),
         Prop("hydrant_0", "fire_hydrant", (-26.6, 12.5, top), (0.87, 0.32, 0.8), 90.0),

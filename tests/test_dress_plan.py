@@ -62,7 +62,7 @@ def test_top_deck_plate_edges_and_equipment_in_upper_structure():
 def test_slab_edges_of_lower_frame_are_deck_edges():
     tris = np.array(wall(0, 0, 10, 0, 30.0, 31.25) + wall(0, 0, 0, 10, 20.0, 30.0))
     labels = dp.classify_faces("legs_and_lower_deck_frame", tris)
-    assert list(labels) == ["deck_edge"] * 2 + ["steel_grey"] * 2
+    assert list(labels) == ["deck_edge"] * 2 + ["steel_weathered"] * 2
 
 
 def test_helideck_top_gets_markings():

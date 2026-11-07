@@ -104,6 +104,8 @@ class Looks:
             tex.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(rel(opacity_file))
             tex.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(reader.CreateOutput("result", Sdf.ValueTypeNames.Float2))
             tex.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("raw")
+            tex.CreateInput("wrapS", Sdf.ValueTypeNames.Token).Set("repeat")
+            tex.CreateInput("wrapT", Sdf.ValueTypeNames.Token).Set("clamp")
             channel = "a" if opacity_file.suffix == ".png" and "iso7010" in opacity_file.name else "r"
             if channel == "a":
                 shader.GetInput("diffuseColor").ConnectToSource(tex.CreateOutput("rgb", F3))
@@ -263,8 +265,8 @@ def add_flare(stage, looks) -> None:
         tube.CreateHeightAttr(float(np.linalg.norm(b - a)))
         tube.CreateAxisAttr("Z")
         bind(tube.GetPrim(), steel)
-    fire = looks.plain("flame", (0, 0, 0), 0.9, emissive=(9000.0, 3200.0, 700.0))
-    core = looks.plain("flame_core", (0, 0, 0), 0.9, emissive=(16000.0, 11000.0, 5000.0))
+    fire = looks.plain("flame", (0, 0, 0), 0.9, emissive=(1400.0, 420.0, 60.0))
+    core = looks.plain("flame_core", (0, 0, 0), 0.9, emissive=(2600.0, 1500.0, 450.0))
     for name, scale, material, lift in (("flame", (1.3, 1.3, 3.6), fire, 2.2), ("flame_core", (0.6, 0.6, 1.6), core, 0.8)):
         xf = xform_at(stage, f"{ROOT}/Flare/{name}", translate=(flame[0], flame[1], flame[2] + lift))
         xf.AddScaleOp().Set(Gf.Vec3f(*scale))
@@ -375,7 +377,7 @@ def add_props(stage, looks, cloud) -> None:
 def add_cameras(stage) -> None:
     shots = {
         "dress_mid": ((48.0, -46.0, 58.0), (8.0, 0.0, 44.0), 24.0),
-        "dress_walkway": ((-8.0, 2.5, 32.9), (30.0, 0.0, 32.4), 18.0),
+        "dress_walkway": ((12.0, 0.0, 21.7), (-25.0, -7.0, 20.8), 18.0),
         "dress_legs": ((-48.0, -44.0, 3.0), (-15.0, -15.0, 8.0), 24.0),
     }
     for name, (eye, target, focal) in shots.items():
