@@ -275,7 +275,9 @@ def worker(argv):
                 act = torch.tensor([[0.0, math.cos(th), math.sin(th), -1.0]], device=base.device)
                 state = ("DONE  retract brush", (120, 200, 255))
             else:
-                act, state = zero, ("DONE  segment clean", (120, 200, 255))
+                act = zero
+                state = (("DONE  segment clean", (120, 200, 255)) if frac < 0.01 else
+                         (f"DONE  {100 * frac:.0f} % residual flagged for touch-up", (255, 190, 60)))
                 if t > retract_at + 2.5:
                     break
             with torch.inference_mode():
