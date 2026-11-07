@@ -46,17 +46,18 @@ SMOOTH_ANGLE_COS = np.cos(np.radians(35.0))
 PLATE = "metal_plate"
 CLADDING = "box_profile_metal_sheet"
 CONCRETE = "concrete_floor_damaged_01"
+DENTS = "blue_metal_plate"
 PAINTS = {
     "deck": ((0.33, 0.37, 0.38), 0.6, 0.2, PLATE),
     "concrete": ((0.56, 0.55, 0.52), 0.8, 0.0, CONCRETE),
-    "frame": ((0.34, 0.38, 0.42), 0.5, 0.3, None),
+    "frame": ((0.34, 0.38, 0.42), 0.5, 0.3, DENTS),
     "rail": ((0.85, 0.6, 0.05), 0.45, 0.1, None),
     "crane": ((0.88, 0.55, 0.04), 0.4, 0.1, None),
     "derrick": ((0.8, 0.82, 0.83), 0.45, 0.2, None),
     "helideck": ((0.07, 0.25, 0.17), 0.65, 0.0, None),
     "pipe": ((0.72, 0.27, 0.06), 0.45, 0.2, None),
-    "tank": ((0.86, 0.88, 0.88), 0.35, 0.1, None),
-    "vessel": ((0.13, 0.28, 0.42), 0.4, 0.2, None),
+    "tank": ((0.86, 0.88, 0.88), 0.35, 0.1, DENTS),
+    "vessel": ((0.13, 0.28, 0.42), 0.4, 0.2, DENTS),
     "module_white": ((0.8, 0.82, 0.82), 0.5, 0.0, CLADDING),
     "module_blue": ((0.16, 0.33, 0.48), 0.5, 0.0, CLADDING),
     "module_grey": ((0.46, 0.49, 0.51), 0.55, 0.1, CLADDING),
@@ -65,18 +66,20 @@ TILE_METRES = {"deck": 2.5, "concrete": 6.0, "module_white": 4.0, "module_blue":
 WALL_TEXTURE = "worn_corrugated_iron"
 WALL_MATERIALS = ("module_white", "module_blue", "module_grey")
 SEA_TILE_METRES = 70.0
-# Sea haze. Saved in the scene so it applies when anyone opens the rig. Distances are in metres.
+SKY_ROTATION_DEG = 120.0
+# Sea haze, saved in the scene so it applies when anyone opens the rig. Distance fog stays at 0
+# because it also covers the sky and hides the clouds. Height fog clears as the view tilts up.
 HAZE_SETTINGS = {
     "rtx:fog:enabled": True,
     "rtx:fog:fogZup:enabled": True,
-    "rtx:fog:fogColor": Gf.Vec3f(0.55, 0.565, 0.585),
+    "rtx:fog:fogColor": Gf.Vec3f(0.66, 0.7, 0.75),
     "rtx:fog:fogColorIntensity": 1.0,
     "rtx:fog:fogStartHeight": 0.0,
-    "rtx:fog:fogHeightDensity": 0.0008,
-    "rtx:fog:fogHeightFalloff": 0.15,
+    "rtx:fog:fogHeightDensity": 0.006,
+    "rtx:fog:fogHeightFalloff": 0.12,
     "rtx:fog:fogStartDist": 150.0,
     "rtx:fog:fogEndDist": 2600.0,
-    "rtx:fog:fogDistanceDensity": 0.6,
+    "rtx:fog:fogDistanceDensity": 0.0,
 }
 FACADE_MIN_AREA = 300.0  # STL units squared, about 19 square metres
 MODULE_PAINTS = ("module_white", "module_blue", "module_grey")
@@ -313,9 +316,10 @@ def add_environment(stage):
     dome = UsdLux.DomeLight.Define(stage, "/World/Environment/sky")
     dome.CreateTextureFileAttr().Set(rel(GENERATED / "ocean_sky.hdr"))
     dome.CreateTextureFormatAttr().Set("latlong")
-    dome.CreateIntensityAttr(540.0)
+    dome.CreateIntensityAttr(480.0)
+    UsdGeom.Xformable(dome).AddRotateZOp().Set(SKY_ROTATION_DEG)
     sun = UsdLux.DistantLight.Define(stage, "/World/Environment/sun")
-    sun.CreateIntensityAttr(700.0)
+    sun.CreateIntensityAttr(1100.0)
     sun.CreateAngleAttr(2.0)
     sun.CreateColorAttr(Gf.Vec3f(1.0, 0.96, 0.9))
     UsdGeom.Xformable(sun).AddRotateXYZOp().Set(Gf.Vec3f(55, 15, 35))
@@ -358,6 +362,7 @@ def build_scene() -> dict:
     glass = builder.plain("window_glass", (0.03, 0.07, 0.1), 0.08, 0.6)
     helideck_center = None
     facade_faces = []
+    leg_faces = None
     inventory = {}
     used_names: set[str] = set()
     for part in range(parts.max() + 1):
@@ -378,6 +383,8 @@ def build_scene() -> dict:
             helideck_faces = tops[world[faces[tops]][:, :, 2].mean(1) > top_z - 0.05]
             top_points = world[faces[helideck_faces]].reshape(-1, 3)
             helideck_center = (top_points.min(0) + top_points.max(0)) / 2
+        if name == "legs_and_lower_deck":
+            leg_faces = part_faces[labels == "concrete"]
         if name in ("upper_structure", "legs_and_lower_deck"):
             facade_faces.append(part_faces[labels == "module_white"])
         for material_name in sorted(set(labels)):
@@ -392,6 +399,7 @@ def build_scene() -> dict:
     window_count = rig_details.add_facade_windows(builder, world[faces[facade]], face_normals[facade], glass)
     inspection_points = rig_details.add_process_area(builder, stage, args.seed)
     rig_details.add_props(builder)
+    rig_details.add_splash_zone(builder, world[faces[leg_faces]])
     rig_details.add_walkway_lines(builder, rig_details.PATROL_ROUTE)
     blocked = rig_details.route_blockages(world[faces], rig_details.PATROL_ROUTE)
 
