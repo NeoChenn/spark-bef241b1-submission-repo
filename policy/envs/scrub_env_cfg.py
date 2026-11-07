@@ -206,9 +206,9 @@ class ScrubLiftV2EnvCfg(ScrubLiftEnvCfg):
 
     def __post_init__(self):
         self.force_set_max = 38.0
-        self.w_over_force = 0.5
-        self.over_force_soft = 36.0
-        self.w_over_force_quad = 0.2
+        self.w_over_force = 1.0
+        self.over_force_soft = 32.0
+        self.w_over_force_quad = 2.0
         self.abrasion_coef_range = (0.5, 1.5)
         self.n_patches_range = (1, 4)
         self.yaw_range = (-0.1745, 0.1745)
