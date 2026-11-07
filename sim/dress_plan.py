@@ -139,7 +139,7 @@ def streak_mask(width: int = 512, height: int = 1024, seed: int = 0, count: int 
     for _ in range(count):
         x = int(rng.integers(width))
         w = int(rng.integers(1, 6))
-        length = rng.uniform(0.15, 0.95)
+        length = rng.uniform(0.3, 1.0)
         strength = rng.uniform(0.3, 1.0)
         fade = np.clip(1 - rows / length, 0, 1) ** 1.5 * strength
         mask[:, x:x + w] = np.maximum(mask[:, x:x + w], fade)

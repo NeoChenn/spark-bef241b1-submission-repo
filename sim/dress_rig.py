@@ -245,6 +245,7 @@ def add_lights(stage, looks) -> None:
                 shaping = UsdLux.ShapingAPI.Apply(lux.GetPrim())
                 shaping.CreateShapingConeAngleAttr(light.cone)
                 shaping.CreateShapingConeSoftnessAttr(0.3)
+        hide_from_camera(lux)
         lux.CreateIntensityAttr(light.intensity * args.lights)
         lux.CreateColorAttr(Gf.Vec3f(*light.color))
         if light.fixture == "flood":
@@ -252,6 +253,10 @@ def add_lights(stage, looks) -> None:
             x, y = light.pos[0], light.pos[1]
             box_mesh(stage, f"{ROOT}/Lights/{light.name}_pole", (x - 0.08, y - 0.08, deck),
                      (x + 0.08, y + 0.08, light.pos[2] - 0.3), pole_mat, collide=True)
+
+
+def hide_from_camera(light) -> None:
+    light.GetPrim().CreateAttribute("visibleInPrimaryRay", Sdf.ValueTypeNames.Bool).Set(False)
 
 
 def add_flare(stage, looks) -> None:
@@ -278,6 +283,7 @@ def add_flare(stage, looks) -> None:
     light = UsdLux.SphereLight.Define(stage, f"{ROOT}/Flare/light")
     light.AddTranslateOp().Set(Gf.Vec3d(flame[0], flame[1], flame[2] + 2.0))
     light.CreateRadiusAttr(1.2)
+    hide_from_camera(light)
     light.CreateIntensityAttr(1.5e5 * args.lights)
     light.CreateColorAttr(Gf.Vec3f(1.0, 0.5, 0.18))
 
@@ -295,7 +301,7 @@ def add_helideck_lamps(stage, looks) -> None:
 
 
 def add_windows(stage, looks) -> None:
-    lit = looks.plain("window_lit", (0.02, 0.02, 0.02), 0.1, emissive=(3000.0, 2100.0, 1250.0))
+    lit = looks.plain("window_lit", (0.02, 0.02, 0.02), 0.1, emissive=(1100.0, 700.0, 340.0))
     dark = looks.plain("window_dark", (0.015, 0.02, 0.025), 0.08, 0.2)
     frame = looks.plain("window_frame", (0.55, 0.57, 0.58), 0.5, 0.3)
     for i, w in enumerate(dp.windows()):
