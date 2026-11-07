@@ -8,7 +8,7 @@ from typing import Optional
 
 import numpy as np
 
-from detection.localize import _components, project_mask_to_grid
+from detection.localize import _components, pixel_to_theta_z, project_mask_to_grid
 from policy.interfaces import DecisionRecord
 from policy.skills.coverage import dilate
 from policy.skills.paint import PaintSkill
@@ -83,8 +83,15 @@ class Perceived:
 class Orchestrator:
     def __init__(self, bridge, perception, localizer, world, arm, scrub_policy,
                  config: OrchestratorConfig | None = None,
-                 spray: SpraySkill | None = None, paint: PaintSkill | None = None):
+                 spray: SpraySkill | None = None, paint: PaintSkill | None = None,
+                 advisor=None):
+        """``advisor``: optional second-opinion inspector (policy.gemini_verifier.GeminiVerifier). Consulted
+        only when DETECT stays ambiguous and before VERIFY paints over a "clean" pipe; None = no change."""
         self.bridge, self.perception, self.localizer = bridge, perception, localizer
+        self.advisor = advisor
+        self.advisor_last = None          # last GeminiVerdict (or None)
+        self.advisor_vetoes = 0
+        self.last_image: Optional[np.ndarray] = None
         self.world, self.arm, self.scrub_policy = world, arm, scrub_policy
         self.cfg = config or OrchestratorConfig()
         self.spray_skill = spray or SpraySkill()
@@ -154,6 +161,7 @@ class Orchestrator:
         img = self.perception.observe()
         if img is None or float(np.asarray(img, np.float32).std()) < self.cfg.occluded_std:
             return None
+        self.last_image = img
         res = self.localizer.localize(img)
         self.pipe = self.bridge.pipe()
         grid, vis, conf = project_mask_to_grid(res.mask, self.perception.camera(), self.pipe, res.prob_map)
@@ -232,6 +240,9 @@ class Orchestrator:
             if self.second_views < self.cfg.max_second_views:
                 return (S.SECOND_VIEW, f"ambiguous: {len(r.unsure_cells)} patches with p in [0.35,0.65] "
                         f"-> take view {self.second_views + 1}", self._evidence(unsure_cells=len(r.unsure_cells)))
+            decided = self._advisor_detect(p)
+            if decided:
+                return decided
             return (S.ESCALATE_TO_HUMAN, f"still ambiguous after {self.second_views} extra views -> ask human",
                     self._evidence(unsure_cells=len(r.unsure_cells), heatmap_max=round(r.max_conf, 3)))
         new = []
@@ -267,6 +278,62 @@ class Orchestrator:
         self.perception.request_view(self.view_idx)
         return (where, f"looks clean but weak evidence ({vis:.0%} visible, {unc:.0%} uncertain) "
                 f"-> re-verify from view {self.view_idx}", ev)
+
+    # ------------------------------------------------------------- second opinion (Gemini)
+    def _ask_advisor(self, question: str):
+        if self.advisor is None or self.last_image is None:
+            return None
+        verdict = self.advisor.verify(self.last_image, question)
+        self.advisor_last = verdict
+        return verdict
+
+    def _advisor_evidence(self, verdict, **extra) -> dict:
+        return self._evidence(gemini=verdict.summary() if verdict is not None else
+                              {"error": getattr(self.advisor, "last_error", None)}, **extra)
+
+    def _advisor_detect(self, p: Perceived):
+        """Detector still unsure after the extra views: ask the advisor before calling a human."""
+        verdict = self._ask_advisor("rust")
+        if verdict is None or not self.advisor.confident(verdict):
+            return None
+        if verdict.clean:
+            return (S.PATROL, f"Gemini second opinion: clean ({verdict.confidence:.2f}) - {verdict.reason[:60]}",
+                    self._advisor_evidence(verdict))
+        lo = self.localizer.unsure_band[0] if hasattr(self.localizer, "unsure_band") else 0.35
+        candidate = (p.conf >= lo) & p.visible
+        cells = set()
+        for x, y in verdict.points:
+            hit = pixel_to_theta_z((x, y), self.perception.camera(), self.pipe)
+            if hit is not None:
+                cells.add(tuple(int(v) for v in self.pipe.theta_z_to_cell(*hit)))
+        new = []
+        for comp in _components(candidate):
+            if len(comp) < self.cfg.new_patch_min_cells or (cells and not cells & set(comp)):
+                continue
+            m = np.zeros(self.pipe.shape, bool)
+            rows, cols = zip(*comp)
+            m[rows, cols] = True
+            new.append(self._register(m, p, "DETECT+GEMINI"))
+        if not new:
+            return None
+        self.rust_frac = 1.0
+        return (S.APPROACH, f"Gemini second opinion: rust ({verdict.confidence:.2f}) -> {len(new)} patch(es), "
+                f"{self.baseline_cells} cells", self._advisor_evidence(verdict, new_patches=[_pdesc(t) for t in new]))
+
+    def _advisor_verify(self, frac: float):
+        """About to paint: the advisor can veto a 'clean' verdict (at most twice per repair)."""
+        if self.advisor_vetoes >= 2:
+            return None
+        verdict = self._ask_advisor("clean")
+        if verdict is None or not self.advisor.confident(verdict) or not verdict.rust:
+            return None
+        self.advisor_vetoes += 1
+        ev = self._advisor_evidence(verdict)
+        if self.scrub_cycles >= self.cfg.max_scrub_cycles:
+            return (S.ESCALATE_TO_HUMAN, f"Gemini sees rust left ({verdict.confidence:.2f}) after "
+                    f"{self.scrub_cycles} cycles - {verdict.reason[:50]}", ev)
+        return (S.SCRUB, f"Gemini veto: detector says {frac:.1%} but rust still visible "
+                f"({verdict.confidence:.2f}) -> scrub again", ev)
 
     def _s_second_view(self):
         self.second_views += 1
@@ -362,6 +429,9 @@ class Orchestrator:
             weak = self._weak_clean(p, S.VERIFY)
             if weak:
                 return weak
+            veto = self._advisor_verify(frac)
+            if veto:
+                return veto
             self.verify_views = 0
             return S.PAINT, f"verified clean: {frac:.1%} rust left <= {self.cfg.verify_frac:.0%}", self._evidence()
         if self.scrub_cycles >= self.cfg.max_scrub_cycles:
@@ -443,6 +513,9 @@ def overlay_text(orch: "Orchestrator") -> list[str]:
              f"rust left: {rust}   det conf: {'--' if conf is None else f'{conf:.2f}'}",
              f"patches: {', '.join(f'#{k}' for k in orch.patches) or '-'}   force: {orch.arm.current_force():.0f} N",
              f"why: {orch.last_reason[:70]}"]
+    v = getattr(orch, "advisor_last", None)
+    if v is not None:
+        lines.append(f"gemini: {v.verdict} {v.confidence:.2f} ({v.latency_ms:.0f} ms) {v.reason[:48]}")
     return lines
 
 

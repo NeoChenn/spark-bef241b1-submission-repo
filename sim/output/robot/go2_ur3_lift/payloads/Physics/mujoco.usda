@@ -1,0 +1,307 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "URDF USD Converter v0.3.2"
+    }
+    defaultPrim = "go2_ur3_lift"
+    endTimeCode = 1000000
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    startTimeCode = 0
+    subLayers = [
+        @./physics.usda@
+    ]
+    upAxis = "Z"
+)
+
+over "go2_ur3_lift"
+{
+    over "Physics"
+    {
+        over "FL_hip_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "FL_thigh_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "FL_calf_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "FR_hip_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "FR_thigh_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "FR_calf_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "RL_hip_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "RL_thigh_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "RL_calf_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "RR_hip_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "RR_thigh_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "RR_calf_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "ur3_shoulder_pan_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "ur3_shoulder_lift_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "ur3_elbow_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "ur3_wrist_1_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "ur3_wrist_2_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "ur3_wrist_3_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        over "lift_joint" (
+            delete apiSchemas = ["PhysicsDriveAPI:linear", "PhysicsJointStateAPI:linear"]
+            prepend apiSchemas = ["MjcJointAPI"]
+        )
+        {
+        }
+
+        def MjcActuator "FL_hip_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 23.700000762939453
+            uniform double mjc:forceRange:min = -23.700000762939453
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/FL_hip_joint>
+        }
+
+        def MjcActuator "FL_thigh_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 23.700000762939453
+            uniform double mjc:forceRange:min = -23.700000762939453
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/FL_thigh_joint>
+        }
+
+        def MjcActuator "FL_calf_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 45.43000030517578
+            uniform double mjc:forceRange:min = -45.43000030517578
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/FL_calf_joint>
+        }
+
+        def MjcActuator "FR_hip_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 23.700000762939453
+            uniform double mjc:forceRange:min = -23.700000762939453
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/FR_hip_joint>
+        }
+
+        def MjcActuator "FR_thigh_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 23.700000762939453
+            uniform double mjc:forceRange:min = -23.700000762939453
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/FR_thigh_joint>
+        }
+
+        def MjcActuator "FR_calf_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 45.43000030517578
+            uniform double mjc:forceRange:min = -45.43000030517578
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/FR_calf_joint>
+        }
+
+        def MjcActuator "RL_hip_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 23.700000762939453
+            uniform double mjc:forceRange:min = -23.700000762939453
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/RL_hip_joint>
+        }
+
+        def MjcActuator "RL_thigh_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 23.700000762939453
+            uniform double mjc:forceRange:min = -23.700000762939453
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/RL_thigh_joint>
+        }
+
+        def MjcActuator "RL_calf_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 45.43000030517578
+            uniform double mjc:forceRange:min = -45.43000030517578
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/RL_calf_joint>
+        }
+
+        def MjcActuator "RR_hip_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 23.700000762939453
+            uniform double mjc:forceRange:min = -23.700000762939453
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/RR_hip_joint>
+        }
+
+        def MjcActuator "RR_thigh_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 23.700000762939453
+            uniform double mjc:forceRange:min = -23.700000762939453
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/RR_thigh_joint>
+        }
+
+        def MjcActuator "RR_calf_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 45.43000030517578
+            uniform double mjc:forceRange:min = -45.43000030517578
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/RR_calf_joint>
+        }
+
+        def MjcActuator "ur3_shoulder_pan_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 330
+            uniform double mjc:forceRange:min = -330
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/ur3_shoulder_pan_joint>
+        }
+
+        def MjcActuator "ur3_shoulder_lift_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 330
+            uniform double mjc:forceRange:min = -330
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/ur3_shoulder_lift_joint>
+        }
+
+        def MjcActuator "ur3_elbow_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 150
+            uniform double mjc:forceRange:min = -150
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/ur3_elbow_joint>
+        }
+
+        def MjcActuator "ur3_wrist_1_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 54
+            uniform double mjc:forceRange:min = -54
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/ur3_wrist_1_joint>
+        }
+
+        def MjcActuator "ur3_wrist_2_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 54
+            uniform double mjc:forceRange:min = -54
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/ur3_wrist_2_joint>
+        }
+
+        def MjcActuator "ur3_wrist_3_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 54
+            uniform double mjc:forceRange:min = -54
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/ur3_wrist_3_joint>
+        }
+
+        def MjcActuator "lift_joint_actuator"
+        {
+            uniform double mjc:forceRange:max = 1000
+            uniform double mjc:forceRange:min = -1000
+            custom rel mjc:target
+            append rel mjc:target = </go2_ur3_lift/Physics/lift_joint>
+        }
+    }
+}
+
