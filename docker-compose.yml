@@ -28,6 +28,7 @@ services:
     command: ["/rig/rig/sim/main.py", "--sim", "127.0.0.1:9000"]
     volumes:
       - ./rig:/rig/rig:ro
+      - ./sim:/rig/sim:ro
       - ./logs:/logs
       - rig-isaac-cache-main:/isaac-sim/.cache
       - rig-isaac-cache-compute:/isaac-sim/.nv/ComputeCache
