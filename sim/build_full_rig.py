@@ -62,9 +62,13 @@ PAINTS = {
     "module_blue": ((0.16, 0.33, 0.48), 0.5, 0.0, CLADDING),
     "module_grey": ((0.46, 0.49, 0.51), 0.55, 0.1, CLADDING),
 }
-TILE_METRES = {"deck": 2.5, "concrete": 6.0, "module_white": 4.0, "module_blue": 4.0, "module_grey": 4.0}
-WALL_TEXTURE = "worn_corrugated_iron"
-WALL_MATERIALS = ("module_white", "module_blue", "module_grey")
+TILE_METRES = {"deck": 2.5, "concrete": 5.0, "module_white": 4.0, "module_blue": 4.0, "module_grey": 4.0}
+FULL_TEXTURES = {
+    "module_white": "worn_corrugated_iron",
+    "module_blue": "worn_corrugated_iron",
+    "module_grey": "worn_corrugated_iron",
+    "concrete": "Concrete042C",
+}
 SEA_TILE_METRES = 70.0
 SKY_ROTATION_DEG = 120.0
 # Sea haze, saved in the scene so it applies when anyone opens the rig. Distance fog stays at 0
@@ -222,8 +226,8 @@ class Materials:
             material, shader, st = self._base(name)
             color, roughness, metallic, relief = PAINTS[name]
             shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(metallic)
-            if name in WALL_MATERIALS:
-                folder = ASSETS / "textures" / WALL_TEXTURE
+            if name in FULL_TEXTURES:
+                folder = ASSETS / "textures" / FULL_TEXTURES[name]
                 diffuse = self._texture(material, st, folder / "diff.jpg", "diff", "sRGB")
                 shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
                     diffuse.CreateOutput("rgb", Sdf.ValueTypeNames.Float3)
