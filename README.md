@@ -14,7 +14,8 @@ sources and the items still to verify.
 | Safety supervisor (`flange_robot/safety.py`) | Done, unit-tested. Deterministic rules, not learned. |
 | Decision log / perception receipts (`decision_log.py`) | Done. JSONL, one event per decision and per Gemini call. |
 | Gemini wrapper (`gemini_client.py`) | Written and unit-tested with a fake backend. **Live call path untested: no key yet.** |
-| MuJoCo environment (`env.py`) | **Skeleton.** One flange, 8 bolts, a point-mass robot, scene-change hooks. No arm, no reward. |
+| MuJoCo environment (`env.py`) | **Skeleton.** One flange, 8 bolts, a point-mass robot, scene-change hooks. No arm, no reward. Kept as a fast test and training twin. |
+| Isaac Sim on Modal (`isaac/`) | **Written, never run.** Render pipeline adapted from the organisers' example. Run the smoke test first. This is the demo and video world. |
 | Policy (PPO) | Not started. Needs a reward, a training env and a greedy baseline to beat. |
 | Perception model | Not started. Currently the env returns noisy readings directly. |
 | Console UI, video, technical summary | Not started. |
@@ -49,6 +50,7 @@ flange_robot/
   decision_log.py   append-only JSONL evidence log
   gemini_client.py  slow-path reasoning with retries, rate guard, logging, local fallback
   env.py            MuJoCo skeleton with live scene-change hooks
+isaac/              Isaac Sim on Modal: image, render script (see isaac/README.md)
 tests/              24 tests, all passing
 docs/               problem statement
 ```

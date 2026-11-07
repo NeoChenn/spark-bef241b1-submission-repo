@@ -49,6 +49,13 @@ Refusing hot work is a deliberate "what it cannot do" moment for the pitch.
 
 The cans must be detected through the simulated sensor. Reading object positions from the physics engine would break "every decision traces to what it perceived."
 
+## Simulator decision
+
+The team chose **Isaac Sim on Modal** (L40S) for the demo and video world. See `isaac/README.md`. Trade-offs to accept knowingly:
+- Slow iteration: the first build takes 10+ minutes, and there is no live GUI, only saved frames turned into video.
+- The brief asks for a video "captured from the stream" with one unscripted change in a single continuous take. **Ask the organisers whether stitched frames qualify.** A live scene-change trigger may be hard over Modal.
+- The MuJoCo environment stays as a fast twin for tests and policy training. The policy's observation and action layout must be identical in both worlds, and the contract should be written down once.
+
 ## Embodiment decision
 
 - **Target:** a quadruped with an arm and gripper. MuJoCo Menagerie lists Boston Dynamics Spot with 19 degrees of freedom, consistent with 12 leg joints plus a 7-joint arm and gripper **[verify by opening the model]**. Unitree Go2 and ANYmal are also there. Unitree Z1 is a separate arm that could be mounted on Go2 with extra work.
