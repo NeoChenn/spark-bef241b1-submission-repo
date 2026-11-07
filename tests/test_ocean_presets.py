@@ -10,9 +10,9 @@ ASSETS = Path(__file__).resolve().parents[1] / "sim" / "assets"
 
 def test_required_presets_exist_and_use_fetched_skies():
     manifest = json.loads((ASSETS / "ocean_manifest.json").read_text())
-    assert {"clear", "golden", "overcast"} <= set(PRESETS)
+    assert {"clear", "golden", "overcast", "mood"} <= set(PRESETS)
     for p in PRESETS.values():
-        assert p.hdri in manifest["hdris"]
+        assert p.sky is not None or p.hdri in manifest["hdris"]
         assert p.dome_intensity > 0 and p.wind_speed > 0
         assert "/rtx/post/motionblur/enabled" in render_settings(p)
 

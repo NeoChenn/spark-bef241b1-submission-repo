@@ -34,6 +34,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--warmup", type=int, default=60)
     p.add_argument("--view", action="append", default=[],
                    help="extra shot name:x,y,z:x,y,z[:focal], saved as <out stem>_<name>.png; repeatable")
+    p.add_argument("--variant", action="append", default=[],
+                   help="carb settings 'key=json~key=json' applied cumulatively, re-rendering all shots as _v<i>")
     p.add_argument("--timing-frames", type=int, default=0, help="also time N animated frames")
     p.add_argument("--timing-spp", default="", help="comma list of subframe counts to time (default --spp)")
     p.add_argument("--set", action="append", default=[], help="extra carb setting key=json, repeatable")
@@ -149,10 +151,15 @@ def main() -> None:
     stem, ext = os.path.splitext(args.out)
     shots = [("", args.camera, args.target, args.focal)] + [parse_view(v) for v in args.view]
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
-    for name, eye, target, focal in shots:
+    variants = [("", "")] + [(f"v{i}", v) for i, v in enumerate(args.variant)]
+    for (vname, vset), (name, eye, target, focal) in [(v, s) for v in variants for s in shots]:
+        for item in filter(None, vset.split("~")):
+            key, value = item.split("=", 1)
+            settings.set(key, json.loads(value))
+        name = "_".join(filter(None, [name, vname]))
         aim_camera(stage, eye, target, focal)
         env.update(args.time, camera=eye)
-        for _ in range(4 if name else 0):
+        for _ in range(8 if name else 0):
             app.update()
         t0 = time.monotonic()
         rep.orchestrator.step(rt_subframes=args.spp, pause_timeline=False)
