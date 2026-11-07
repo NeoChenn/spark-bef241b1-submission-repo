@@ -82,18 +82,18 @@ def is_walkable(name: str, up_fraction: float, min_up_area: float = 4.0, up_area
 
 
 def preview_cameras(lo: list[float], hi: list[float]) -> dict[str, dict]:
-    """A wide three-quarter shot of the whole model and an eye-level shot from a deck corner (deck at z = 0)."""
+    """A wide three-quarter shot of the whole model and an eye-level shot from just off a deck corner (deck at z = 0)."""
     centre = [(a + b) / 2.0 for a, b in zip(lo, hi)]
     size = [b - a for a, b in zip(lo, hi)]
-    distance = 1.7 * math.dist(lo, hi)
+    distance = 2.2 * math.dist(lo, hi)
     az, el = math.radians(-50.0), math.radians(16.0)
     wide_eye = [
         centre[0] + distance * math.cos(el) * math.cos(az),
         centre[1] + distance * math.cos(el) * math.sin(az),
         centre[2] + distance * math.sin(el),
     ]
-    deck_eye = [centre[0] + 0.38 * size[0], centre[1] - 0.38 * size[1], 1.7]
-    deck_target = [centre[0] - 0.2 * size[0], centre[1] + 0.1 * size[1], 1.7 + 0.08 * max(size[0], size[1])]
+    deck_eye = [centre[0] + 0.62 * size[0], centre[1] - 0.62 * size[1], 1.7]
+    deck_target = [centre[0], centre[1], 1.7 + 0.12 * max(size[0], size[1])]
     return {
         "wide": {"eye": wide_eye, "target": centre, "focal": 24.0},
         "deck": {"eye": deck_eye, "target": deck_target, "focal": 16.0},

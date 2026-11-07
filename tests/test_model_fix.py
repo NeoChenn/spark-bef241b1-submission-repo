@@ -197,7 +197,7 @@ def test_preview_cameras_deck_shot_stands_on_deck():
     cams = preview_cameras([-30.0, -20.0, -40.0], [30.0, 20.0, 50.0])
     eye, target = cams["deck"]["eye"], cams["deck"]["target"]
     assert eye[2] == pytest.approx(1.7)
-    assert abs(eye[0]) < 30.0 and abs(eye[1]) < 20.0
+    assert abs(eye[0]) < 60.0 and abs(eye[1]) < 40.0
     assert target[2] > eye[2]
 
 
