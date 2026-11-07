@@ -116,10 +116,14 @@ Built on CPU and tested against the mock; **nothing here has run inside Isaac Si
   it adds `GAS_CHECK, LEAK_APPROACH, LEAK_INSPECT, LEAK_SECOND_VIEW, RETORQUE, LEAK_VERIFY, GAS_RETREAT`. Gas is checked
   before every step and every scrub step: at or above 0.20 LEL (or a failed sensor) means `GAS_RETREAT` from any state;
   above 0.05 during rust work pauses it, fixes or escalates the leak, then resumes. With `leak=None` it is the rust robot.
-* **Perception:** `detection/leak.py` `LeakLocalizer.read(rgb, camera, flange)`. Stripe angles come from pixels (red
-  stripe on each bolt head against its expected direction). Cracks use the rust-style sliding-window classifier,
-  `LeakLocalizer.from_checkpoint("/ckpt/leak_detector/best")` (same `model.onnx` + `meta.json` layout). Until a model is
-  trained it uses `fake_crack_classifier`, which only works on the mock's renders.
+* **Perception (no ML by default):** `detection/leak.py` `LeakLocalizer.read(rgb, camera, flange)`, same flow as rust
+  (evidence -> calibrated probability -> threshold -> unsure band -> another view). Stripe angles come from pixels (red
+  stripe on each bolt head against its expected direction). Cracks: the longest thin dark shape on the flange face,
+  scored by its length in mm. If the view is too poor to read the stripes cleanly (`view_quality` < 0.85), "no crack"
+  becomes "unsure", so a dirty lens never yields a silent all-clear. On held-out mock renders at 640x360 / 1.0-1.25 m:
+  every crack flagged or reported unsure, no false alarms (`python -m detection.eval_leak_sim`).
+  Optional ML path, only if the classical check fails on real Isaac frames: `LeakLocalizer.from_checkpoint(dir)` uses
+  the rust detector's `model.onnx` + `meta.json` layout, trained with `detection/train_leak.py` (the team's trainer).
 * **Scene:** `python sim/build_leak_flanges.py` writes `sim/output/leak_flanges.usda` (a bolted flange with torque
   stripes beside each of the 6 valves), `full_rig_leak.usda` (that layer over `full_rig.usda`: **open this one**) and
   `leak_flanges_meta.json`. Placement is a guess from the valve positions: check it visually.

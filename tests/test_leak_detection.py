@@ -84,3 +84,47 @@ def test_from_checkpoint_uses_the_same_layout_as_the_rust_detector(tmp_path):
     assert loc.threshold == 0.6 and loc.temperature == 1.5
     r = loc.read(render_flange(cam(), state()), cam(), G)
     assert r.n_windows > 0 and 0.0 <= r.crack_prob <= 1.0
+
+
+# ------------------------------------------------------------- classical crack check at the Isaac camera setup
+def isaac_cam(view, distance, rng):
+    from detection.prepare_leak_data import _camera
+    return _camera(G, view, distance, rng)
+
+
+def test_classical_crack_check_never_misses_silently_and_never_false_alarms():
+    """At 640x360 / 1.0-1.25 m, over crack severity, dust and glare: a crack is either flagged or reported unsure
+    (never 'no crack'), and a clean flange is never flagged."""
+    loc = LeakLocalizer()                       # classical: no ML
+    rng = np.random.default_rng(11)
+    flagged = 0
+    for sev in (0.0, 0.05, 0.3):
+        for dust in (0.0, 0.2, 0.4):
+            for glare in (False, True):
+                s = state(np.zeros(8), crack=sev)
+                for b in rng.choice(8, 2, replace=False):
+                    s.angles[b] = rng.uniform(-0.2, 0.2)
+                cam = isaac_cam(int(rng.integers(0, 3)), float(rng.uniform(1.0, 1.25)), rng)
+                r = loc.read(render_flange(cam, s, dust=dust, glare=glare, crack_seed=int(rng.integers(0, 9999))),
+                             cam, G)
+                hit = r.crack_prob >= loc.threshold
+                if sev > 0:
+                    assert hit or r.crack_unsure, (sev, dust, glare)
+                    flagged += hit
+                else:
+                    assert not hit, (dust, glare)
+    assert flagged >= 6                         # and on a clean lens it really finds them
+
+
+def test_a_dirty_view_cannot_say_no_crack():
+    loc = LeakLocalizer()
+    clean = loc.read(render_flange(cam(), state(np.zeros(8)), dust=0.0), cam(), G)
+    dirty = loc.read(render_flange(cam(), state(np.zeros(8)), dust=0.35), cam(), G)
+    assert not clean.crack_unsure and clean.view_quality > 0.85
+    assert dirty.crack_unsure and dirty.view_quality < 0.85
+
+
+def test_window_classifier_path_is_still_available():
+    loc = LeakLocalizer(fake_crack_classifier)
+    r = loc.read(render_flange(cam(), state(np.zeros(8), crack=0.3)), cam(), G)
+    assert r.n_windows > 0 and r.crack_prob >= 0.5

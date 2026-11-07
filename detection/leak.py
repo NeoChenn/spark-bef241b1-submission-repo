@@ -1,9 +1,14 @@
 """Leak perception from the wrist camera: torque-stripe reader + crack patch classifier.
 
-Same process as rust (detection/localize.py):
-  * CRACK: a sliding window over the flange face, every patch scored by a pluggable binary classifier
-    (an ONNX model from /ckpt/leak_detector/best in production, a hand-written fake in tests and the mock),
-    then temperature-scaled, thresholded, with an "unsure" probability band that triggers another view.
+Same flow as rust (detection/localize.py): evidence -> calibrated probability -> threshold -> "unsure" band
+that triggers another view. No machine learning by default:
+  * CRACK (default, classical): on the flange face only (bore, rim, bolt heads and red stripes masked out),
+    find thin dark structures (pixels much darker than their local median), group them into connected shapes,
+    and score the longest thin one by its length in millimetres on the flange (so the score does not depend on
+    camera distance). A sigmoid turns that length into a probability.
+  * CRACK (optional, ML): pass a patch classifier, or ``from_checkpoint()`` for an ONNX model in the rust
+    detector's layout, to score sliding windows over the face instead. Use this only if the classical check
+    proves not good enough on Isaac frames (detection/train_leak.py trains one with the team's trainer).
   * BOLTS: each bolt head is located by projecting the known flange geometry into the image (like
     project_mask_to_grid uses the known pipe). The red torque stripe on the head is segmented and its
     direction compared with where it should point. The angle between them is how far the bolt has turned.
@@ -12,8 +17,9 @@ Geometry objects are duck-typed (center, normal, ref, binormal, bolt_circle, hea
 outer_radius, n_bolts, radial(k, extra), bolt_center(k)), see policy/leak/geometry.py, so this module has no
 dependency on the policy package beyond that shape.
 
-HONEST STATUS: the stripe reader is classical image processing, not a learned model. The fake crack
-classifier only works on the mock renderer's images. A trained crack model is the planned replacement.
+HONEST STATUS: both checks are classical image processing tuned on the mock renderer's images. Isaac frames
+will have lighting, shadows and materials the mock does not; re-check with detection/eval_leak_sim.py style
+tests on real stream frames before trusting the thresholds.
 """
 from __future__ import annotations
 
@@ -46,12 +52,13 @@ class LeakReading:
     n_windows: int
     threshold: float = 0.5
     heat: list = field(default_factory=list)   # (x, y, prob) per window, for the HUD/debug
+    view_quality: float = 1.0                  # mean stripe-reading confidence: how clearly this frame sees the flange
 
     def summary(self) -> dict:
         seen = [b for b in self.bolts if b.angle is not None]
         return {"bolts_read": len(seen), "max_abs_angle": round(max((abs(b.angle) for b in seen), default=0.0), 3),
                 "crack_prob": round(self.crack_prob, 3), "crack_unsure": self.crack_unsure,
-                "crack_windows": self.crack_windows}
+                "crack_windows": self.crack_windows, "view_quality": round(self.view_quality, 2)}
 
 
 def _project(camera, pts):
@@ -77,14 +84,21 @@ def fake_crack_classifier(patches: np.ndarray) -> np.ndarray:
 
 
 class LeakLocalizer:
-    def __init__(self, crack_classifier: PatchClassifier = fake_crack_classifier, patch: int = 32, stride: int = 16,
+    def __init__(self, crack_classifier: Optional[PatchClassifier] = None, patch: int = 32, stride: int = 16,
                  threshold: float = 0.5, temperature: float = 1.0,
-                 unsure_band: tuple[float, float] = (UNSURE_LO, UNSURE_HI), min_coverage: float = 0.9):
-        self.classifier = crack_classifier
+                 unsure_band: tuple[float, float] = (UNSURE_LO, UNSURE_HI), min_coverage: float = 0.9,
+                 line_contrast: float = 30.0, max_width_mm: float = 6.0, crack_len_mm: float = 12.0,
+                 crack_len_scale_mm: float = 3.0, clear_view: float = 0.85):
+        self.classifier = crack_classifier          # None = classical line detector
         self.patch, self.stride = int(patch), int(stride)
         self.threshold, self.temperature = float(threshold), float(temperature)
         self.unsure_band = unsure_band
         self.min_coverage = min_coverage
+        self.line_contrast = line_contrast          # grey levels darker than the local median
+        self.max_width_mm = max_width_mm            # wider than this is a shadow or an edge, not a crack
+        self.crack_len_mm = crack_len_mm            # length at which p = 0.5
+        self.crack_len_scale_mm = crack_len_scale_mm
+        self.clear_view = clear_view                # below this view quality, "no crack" is not trusted
 
     @classmethod
     def from_checkpoint(cls, ckpt_dir: str = "/ckpt/leak_detector/best", **kw) -> "LeakLocalizer":
@@ -101,8 +115,15 @@ class LeakLocalizer:
     def read(self, image: np.ndarray, camera, flange) -> LeakReading:
         img = np.ascontiguousarray(np.asarray(image)[..., :3]).astype(np.uint8)
         bolts = [self._bolt(img, camera, flange, k) for k in range(flange.n_bolts)]
-        prob, unsure, hot, n, heat = self._crack(img, camera, flange)
-        return LeakReading(bolts, prob, unsure, hot, n, self.threshold, heat)
+        crack = self._crack if self.classifier is not None else self._crack_lines
+        prob, unsure, hot, n, heat = crack(img, camera, flange)
+        # A blurred or hazed view hides cracks before it hides the stripes. If the stripes do not read cleanly,
+        # "no crack" only means "none visible": report unsure, so the robot takes another view or asks a human.
+        seen = [b.conf for b in bolts if b.angle is not None]
+        quality = float(np.mean(seen)) if seen else 0.0
+        if prob < self.threshold and quality < self.clear_view:
+            unsure = True
+        return LeakReading(bolts, prob, unsure, hot, n, self.threshold, heat, quality)
 
     # -- bolts -------------------------------------------------------------------
     def _bolt(self, img, camera, flange, k) -> BoltReading:
@@ -143,7 +164,7 @@ class LeakLocalizer:
         return BoltReading(k, angle, float(conf), (cx, cy), n_red)
 
     # -- crack -------------------------------------------------------------------
-    def face_mask(self, camera, flange, shape) -> np.ndarray:
+    def face_mask(self, camera, flange, shape, bolt_clear: float = 2.3) -> np.ndarray:
         """Pixels showing the flange face itself (not the bore, not bolts or their stripes, not off the edge)."""
         H, W = shape
         o, d = pixel_rays(camera)
@@ -158,7 +179,7 @@ class LeakLocalizer:
         on_face = flange.center + 0.0 * n
         for k in range(flange.n_bolts):
             b = on_face + flange.bolt_circle * flange.radial(k)
-            m &= np.linalg.norm(P - b, axis=-1) >= 2.3 * flange.head_radius
+            m &= np.linalg.norm(P - b, axis=-1) >= bolt_clear * flange.head_radius
         return m[:H, :W]
 
     def _crack(self, img, camera, flange):
@@ -178,3 +199,40 @@ class LeakLocalizer:
         unsure = hot == 0 and bool(((heat >= lo) & (heat <= hi)).any())
         cells = [(x + p / 2, y + p / 2, float(h)) for (y, x), h in zip(keep, heat)]
         return float(heat.max()), unsure, hot, len(keep), cells
+
+    def _crack_lines(self, img, camera, flange):
+        """Classical crack check: longest thin dark shape on the flange face, scored by its length in mm."""
+        from scipy import ndimage
+
+        H, W = img.shape[:2]
+        face = self.face_mask(camera, flange, (H, W), bolt_clear=1.4)
+        R, G, B = (img[..., i].astype(np.float32) for i in range(3))
+        red = (R > 110) & (R > 1.5 * G) & (R > 1.5 * B)
+        face &= ~ndimage.binary_dilation(red, iterations=3)          # torque stripes are not cracks
+        face = ndimage.binary_erosion(face, iterations=2)            # keep clear of the mask's own edges
+        if not face.any():
+            return 0.0, False, 0, 0, []
+        gray = img.astype(np.float32).mean(axis=-1)
+        dark = ((ndimage.median_filter(gray, size=11) - gray) > self.line_contrast) & face
+        lab, n = ndimage.label(dark, structure=np.ones((3, 3)))
+        (c0, c1), _ = _project(camera, np.stack([flange.center, flange.center + 0.01 * flange.ref]))
+        px_per_mm = float(np.linalg.norm(c1 - c0)) / 10.0
+        best, hits, cells = 0.0, 0, []
+        for i, sl in enumerate(ndimage.find_objects(lab), start=1):
+            ys, xs = np.nonzero(lab[sl] == i)
+            if len(ys) < 6:
+                continue
+            pts = np.stack([xs, ys], 1).astype(np.float64)
+            evals = np.linalg.eigvalsh(np.cov(pts.T) + 1e-9 * np.eye(2))
+            length_px = math.sqrt(12.0 * max(evals[1], 0.0))
+            width_px = len(ys) / max(length_px, 1.0)
+            if width_px / px_per_mm > self.max_width_mm:
+                continue
+            length_mm = length_px / px_per_mm
+            p = float(_sigmoid((length_mm - self.crack_len_mm) / self.crack_len_scale_mm))
+            cells.append((float(sl[1].start + xs.mean()), float(sl[0].start + ys.mean()), p))
+            hits += int(p >= self.threshold)
+            best = max(best, p)
+        lo, hi = self.unsure_band
+        unsure = hits == 0 and lo <= best <= hi
+        return best, unsure, hits, len(cells), cells
