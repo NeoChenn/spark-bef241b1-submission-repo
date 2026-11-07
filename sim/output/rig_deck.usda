@@ -8083,7 +8083,7 @@ def Xform "World"
         def DomeLight "sky"
         {
             float inputs:intensity = 1100
-            asset inputs:texture:file = @../assets/third_party/hdris/gray_pier.hdr@
+            asset inputs:texture:file = @../assets/third_party/hdris/aristea_wreck.hdr@
             token inputs:texture:format = "latlong"
         }
 

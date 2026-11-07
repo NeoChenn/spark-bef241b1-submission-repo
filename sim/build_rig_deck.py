@@ -23,7 +23,7 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser(description="Build the rig deck scene.")
 parser.add_argument("--seed", type=int, default=7, help="controls the damage position and shape")
-parser.add_argument("--hdri", default="gray_pier", help="sky name from sim/assets/manifest.json")
+parser.add_argument("--hdri", default="aristea_wreck", help="sky name from sim/assets/manifest.json")
 parser.add_argument("--robots", action="store_true", help="add two stand-in robots (needs internet)")
 parser.add_argument("--no-render", action="store_true", help="write the scene without previews")
 parser.add_argument("--width", type=int, default=1280)
