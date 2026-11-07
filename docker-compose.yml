@@ -1,0 +1,22 @@
+name: rig
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    image: rig-web
+    network_mode: host
+    environment:
+      SIM_HOST: "127.0.0.1"
+      SIM_PORT: "9000"
+    restart: unless-stopped
+
+  tunnel:
+    profiles: ["public"]
+    image: cloudflare/cloudflared:2026.9.3
+    command: tunnel --no-autoupdate run
+    network_mode: host
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    restart: unless-stopped
