@@ -32,7 +32,7 @@ MATERIALS = {
     "crane_yellow": Mat("PaintedMetal009", 3.0, (1.0, 0.85, 0.45)),
     "derrick_white": Mat("PaintedMetal010", 2.0, (0.9, 0.9, 0.88)),
     "pipe_orange": Mat("PaintedMetal008", 1.5),
-    "tank_white": Mat("PaintedMetal010", 4.0),
+    "tank_white": Mat("Paint004", 2.0, (0.8, 0.81, 0.79), 0.0),
     "vessel_blue": Mat("PaintedMetal014", 2.0, (0.55, 0.7, 0.85)),
     "module_white": Mat("Paint004", 2.0, (0.82, 0.83, 0.8), 0.0),
     "module_blue": Mat("Paint004", 2.0, (0.2, 0.33, 0.45), 0.0),
@@ -42,7 +42,7 @@ MATERIALS = {
     "deck_edge": Mat("MetalPlates010", 3.0, (0.85, 0.85, 0.83)),
     "underside": Mat("Metal053C", 3.0, (0.7, 0.7, 0.7)),
     "grating": Mat("MetalWalkway004", 0.75),
-    "concrete_leg": Mat("Concrete042C", 4.0, (0.8, 0.8, 0.78), 0.0),
+    "concrete_leg": Mat("Concrete034", 3.0, (0.62, 0.62, 0.6), 0.0),
     "helideck": Mat("Asphalt031", 2.0, None, 0.0),
     "container_green": Mat("container_side", 1.0),
     "container_blue": Mat("container_side", 1.0, (0.55, 0.75, 1.0)),
@@ -208,27 +208,27 @@ FLOOD_TARGET = (5.0, 0.0, DECK_TOPS[2])
 def lights() -> list[Light]:
     out = []
     for i, (x, y) in enumerate((x, y) for x in (-17.0, -6.0, 6.0, 17.0) for y in (-33.0, -18.0, -3.0, 12.0)):
-        out.append(Light(f"lower_ceiling_{i}", "rect", (x, y, DECK_TOPS[1] - SLAB - 0.12), SODIUM, 4.0e4,
+        out.append(Light(f"lower_ceiling_{i}", "rect", (x, y, DECK_TOPS[1] - SLAB - 0.12), SODIUM, 3.0e5,
                          (x, y, 0.0), (1.2, 0.35), fixture="ceiling"))
     middle = [(x, y) for x in (-17.0, -4.0, 9.0, 22.0, 33.0) for y in (-21.0, -6.0, 8.0, 21.0)]
     for i, (x, y) in enumerate(p for p in middle if p != (-17.0, 21.0)):
-        out.append(Light(f"middle_ceiling_{i}", "rect", (x, y, DECK_TOPS[2] - SLAB - 0.12), LED, 3.5e4,
+        out.append(Light(f"middle_ceiling_{i}", "rect", (x, y, DECK_TOPS[2] - SLAB - 0.12), LED, 2.5e5,
                          (x, y, 0.0), (1.2, 0.35), fixture="ceiling"))
     floods = [(-26.8, 26.6), (36.8, 26.6), (36.8, -9.5), (-3.0, 26.6), (11.6, -26.8), (36.8, 10.0)]
     for i, (x, y) in enumerate(floods):
-        out.append(Light(f"top_flood_{i}", "rect", (x, y, DECK_TOPS[2] + 7.0), LED, 2.5e5, FLOOD_TARGET,
+        out.append(Light(f"top_flood_{i}", "rect", (x, y, DECK_TOPS[2] + 7.0), LED, 2.0e6, FLOOD_TARGET,
                          (0.6, 0.4), cone=55.0, fixture="flood"))
-    out.append(Light("laydown_flood", "rect", (36.8, -38.4, DECK_TOPS[1] + 7.0), SODIUM, 2.0e5,
+    out.append(Light("laydown_flood", "rect", (36.8, -38.4, DECK_TOPS[1] + 7.0), SODIUM, 1.5e6,
                      (30.0, -28.0, DECK_TOPS[1]), (0.6, 0.4), cone=55.0, fixture="flood"))
     hx, hy = HELIDECK_CENTRE
     for i, a in enumerate((30.0, 150.0, 270.0)):
         x = hx + (HELIDECK_RADIUS + 0.4) * math.cos(math.radians(a))
         y = hy + (HELIDECK_RADIUS + 0.4) * math.sin(math.radians(a))
-        out.append(Light(f"helideck_flood_{i}", "rect", (x, y, HELIDECK_TOP + 0.5), (1.0, 0.95, 0.85), 6.0e4,
+        out.append(Light(f"helideck_flood_{i}", "rect", (x, y, HELIDECK_TOP + 0.5), (1.0, 0.95, 0.85), 4.0e5,
                          (hx, hy, HELIDECK_TOP), (0.5, 0.2), cone=70.0, fixture="flood"))
     for name, pos in (("derrick", (20.0, 20.0, 81.7)), ("crane", (34.6, -4.5, 51.6)),
                       ("living_quarters", (-11.8, 20.6, 41.6)), ("derrick_mid", (15.2, 15.2, 62.0))):
-        out.append(Light(f"aviation_{name}", "sphere", pos, RED, 1.5e5, size=(0.12, 0.12), fixture="beacon"))
+        out.append(Light(f"aviation_{name}", "sphere", pos, RED, 6.0e5, size=(0.2, 0.2), fixture="beacon"))
     return out
 
 
