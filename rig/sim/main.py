@@ -127,7 +127,7 @@ def main() -> None:
         tickers.append(orbit_update)
     env = load_environment(stage, args.env, args.sea_level)
     if env is not None:
-        tickers.append(env.update)
+        tickers.append(lambda t: env.update(t, camera=cam_path))
 
     rp = rep.create.render_product(cam_path, (args.width, args.height))
     ann = rep.AnnotatorRegistry.get_annotator("rgb")
