@@ -1565,6 +1565,16 @@
       "resolution": "1k",
       "path": "textures/worn_corrugated_iron",
       "category": "rig deck (main)"
+    },
+    {
+      "id": "evening_road_01_puresky",
+      "kind": "hdri",
+      "source": "polyhaven",
+      "url": "https://polyhaven.com/a/evening_road_01_puresky",
+      "licence": "CC0-1.0",
+      "resolution": "2k",
+      "path": "hdris/evening_road_01_puresky",
+      "category": "rig (main)"
     }
   ]
 }
