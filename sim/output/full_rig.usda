@@ -1,5 +1,19 @@
 #usda 1.0
 (
+    customLayerData = {
+        dictionary renderSettings = {
+            bool "rtx:fog:enabled" = 1
+            float3 "rtx:fog:fogColor" = (0.55, 0.565, 0.585)
+            double "rtx:fog:fogColorIntensity" = 1
+            double "rtx:fog:fogDistanceDensity" = 0.6
+            double "rtx:fog:fogEndDist" = 2600
+            double "rtx:fog:fogHeightDensity" = 0.0008
+            double "rtx:fog:fogHeightFalloff" = 0.15
+            double "rtx:fog:fogStartDist" = 150
+            double "rtx:fog:fogStartHeight" = 0
+            bool "rtx:fog:fogZup:enabled" = 1
+        }
+    }
     defaultPrim = "World"
     kilogramsPerUnit = 1
     metersPerUnit = 1
@@ -7981,6 +7995,7 @@ def Xform "World"
             {
                 uniform token info:id = "UsdPreviewSurface"
                 color3f inputs:diffuseColor = (0.012, 0.06, 0.09)
+                float inputs:ior = 1.33
                 normal3f inputs:normal.connect = </World/Looks/sea/ripples.outputs:rgb>
                 float inputs:roughness = 0.13
                 token outputs:surface
