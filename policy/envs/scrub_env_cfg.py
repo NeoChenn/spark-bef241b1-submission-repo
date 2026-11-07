@@ -128,6 +128,7 @@ class ScrubEnvCfg(DirectRLEnvCfg):
     spring_k_range: tuple = (1500.0, 4000.0)  # N/m brush stiffness
     spring_k_nominal: float = 2500.0          # used by the force-setpoint controller
     abrasion_coef_range: tuple = (0.7, 1.3)   # friction / abrasion proxy (+-30 %)
+    n_patches_range: tuple = (1, 3)
     prob_not_soaked: float = 0.15             # episodes where the remover has not soaked 30 s yet
     contact_snap: float = 0.01                # target within this of the surface -> force-controlled contact
 
@@ -135,6 +136,7 @@ class ScrubEnvCfg(DirectRLEnvCfg):
     action_scale: float = 0.01                # m per control step (0.3 m/s max)
     force_set_mid: float = 25.0               # F* = mid + half * a3   ->  [5, 45] N
     force_set_half: float = 20.0
+    force_set_max: float | None = None
     max_target_gap: float = 0.20
     theta_limits: tuple = (-0.5, 2.0)
 
@@ -149,6 +151,8 @@ class ScrubEnvCfg(DirectRLEnvCfg):
     w_contact_band: float = 0.02
     force_band: tuple = (10.0, 40.0)
     w_over_force: float = 0.1    # per 10 N above 40
+    over_force_soft: float | None = None  # quadratic penalty w_over_force_quad * ((F - soft) / 10)^2 above this
+    w_over_force_quad: float = 0.0
     w_unsprayed: float = 0.05
     w_action_rate: float = 0.01
     w_dist: float = 0.2          # per metre to nearest rust
@@ -195,6 +199,21 @@ class ScrubLiftEnvCfg(ScrubEnvCfg):
         self.reach_range = (0.12, 0.62)
         self.max_reach_z = 1.3
         self.viewer = ViewerCfg(eye=(1.3, 1.6, 1.7), lookat=(0.0, -0.3, 1.0), resolution=(1280, 720))
+        super().__post_init__()
+
+
+@configclass
+class ScrubLiftV2EnvCfg(ScrubLiftEnvCfg):
+    """Scrub v2: ScrubLiftEnvCfg with a force-capped setpoint, stronger over-force penalty and harder DR."""
+
+    def __post_init__(self):
+        self.force_set_max = 38.0
+        self.w_over_force = 1.0
+        self.over_force_soft = 30.0
+        self.w_over_force_quad = 4.0
+        self.abrasion_coef_range = (0.5, 1.5)
+        self.n_patches_range = (1, 4)
+        self.yaw_range = (-0.1745, 0.1745)
         super().__post_init__()
 
 

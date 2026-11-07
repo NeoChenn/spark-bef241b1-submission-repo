@@ -162,6 +162,7 @@ class RustState:
         abrasion_coef: torch.Tensor | float | None = None,
         generator: torch.Generator | None = None,
         reachable: torch.Tensor | None = None,
+        n_patches: tuple[int, int] = (1, 3),
     ):
         """Re-initialise envs. If `rust` is None random patches are generated. By default rust (dilated by
         ~2 cells) is marked sprayed with the given soak time (the scrub skill runs after spray+wait)."""
@@ -178,7 +179,8 @@ class RustState:
         if rust is None:
             reach = self.reachable[ids].float()
             rust = random_patches(n, self.H, self.W, self.radius[ids], self.length, device=self.device,
-                                  generator=generator, theta_window=self.theta_window) * reach
+                                  generator=generator, theta_window=self.theta_window,
+                                  n_min=n_patches[0], n_max=n_patches[1]) * reach
             empty = rust.sum(dim=(1, 2)) < 1.0  # patches fell outside the reachable area -> central blob
             if empty.any():
                 rust[empty] = self._central_blob(ids[empty]) * reach[empty]
