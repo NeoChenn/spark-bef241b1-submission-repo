@@ -46,6 +46,40 @@ What this changes and what it does not:
 - **Proposed reward (to tune):** a positive for a verified repair (stripe aligned and gas fell); a penalty for escalating when a repair was feasible; a penalty for a late or missing alert; a large penalty for any unsafe attempt (also blocked by masking, so it should never fire).
 - **Baseline to beat:** the current rule-based policy. Compare repair success within the repairable range, steps to resolution, and unnecessary escalations. If PPO does not beat the baseline, say so in the submission.
 
+## Training results: PPO v1
+
+200k steps of MaskablePPO on CPU (4 parallel environments, about 23 minutes). The best checkpoint by
+validation return is compared with the rule-based baseline on the **same 300 held-out scenarios**, scored by
+the same rule (`python -m flange_robot.evaluate --model checkpoints/ppo_repair/best.zip`).
+
+| | Rule-based baseline | PPO v1 |
+|---|---|---|
+| Mean return | +2.94 | **+3.50** |
+| Handled correctly | 80.3% | 78.7% |
+| Mean steps to a decision | 92.3 | **77.5** (16% fewer) |
+| False all-clears | 0 | 0 |
+| Unsafe tightenings | 0 | 0 |
+| Loose bolt: correct / steps | 70.0% / 107 | 70.7% / 84 |
+| Crack: correct | 91.5% | 88.1% |
+| No fault: correct | 76.9% | 69.2% |
+| Big leak: correct | 100% | 100% |
+
+**What this shows:** PPO learned to decide about 16% faster at roughly the same accuracy. The difference in
+"handled correctly" (80.3% vs 78.7%) is within noise for 300 scenarios (about ±2.3 points). It is slightly worse
+on no-fault and crack cases and much quicker on loose bolts. The higher return comes from saved time.
+
+**What it does not show:** zero false all-clears and zero unsafe tightenings are guaranteed by the action
+masks and the safety layer for both policies; PPO did not learn them. All of this is in our own simulation
+with simulated perception.
+
+**Training was not smooth:** at 61k steps the policy collapsed (every validation episode timed out), then
+recovered by 82k. The best checkpoint is kept, so the result is unaffected, but a second seed should be run
+before quoting these numbers as stable.
+
+**Why success stays near 80%:** almost all failures happen when dust is above about 0.23, where stripe
+confidence falls under the 0.7 gate however long the robot waits. More training cannot fix that. The next
+step is a perception change: let the robot move closer to a bolt, or clean the lens, when the camera is dusty.
+
 ## What the tests show (and don't)
 
 - Crack, loose bolt, no fault, degraded camera, burst (stops on gas) and a crack plus a loose bolt are all handled as designed.
