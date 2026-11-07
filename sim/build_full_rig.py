@@ -62,7 +62,22 @@ PAINTS = {
     "module_grey": ((0.46, 0.49, 0.51), 0.55, 0.1, CLADDING),
 }
 TILE_METRES = {"deck": 2.5, "concrete": 6.0, "module_white": 4.0, "module_blue": 4.0, "module_grey": 4.0}
+WALL_TEXTURE = "worn_corrugated_iron"
+WALL_MATERIALS = ("module_white", "module_blue", "module_grey")
 SEA_TILE_METRES = 70.0
+# Sea haze. Saved in the scene so it applies when anyone opens the rig. Distances are in metres.
+HAZE_SETTINGS = {
+    "rtx:fog:enabled": True,
+    "rtx:fog:fogZup:enabled": True,
+    "rtx:fog:fogColor": Gf.Vec3f(0.55, 0.565, 0.585),
+    "rtx:fog:fogColorIntensity": 1.0,
+    "rtx:fog:fogStartHeight": 0.0,
+    "rtx:fog:fogHeightDensity": 0.0008,
+    "rtx:fog:fogHeightFalloff": 0.15,
+    "rtx:fog:fogStartDist": 150.0,
+    "rtx:fog:fogEndDist": 2600.0,
+    "rtx:fog:fogDistanceDensity": 0.6,
+}
 FACADE_MIN_AREA = 300.0  # STL units squared, about 19 square metres
 MODULE_PAINTS = ("module_white", "module_blue", "module_grey")
 
@@ -203,11 +218,23 @@ class Materials:
         if name not in self.cache:
             material, shader, st = self._base(name)
             color, roughness, metallic, relief = PAINTS[name]
-            shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
-            shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(roughness)
             shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(metallic)
-            if relief:
-                self._normal_map(material, shader, st, ASSETS / "textures" / relief)
+            if name in WALL_MATERIALS:
+                folder = ASSETS / "textures" / WALL_TEXTURE
+                diffuse = self._texture(material, st, folder / "diff.jpg", "diff", "sRGB")
+                shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+                    diffuse.CreateOutput("rgb", Sdf.ValueTypeNames.Float3)
+                )
+                rough = self._texture(material, st, folder / "rough.jpg", "rough", "raw")
+                shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).ConnectToSource(
+                    rough.CreateOutput("r", Sdf.ValueTypeNames.Float)
+                )
+                self._normal_map(material, shader, st, folder)
+            else:
+                shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
+                shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(roughness)
+                if relief:
+                    self._normal_map(material, shader, st, ASSETS / "textures" / relief)
             self.cache[name] = material
         return self.cache[name]
 
@@ -262,6 +289,7 @@ def add_environment(stage):
     shader.CreateIdAttr("UsdPreviewSurface")
     shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.012, 0.06, 0.09))
     shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.13)
+    shader.CreateInput("ior", Sdf.ValueTypeNames.Float).Set(1.33)
     reader = UsdShade.Shader.Define(stage, "/World/Looks/sea/uv")
     reader.CreateIdAttr("UsdPrimvarReader_float2")
     reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
@@ -378,7 +406,11 @@ def build_scene() -> dict:
         "gauge_closeup": add_camera(stage, "gauge_closeup", (-12.0, 22.0, 43.85), (-12.0, 23.32, 43.8), 40),
         "helideck": add_camera(stage, "helideck", (center[0] - 50, center[1] - 60, 72), (-22.0, -22.0, 51.0), 30),
     }
-    stage.GetRootLayer().Save()
+    layer = stage.GetRootLayer()
+    layer_data = dict(layer.customLayerData)
+    layer_data["renderSettings"] = HAZE_SETTINGS
+    layer.customLayerData = layer_data
+    layer.Save()
 
     deck_heights = {
         name: round((raw - args.sea_level) * args.scale, 2)
@@ -405,6 +437,7 @@ def build_scene() -> dict:
 
 
 def render_previews(cameras: dict) -> None:
+    import carb.settings
     import omni.kit.app
     import omni.usd
     from PIL import Image
@@ -420,6 +453,19 @@ def render_previews(cameras: dict) -> None:
         if context.get_stage_loading_status()[2] == 0:
             break
     for _ in range(60):
+        simulation_app.update()
+
+    settings = carb.settings.get_settings()
+    for key, value in HAZE_SETTINGS.items():
+        path = "/" + key.replace(":", "/")
+        print(f"HAZE_LOADED {path} = {settings.get(path)}")
+        if isinstance(value, bool):
+            settings.set_bool(path, value)
+        elif isinstance(value, float):
+            settings.set_float(path, value)
+        else:
+            settings.set_float_array(path, list(value))
+    for _ in range(30):
         simulation_app.update()
 
     for name, path in cameras.items():
