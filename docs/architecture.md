@@ -5,7 +5,7 @@ Items marked **[verify]** are unconfirmed and must be checked before they appear
 
 ## One-line description
 
-A quadruped with a gripper patrols an offshore platform. It reads bolt torque stripes and gas levels, decides which flange bolts need re-tightening, routes around hazards that appear mid-run, and acts only behind a deterministic safety layer and a human permit-to-work gate.
+A quadruped with a gripper patrols an offshore platform. It reads bolt torque stripes and gas levels, decides which flange bolts need re-tightening, routes around hazards that appear mid-run, and re-tightens loose bolts on its own (no approval step) behind a deterministic safety layer, then reports to the supervisor.
 
 ## Layers
 
@@ -20,7 +20,7 @@ A quadruped with a gripper patrols an offshore platform. It reads bolt torque st
 Rules that hold across all layers:
 - **Perception drives action.** Every decision is logged with its evidence (`decision_log.py`).
 - **Gemini is never in the real-time loop.** If it is unavailable, the robot flags a human.
-- **Safety is rules, not learning.** Gas, people, low confidence and the permit gate override any policy.
+- **Safety is rules, not learning.** Gas, people and low confidence override any policy. There is no approval gate by default; it can be switched on with `PolicyConfig.require_permit`.
 
 ## Skills (what the planner can choose)
 
@@ -30,10 +30,10 @@ Each skill has a precondition it must check and a postcondition it must verify.
 |---|---|---|
 | `navigate_to(zone)` | Safety verdict is ALLOW | Arrived, or replanned, or flagged |
 | `inspect(flange)` | Within sensor range, gas below limit | Findings list with a confidence per bolt |
-| `retorque(bolt)` | In reach, confidence above the minimum, permit approved | Stripe re-read and aligned |
+| `retorque(bolt)` | In reach, confidence above the minimum, gas below the limit, diagnosis is a loose bolt | Stripe re-read and aligned |
 | `retreat()` | Always allowed | At the safe point |
 | `request_human(reason)` | Always allowed | Operator has the evidence |
-| ~~`weld()`~~ | Not implemented on purpose | The agent refuses and requests a human permit (hot-work rules) |
+| ~~`weld()`~~ | Not implemented on purpose | The agent refuses and alerts the supervisor (hot-work rules) |
 
 Refusing hot work is a deliberate "what it cannot do" moment for the pitch.
 

@@ -34,7 +34,7 @@ Existing work that we found focuses on **subsea** inspection: a BSEE-funded Univ
 
 ## Our approach
 
-A robot patrols the platform. It reads **torque stripes** (a paint mark across bolt and flange that breaks or shifts when the bolt turns) **[confirm as industry practice with a source]** and a gas sensor. It decides which bolts need work, aligns a torque tool and re-tightens them. Two safeguards are deterministic and not learned: a **gas-detector interlock** that stops work and retreats, and a **permit-to-work approval gate** where a human authorises any tightening.
+A robot patrols the platform. It reads **torque stripes** (a paint mark across bolt and flange that breaks or shifts when the bolt turns) **[confirm as industry practice with a source]** and a gas sensor. It decides which bolts need work, aligns a torque tool and re-tightens them. It re-tightens **on its own, without asking for approval**. The safeguards are deterministic and not learned: a **gas-detector interlock** that stops work and retreats, a **diagnosis check** (only a loose bolt is ever tightened; a crack or burst is never touched), and a **verification step** that confirms the stripe aligned and the gas fell. The supervisor is alerted after every repair, and immediately for anything the robot will not handle.
 
 ## How we will measure it (in simulation)
 
@@ -50,7 +50,7 @@ Simulation only. Perception is trained on synthetic data, so the gap to real con
 
 ### Short version for the one-page technical summary (about 100 words)
 
-> Offshore maintenance supervisors send crews to inspect and re-tighten bolted flanges in gas zones, at height and beside live equipment. US oil and gas extraction has a fatal injury rate of 13.8 per 100,000 workers, about 6 times manufacturing (BLS, 2024). Loosening flange bolts are a recognised leak precursor (BSEE). Our robot reads torque stripes and gas readings, decides which bolts need work, and tightens them behind a gas interlock and a human permit-to-work gate. It does not weld, respond to emergencies or fix transport risk, the largest single cause in one offshore study. We test it in simulation only.
+> Offshore maintenance supervisors send crews to inspect and re-tighten bolted flanges in gas zones, at height and beside live equipment. US oil and gas extraction has a fatal injury rate of 13.8 per 100,000 workers, about 6 times manufacturing (BLS, 2024). Loosening flange bolts are a recognised leak precursor (BSEE). Our robot reads torque stripes and gas readings, decides which bolts need work, and tightens them on its own behind a gas interlock and a diagnosis check, then reports to the supervisor. It does not weld, respond to emergencies or fix transport risk, the largest single cause in one offshore study. We test it in simulation only.
 
 ---
 

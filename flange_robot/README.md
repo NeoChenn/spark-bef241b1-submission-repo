@@ -4,7 +4,7 @@
 
 Agentverse 2026, Robotics Track. An embodied agent that patrols an offshore platform, reads bolt
 torque stripes and gas levels, decides which flange bolts need re-tightening, and acts behind a gas
-interlock and a human permit-to-work gate.
+interlock and a diagnosis check, with no human approval step, and reports to a supervisor.
 
 The concept is not final. Read [docs/problem-statement.md](../docs/problem-statement.md) for the problem,
 sources and the items still to verify.
@@ -62,7 +62,7 @@ docs/               problem statement
 ## Design rules
 
 - **Perception drives action.** Every decision is logged with its evidence.
-- **Safety is deterministic.** Gas, people, confidence and the permit gate are rules that override any policy.
+- **Safety is deterministic.** Gas, people and confidence are rules that override any policy. There is no approval gate by default (`PolicyConfig.require_permit` switches one on).
 - **Gemini is the slow path only.** It never sits in the real-time loop. If it fails, the robot falls back to flagging a human.
 - **Honest commits.** No replayed paths, no hardcoded model output standing in for real calls.
 

@@ -6,21 +6,25 @@ while training is still in progress.
 
 Scope, deliberately narrow: the robot repairs EARLY-STAGE leaks, a weeping flange caught
 before it becomes a release. Anything larger is never approached: the safety layer stops
-the robot at the gas limit and the policy escalates to a human. It never welds, and it
-never tightens without an approved permit.
+the robot at the gas limit and the policy escalates to a human. It never welds.
+
+It re-tightens loose bolts ON ITS OWN: there is no human approval step by default, and the
+supervisor is told afterwards. The remaining safeguards are the gas interlock, the diagnosis
+(only a loose bolt is ever tightened) and the verification step. An approval gate can be
+switched back on with `PolicyConfig.require_permit=True`, which also needs a `permit` callback.
 
 Phases:
 
-    APPROACH -> INSPECT -> REQUEST_PERMIT -> REPAIR -> VERIFY -> DONE
+    APPROACH -> INSPECT -> [REQUEST_PERMIT] -> REPAIR -> VERIFY -> DONE
                    \\____________\\__________________\\______-> ESCALATED
 
 - APPROACH        walk to the flange (position comes from the asset register, as on a real site)
 - INSPECT         hold still and average noisy torque-stripe readings, weighted by confidence
-- REQUEST_PERMIT  ask the human permit-to-work gate to approve, with the evidence
+- REQUEST_PERMIT  only when `require_permit` is on: ask a human to approve, with the evidence
 - REPAIR          re-torque the worst confident bolt in reach
 - VERIFY          wait for fresh readings: stripe aligned? gas falling? retry once, else escalate.
-                  If gas stays elevated after the confident repairs, ask the permit gate once more
-                  for the next most suspicious bolts (fusing the gas and stripe evidence).
+                  If gas stays elevated after the confident repairs, the next most suspicious bolts
+                  are queued once (fusing the gas and stripe evidence).
 - DONE            all bolts within tolerance and gas back to background
 - ESCALATED       hand over to a human with a reason; retreat if the cause was gas
 
@@ -66,20 +70,25 @@ class PolicyConfig:
     retry_limit: int = 1
     reach_margin_m: float = 0.05
     # If gas is still elevated after the confident repairs, the next most suspicious bolts
-    # (below `tolerance_rad` but above this) are queued once, behind a fresh permit request.
+    # (below `tolerance_rad` but above this) are queued once.
     suspect_tolerance_rad: float = 0.03
     max_suspects: int = 2
+    # Off by default: the robot re-tightens without asking. Turn on to require a human approval
+    # (needs a `permit` callback) before the first tightening and before the suspects pass.
+    require_permit: bool = False
 
 
 class RepairPolicy:
     def __init__(
         self,
-        permit: Callable[[str], bool],
+        permit: Callable[[str], bool] | None = None,
         limits: SafetyLimits = SafetyLimits(),
         config: PolicyConfig = PolicyConfig(),
         log: DecisionLog | None = None,
         notify: Notifier | None = None,
     ):
+        if config.require_permit and permit is None:
+            raise ValueError("require_permit=True needs a permit callback")
         self.permit = permit
         self.notify = notify
         self.limits = limits
@@ -93,7 +102,7 @@ class RepairPolicy:
         self._queue: list[int] = []
         self._target: int | None = None
         self._retries: dict[int, int] = {}
-        self._permit_ok = False
+        self._permit_ok = not config.require_permit  # no approval step unless switched on
         self._gas_at_repair = 0.0
         self._suspect_pass_done = False
         self.diagnoser = Diagnoser(limits, config.tolerance_rad, gas_clear=config.gas_clear)
@@ -241,7 +250,7 @@ class RepairPolicy:
             self._escalate(f"diagnosis: {d.reason}; loss of containment, not a robot repair")
         elif d.kind == FaultKind.LOOSE_BOLT:
             self._queue = [i for i, _ in d.loose_bolts]  # worst first
-            self.phase = Phase.REQUEST_PERMIT
+            self.phase = Phase.REQUEST_PERMIT if self.config.require_permit else Phase.REPAIR
         elif d.kind == FaultKind.UNCERTAIN:
             self._escalate(d.reason)
         else:
@@ -268,10 +277,13 @@ class RepairPolicy:
             elif gas <= cfg.gas_clear:
                 self.phase, self.reason = Phase.DONE, "leak repaired; gas back to background"
             elif not self._suspect_pass_done and self._queue_suspects():
-                # Gas is evidence that something is still loose: ask the human again for the next suspects.
+                # Gas is evidence that something is still loose: go after the next suspects once.
                 self._suspect_pass_done = True
-                self._permit_ok = False
-                self.phase = Phase.REQUEST_PERMIT
+                if cfg.require_permit:
+                    self._permit_ok = False
+                    self.phase = Phase.REQUEST_PERMIT
+                else:
+                    self.phase = Phase.REPAIR
             else:
                 self._escalate("gas still elevated after all bolts repaired")
 
@@ -282,7 +294,8 @@ class RepairPolicy:
         if self.phase == Phase.DONE:
             if self._repaired:
                 kind, sev, ack = "repaired", "info", False
-                msg = f"Leak repaired: re-torqued bolt(s) {sorted(set(self._repaired))}; gas back to background."
+                msg = (f"Leak repaired automatically: re-torqued bolt(s) {sorted(set(self._repaired))}; "
+                       "gas back to background.")
                 rec = "No action needed. Re-check the flange at the next round."
             else:
                 kind, sev, ack = "no_fault", "info", False
@@ -311,6 +324,7 @@ class RepairPolicy:
                 "diagnosis": self.diagnosis.kind.value if self.diagnosis else None,
                 "diagnosis_evidence": self.diagnosis.evidence if self.diagnosis else None,
                 "repaired_bolts": sorted(set(self._repaired)),
+                "approval_required": self.config.require_permit,
             },
         )
         self.alerts.append(alert)

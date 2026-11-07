@@ -6,12 +6,13 @@ from flange_robot.config import SafetyLimits
 from flange_robot.decision_log import DecisionLog
 from flange_robot.env import FLANGE_XY, FlangeEnv
 from flange_robot.episode import run_episode
-from flange_robot.policy import RepairPolicy
+from flange_robot.policy import PolicyConfig, RepairPolicy
 
 LIMIT = SafetyLimits().gas_stop_fraction_lel
 
 
-def setup(leaks: dict[int, float], seed: int = 0, dust: float = 0.0, permit=lambda request: True, log=None):
+def setup(leaks: dict[int, float], seed: int = 0, dust: float = 0.0, permit=lambda request: True, log=None,
+          require_permit: bool = False):
     env = FlangeEnv(seed=seed)
     first = True
     for bolt, angle in leaks.items():
@@ -21,7 +22,7 @@ def setup(leaks: dict[int, float], seed: int = 0, dust: float = 0.0, permit=lamb
         else:
             env.loosen_bolt(bolt, angle)
     env.set_dust(dust)
-    return env, RepairPolicy(permit=permit, log=log)
+    return env, RepairPolicy(permit=permit, config=PolicyConfig(require_permit=require_permit), log=log)
 
 
 def test_small_leak_is_repaired_and_verified():
@@ -43,17 +44,17 @@ def test_large_leak_is_never_approached_and_is_escalated():
     assert r.final_xy[0] < FLANGE_XY[0] - 0.5  # backed away, never reached the flange
 
 
-def test_permit_denied_means_no_tightening():
-    env, policy = setup({0: 0.15}, permit=lambda request: False)
+def test_with_the_approval_gate_on_a_denied_permit_means_no_tightening():
+    env, policy = setup({0: 0.15}, permit=lambda request: False, require_permit=True)
     r = run_episode(env, policy)
     assert r.outcome == "escalated" and "permit" in r.reason
     assert r.retorques == []
     assert r.final_angles[0] > 0.1  # still loose
 
 
-def test_permit_request_carries_the_evidence():
+def test_with_the_approval_gate_on_the_request_carries_the_evidence():
     seen = []
-    env, policy = setup({0: 0.15}, permit=lambda request: seen.append(request) or True)
+    env, policy = setup({0: 0.15}, permit=lambda request: seen.append(request) or True, require_permit=True)
     run_episode(env, policy)
     assert len(seen) == 1 and "bolt 0" in seen[0] and "Gas" in seen[0]
 
@@ -97,10 +98,11 @@ def test_decisions_are_logged_with_evidence(tmp_path):
     assert all({"phase", "gas"} <= set(e["evidence"]) for e in events)
 
 
-def test_lingering_gas_triggers_a_second_permit_request_for_the_next_suspect():
+def test_with_the_approval_gate_on_lingering_gas_triggers_a_second_request_for_the_next_suspect():
     """Bolt 6 is below the loose-bolt tolerance but still leaking. Gas is the evidence that gets it fixed."""
     requests = []
-    env, policy = setup({4: 0.14, 6: 0.06}, seed=7, permit=lambda request: requests.append(request) or True)
+    env, policy = setup({4: 0.14, 6: 0.06}, seed=7, permit=lambda request: requests.append(request) or True,
+                        require_permit=True)
     r = run_episode(env, policy)
     assert r.outcome == "done", r.reason
     assert {x["bolt"] for x in r.retorques} == {4, 6}
@@ -108,12 +110,43 @@ def test_lingering_gas_triggers_a_second_permit_request_for_the_next_suspect():
     assert max(abs(a) for a in r.final_angles) < 1e-3
 
 
-def test_second_permit_denied_stops_before_tightening_the_suspect():
+def test_with_the_approval_gate_on_a_denied_second_request_stops_before_the_suspect():
     answers = iter([True, False])
-    env, policy = setup({4: 0.14, 6: 0.06}, seed=7, permit=lambda request: next(answers))
+    env, policy = setup({4: 0.14, 6: 0.06}, seed=7, permit=lambda request: next(answers), require_permit=True)
     r = run_episode(env, policy)
     assert r.outcome == "escalated" and "permit" in r.reason
     assert [x["bolt"] for x in r.retorques] == [4]
+
+
+def test_by_default_the_robot_never_asks_for_approval():
+    def must_not_be_called(request):
+        raise AssertionError("the policy asked for approval")
+
+    env, policy = setup({0: 0.15}, permit=must_not_be_called)
+    r = run_episode(env, policy)
+    assert r.outcome == "done", r.reason
+    assert [x["bolt"] for x in r.retorques] == [0]
+    assert policy.alerts[0].evidence["approval_required"] is False
+
+
+def test_by_default_lingering_gas_sends_it_straight_to_the_next_suspect():
+    env, policy = setup({4: 0.14, 6: 0.06}, seed=7, permit=None)
+    r = run_episode(env, policy)
+    assert r.outcome == "done", r.reason
+    assert {x["bolt"] for x in r.retorques} == {4, 6}
+
+
+def test_the_gas_interlock_still_blocks_tightening_without_an_approval_gate():
+    env, policy = setup({0: 0.5}, permit=None)
+    r = run_episode(env, policy)
+    assert r.outcome == "escalated" and r.retorques == []
+
+
+def test_require_permit_without_a_callback_is_rejected():
+    import pytest
+
+    with pytest.raises(ValueError):
+        RepairPolicy(permit=None, config=PolicyConfig(require_permit=True))
 
 
 def test_safety_invariants_hold_across_random_leaks():

@@ -3,7 +3,7 @@
 ## The flow
 
 ```
-camera + stripe readings + gas  ->  DIAGNOSE  ->  loose bolt?     -> permit request -> re-torque -> verify -> report
+camera + stripe readings + gas  ->  DIAGNOSE  ->  loose bolt?     -> re-torque (no approval) -> verify -> report
                                                   crack or burst?  -> back off, no repair      -> ALERT supervisor
                                                   unsure?          -> back off if gas is up    -> ALERT supervisor
 ```
@@ -20,7 +20,7 @@ camera + stripe readings + gas  ->  DIAGNOSE  ->  loose bolt?     -> permit requ
 We considered training the policy to apply duct tape to a crack as the "fix". **Recommendation: don't.**
 
 1. **It isn't a credible repair.** A crack or burst in a line carrying gas is a loss of containment. Taping it is not a recognised fix, and an informed judge will say so. I am not a site-safety authority: confirm with an engineer or a source before making any claim either way.
-2. **Wrong place for a robot to improvise.** It would mean working next to a live leak, outside what the permit covers.
+2. **Wrong place for a robot to improvise.** It would mean working next to a live leak with a fix that nobody has validated.
 3. **PPO would learn our simulator's assumption, not reality.** If the sim marks a crack as "fixed" once tape is applied, the policy learns to apply tape because we defined the reward that way. That is reward hacking on our own model.
 4. **It breaks the honest scope.** The problem statement says the robot does not handle loss of containment. A taping robot contradicts that.
 
@@ -28,11 +28,21 @@ We considered training the policy to apply duct tape to a crack as the "fix". **
 
 **If the team wants a visible manipulation in the crack branch,** use a low-risk, reversible, genuinely useful action such as placing a warning tag or a gas-sensor beacon at the flange. Do not present it as a repair. This is not built.
 
+## Decision: no human approval before re-tightening
+
+The team decided the robot re-tightens loose bolts **on its own**. The robot re-tightens on its own, with no human approval step, so it is only allowed to act on a diagnosed loose bolt, never in gas at the limit, and it checks its own work afterwards. The supervisor is told about every repair.
+
+What this changes and what it does not:
+- The approval step is optional and **off by default** (`PolicyConfig.require_permit=False`). Turning it on restores the old behaviour.
+- The gas interlock, the diagnosis check and the verification step still apply. Autonomy raises the stakes on diagnosis quality: a wrong "loose bolt" call now leads straight to action.
+- The diagnosis is simulated and easy by construction, so do not claim real-world reliability for it. This is the main open risk of the decision.
+- The DeepMind talk advised keeping humans in control for hardware actions, with an approval gate. We are choosing otherwise, so the pitch should explain why (reversible, low-risk action; strict preconditions; supervisor alerted) and be honest about the trade-off.
+
 ## What PPO should (and should not) learn
 
 - **Not the diagnosis.** Telling a crack from a loose bolt is a classifier trained on labelled images (supervised learning).
-- **Not safety.** Gas limits, the permit gate and "never repair a crack" are rules and action masks, not learned.
-- **The decision layer.** Given the diagnosis and its confidence, the gas level and trend, distance to the flange, and permit state, choose among: approach, gather more evidence, request a permit, tighten bolt *k*, back off, or alert. The value of learning is deciding *when to gather more evidence versus act versus escalate* when perception is noisy or degraded, where fixed thresholds are brittle.
+- **Not safety.** Gas limits and "never repair a crack" are rules and action masks, not learned.
+- **The decision layer.** Given the diagnosis and its confidence, the gas level and trend, and distance to the flange, choose among: approach, gather more evidence, tighten bolt *k*, back off, or alert. The value of learning is deciding *when to gather more evidence versus act versus escalate* when perception is noisy or degraded, where fixed thresholds are brittle.
 - **Proposed reward (to tune):** a positive for a verified repair (stripe aligned and gas fell); a penalty for escalating when a repair was feasible; a penalty for a late or missing alert; a large penalty for any unsafe attempt (also blocked by masking, so it should never fire).
 - **Baseline to beat:** the current rule-based policy. Compare repair success within the repairable range, steps to resolution, and unnecessary escalations. If PPO does not beat the baseline, say so in the submission.
 
