@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
+from sim.ocean_legs import cluster_circles, waterline_points
 from sim.ocean_mdl import MODULE, build_mdl
 from sim.ocean_presets import Preset, get_preset, render_settings
 from sim.ocean_waves import EARTH_RADIUS, Waves, make_waves, polar_grid
@@ -128,21 +129,26 @@ class Environment:
         self.time_input.Set(float(t))
 
 
-def find_legs(stage: Usd.Stage, sea_level_z: float, max_width: float = 8.0) -> list[tuple[float, float, float]]:
-    """Vertical members that pierce the sea surface, as (x, y, radius), for foam rings."""
+def find_legs(stage: Usd.Stage, sea_level_z: float) -> list[tuple[float, float, float]]:
+    """Members that pierce the sea surface, as (x, y, radius), from the waterline cut of every mesh."""
     cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_, UsdGeom.Tokens.render])
-    legs = []
+    cuts = []
     for prim in stage.Traverse():
-        if not prim.IsA(UsdGeom.Gprim) or str(prim.GetPath()).startswith(ROOT):
+        if not prim.IsA(UsdGeom.Mesh) or str(prim.GetPath()).startswith(ROOT):
             continue
         box = cache.ComputeWorldBound(prim).ComputeAlignedRange()
-        if box.IsEmpty():
+        if box.IsEmpty() or not (box.GetMin()[2] < sea_level_z < box.GetMax()[2]):
             continue
-        lo, hi = box.GetMin(), box.GetMax()
-        wx, wy = hi[0] - lo[0], hi[1] - lo[1]
-        if lo[2] < sea_level_z - 0.5 and hi[2] > sea_level_z + 0.5 and max(wx, wy) < max_width:
-            legs.append(((lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, max(wx, wy) / 2))
-    return legs
+        mesh = UsdGeom.Mesh(prim)
+        pts = np.asarray(mesh.GetPointsAttr().Get(), np.float64)
+        counts = np.asarray(mesh.GetFaceVertexCountsAttr().Get(), np.int64)
+        idx = np.asarray(mesh.GetFaceVertexIndicesAttr().Get(), np.int64)
+        if pts.size == 0 or idx.size == 0:
+            continue
+        m = np.asarray(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()), np.float64)
+        world = pts @ m[:3, :3] + m[3, :3]
+        cuts.append(waterline_points(world, counts, idx, sea_level_z))
+    return cluster_circles(np.concatenate(cuts)) if cuts else []
 
 
 def _disable_other_lights(stage: Usd.Stage) -> None:
@@ -231,5 +237,6 @@ def add_environment(
     displacer = _Displacer(waves, grid.xy[:active].astype(np.float32), base_z[:active], fade,
                            grid.spacing[:active].astype(np.float32))
     env = Environment(p, mesh, points, active, displacer, time_input)
+    env.legs = legs
     env.update(0.0)
     return env

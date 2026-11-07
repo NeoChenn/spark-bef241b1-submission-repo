@@ -21,16 +21,16 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--preset", default="clear")
     p.add_argument("--scene", default="", help="usda to reference at /World/Rig (deck at z=0)")
-    p.add_argument("--no-fixture", action="store_true", help="skip placeholder jacket legs and cellar deck")
-    p.add_argument("--camera", type=vec3, default=(55.0, -75.0, 6.0))
-    p.add_argument("--target", type=vec3, default=(0.0, 0.0, -12.0))
+    p.add_argument("--fixture", action="store_true", help="add placeholder jacket legs and cellar deck")
+    p.add_argument("--camera", type=vec3, default=(120.0, -110.0, 25.0))
+    p.add_argument("--target", type=vec3, default=(0.0, -5.0, 20.0))
     p.add_argument("--focal", type=float, default=24.0)
     p.add_argument("--spp", type=int, default=16, help="render subframes accumulated per output frame")
     p.add_argument("--renderer", default="RealTimePathTracing")
     p.add_argument("--width", type=int, default=1280)
     p.add_argument("--height", type=int, default=720)
     p.add_argument("--time", type=float, default=10.0, help="sea time of the still")
-    p.add_argument("--sea-level", type=float, default=-25.0)
+    p.add_argument("--sea-level", type=float, default=0.0)
     p.add_argument("--warmup", type=int, default=60)
     p.add_argument("--timing-frames", type=int, default=0, help="also time N animated frames")
     p.add_argument("--set", action="append", default=[], help="extra carb setting key=json, repeatable")
@@ -117,12 +117,13 @@ def main() -> None:
         old_env = stage.GetPrimAtPath("/World/Rig/Environment")
         if old_env:
             old_env.SetActive(False)
-    if not args.no_fixture:
+    if args.fixture:
         add_fixture(stage, args.sea_level)
     cam_path = add_camera(stage, args.camera, args.target, args.focal)
 
     t0 = time.monotonic()
     env = add_environment(stage, preset=args.preset, sea_level_z=args.sea_level)
+    print(f"legs={[tuple(round(v, 1) for v in l) for l in env.legs]}", flush=True)
     print(f"environment built in {time.monotonic() - t0:.2f}s", flush=True)
     settings = carb.settings.get_settings()
     for item in args.set:

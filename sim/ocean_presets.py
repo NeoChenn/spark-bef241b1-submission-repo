@@ -33,20 +33,20 @@ BASE_RENDER = {
 PRESETS: dict[str, Preset] = {
     "clear": Preset(
         hdri="kloofendal_48d_partly_cloudy_puresky",
-        dome_intensity=1.0,
+        dome_intensity=1000.0,
         wind_speed=8.0,
         swell=(1.2, 120.0, 10.0),
     ),
     "golden": Preset(
         hdri="industrial_sunset_puresky",
-        dome_intensity=1.0,
+        dome_intensity=1000.0,
         wind_speed=6.0,
         swell=(1.0, 140.0, 200.0),
         deep_color=(0.003, 0.012, 0.022),
     ),
     "overcast": Preset(
         hdri="overcast_soil_puresky",
-        dome_intensity=1.0,
+        dome_intensity=1000.0,
         wind_speed=14.0,
         swell=(2.0, 160.0, 300.0),
         choppiness=0.95,
