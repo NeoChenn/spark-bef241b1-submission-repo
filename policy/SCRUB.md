@@ -23,6 +23,18 @@ MODAL_PROFILE=jacobyuan99 .venv/bin/modal run policy/play_scrub.py --run scrub_l
 MODAL_PROFILE=jacobyuan99 .venv/bin/modal volume get rust-ckpt scrub/scrub_lift_v1/progress.jsonl .  # reward / fraction_removed curve
 ```
 
+## Run on the GB10 box (aarch64, Isaac Sim 5.1 container, RTX video works)
+
+```bash
+docker build -t rig-scrub-isaaclab:5.1 -f infra/watson/Dockerfile.isaaclab infra/watson
+infra/watson/run.sh policy.train_scrub --worker --num_envs 2048 --iters 150 --run_dir /repo/runs/scrub_lift_watson   # ~9 min
+infra/watson/run.sh policy.play_scrub --worker --ckpt /repo/runs/scrub_lift_watson/model_149.pt --out_dir /repo/runs/scrub_lift_watson \
+  --num_envs 256 --episodes 512 --meta /repo/sim/output/rig_deck_meta.json --force_patch
+infra/watson/run.sh policy.play_scrub --worker --ckpt /repo/runs/scrub_lift_watson/model_149.pt --out_dir /repo/runs/scrub_video_close \
+  --num_envs 4 --episodes 100000 --video --video_steps 450 --cam close --meta /repo/sim/output/rig_deck_meta.json --force_patch --enable_cameras
+```
+torch 2.7 cu128 has no sm_121 NVRTC target, so `run.sh` sets `PYTORCH_JIT=0` (TorchScript export is skipped; ONNX still exported).
+
 ## Model
 
 * **Robot (main, `--robot lift`)**: `sim/assets/go2_ur3/go2_ur3_lift.urdf` (Modal `rig-assets:/go2_ur3/`): Go2 trunk
