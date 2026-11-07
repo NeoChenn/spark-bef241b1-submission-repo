@@ -34,3 +34,8 @@ def test_orbit_target_and_vec_parsing():
     assert (a.orbit_radius, a.orbit_eye_z, a.sea_level) == (120.0, 40.0, -20.0)
     b = parse_args([])
     assert b.orbit_target is None and b.orbit_radius == 0.0 and b.orbit_eye_z is None
+
+
+def test_cinematic_preset_flag():
+    assert parse_args(["--cinematic", "night"]).cinematic == "night"
+    assert parse_args([]).cinematic == ""

@@ -62,6 +62,35 @@ def load_environment(stage, preset: str, sea_level: float):
     return env
 
 
+def load_cinematic(app, ctx, preset: str):
+    import sys
+
+    sys.path.insert(0, "/rig/sim")
+    import cinematic
+    import ocean
+    from pxr import Gf, UsdGeom
+
+    open_scene(app, ctx, str(cinematic.SCENE_PATH))
+    stage = ctx.get_stage()
+    path = "/World/Cinematic/Cameras/stream"
+    cam = UsdGeom.Camera.Define(stage, path)
+    cam.CreateClippingRangeAttr(Gf.Vec2f(0.5, 60000))
+    cam.CreateFocalLengthAttr(28.0)
+    UsdGeom.Xformable(cam).AddTransformOp().Set(Gf.Matrix4d(1))
+    cinematic.apply_preset(stage, preset)
+    rest, distance, _, _ = ocean.make_grid()
+    height = cinematic.PRESETS[preset]["wave_height"]
+
+    def update(t: float) -> None:
+        cinematic.animate_ocean(stage, rest, distance, t, height)
+        cinematic.animate_effects(stage, t)
+        cinematic.set_camera(stage, path, t % cinematic.SEQUENCE_SECONDS)
+
+    update(0.0)
+    print(f"rig sim: cinematic preset {preset}", flush=True)
+    return path, update
+
+
 def make_orbit_camera(stage, src_path: str, args):
     from pxr import Gf, Usd, UsdGeom
 
@@ -116,6 +145,9 @@ def main() -> None:
         scene = build_scene(ctx.get_stage())
         cam_path = CAMERA_PATH
         tickers.append(lambda t: spin(scene, t))
+    elif args.cinematic:
+        cam_path, cine_update = load_cinematic(app, ctx, args.cinematic)
+        tickers.append(cine_update)
     else:
         open_scene(app, ctx, args.scene)
         cam_path = args.camera

@@ -12,6 +12,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--orbit", type=float, default=0.0, help="orbit period in seconds around the camera's view target; 0 = fixed")
     p.add_argument("--orbit-z", type=float, default=1.0, help="height of the plane the orbit target is picked on")
     p.add_argument("--env", default="", help="sim.environment preset to add (ocean/sky); empty = none")
+    p.add_argument("--cinematic", default="", help="sim/cinematic.py preset (night|golden|storm): cinematic scene, effects and camera sequence")
     p.add_argument("--orbit-target", type=vec3, default=None, metavar="X,Y,Z", help="orbit target; default = view ray hit on --orbit-z")
     p.add_argument("--orbit-radius", type=float, default=0.0, help="orbit radius; 0 = keep the camera's distance")
     p.add_argument("--orbit-eye-z", type=float, default=None, help="orbit eye height; default = the camera's height")
