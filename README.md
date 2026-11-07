@@ -93,3 +93,32 @@ to use and redistribute. To add an asset, put its Poly Haven ID in `sim/assets/m
 | `sim/assets/` | Asset list and downloaded models, textures and skies |
 | `sim/output/` | Generated scene, metadata and preview images |
 | `sim/tools/` | Asset download and inspection scripts |
+
+## Importing a full rig model
+
+`scripts/import_model.sh` (on watson) turns any model into `sim/assets/rig_model/<name>/<name>.usd`. The output is in metres,
+Z up, with the main deck at z = 0 and the topside centred. It also writes `textures/` with relative paths,
+UsdPreviewSurface materials, static triangle-mesh collision on walkable meshes, and `report.json`. The report has bounds,
+triangle, mesh and material counts, and lists missing textures.
+
+```bash
+scripts/import_model.sh path/in/repo/rig.glb --name rig                 # glb gltf fbx obj stl ply usd usdz step stp iges
+scripts/import_model.sh path/in/repo/rig.blend --name rig               # blend dae 3ds x3d abc: Blender (rig-import-blender) -> GLB first
+scripts/import_model.sh rig.fbx --name rig --units cm --up Y --deck-z 32 --drop 'sea|boat'   # overrides when detection is wrong
+.work/<you>/... /isaac-sim/python.sh sim/tools/preview_model.py sim/assets/rig_model/rig/rig.usd --sea-z -20  # wide + deck PNGs
+```
+
+**Converters on aarch64 (Isaac 6.2):**
+- `omni.kit.asset_converter` (assimp) handles glTF/GLB, FBX, OBJ, STL, PLY, LXO, MD5, BVH and USD.
+- `omni.kit.converter.hoops_core` handles STEP and IGES.
+- `.blend` is rejected by both, so it goes through Blender 4.0.2 (Ubuntu arm64, `docker/blender.Dockerfile`).
+
+**Detection:**
+- Units come from the stage's metadata unless that gives a size under 1 m or over 2 km. In that case the importer picks
+  the m/cm/mm/in/ft scale that gives a platform-sized result.
+- The up axis is the metadata axis unless twice as much flat area faces another axis.
+- The deck is the height band with the most upward-facing area, ignoring sea or seabed planes at the very bottom.
+- Pass `--units`, `--up` or `--deck-z` (in metres, after the fix) when a model fools these.
+
+Candidate platforms are listed with their licences in `sim/assets/rig_model/candidates.json`. To download one, run
+`SKETCHFAB_TOKEN=... python3 sim/tools/fetch_model.py <key>`; this needs a free Sketchfab account.
