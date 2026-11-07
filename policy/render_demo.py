@@ -215,6 +215,8 @@ def worker(argv):
     painter = RustPainter(build_overlay(stage, base, tex_dir), tex_dir, flip_v=not args.no_flip_v)
     cam = stage.GetPrimAtPath(env_cfg.viewer.cam_prim_path)
     settings = carb.settings.get_settings()
+    for key, val in env_cfg.sim.render.carb_settings.items():
+        settings.set(key, val)
     font_dir = "/usr/share/fonts/truetype/dejavu"
     font = ImageFont.truetype(os.path.join(font_dir, "DejaVuSans-Bold.ttf"), 26)
     small = ImageFont.truetype(os.path.join(font_dir, "DejaVuSans.ttf"), 19)
