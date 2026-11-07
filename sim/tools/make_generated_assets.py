@@ -19,6 +19,8 @@ SOURCE_SKY = SIM_DIR / "assets" / "third_party" / "hdris" / "aristea_wreck.hdr"
 GENERATED = SIM_DIR / "assets" / "generated"
 LAND_LIMIT_DEG = 4.0
 BLEND_DEG = 4.0
+HORIZON_GLOW = 1.4  # brightens the haze so the sky meets the bright far sea
+GLOW_TOP_DEG = 14.0
 
 
 def read_hdr(path: Path) -> np.ndarray:
@@ -78,6 +80,8 @@ def make_sky() -> None:
     )
     weight = np.clip((LAND_LIMIT_DEG + BLEND_DEG - elevation) / BLEND_DEG, 0, 1)[:, None, None]
     result = image * (1 - weight) + haze[None, :, :] * weight
+    fade = np.clip((GLOW_TOP_DEG - elevation) / GLOW_TOP_DEG, 0, 1)[:, None, None] ** 2
+    result *= 1 + (HORIZON_GLOW - 1) * fade
     write_hdr(GENERATED / "ocean_sky.hdr", result)
 
 

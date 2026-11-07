@@ -205,6 +205,32 @@ def add_gauge(b, dial, steel, black, red, name, pipe_top, facing, value):
     }
 
 
+def add_splash_zone(b: SceneBuilder, leg_triangles: np.ndarray) -> None:
+    """Dark tide band where the four concrete legs meet the sea."""
+    band = b.plain("splash_zone", (0.06, 0.08, 0.07), 0.7)
+    points = leg_triangles.reshape(-1, 3)
+    middle = (points[:, :2].min(0) + points[:, :2].max(0)) / 2
+    for east in (False, True):
+        for north in (False, True):
+            leg = points[((points[:, 0] > middle[0]) == east) & ((points[:, 1] > middle[1]) == north)]
+            if not len(leg):
+                continue
+            top_z, bottom_z = leg[:, 2].max(), leg[:, 2].min()
+            top = leg[leg[:, 2] > top_z - 0.5, :2]
+            bottom = leg[leg[:, 2] < bottom_z + 0.5, :2]
+            top_center = (top.min(0) + top.max(0)) / 2
+            bottom_center = (bottom.min(0) + bottom.max(0)) / 2
+            top_radius = float((top.max(0) - top.min(0)).max()) / 2
+            bottom_radius = float((bottom.max(0) - bottom.min(0)).max()) / 2
+            waterline = top_z / (top_z - bottom_z)
+            center = top_center + (bottom_center - top_center) * waterline
+            radius = top_radius + (bottom_radius - top_radius) * waterline + 0.05
+            b.tube(
+                "/World/Details", "splash_band",
+                (center[0], center[1], -0.5), (center[0], center[1], 2.4), radius, band, segments=48,
+            )
+
+
 def add_process_area(b: SceneBuilder, stage, seed: int) -> list[dict]:
     rng = random.Random(seed)
     blue = b.plain("line_water", (0.09, 0.3, 0.55), 0.42, 0.2)
