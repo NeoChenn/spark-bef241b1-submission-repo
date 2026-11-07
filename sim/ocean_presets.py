@@ -2,9 +2,40 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 from sim.sky_gen import SkySpec
+
+
+@dataclass(frozen=True)
+class Fog:
+    """RTX analytic fog. Sky pixels are blended to ``color`` by 1 - exp(-distance_density) (measured, RTPT 6.2)."""
+
+    color: tuple[float, float, float]
+    distance_density: float = 1.0
+    height_density: float = 1.0
+    height_falloff: float = 0.05
+    start_height: float = 0.0
+    end_distance: float = 1000.0
+
+    @property
+    def sky_opacity(self) -> float:
+        return float(1.0 - math.exp(-self.distance_density))
+
+    def settings(self) -> dict:
+        return {
+            "/rtx/fog/enabled": True,
+            "/rtx/fog/fogZup/enabled": True,
+            "/rtx/fog/fogColor": list(self.color),
+            "/rtx/fog/fogColorIntensity": 1.0,
+            "/rtx/fog/fogDistanceDensity": self.distance_density,
+            "/rtx/fog/fogHeightDensity": self.height_density,
+            "/rtx/fog/fogHeightFalloff": self.height_falloff,
+            "/rtx/fog/fogStartHeight": self.start_height,
+            "/rtx/fog/fogStartDist": 0.0,
+            "/rtx/fog/fogEndDist": self.end_distance,
+        }
 
 
 @dataclass(frozen=True)
@@ -26,7 +57,8 @@ class Preset:
     sun: tuple[float, float, float, tuple[float, float, float]] | None = None
     sky: SkySpec | None = None
     leg_foam: float = 1.0
-    ground_fog: tuple[float, float, float] | None = None
+    ground_fog: tuple[float, float] | None = None
+    fog: Fog | None = None
     render: dict = field(default_factory=dict)
 
 
@@ -68,9 +100,9 @@ PRESETS: dict[str, Preset] = {
     "mood": Preset(
         hdri="",
         sky=SkySpec(
-            horizon=(0.050, 0.075, 0.150),
-            mid=(0.130, 0.090, 0.200),
-            zenith=(0.070, 0.050, 0.130),
+            horizon=(0.160, 0.165, 0.270),
+            mid=(0.150, 0.110, 0.230),
+            zenith=(0.110, 0.085, 0.190),
             mid_height=0.5,
             horizon_hold=1.6,
             sun_azimuth=200.0,
@@ -79,22 +111,16 @@ PRESETS: dict[str, Preset] = {
             glow_width_deg=30.0,
             disc=6.0,
             disc_deg=1.5,
-            cloud_color=(0.070, 0.060, 0.100),
-            cloud_amount=0.7,
+            cloud_color=(0.170, 0.150, 0.230),
+            cloud_amount=0.5,
         ),
         dome_intensity=1000.0,
         sun=(200.0, 11.0, 2500.0, (1.0, 0.80, 0.62)),
-        wind_speed=4.5,
-        swell=(0.5, 110.0, 200.0),
-        choppiness=0.6,
-        roughness=0.09,
-        foam_coverage=1.0,
-        leg_foam=0.6,
-        deep_color=(0.003, 0.006, 0.014),
-        crest_color=(0.006, 0.014, 0.025),
-        haze_distance=3000.0,
-        ground_fog=(0.03, 5.0, 16.0),
-        render={"/rtx/rtpt/maxSpecularAndTransmissionBounces": 8},
+        wind_speed=8.0,
+        swell=(1.2, 120.0, 10.0),
+        haze_distance=0.0,
+        fog=Fog(color=(0.14, 0.145, 0.24), distance_density=1.0, height_density=1.0, height_falloff=0.2,
+                start_height=30.0, end_distance=500.0),
     ),
     "overcast": Preset(
         hdri="overcast_soil_puresky",
@@ -118,4 +144,5 @@ def get_preset(name: str) -> Preset:
 
 
 def render_settings(preset: Preset) -> dict:
-    return {**BASE_RENDER, **preset.render}
+    fog = preset.fog.settings() if preset.fog else {"/rtx/fog/enabled": False}
+    return {**BASE_RENDER, **fog, **preset.render}

@@ -84,3 +84,9 @@ def render_sky(spec: SkySpec) -> np.ndarray:
     below = el < 0
     sky[below] = np.asarray(spec.horizon) * 0.7
     return sky.astype(np.float32)
+
+
+def compensate_for_fog(sky: np.ndarray, fog: RGB, opacity: float, floor: float = 0.002) -> np.ndarray:
+    """Pre-correct a sky so that blending it with the renderer's fog (fraction ``opacity``) gives back ``sky``."""
+    out = (sky - opacity * np.asarray(fog, np.float32)) / (1.0 - opacity)
+    return np.maximum(out, floor).astype(np.float32)

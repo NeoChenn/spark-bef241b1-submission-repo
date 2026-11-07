@@ -44,3 +44,12 @@ def test_sun_disc_is_small_and_bright():
     ang = np.degrees(angle_between(az, el, np.radians(90.0), np.radians(10.0)))
     assert sky[ang < 1.0].max(axis=-1).min() > 4.0
     assert sky[ang > 4.0].max() < 1.0
+
+
+def test_fog_compensation_round_trips():
+    from sim.sky_gen import compensate_for_fog
+
+    sky = render_sky(SPEC)
+    fog = (0.02, 0.025, 0.06)
+    pre = compensate_for_fog(sky, fog, 0.6, floor=0.0)
+    assert np.allclose(pre * 0.4 + 0.6 * np.asarray(fog), sky, atol=1e-5)

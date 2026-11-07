@@ -16,10 +16,11 @@ from sim.hdri import horizon_color, read_hdr, write_hdr
 from sim.ocean_legs import cluster_circles, waterline_points
 from sim.ocean_mdl import MODULE, build_mdl
 from sim.ocean_presets import Preset, get_preset, render_settings
-from sim.sky_gen import render_sky
+from sim.sky_gen import compensate_for_fog, render_sky
 from sim.ocean_waves import EARTH_RADIUS, Waves, foam_threshold, make_waves, polar_grid, whitecap_fraction
 
 ROOT = "/Environment"
+DISPLAY_PER_HDR = 0.88
 HDRI_DIR = Path(__file__).resolve().parent / "assets" / "third_party" / "hdris"
 WAVE_FULL_RADIUS = 600.0
 WAVE_END_RADIUS = 2000.0
@@ -172,6 +173,9 @@ def _sky_image(preset: Preset, workdir: Path) -> tuple[Path, np.ndarray]:
         path = HDRI_DIR / f"{preset.hdri}.hdr"
         return path, read_hdr(path)
     img = render_sky(preset.sky)
+    if preset.fog:
+        img = compensate_for_fog(img, np.asarray(preset.fog.color) / (DISPLAY_PER_HDR * preset.dome_intensity / 1000.0),
+                                 preset.fog.sky_opacity)
     path = workdir / "sky.hdr"
     write_hdr(path, img)
     return path, img
@@ -211,7 +215,7 @@ def _add_material(stage: Usd.Stage, preset: Preset, mdl_path: Path, foam_level: 
     for name in ("foam_amount", "roughness", "haze_distance"):
         shader.CreateInput(name, Sdf.ValueTypeNames.Float).Set(float(getattr(preset, name)))
     shader.CreateInput("foam_threshold", Sdf.ValueTypeNames.Float).Set(foam_level)
-    density, scale_height, _ = preset.ground_fog or (0.0, 5.0, 0.0)
+    density, scale_height = preset.ground_fog or (0.0, 5.0)
     shader.CreateInput("fog_density", Sdf.ValueTypeNames.Float).Set(float(density))
     shader.CreateInput("fog_scale_height", Sdf.ValueTypeNames.Float).Set(float(scale_height))
     shader.CreateInput("leg_foam_amount", Sdf.ValueTypeNames.Float).Set(float(preset.leg_foam))
@@ -237,34 +241,6 @@ def _add_splash_zones(stage: Usd.Stage, mdl_path: Path, legs, sea_level_z: float
         c.CreateAxisAttr(UsdGeom.Tokens.z)
         c.AddTranslateOp().Set(Gf.Vec3d(x, y, sea_level_z))
         UsdShade.MaterialBindingAPI.Apply(c.GetPrim()).Bind(mat)
-
-
-def _add_fog_veils(stage: Usd.Stage, preset: Preset, mdl_path: Path, horizon: np.ndarray, legs,
-                   sea_level_z: float) -> UsdShade.Input:
-    """Thin transmissive sleeves on the legs that apply the analytic ground fog to them; the sea applies it itself."""
-    density, scale_height, height = preset.ground_fog
-    mat = UsdShade.Material.Define(stage, f"{ROOT}/Looks/FogVeil")
-    shader = UsdShade.Shader.Define(stage, f"{ROOT}/Looks/FogVeil/Shader")
-    shader.SetSourceAsset(Sdf.AssetPath(str(mdl_path)), "mdl")
-    shader.SetSourceAssetSubIdentifier("FogVeil", "mdl")
-    out = shader.CreateOutput("out", Sdf.ValueTypeNames.Token)
-    mat.CreateSurfaceOutput("mdl").ConnectToSource(out)
-    for name, value in (("sea_level", sea_level_z), ("fog_density", density), ("fog_scale_height", scale_height),
-                        ("haze_distance", preset.haze_distance)):
-        shader.CreateInput(name, Sdf.ValueTypeNames.Float).Set(float(value))
-    radiance = horizon * preset.dome_intensity * preset.haze_gain
-    shader.CreateInput("fog_radiance", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*(float(v) for v in radiance)))
-    camera = shader.CreateInput("camera_position", Sdf.ValueTypeNames.Float3)
-    camera.Set(Gf.Vec3f(0.0, 0.0, 40.0))
-    for i, (x, y, r) in enumerate(legs):
-        c = UsdGeom.Cylinder.Define(stage, f"{ROOT}/FogVeil/leg_{i}")
-        c.CreateRadiusAttr(r * 1.02 + 0.08)
-        c.CreateHeightAttr(height + 2.0)
-        c.CreateAxisAttr(UsdGeom.Tokens.z)
-        c.AddTranslateOp().Set(Gf.Vec3d(x, y, sea_level_z + height / 2 - 1.0))
-        UsdGeom.PrimvarsAPI(c).CreatePrimvar("doNotCastShadows", Sdf.ValueTypeNames.Bool).Set(True)
-        UsdShade.MaterialBindingAPI.Apply(c.GetPrim()).Bind(mat)
-    return camera
 
 
 def _apply_render_settings(preset: Preset) -> None:
@@ -326,7 +302,5 @@ def add_environment(
                            grid.spacing[:active].astype(np.float32))
     env = Environment(p, mesh, points, active, displacer, shader)
     env.legs = legs
-    if p.ground_fog and legs:
-        env.camera_inputs.append(_add_fog_veils(stage, p, mdl_path, horizon_color(sky_img), legs, sea_level_z))
     env.update(0.0)
     return env

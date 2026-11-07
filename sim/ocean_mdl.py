@@ -166,22 +166,6 @@ export material SplashZone(
     geometry: material_geometry(cutout_opacity: h < top ? 1.0 : 0.0)
 );
 
-export material FogVeil(
-    float3 camera_position = float3(0.0, 0.0, 40.0),
-    float sea_level = 0.0,
-    float fog_density = 0.0,
-    float fog_scale_height = 5.0,
-    float haze_distance = 0.0,
-    color fog_radiance = color(0.0)
-)
-= let {
-    float3 pw = state::transform_point(state::coordinate_internal, state::coordinate_world, state::position());
-    float t = fog_transmittance(camera_position, pw, sea_level, fog_density, fog_scale_height, haze_distance);
-    material_surface veil = material_surface(
-        scattering: df::specular_bsdf(tint: color(t), mode: df::scatter_transmit),
-        emission: material_emission(emission: df::diffuse_edf(), intensity: fog_radiance * ((1.0 - t) * math::PI), mode: intensity_radiant_exitance)
-    );
-} in material(thin_walled: true, surface: veil, backface: veil, ior: color(1.0));
 """
 
 
