@@ -1,81 +1,118 @@
-# Flange-integrity robot (working title)
+# Offshore rig sim
 
-Agentverse 2026, Robotics Track. An embodied agent that patrols an offshore platform, reads bolt
-torque stripes and gas levels, decides which flange bolts need re-tightening, and acts behind a gas
-interlock and a human permit-to-work gate.
+Isaac Sim running headless in Docker on a GB10 (watson), streaming a camera view to a web page at
+`https://rig.zeecloud.org`. This first milestone is a test world (ground, lights, a few shapes, one spinning red cube,
+a fixed camera) to prove the plumbing. The rig itself, quadrupeds and policies come later.
 
-The concept is not final. Read [docs/problem-statement.md](docs/problem-statement.md) for the problem,
-sources and the items still to verify.
+## Architecture
 
-## Status (be honest in the submission)
+```
+sim (Isaac Sim 6.2.0, GPU)  --JPEG over TCP 127.0.0.1:9000-->  web (FastAPI, 127.0.0.1:8080)  <--  tunnel (cloudflared)  <--  browser
+```
 
-| Part | State |
-|---|---|
-| Safety supervisor (`flange_robot/safety.py`) | Done, unit-tested. Deterministic rules, not learned. |
-| Decision log / perception receipts (`decision_log.py`) | Done. JSONL, one event per decision and per Gemini call. |
-| Gemini wrapper (`gemini_client.py`) | Written and unit-tested with a fake backend. **Live call path untested: no key yet.** |
-| MuJoCo environment (`env.py`) | **Skeleton.** One flange, 8 bolts, a point-mass robot, scene-change hooks. No arm, no reward. Kept as a fast test and training twin. |
-| Isaac Sim on Modal (`isaac/`) | **Written, never run.** Render pipeline adapted from the organisers' example. Run the smoke test first. This is the demo and video world. |
-| Repair policy (`policy.py`, `episode.py`) | Done as a **rule-based baseline**, 49 tests. Not learned. |
-| Diagnosis and supervisor alerts (`diagnosis.py`, `alerts.py`) | Done on the `gas-leak-detection` branch, over **simulated** camera features. See `docs/gas-leak-detection.md`. |
-| PPO decision policy | **Not trained.** Plan and reward are in `docs/gas-leak-detection.md`. |
-| Image-based perception model | Not started. Needs rendered images (Isaac Sim on Modal). |
-| Console UI, video, technical summary | Not started. |
+- `sim`: `rig/sim/main.py` builds the scene (`rig/sim/scene.py`), reads the camera's RGB annotator, JPEG-encodes and
+  sends frames with `rig/sim/sender.py`. Isaac's WebRTC livestream does not work on aarch64, hence our own path.
+- `web`: `rig/web/server.py` keeps only the latest frame and pushes it to browsers over `/ws/video`.
+  `/api/health` and `/api/frame.jpg` are for checks.
+- `tunnel`: compose profile `public`, started only when `.env` has `TUNNEL_TOKEN`.
 
-All limits in `config.py` are illustrative placeholders. Replace them with sourced values.
+All three use host networking and bind to loopback only.
 
-## Quick start
+## Local dev (Mac)
 
 ```bash
-pip install -r requirements.txt
-python -m pytest -q
+uv run pytest
+uv run uvicorn rig.web.server:app --port 8080   # page at http://localhost:8080, waits for a sim
 ```
 
-Run a scene by hand:
+## Run on watson
 
-```python
-from flange_robot.env import Action, FlangeEnv
+Everything happens inside `~/Documents/spark-bef241b1-submission-repo`. Edit on the Mac, push, `git pull` on watson.
 
-env = FlangeEnv(seed=0)
-env.loosen_bolt(0, 0.4)               # a bolt turns
-for _ in range(300):
-    obs = env.step(Action("move_to", 0))
-print(obs["bolts"])                    # noisy stripe readings, with confidence
+```bash
+ssh watson
+cd ~/Documents && git clone https://github.com/NeoChenn/spark-bef241b1-submission-repo.git   # first time
+cd spark-bef241b1-submission-repo && git pull
+scripts/remote.sh check    # driver, docker, GPU (CDI), image, ports, tunnel token. Reports only.
+scripts/remote.sh up       # builds and starts web + sim (+ tunnel if .env has a token)
+scripts/remote.sh status   # containers, /api/health, last sim fps line
+scripts/remote.sh logs sim
+scripts/remote.sh frame logs/frame.jpg
+scripts/remote.sh down     # keeps the shader cache volumes
 ```
 
-## Layout
+**First start:** Isaac compiles shaders for several minutes. Frames are black until then (`mean=` near 0 in the sim's
+`fps=` log line). The `rig-isaac-*` volumes keep the cache, so later starts are quick.
 
-```
-flange_robot/
-  config.py         model names, safety limits, edge budget, usage guard (one place)
-  safety.py         deterministic safety verdicts, overrides the policy
-  decision_log.py   append-only JSONL evidence log
-  gemini_client.py  slow-path reasoning with retries, rate guard, logging, local fallback
-  env.py            MuJoCo skeleton with live scene-change hooks
-isaac/              Isaac Sim on Modal: image, render script (see isaac/README.md)
-tests/              24 tests, all passing
-docs/               problem statement
-```
+**Without the tunnel:** `ssh -N -L 8080:127.0.0.1:8080 watson`, then open http://localhost:8080. Do not use
+`brev port-forward` (it leaves a persistent binding on the node).
 
-## Design rules
+## Cloudflare setup (one time)
 
-- **Perception drives action.** Every decision is logged with its evidence.
-- **Safety is deterministic.** Gas, people, confidence and the permit gate are rules that override any policy.
-- **Gemini is the slow path only.** It never sits in the real-time loop. If it fails, the robot falls back to flagging a human.
-- **Honest commits.** No replayed paths, no hardcoded model output standing in for real calls.
+1. Zero Trust → Networks → Tunnels → create a tunnel (cloudflared), e.g. `rig-watson`. Copy its token.
+2. Public hostname: `rig.zeecloud.org` → service `http://localhost:8080`.
+3. Access → Applications → self-hosted app for `rig.zeecloud.org` with an email allow policy.
+4. On watson: `cp .env.example .env` and set `TUNNEL_TOKEN=...`. Never commit `.env`.
+5. `scripts/remote.sh up`.
 
-## API keys: read this
+## Troubleshooting
 
-1. Copy `.env.example` to `.env` and put the Gemini key there. `.env` is gitignored.
-2. **Never commit a key.** A leaked key gets every key on the project revoked. If one leaks, delete and recreate it in AI Studio. A new commit does not remove it from git history.
-3. The hackathon account is deleted about a day after the event. Export everything you want to keep.
-4. Do not loop model calls. The rate guard caps calls per minute, but keep usage modest.
-
-## Owners (fill in)
-
-| Area | Owner |
+| Symptom | Fix |
 |---|---|
-| World and sim | TODO |
-| Policy and models | TODO |
-| Console / product UI | TODO |
-| Technical summary, video, pitch | TODO |
+| `unresolvable CDI devices nvidia.com/gpu=all` | Host needs `nvidia-ctk cdi generate` (sudo). Ask before changing the host. |
+| Black frames after 10+ minutes | Try the faster renderer: set the sim `command:` to add `--renderer RaytracedLighting`, then `up`. |
+| Page says "waiting for sim" | `scripts/remote.sh logs sim`: look for a Traceback, or `connected=False` (web not up). |
+| Low fps | Lower `--fps`, or use `RaytracedLighting`. |
+| `Permission denied` under `/logs` | `chmod 777 logs` (Isaac runs as uid 1234). `remote.sh up` does this. |
+
+## Rig deck scene
+
+A first offshore rig deck for Isaac Sim 6.2, separate from the Docker test world above.
+
+1. Open Isaac Sim 6.2.
+2. Choose **File > Open** and select `sim/output/rig_deck.usda`.
+
+The first load can take a few minutes while shaders build.
+
+To rebuild the scene, run this from the repo root. Changing the seed moves the pipe damage.
+
+```bat
+C:\isaacsim\python.bat sim\build_rig_deck.py --seed 7
+```
+
+This rewrites `sim/output/`, including the preview images. `sim/output/rig_deck_meta.json` gives the damage location,
+work zone and cameras for the robotics and training teams.
+
+Everything in `sim/assets/third_party/` comes from [Poly Haven](https://polyhaven.com/license) under CC0, so it's free
+to use and redistribute. To add an asset, put its Poly Haven ID in `sim/assets/manifest.json`, then run
+`python sim/tools/fetch_assets.py`.
+
+| Path | Contents |
+|---|---|
+| `sim/build_rig_deck.py` | Builds the scene and renders previews |
+| `sim/assets/` | Asset list and downloaded models, textures and skies |
+| `sim/output/` | Generated scene, metadata and preview images |
+| `sim/tools/` | Asset download and inspection scripts |
+
+## Full oil rig scene
+
+A textured, full-scale rig for Isaac Sim 6.2. Open `sim/output/full_rig.usda` with **File > Open**, or rebuild it from the
+repo root:
+
+```bat
+C:\isaacsim\python.bat sim\build_full_rig.py
+```
+
+The rig model is [Oil Rig](https://sketchfab.com/3d-models/oil-rig-2a9fadae585f4bbfa030772e54e64ace) by AnsysLearn under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), split, rescaled, textured and placed at sea for this project.
+See `sim/assets/third_party/oil_rig_ansyslearn/CREDITS.md`. The source gives no real-world size, so the 0.25 m per unit
+scale is an estimate. `sim/output/full_rig_meta.json` lists the rig's bounds, deck heights, parts, valves, gauges,
+true gauge readings and a patrol route checked against the geometry.
+
+`sim/rig_details.py` adds the process pipes, valves, gauges, props, helideck markings and windows.
+`sim/tools/make_generated_assets.py` makes the files in `sim/assets/generated/`: an ocean sky with the coastline removed
+from Poly Haven's CC0 `aristea_wreck`, a sea ripple map and a gauge dial.
+
+## Other modules
+
+- `flange_robot/`: gas-leak diagnosis, flange repair policy and supervisor alerts (MuJoCo skeleton, tests). See `flange_robot/README.md` and `docs/gas-leak-detection.md`.

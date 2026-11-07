@@ -8,10 +8,10 @@ secrets/
 credentials*.json
 
 # Python
-__pycache__/
-*.py[cod]
 .venv/
 venv/
+__pycache__/
+*.py[cod]
 .pytest_cache/
 *.egg-info/
 
@@ -33,7 +33,14 @@ node_modules/
 .next/
 .vercel/
 
+# Team: per-agent work dirs and generated reports
+.superpowers/
+.work/
+# Regenerate with sim/tools/inspect_assets.py
+sim/output/asset_report.json
+
 # OS and editor
 .DS_Store
+Thumbs.db
 .idea/
 .vscode/
