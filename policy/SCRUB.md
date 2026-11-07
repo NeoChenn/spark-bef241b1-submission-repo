@@ -91,3 +91,11 @@ cfg.base_height = 0.32                     # root z
   reachability mask is a shoulder-distance proxy, not full IK with orientation.
 * Training visuals are off; the pipe visual in play mode sits at the nominal pose (play pins DR to it).
 * Legs are fixed (fixed base, gravity off): the trunk does not sway under arm reaction forces.
+
+## Scrub v2 (`--robot lift_v2`, `ScrubLiftV2EnvCfg`)
+
+F* capped at 38 N (`force_set_max`; apply the same cap when deploying `policy.onnx`), over-force penalty
+`1.0 * (F-40)/10 + 4.0 * ((F-30)/10)^2`, abrasion coef 0.5-1.5, 1-4 patches, pipe yaw +-0.1745 rad.
+Fine-tuned from `scrub_lift_watson/model_149` in three stages (v2a 150 it, v2b 200 it, v2c 150 it, final weights).
+Rig-geometry eval (1026 ep, `--meta --force_patch`): 97.6 % success, 6.8 s clean, mean ep-max force 29.9 N,
+p95 35.7 N, 1.0 % of episodes > 40 N (v1: 49.9 N / 70.1 N / 76.8 %).

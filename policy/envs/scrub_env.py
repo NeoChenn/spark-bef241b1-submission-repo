@@ -11,6 +11,7 @@ from isaaclab.envs import DirectRLEnv
 from isaaclab.utils.math import matrix_from_quat, sample_uniform
 
 from policy.envs.rust_state import RustState
+from policy.envs.scrub_reward import force_setpoint, over_force_penalty
 from policy.envs.scrub_env_cfg import COARSE_H, COARSE_W, GRID_H, GRID_W, PATCH_K, ScrubEnvCfg
 
 
@@ -157,7 +158,7 @@ class ScrubEnv(DirectRLEnv):
         half = c.pipe_length / 2 + 0.05
         za = za.clamp(-half, half)
         self.p_tgt[:] = self._from_cyl(za, rho, th)
-        self.f_set[:] = c.force_set_mid + c.force_set_half * a[:, 3]
+        self.f_set[:] = force_setpoint(a[:, 3], c.force_set_mid, c.force_set_half, c.force_set_max)
         rho_cmd = torch.where(rho < surf + c.contact_snap, surf - self.f_set / c.spring_k_nominal, rho)
         self.p_cmd[:] = self._from_cyl(za, rho_cmd, th)
 
@@ -222,7 +223,6 @@ class ScrubEnv(DirectRLEnv):
         F = self.force
         removed_frac = self.removed / self.rust.initial_total
         in_band = ((F >= c.force_band[0]) & (F <= c.force_band[1])).float()
-        over = (F - c.force_band[1]).clamp_min(0.0) / 10.0
         uv = self.rust.surface_to_uv(self.theta, self.axial)
         _, dist = self.rust.nearest_rust(uv)
         dist = dist + self.gap.abs()
@@ -231,7 +231,7 @@ class ScrubEnv(DirectRLEnv):
         rew = (c.w_removed * removed_frac
                + c.w_success * self.success.float()
                + c.w_contact_band * in_band
-               - c.w_over_force * over
+               - over_force_penalty(F, c.force_band[1], c.w_over_force, c.over_force_soft, c.w_over_force_quad)
                - c.w_unsprayed * self.rust.last_unsprayed_contact
                - c.w_action_rate * act_rate
                - c.w_dist * dist * has_rust)
@@ -269,7 +269,7 @@ class ScrubEnv(DirectRLEnv):
 
         soak = torch.where(torch.rand(n, device=dev) < c.prob_not_soaked,
                            sample_uniform(0.0, 25.0, (n,), dev), torch.full((n,), 60.0, device=dev))
-        self.rust.reset(env_ids, radius=r, soak_time=soak, reachable=reach,
+        self.rust.reset(env_ids, radius=r, soak_time=soak, reachable=reach, n_patches=c.n_patches_range,
                         abrasion_coef=sample_uniform(*c.abrasion_coef_range, (n,), dev))
 
         jp[:, self.arm_ids] += sample_uniform(-c.init_joint_noise, c.init_joint_noise, (n, len(self.arm_ids)), dev)
@@ -387,6 +387,7 @@ class ScrubEnv(DirectRLEnv):
 
 TASKS = {
     "lift": ("Rig-Scrub-Go2UR3Lift-v0", "ScrubLiftEnvCfg"),
+    "lift_v2": ("Rig-Scrub-Go2UR3Lift-v2", "ScrubLiftV2EnvCfg"),
     "go2ur3": ("Rig-Scrub-Go2UR3-v0", "ScrubEnvCfg"),
     "franka": ("Rig-Scrub-Franka-v0", "ScrubFrankaEnvCfg"),
 }

@@ -98,12 +98,14 @@ class ScrubEnvCfg(DirectRLEnvCfg):
     spring_k_range: tuple = (1500.0, 4000.0)
     spring_k_nominal: float = 2500.0
     abrasion_coef_range: tuple = (0.7, 1.3)
+    n_patches_range: tuple = (1, 3)
     prob_not_soaked: float = 0.15
     contact_snap: float = 0.01
 
     action_scale: float = 0.01
     force_set_mid: float = 25.0
     force_set_half: float = 20.0
+    force_set_max: float | None = None
     max_target_gap: float = 0.20
     theta_limits: tuple = (-0.5, 2.0)
 
@@ -116,6 +118,8 @@ class ScrubEnvCfg(DirectRLEnvCfg):
     w_contact_band: float = 0.02
     force_band: tuple = (10.0, 40.0)
     w_over_force: float = 0.1
+    over_force_soft: float | None = None
+    w_over_force_quad: float = 0.0
     w_unsprayed: float = 0.05
     w_action_rate: float = 0.01
     w_dist: float = 0.2
@@ -156,6 +160,20 @@ class ScrubLiftEnvCfg(ScrubEnvCfg):
         self.reach_range = (0.12, 0.62)
         self.max_reach_z = 1.3
         self.viewer = ViewerCfg(eye=(1.3, 1.6, 1.7), lookat=(0.0, -0.3, 1.0), resolution=(1280, 720))
+        super().__post_init__()
+
+
+@configclass
+class ScrubLiftV2EnvCfg(ScrubLiftEnvCfg):
+
+    def __post_init__(self):
+        self.force_set_max = 38.0
+        self.w_over_force = 1.0
+        self.over_force_soft = 30.0
+        self.w_over_force_quad = 4.0
+        self.abrasion_coef_range = (0.5, 1.5)
+        self.n_patches_range = (1, 4)
+        self.yaw_range = (-0.1745, 0.1745)
         super().__post_init__()
 
 
