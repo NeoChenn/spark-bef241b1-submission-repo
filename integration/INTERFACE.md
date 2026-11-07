@@ -107,3 +107,52 @@ Control rates: physics 60–120 Hz; the orchestrator makes a scrub decision ever
   `RustLocalizer.from_checkpoint("/ckpt/detector/best", patch=96, stride=48)` (patch is resized to `meta.input_size`).
   meta keys read: `input_size` (int or `[3,H,W]`), `mean`, `std`, `threshold`, `temperature`, `unsure_band`. ONNX input
   NCHW float32 normalised, output `(N, 1)` rust logit.
+
+## 6. Gas-leak job (same robot, same plan engine)
+
+Built on CPU and tested against the mock; **nothing here has run inside Isaac Sim yet**.
+
+* **Plan engine:** `policy/leak/job.py` `RigOrchestrator` subclasses `Orchestrator`. With `leak=LeakJob(LeakLocalizer())`
+  it adds `GAS_CHECK, LEAK_APPROACH, LEAK_INSPECT, LEAK_SECOND_VIEW, RETORQUE, LEAK_VERIFY, GAS_RETREAT`. Gas is checked
+  before every step and every scrub step: at or above 0.20 LEL (or a failed sensor) means `GAS_RETREAT` from any state;
+  above 0.05 during rust work pauses it, fixes or escalates the leak, then resumes. With `leak=None` it is the rust robot.
+* **Perception:** `detection/leak.py` `LeakLocalizer.read(rgb, camera, flange)`. Stripe angles come from pixels (red
+  stripe on each bolt head against its expected direction). Cracks use the rust-style sliding-window classifier,
+  `LeakLocalizer.from_checkpoint("/ckpt/leak_detector/best")` (same `model.onnx` + `meta.json` layout). Until a model is
+  trained it uses `fake_crack_classifier`, which only works on the mock's renders.
+* **Scene:** `python sim/build_leak_flanges.py` writes `sim/output/leak_flanges.usda` (a bolted flange with torque
+  stripes beside each of the 6 valves), `full_rig_leak.usda` (that layer over `full_rig.usda`: **open this one**) and
+  `leak_flanges_meta.json`. Placement is a guess from the valve positions: check it visually.
+
+| Prim | What |
+|---|---|
+| `/World/Leak/F<n>` | flange Xform beside valve n; local +X = face normal, +Z = bolt 0; attrs `rig:flangeId`, `rig:crackSeverity` |
+| `…/bolt_<k>` | bolt Xform; `xformOp:rotateX:loosen` (degrees) turns the head and its stripe |
+| `…/mark_<k>` | the fixed stripe on the face |
+| `…/crack` | hidden until a crack exists |
+
+**Bridge methods** (`integration/leak_bridge.py` `LeakBridgeMixin`, mix into the Isaac bridge class): `gas_reading()`,
+`flanges()`, `flange(id)`, `nearest_flange()`, `approach_flange(id)` (walks there, **checking gas every step**, and
+stops early at the limit), `request_flange_view(i)`, `retreat(m)`, `return_to_work()`, and `torque_bolt(id, k)` for
+`ArmController.torque(id, k)` (socket onto the head via `move_to`, then tighten in `LeakWorld`, then
+`apply_leak_state(stage, world, prims)`). The host provides `robot_position()`, `move_base_to(xyz, facing)`,
+`set_camera_pose(eye, target)`, `advance(dt)`, `work_position()`, `stage`, `leak_world`, `leak_prims`.
+
+**Wrist camera:** 640x360 works from **1.1 m** (the whole flange fits; every bolt read; angle error at most 0.019 rad).
+From 1.0 m the flange clips the frame.
+
+**Hooks for the video** (call on `LeakWorld`, then `apply_leak_state`): `loosen(flange, bolt, rad)`,
+`crack(flange, severity)`, `gas_spike(flange)`. The existing `occlude_camera` and `person_at` hooks work unchanged.
+
+| Hook | Expected on-screen reaction |
+|---|---|
+| `loosen` while scrubbing | `SCRUB -> GAS_CHECK`, fix the bolt, `LEAK_VERIFY -> SCRUB` (resumes) |
+| `crack` | `LEAK_INSPECT -> ESCALATE_TO_HUMAN`, critical alert, robot backs off, no tightening |
+| `gas_spike` | `GAS_RETREAT -> ESCALATE_TO_HUMAN`, critical alert |
+| dirty lens (`dust`) | two extra views, then `ESCALATE_TO_HUMAN` (unsure, does not guess) |
+
+**Outputs:** the same `runs/decisions.jsonl`. Leak evidence adds `gas`, `flange`, `leak_diagnosis`, `leak_reading`, and
+`alert` (`severity`, `kind`, `message`, `recommended_action`, `requires_ack`). The HUD keeps its 4 lines; leak states
+show gas, diagnosis and bolt readings, and `GAS_RETREAT` shows in the alert colour.
+
+Try it on CPU: `python -m policy.leak.mock --leak loose` (also `crack`, `big`, `none`, `dust`, `--gas-during-scrub`).

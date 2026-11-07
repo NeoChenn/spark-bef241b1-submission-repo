@@ -70,8 +70,9 @@ class LeakWorld:
         self.flanges[fid].crack = float(np.clip(severity, 0.0, 1.0))
 
     def gas_spike(self, fid: str) -> None:
-        """A burst: severe crack, strong leak."""
-        self.crack(fid, 0.9)
+        """A burst: full-strength leak. It must trip the stop limit from the viewing distance (1.1 m for the
+        640x360 wrist camera), which a 0.9 crack does not (0.193 < 0.20)."""
+        self.crack(fid, 1.0)
 
     # -- robot actions -----------------------------------------------------------
     def tighten(self, fid: str, bolt: int) -> float:
