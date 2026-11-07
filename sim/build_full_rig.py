@@ -62,6 +62,8 @@ PAINTS = {
     "module_grey": ((0.46, 0.49, 0.51), 0.55, 0.1, CLADDING),
 }
 TILE_METRES = {"deck": 2.5, "concrete": 6.0, "module_white": 4.0, "module_blue": 4.0, "module_grey": 4.0}
+WALL_TEXTURE = "rusty_metal_grid"
+WALL_MATERIALS = ("module_white", "module_blue", "module_grey")
 SEA_TILE_METRES = 70.0
 # Sea haze. Saved in the scene so it applies when anyone opens the rig. Distances are in metres.
 HAZE_SETTINGS = {
@@ -216,11 +218,23 @@ class Materials:
         if name not in self.cache:
             material, shader, st = self._base(name)
             color, roughness, metallic, relief = PAINTS[name]
-            shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
-            shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(roughness)
             shader.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(metallic)
-            if relief:
-                self._normal_map(material, shader, st, ASSETS / "textures" / relief)
+            if name in WALL_MATERIALS:
+                folder = ASSETS / "textures" / WALL_TEXTURE
+                diffuse = self._texture(material, st, folder / "diff.jpg", "diff", "sRGB")
+                shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+                    diffuse.CreateOutput("rgb", Sdf.ValueTypeNames.Float3)
+                )
+                rough = self._texture(material, st, folder / "rough.jpg", "rough", "raw")
+                shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).ConnectToSource(
+                    rough.CreateOutput("r", Sdf.ValueTypeNames.Float)
+                )
+                self._normal_map(material, shader, st, folder)
+            else:
+                shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
+                shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(roughness)
+                if relief:
+                    self._normal_map(material, shader, st, ASSETS / "textures" / relief)
             self.cache[name] = material
         return self.cache[name]
 

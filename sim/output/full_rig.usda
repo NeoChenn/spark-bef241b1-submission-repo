@@ -7714,10 +7714,10 @@ def Xform "World"
             def Shader "surface"
             {
                 uniform token info:id = "UsdPreviewSurface"
-                color3f inputs:diffuseColor = (0.8, 0.82, 0.82)
+                color3f inputs:diffuseColor.connect = </World/Looks/module_white/diff.outputs:rgb>
                 float inputs:metallic = 0
                 normal3f inputs:normal.connect = </World/Looks/module_white/nor_gl.outputs:rgb>
-                float inputs:roughness = 0.5
+                float inputs:roughness.connect = </World/Looks/module_white/rough.outputs:r>
                 token outputs:surface
             }
 
@@ -7728,11 +7728,33 @@ def Xform "World"
                 float2 outputs:result
             }
 
+            def Shader "diff"
+            {
+                uniform token info:id = "UsdUVTexture"
+                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/diff.jpg@
+                token inputs:sourceColorSpace = "sRGB"
+                float2 inputs:st.connect = </World/Looks/module_white/uv.outputs:result>
+                token inputs:wrapS = "repeat"
+                token inputs:wrapT = "repeat"
+                float3 outputs:rgb
+            }
+
+            def Shader "rough"
+            {
+                uniform token info:id = "UsdUVTexture"
+                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/rough.jpg@
+                token inputs:sourceColorSpace = "raw"
+                float2 inputs:st.connect = </World/Looks/module_white/uv.outputs:result>
+                token inputs:wrapS = "repeat"
+                token inputs:wrapT = "repeat"
+                float outputs:r
+            }
+
             def Shader "nor_gl"
             {
                 uniform token info:id = "UsdUVTexture"
                 float4 inputs:bias = (-1, -1, -1, 0)
-                asset inputs:file = @../assets/third_party/textures/box_profile_metal_sheet/nor_gl.jpg@
+                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/nor_gl.jpg@
                 float4 inputs:scale = (2, 2, 2, 1)
                 token inputs:sourceColorSpace = "raw"
                 float2 inputs:st.connect = </World/Looks/module_white/uv.outputs:result>
@@ -7749,10 +7771,10 @@ def Xform "World"
             def Shader "surface"
             {
                 uniform token info:id = "UsdPreviewSurface"
-                color3f inputs:diffuseColor = (0.16, 0.33, 0.48)
+                color3f inputs:diffuseColor.connect = </World/Looks/module_blue/diff.outputs:rgb>
                 float inputs:metallic = 0
                 normal3f inputs:normal.connect = </World/Looks/module_blue/nor_gl.outputs:rgb>
-                float inputs:roughness = 0.5
+                float inputs:roughness.connect = </World/Looks/module_blue/rough.outputs:r>
                 token outputs:surface
             }
 
@@ -7763,11 +7785,33 @@ def Xform "World"
                 float2 outputs:result
             }
 
+            def Shader "diff"
+            {
+                uniform token info:id = "UsdUVTexture"
+                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/diff.jpg@
+                token inputs:sourceColorSpace = "sRGB"
+                float2 inputs:st.connect = </World/Looks/module_blue/uv.outputs:result>
+                token inputs:wrapS = "repeat"
+                token inputs:wrapT = "repeat"
+                float3 outputs:rgb
+            }
+
+            def Shader "rough"
+            {
+                uniform token info:id = "UsdUVTexture"
+                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/rough.jpg@
+                token inputs:sourceColorSpace = "raw"
+                float2 inputs:st.connect = </World/Looks/module_blue/uv.outputs:result>
+                token inputs:wrapS = "repeat"
+                token inputs:wrapT = "repeat"
+                float outputs:r
+            }
+
             def Shader "nor_gl"
             {
                 uniform token info:id = "UsdUVTexture"
                 float4 inputs:bias = (-1, -1, -1, 0)
-                asset inputs:file = @../assets/third_party/textures/box_profile_metal_sheet/nor_gl.jpg@
+                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/nor_gl.jpg@
                 float4 inputs:scale = (2, 2, 2, 1)
                 token inputs:sourceColorSpace = "raw"
                 float2 inputs:st.connect = </World/Looks/module_blue/uv.outputs:result>
@@ -7784,10 +7828,10 @@ def Xform "World"
             def Shader "surface"
             {
                 uniform token info:id = "UsdPreviewSurface"
-                color3f inputs:diffuseColor = (0.46, 0.49, 0.51)
+                color3f inputs:diffuseColor.connect = </World/Looks/module_grey/diff.outputs:rgb>
                 float inputs:metallic = 0.1
                 normal3f inputs:normal.connect = </World/Looks/module_grey/nor_gl.outputs:rgb>
-                float inputs:roughness = 0.55
+                float inputs:roughness.connect = </World/Looks/module_grey/rough.outputs:r>
                 token outputs:surface
             }
 
@@ -7798,11 +7842,33 @@ def Xform "World"
                 float2 outputs:result
             }
 
+            def Shader "diff"
+            {
+                uniform token info:id = "UsdUVTexture"
+                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/diff.jpg@
+                token inputs:sourceColorSpace = "sRGB"
+                float2 inputs:st.connect = </World/Looks/module_grey/uv.outputs:result>
+                token inputs:wrapS = "repeat"
+                token inputs:wrapT = "repeat"
+                float3 outputs:rgb
+            }
+
+            def Shader "rough"
+            {
+                uniform token info:id = "UsdUVTexture"
+                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/rough.jpg@
+                token inputs:sourceColorSpace = "raw"
+                float2 inputs:st.connect = </World/Looks/module_grey/uv.outputs:result>
+                token inputs:wrapS = "repeat"
+                token inputs:wrapT = "repeat"
+                float outputs:r
+            }
+
             def Shader "nor_gl"
             {
                 uniform token info:id = "UsdUVTexture"
                 float4 inputs:bias = (-1, -1, -1, 0)
-                asset inputs:file = @../assets/third_party/textures/box_profile_metal_sheet/nor_gl.jpg@
+                asset inputs:file = @../assets/third_party/textures/rusty_metal_grid/nor_gl.jpg@
                 float4 inputs:scale = (2, 2, 2, 1)
                 token inputs:sourceColorSpace = "raw"
                 float2 inputs:st.connect = </World/Looks/module_grey/uv.outputs:result>
