@@ -9,7 +9,9 @@ Local smoke run on a synthetic dataset:
 from __future__ import annotations
 
 import argparse
+import io
 import json
+import pickle
 import math
 import os
 import time
@@ -44,8 +46,8 @@ def list_split(data_dir: str | Path, split: str, limit: int | None = None):
     return items
 
 
-def _load(path: str) -> Image.Image:
-    im = Image.open(path).convert("RGB")
+def _load(path) -> Image.Image:
+    im = Image.open(path if isinstance(path, str) else io.BytesIO(path)).convert("RGB")
     w, h = im.size
     s = CACHE_SHORT_SIDE / min(w, h)
     if s < 1:
@@ -56,10 +58,13 @@ def _load(path: str) -> Image.Image:
 class RustDataset(Dataset):
     """Decodes every image once into RAM (short side capped at 256 px) - datasets here are small."""
 
-    def __init__(self, items, transform, threads: int = 16):
+    def __init__(self, items, transform, images=None, raw=None, threads: int = 64):
         self.items, self.transform = items, transform
-        with ThreadPoolExecutor(threads) as ex:
-            self.images = list(ex.map(_load, [p for p, _ in items]))
+        if images is None:
+            srcs = [raw[p] if raw else p for p, _ in items]
+            with ThreadPoolExecutor(threads) as ex:
+                images = list(ex.map(_load, srcs))
+        self.images = images
         self.labels = np.array([y for _, y in items], dtype=np.int64)
 
     def __len__(self):
@@ -67,6 +72,28 @@ class RustDataset(Dataset):
 
     def __getitem__(self, i):
         return self.transform(self.images[i]), torch.tensor(float(self.labels[i]))
+
+
+def load_pack(items: dict, pack: str | Path | None) -> dict | None:
+    """Raw JPEG bytes for every item, packed in ONE pickle (Modal volumes are ~0.2 s per small-file
+    cold read, a single big file is fast). Builds the pack on first use."""
+    if not pack:
+        return None
+    pack = Path(pack)
+    if pack.exists():
+        raw = pickle.loads(pack.read_bytes())
+        if all(p in raw for it in items.values() for p, _ in it):
+            print(f"[data] loaded pack {pack} ({len(raw)} files)")
+            return raw
+    paths = [p for it in items.values() for p, _ in it]
+    with ThreadPoolExecutor(64) as ex:
+        raw = dict(zip(paths, ex.map(lambda q: Path(q).read_bytes(), paths)))
+    pack.parent.mkdir(parents=True, exist_ok=True)
+    tmp = pack.with_suffix(".tmp")
+    tmp.write_bytes(pickle.dumps(raw, protocol=pickle.HIGHEST_PROTOCOL))
+    tmp.replace(pack)
+    print(f"[data] wrote pack {pack}")
+    return raw
 
 
 def make_transforms(mean, std):
@@ -121,7 +148,7 @@ def predict_logits(model, loader, device, amp_dtype=None):
 def train(model_name: str = PRIMARY, data_dir: str = "/data/rust_v1", out_dir: str = "runs/detector",
           full_ft: bool = False, epochs: int = 12, batch_size: int = 64, lr: float | None = None,
           patience: int = 4, num_workers: int = 8, pretrained: bool = True, limit: int | None = None,
-          export: bool = True, seed: int = 0) -> dict:
+          export: bool = True, seed: int = 0, pack: str | None = None, threads: int | None = None) -> dict:
     from sklearn.metrics import average_precision_score
 
     torch.manual_seed(seed), np.random.seed(seed)
@@ -129,10 +156,15 @@ def train(model_name: str = PRIMARY, data_dir: str = "/data/rust_v1", out_dir: s
     out.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     amp_dtype = torch.bfloat16 if device.type == "cuda" else None
+    if device.type == "cpu" and threads:
+        torch.set_num_threads(threads)  # oversubscribing hybrid/shared CPUs is ~6x slower
     t0 = time.time()
 
     model, meta = build_model(model_name, lora=not full_ft, pretrained=pretrained)
     model.to(device)
+    cl = "vit" not in model_name
+    if cl:  # channels_last: ~1.5x faster CNN training on CPU, also good on GPU
+        model.to(memory_format=torch.channels_last)
     train_tf, eval_tf = make_transforms(meta["mean"], meta["std"])
 
     items = {s: list_split(data_dir, s, limit) for s in ("train", "val", "test")}
@@ -140,8 +172,9 @@ def train(model_name: str = PRIMARY, data_dir: str = "/data/rust_v1", out_dir: s
         n_r = sum(y for _, y in it)
         print(f"[data] {s}: {len(it)} ({n_r} rust / {len(it) - n_r} clean)")
     assert items["train"] and items["val"], f"no data under {data_dir}"
-    ds_train = RustDataset(items["train"], train_tf)
-    ds_eval = {s: RustDataset(items[s], eval_tf) for s in ("train", "val", "test") if items[s]}
+    raw = load_pack(items, pack)
+    ds_eval = {s: RustDataset(items[s], eval_tf, raw=raw) for s in ("train", "val", "test") if items[s]}
+    ds_train = RustDataset(items["train"], train_tf, images=ds_eval["train"].images)
     print(f"[data] decoded into RAM in {time.time() - t0:.1f}s")
 
     n_rust = int(ds_train.labels.sum())
@@ -169,6 +202,8 @@ def train(model_name: str = PRIMARY, data_dir: str = "/data/rust_v1", out_dir: s
         te, tl, nb = time.time(), 0.0, 0
         for x, y in dl_train:
             x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
+            if cl:
+                x = x.contiguous(memory_format=torch.channels_last)
             with torch.autocast(device.type, dtype=amp_dtype, enabled=amp_dtype is not None):
                 z = model(x).float().squeeze(1)
             loss = lossf(z, y)
@@ -182,22 +217,22 @@ def train(model_name: str = PRIMARY, data_dir: str = "/data/rust_v1", out_dir: s
         vf1 = _f1(vz, vy)
         hist.append({"epoch": ep, "train_loss": tl / max(nb, 1), "val_pr_auc": pr, "val_f1@0.5": vf1,
                      "sec": time.time() - te})
-        print(f"[ep {ep:02d}] loss={tl / max(nb, 1):.4f} val PR-AUC={pr:.4f} F1@0.5={vf1:.4f} ({time.time() - te:.0f}s)")
+        print(f"[{out.name} ep {ep:02d}] loss={tl / max(nb, 1):.4f} val PR-AUC={pr:.4f} F1@0.5={vf1:.4f} ({time.time() - te:.0f}s)")
         if pr > best + 1e-5:
             best, best_ep, bad = pr, ep, 0
             torch.save({k: v.detach().cpu() for k, v in model.state_dict().items()}, best_path)
         else:
             bad += 1
             if bad >= patience:
-                print(f"[train] early stop at epoch {ep} (best {best_ep})")
+                print(f"[{out.name}] early stop at epoch {ep} (best {best_ep})")
                 break
 
     model.load_state_dict(torch.load(best_path, map_location=device))
-    plain = to_plain(model).to(device).eval()
+    plain = to_plain(model).to(device).to(memory_format=torch.contiguous_format).eval()
     logits, labels = {}, {}
     for s, dl in dl_eval.items():
         logits[s], labels[s] = predict_logits(plain, dl, device, None)  # fp32 eval
-    rep = full_report(logits, labels)
+    rep = report_with_subsets(logits, labels, items)
     run_name = out.name
     print(fmt_report(rep, run_name))
 
@@ -225,6 +260,48 @@ def train(model_name: str = PRIMARY, data_dir: str = "/data/rust_v1", out_dir: s
     return result
 
 
+def report_with_subsets(logits: dict, labels: dict, items: dict) -> dict:
+    """full_report + real-photo vs synthetic (rust_v2 'synth_*' files) breakdown at 0.5 and the val threshold."""
+    from detection.eval import metrics_at
+
+    syn = {s: np.array(["/synth_" in p for p, _ in items[s]]) for s in logits}
+    doms = [~syn["val"], syn["val"]] if syn["val"].any() else None
+    rep = full_report(logits, labels, val_domains=doms)
+    rep["subsets"] = {}
+    for s in logits:
+        if syn[s].any():
+            for tag, m in (("real", ~syn[s]), ("synth", syn[s])):
+                rep["subsets"][f"{s}_{tag}"] = {"at_0.5": metrics_at(logits[s][m], labels[s][m], 0.0),
+                                                "at_thr": metrics_at(logits[s][m], labels[s][m], rep["threshold_logit"])}
+                mt = rep["subsets"][f"{s}_{tag}"]["at_thr"]
+                print(f"  {s}_{tag:5s} at_thr n={mt['n']} acc={mt['accuracy']:.4f} P={mt['precision']:.4f} "
+                      f"R={mt['recall']:.4f} F1={mt['f1']:.4f} PR-AUC={mt['pr_auc']:.4f}")
+    return rep
+
+
+def rescore(run_dir: str, data_dir: str) -> dict:
+    """Recompute report + threshold/temperature in meta/metrics from a run's saved logits.npz."""
+    run = Path(run_dir)
+    L = np.load(run / "logits.npz")
+    splits = [s for s in ("train", "val", "test") if f"{s}_logits" in L]
+    logits = {s: L[f"{s}_logits"] for s in splits}
+    labels = {s: L[f"{s}_labels"] for s in splits}
+    items = {s: list_split(data_dir, s) for s in splits}
+    assert all(len(items[s]) == len(logits[s]) for s in splits), "data dir does not match the run"
+    rep = report_with_subsets(logits, labels, items)
+    print(fmt_report(rep, run.name))
+    m = json.loads((run / "metrics.json").read_text())
+    m["report"] = rep
+    for k, v in (("threshold", rep["threshold_prob"]), ("threshold_logit", rep["threshold_logit"]),
+                 ("temperature", rep["temperature"])):
+        m["meta"][k] = v
+    (run / "metrics.json").write_text(json.dumps(m, indent=2))
+    meta = json.loads((run / "meta.json").read_text())
+    meta.update({k: m["meta"][k] for k in ("threshold", "threshold_logit", "temperature")})
+    (run / "meta.json").write_text(json.dumps(meta, indent=2))
+    return m
+
+
 def _f1(z, y, thr=0.0):
     p = z >= thr
     tp = int((p & (y == 1)).sum())
@@ -242,16 +319,21 @@ def main():
     ap.add_argument("--batch-size", type=int, default=64)
     ap.add_argument("--lr", type=float, default=None)
     ap.add_argument("--workers", type=int, default=min(8, os.cpu_count() or 1))
+    ap.add_argument("--threads", type=int, default=None, help="torch CPU threads (CPU training only)")
     ap.add_argument("--limit", type=int, default=None, help="max images per class per split")
     ap.add_argument("--no-pretrained", action="store_true")
     ap.add_argument("--no-export", action="store_true")
+    ap.add_argument("--rescore", default=None, help="run dir: recompute report/threshold from logits.npz")
     ap.add_argument("--make-dummy", default=None, help="write a synthetic dataset to this dir and exit")
     a = ap.parse_args()
+    if a.rescore:
+        rescore(a.rescore, a.data_dir)
+        return
     if a.make_dummy:
         print(make_dummy_dataset(a.make_dummy))
         return
     train(a.model, a.data_dir, a.out_dir, a.full_ft, a.epochs, a.batch_size, a.lr, num_workers=a.workers,
-          pretrained=not a.no_pretrained, limit=a.limit, export=not a.no_export)
+          pretrained=not a.no_pretrained, limit=a.limit, export=not a.no_export, threads=a.threads)
 
 
 if __name__ == "__main__":

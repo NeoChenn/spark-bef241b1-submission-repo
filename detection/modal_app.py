@@ -1,5 +1,8 @@
 """Modal entrypoints for the rust classifier.
 
+  (add --detach after `modal run` so a flaky local connection does not kill the runs;
+   set DETECTOR_DATA=rust_v2 to train on rust_v1 + synthetic sim-domain data (runs get a _v2 suffix);
+   set DETECTOR_GPU=none to train on 32-core CPU containers if GPUs are unavailable)
   modal run detection/modal_app.py --model mobilenetv4_conv_small            # one LoRA run
   modal run detection/modal_app.py --model mobilenetv4_conv_small --full-ft  # one full fine-tune
   modal run detection/modal_app.py --all                                     # bake-off (4 runs in parallel) + promote
@@ -20,8 +23,11 @@ import modal
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from infra.common import CKPT_DIR, CKPT_VOL, DATA_DIR, DATA_VOL  # noqa: E402
 
-DATA_ROOT = f"{DATA_DIR}/rust_v1"
+DATA_VERSION = os.environ.get("DETECTOR_DATA", "rust_v1")  # rust_v1 | rust_v2 (+ synthetic sim-domain)
+DATA_ROOT = f"{DATA_DIR}/{DATA_VERSION}"
 OUT_ROOT = f"{CKPT_DIR}/detector"
+PACK = f"{OUT_ROOT}/_cache/{DATA_VERSION}_raw.pkl"
+RUN_SUFFIX = "" if DATA_VERSION == "rust_v1" else f"_{DATA_VERSION.split('_')[-1]}"
 MODELS = ["mobilenetv4_conv_small", "resnet18", "vit_small_patch14_dinov2"]
 PRIMARY = MODELS[0]
 EDGE_OK = {"mobilenetv4_conv_small", "resnet18"}  # ViT = accuracy ceiling only
@@ -38,30 +44,38 @@ image = (
     modal.Image.debian_slim(python_version="3.11")
     .uv_pip_install("torch==2.8.0", "torchvision==0.23.0", "timm==1.0.31", "peft==0.21.2", "onnx",
                     "onnxruntime", "scikit-learn", "pillow", "fvcore", "numpy")
-    .env({"HF_HOME": f"{CKPT_DIR}/.hf_cache", "PYTHONUNBUFFERED": "1", "DETECTOR_GPU": GPU})
+    .env({"HF_HOME": f"{CKPT_DIR}/.hf_cache", "PYTHONUNBUFFERED": "1", "DETECTOR_GPU": GPU, "DETECTOR_DATA": DATA_VERSION})
     .add_local_python_source("detection", "infra")
 )
 app = modal.App("rust-detector", image=image)
 
 
 def run_name_for(model: str, full_ft: bool) -> str:
-    return f"{model}_{'full' if full_ft else 'lora'}"
+    return f"{model}_{'full' if full_ft else 'lora'}{RUN_SUFFIX}"
 
 
 @app.function(timeout=2 * 3600, **FN_KW, volumes={DATA_DIR: DATA_VOL, CKPT_DIR: CKPT_VOL})
 def train_remote(model: str, full_ft: bool = False, epochs: int = 12, batch_size: int = 64) -> dict:
-    import torch
-
     from detection.train import train
 
-    if ON_CPU:
-        torch.set_num_threads(24)
     DATA_VOL.reload()
     name = run_name_for(model, full_ft)
     res = train(model, DATA_ROOT, f"{OUT_ROOT}/{name}", full_ft=full_ft, epochs=epochs,
-                batch_size=batch_size, num_workers=8 if ON_CPU else 7)
+                batch_size=batch_size, num_workers=8 if ON_CPU else 7,
+                pack=PACK, threads=24 if ON_CPU else None)
     CKPT_VOL.commit()
     return summarize(res)
+
+
+@app.function(timeout=3600, cpu=8.0, memory=8192, volumes={DATA_DIR: DATA_VOL, CKPT_DIR: CKPT_VOL})
+def build_pack() -> str:
+    """Read every image once and pack raw bytes into one file (cold volume reads are ~0.2 s/file)."""
+    from detection.train import list_split, load_pack
+
+    items = {s: list_split(DATA_ROOT, s) for s in ("train", "val", "test")}
+    load_pack(items, PACK)
+    CKPT_VOL.commit()
+    return PACK
 
 
 def summarize(res: dict) -> dict:
@@ -102,20 +116,21 @@ def select(summaries: dict[str, dict]) -> tuple[str, list[str]]:
     return best, why
 
 
-@app.function(timeout=600, volumes={CKPT_DIR: CKPT_VOL})
-def promote(run_names: list[str] | None = None) -> dict:
+def promote_dir(root: str | Path, run_names: list[str] | None = None, force: str | None = None) -> dict:
+    """Pick the deploy model among <root>/<run>/metrics.json and copy it to <root>/best/."""
     import shutil
 
-    CKPT_VOL.reload()
-    root = Path(OUT_ROOT)
+    root = Path(root)
     summaries = {}
     for d in sorted(root.iterdir()):
-        if d.name == "best" or not (d / "metrics.json").exists():
+        if d.name in ("best", "_cache") or not (d / "metrics.json").exists():
             continue
         if run_names and d.name not in run_names:
             continue
         summaries[d.name] = summarize(json.loads((d / "metrics.json").read_text()))
     best, why = select(summaries)
+    if force:
+        best, why = force, why + [f"manual override -> {force}"]
     dst = root / "best"
     dst.mkdir(exist_ok=True)
     for f in ("model.onnx", "model.pt", "meta.json", "metrics.json"):
@@ -124,8 +139,15 @@ def promote(run_names: list[str] | None = None) -> dict:
     meta["selection"] = why
     (dst / "meta.json").write_text(json.dumps(meta, indent=2))
     (root / "bakeoff.json").write_text(json.dumps({"best": best, "why": why, "runs": summaries}, indent=2))
-    CKPT_VOL.commit()
     return {"best": best, "why": why, "runs": summaries}
+
+
+@app.function(timeout=600, volumes={CKPT_DIR: CKPT_VOL})
+def promote(run_names: list[str] | None = None, force: str | None = None) -> dict:
+    CKPT_VOL.reload()
+    res = promote_dir(OUT_ROOT, run_names, force)
+    CKPT_VOL.commit()
+    return res
 
 
 def _print(summaries: dict):
@@ -139,14 +161,11 @@ def _print(summaries: dict):
                       f"{r['recall@thr']:.4f} {r['precision@thr']:.4f} {r['auroc']:.4f} {r['pr_auc']:.4f}")
 
 
-@app.local_entrypoint()
-def main(model: str = PRIMARY, all: bool = False, full_ft: bool = False, epochs: int = 12,
-         promote_only: bool = False, no_promote: bool = False):
-    if promote_only:
-        res = promote.remote()
-        _print(res["runs"]), print("\n".join(res["why"]))
-        return
-    jobs = [(m, False) for m in MODELS] + [(PRIMARY, True)] if all else [(model, full_ft)]
+@app.function(timeout=3 * 3600, cpu=1.0, volumes={CKPT_DIR: CKPT_VOL})
+def run_jobs(jobs: list, epochs: int = 12, do_promote: bool = True) -> dict:
+    """Server-side driver: pack data, train jobs in parallel, promote. Runs remotely so a flaky
+    local connection cannot kill the bake-off (pair with `modal run --detach`)."""
+    print("[modal_app] pack:", build_pack.remote())
     calls = [train_remote.spawn(m, f, min(epochs, CPU_EPOCHS[m]) if ON_CPU else epochs) for m, f in jobs]
     summaries = {}
     for (m, f), c in zip(jobs, calls):
@@ -157,6 +176,31 @@ def main(model: str = PRIMARY, all: bool = False, full_ft: bool = False, epochs:
         except Exception as e:  # noqa: BLE001 - keep the bake-off going if one model dies (e.g. ViT)
             print(f"[modal_app] {run_name_for(m, f)} FAILED: {e!r}")
     _print(summaries)
-    if not no_promote:
+    res = {"runs": summaries}
+    if do_promote and summaries:
         res = promote.remote()
         print("\n".join(res["why"]))
+    return res
+
+
+@app.local_entrypoint()
+def main(model: str = PRIMARY, all: bool = False, full_ft: bool = False, epochs: int = 12,
+         promote_only: bool = False, no_promote: bool = False, force: str = ""):
+    if promote_only:
+        res = promote.remote(None, force or None)
+        _print(res["runs"]), print("\n".join(res["why"]))
+        return
+    if not all:  # single run: call the GPU function directly (with --detach it survives disconnects)
+        build_pack.remote()
+        print(json.dumps(train_remote.remote(model, full_ft, epochs), indent=1))
+        return
+    jobs = [(m, False) for m in MODELS] + [(PRIMARY, True)]
+    run_jobs.remote(jobs, epochs, not no_promote)
+
+
+if __name__ == "__main__":
+    # Local promotion for runs trained off-Modal:  python -m detection.modal_app runs/detector
+    # then upload:  modal volume put -f rust-ckpt runs/detector /detector
+    r = promote_dir(sys.argv[1] if len(sys.argv) > 1 else "runs/detector")
+    _print(r["runs"])
+    print("\n".join(r["why"]))

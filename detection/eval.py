@@ -81,10 +81,14 @@ def unsure_fraction(logits, temperature: float, band=UNSURE_BAND) -> float:
     return float(((p >= band[0]) & (p <= band[1])).mean())
 
 
-def full_report(split_logits: dict, split_labels: dict) -> dict:
-    """split_* keyed by 'train'/'val'/'test'. Threshold + temperature are fitted on val only."""
+def full_report(split_logits: dict, split_labels: dict, val_domains=None) -> dict:
+    """split_* keyed by 'train'/'val'/'test'. Threshold + temperature are fitted on val only.
+    val_domains: optional list of boolean masks over val (e.g. real vs synthetic); the threshold is then the
+    lowest per-domain threshold so recall >= TARGET_RECALL holds in every domain, not just on the mix."""
     vz, vy = split_logits["val"], split_labels["val"]
     thr = pick_threshold(vz, vy)
+    if val_domains:
+        thr = min(pick_threshold(vz[m], vy[m]) for m in val_domains if m.any())
     T = fit_temperature(vz, vy)
     rep = {"threshold_logit": thr, "threshold_prob": float(sigmoid(thr / T)), "temperature": T,
            "target_recall": TARGET_RECALL, "unsure_band": list(UNSURE_BAND), "splits": {}}
@@ -110,3 +114,75 @@ def fmt_report(rep: dict, name: str = "") -> str:
                          f"F1={m['f1']:.4f} AUROC={m['auroc']:.4f} PR-AUC={m['pr_auc']:.4f} cm={m['confusion']}")
         lines.append(f"  {s:5s} ECE raw={r['ece_raw']:.4f} cal={r['ece_cal']:.4f} unsure={100 * r['unsure_frac']:.2f}%")
     return "\n".join(lines)
+
+
+# Held-out sim-domain check: hand-picked crops of the sim/output renders that are NOT used for training
+# (file, (x0, y0, x1, y1), label, description); label 1 rust, 0 clean, -1 ambiguous (reported, not scored)
+SIM_HELDOUT = [
+ ("preview_repair_closeup.png", (480, 335, 780, 440), 1, "damage patch (rust_coarse_01)"),
+ ("preview_repair_closeup.png", (525, 0, 615, 150), 1, "rusty steel post (rusty_metal_02)"),
+ ("preview_repair_closeup.png", (700, 40, 1250, 280), 1, "deck grate (metal_grate_rusty)"),
+ ("preview_repair_closeup.png", (0, 610, 480, 720), 0, "green painted pipe"),
+ ("preview_repair_closeup.png", (950, 500, 1280, 680), 0, "green painted pipe right"),
+ ("preview_repair_closeup.png", (660, 440, 940, 720), -1, "rust streak/crack on paint"),
+ ("preview_hero.png", (390, 285, 445, 370), 1, "rusty steel support"),
+ ("preview_hero.png", (860, 430, 920, 550), 1, "rusty steel support 2"),
+ ("preview_hero.png", (1000, 600, 1140, 700), 1, "deck grate"),
+ ("preview_hero.png", (660, 350, 780, 385), 0, "green painted pipe"),
+ ("preview_hero.png", (930, 140, 1060, 560), -1, "frame beam (rusty_painted_metal)"),
+ ("preview_hero.png", (560, 235, 760, 290), -1, "brown pipe (rusty_painted_metal)"),
+ ("preview_hero.png", (440, 455, 560, 515), -1, "grey pipe on deck"),
+ ("full_rig_gauge_closeup.png", (0, 160, 480, 285), 0, "yellow pipe"),
+ ("full_rig_gauge_closeup.png", (0, 370, 480, 700), 0, "blue pipe"),
+ ("full_rig_gauge_closeup.png", (490, 205, 790, 505), 0, "gauge face"),
+ ("full_rig_gauge_closeup.png", (800, 370, 1280, 700), 0, "blue pipe right"),
+ ("preview_deck_end.png", (0, 0, 1280, 720), -1, "deck end (whole frame)"),
+ ("preview_overview.png", (0, 0, 1280, 720), -1, "overview (whole frame)"),
+]
+
+
+def sim_heldout(model_dir: str, render_dir: str = "sim/output") -> dict:
+    from pathlib import Path
+
+    from PIL import Image
+
+    from detection.export import OnnxRustClassifier
+
+    clf = OnnxRustClassifier(model_dir)
+    rows = []
+    for f, box, label, desc in SIM_HELDOUT:
+        p = Path(render_dir) / f
+        if not p.exists():
+            continue
+        im = Image.open(p).convert("RGB").crop(box)
+        rows.append({"file": f, "box": list(box), "label": label, "desc": desc, **clf.predict(im)})
+    lab = [r for r in rows if r["label"] >= 0]
+    correct = sum(int(r["rust"]) == r["label"] for r in lab)
+    return {"rows": rows, "n_labelled": len(lab), "correct": correct,
+            "pos_recall": float(np.mean([r["rust"] for r in lab if r["label"] == 1])) if lab else float("nan"),
+            "neg_fp_rate": float(np.mean([r["rust"] for r in lab if r["label"] == 0])) if lab else float("nan")}
+
+
+def fmt_sim(res: dict) -> str:
+    out = ["| render | crop | label | p_rust (cal.) | decision |", "|---|---|---|---|---|"]
+    for r in res["rows"]:
+        lab = {1: "rust", 0: "clean", -1: "ambiguous"}[r["label"]]
+        dec = ("RUST" if r["rust"] else "clean") + (" (unsure)" if r["unsure"] else "")
+        out.append(f"| {r['file']} | {r['desc']} | {lab} | {r['p_rust']:.3f} | {dec} |")
+    out.append(f"\nlabelled crops correct: {res['correct']}/{res['n_labelled']}  "
+               f"(rust recall {res['pos_recall']:.2f}, clean FP rate {res['neg_fp_rate']:.2f})")
+    return "\n".join(out)
+
+
+if __name__ == "__main__":
+    import argparse
+    import json
+
+    ap = argparse.ArgumentParser(description="held-out sim-render check for an exported model dir")
+    ap.add_argument("model_dir")
+    ap.add_argument("--json", default=None)
+    a = ap.parse_args()
+    res = sim_heldout(a.model_dir)
+    print(fmt_sim(res))
+    if a.json:
+        open(a.json, "w").write(json.dumps(res, indent=2))
