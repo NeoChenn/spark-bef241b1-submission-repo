@@ -20,6 +20,8 @@ class SkySpec:
     sun_elevation: float = 5.0
     glow_color: RGB = (0.0, 0.0, 0.0)
     glow_width_deg: float = 25.0
+    disc: float = 0.0
+    disc_deg: float = 1.2
     cloud_color: RGB = (0.0, 0.0, 0.0)
     cloud_amount: float = 0.0
     clouds: int = 18
@@ -72,7 +74,8 @@ def render_sky(spec: SkySpec) -> np.ndarray:
     )
     sun = angle_between(az, el, np.radians(spec.sun_azimuth), np.radians(spec.sun_elevation))
     glow = np.exp(-sun / np.radians(spec.glow_width_deg)) * np.exp(-np.clip(el, 0, None) / 0.25)
-    sky = sky + np.asarray(spec.glow_color) * glow[..., None]
+    disc = spec.disc * np.clip((np.radians(spec.disc_deg) - sun) / np.radians(spec.disc_deg * 0.4), 0, 1)
+    sky = sky + np.asarray(spec.glow_color) * glow[..., None] + disc[..., None] * np.asarray([1.0, 0.85, 0.7])
     if spec.cloud_amount > 0:
         c = np.clip(cloud_density(az, el, spec.clouds, spec.seed), 0, 1.5) / 1.5
         c = spec.cloud_amount * c * c * (3 - 2 * c) * (el > 0)

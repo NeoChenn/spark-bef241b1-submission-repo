@@ -35,3 +35,12 @@ def test_clouds_are_soft_and_only_above_horizon():
 
 def test_angle_between_zero_at_same_direction():
     assert angle_between(np.array(1.0), np.array(0.2), 1.0, 0.2) == pytest.approx(0.0, abs=1e-6)
+
+
+def test_sun_disc_is_small_and_bright():
+    spec = SkySpec(**{**SPEC.__dict__, "sun_azimuth": 90.0, "sun_elevation": 10.0, "disc": 5.0, "disc_deg": 3.0})
+    sky = render_sky(spec)
+    az, el = directions(spec.width)
+    ang = np.degrees(angle_between(az, el, np.radians(90.0), np.radians(10.0)))
+    assert sky[ang < 1.0].max(axis=-1).min() > 4.0
+    assert sky[ang > 4.0].max() < 1.0

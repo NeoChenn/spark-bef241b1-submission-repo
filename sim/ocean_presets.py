@@ -26,8 +26,7 @@ class Preset:
     sun: tuple[float, float, float, tuple[float, float, float]] | None = None
     sky: SkySpec | None = None
     leg_foam: float = 1.0
-    ground_fog: tuple[float, float, float, int] | None = None
-    fog_gain: float = 1.0
+    ground_fog: tuple[float, float, float] | None = None
     render: dict = field(default_factory=dict)
 
 
@@ -69,20 +68,22 @@ PRESETS: dict[str, Preset] = {
     "mood": Preset(
         hdri="",
         sky=SkySpec(
-            horizon=(0.016, 0.028, 0.070),
-            mid=(0.070, 0.042, 0.110),
-            zenith=(0.030, 0.018, 0.060),
+            horizon=(0.050, 0.075, 0.150),
+            mid=(0.130, 0.090, 0.200),
+            zenith=(0.070, 0.050, 0.130),
             mid_height=0.5,
             horizon_hold=1.6,
             sun_azimuth=200.0,
-            sun_elevation=4.0,
-            glow_color=(0.090, 0.045, 0.040),
-            glow_width_deg=35.0,
-            cloud_color=(0.022, 0.020, 0.040),
-            cloud_amount=0.85,
+            sun_elevation=11.0,
+            glow_color=(0.35, 0.20, 0.12),
+            glow_width_deg=30.0,
+            disc=6.0,
+            disc_deg=1.5,
+            cloud_color=(0.070, 0.060, 0.100),
+            cloud_amount=0.7,
         ),
         dome_intensity=1000.0,
-        sun=(200.0, 6.0, 900.0, (1.0, 0.72, 0.55)),
+        sun=(200.0, 11.0, 2500.0, (1.0, 0.80, 0.62)),
         wind_speed=4.5,
         swell=(0.5, 110.0, 200.0),
         choppiness=0.6,
@@ -92,8 +93,8 @@ PRESETS: dict[str, Preset] = {
         deep_color=(0.003, 0.006, 0.014),
         crest_color=(0.006, 0.014, 0.025),
         haze_distance=3000.0,
-        ground_fog=(0.03, 5.0, 12.0, 3),
-        render={"/rtx/rtpt/maxSpecularAndTransmissionBounces": 10},
+        ground_fog=(0.03, 5.0, 16.0),
+        render={"/rtx/rtpt/maxSpecularAndTransmissionBounces": 8},
     ),
     "overcast": Preset(
         hdri="overcast_soil_puresky",

@@ -211,6 +211,9 @@ def _add_material(stage: Usd.Stage, preset: Preset, mdl_path: Path, foam_level: 
     for name in ("foam_amount", "roughness", "haze_distance"):
         shader.CreateInput(name, Sdf.ValueTypeNames.Float).Set(float(getattr(preset, name)))
     shader.CreateInput("foam_threshold", Sdf.ValueTypeNames.Float).Set(foam_level)
+    density, scale_height, _ = preset.ground_fog or (0.0, 5.0, 0.0)
+    shader.CreateInput("fog_density", Sdf.ValueTypeNames.Float).Set(float(density))
+    shader.CreateInput("fog_scale_height", Sdf.ValueTypeNames.Float).Set(float(scale_height))
     shader.CreateInput("leg_foam_amount", Sdf.ValueTypeNames.Float).Set(float(preset.leg_foam))
     time_input = shader.CreateInput("time", Sdf.ValueTypeNames.Float)
     time_input.Set(0.0)
@@ -236,34 +239,31 @@ def _add_splash_zones(stage: Usd.Stage, mdl_path: Path, legs, sea_level_z: float
         UsdShade.MaterialBindingAPI.Apply(c.GetPrim()).Bind(mat)
 
 
-def _add_ground_fog(stage: Usd.Stage, preset: Preset, mdl_path: Path, horizon: np.ndarray,
-                    sea_level_z: float) -> UsdShade.Input:
-    """Stacked camera-aware fog sheets: an exponential layer that thickens towards the horizon, without noise."""
-    density, scale_height, height, sheets = preset.ground_fog
-    mat = UsdShade.Material.Define(stage, f"{ROOT}/Looks/GroundFog")
-    shader = UsdShade.Shader.Define(stage, f"{ROOT}/Looks/GroundFog/Shader")
+def _add_fog_veils(stage: Usd.Stage, preset: Preset, mdl_path: Path, horizon: np.ndarray, legs,
+                   sea_level_z: float) -> UsdShade.Input:
+    """Thin transmissive sleeves on the legs that apply the analytic ground fog to them; the sea applies it itself."""
+    density, scale_height, height = preset.ground_fog
+    mat = UsdShade.Material.Define(stage, f"{ROOT}/Looks/FogVeil")
+    shader = UsdShade.Shader.Define(stage, f"{ROOT}/Looks/FogVeil/Shader")
     shader.SetSourceAsset(Sdf.AssetPath(str(mdl_path)), "mdl")
-    shader.SetSourceAssetSubIdentifier("FogSheet", "mdl")
+    shader.SetSourceAssetSubIdentifier("FogVeil", "mdl")
     out = shader.CreateOutput("out", Sdf.ValueTypeNames.Token)
     mat.CreateSurfaceOutput("mdl").ConnectToSource(out)
-    slab = height / sheets
-    for name, value in (("sea_level", sea_level_z), ("density", density), ("scale_height", scale_height), ("slab", slab)):
+    for name, value in (("sea_level", sea_level_z), ("fog_density", density), ("fog_scale_height", scale_height),
+                        ("haze_distance", preset.haze_distance)):
         shader.CreateInput(name, Sdf.ValueTypeNames.Float).Set(float(value))
-    radiance = horizon * preset.dome_intensity * preset.fog_gain
+    radiance = horizon * preset.dome_intensity * preset.haze_gain
     shader.CreateInput("fog_radiance", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*(float(v) for v in radiance)))
     camera = shader.CreateInput("camera_position", Sdf.ValueTypeNames.Float3)
     camera.Set(Gf.Vec3f(0.0, 0.0, 40.0))
-    size = 30000.0
-    for i in range(sheets):
-        z = sea_level_z + (i + 0.5) * slab
-        sheet = UsdGeom.Mesh.Define(stage, f"{ROOT}/GroundFog/sheet_{i}")
-        sheet.CreatePointsAttr([Gf.Vec3f(-size, -size, z), Gf.Vec3f(size, -size, z), Gf.Vec3f(size, size, z), Gf.Vec3f(-size, size, z)])
-        sheet.CreateFaceVertexCountsAttr([4])
-        sheet.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
-        sheet.CreateDoubleSidedAttr(True)
-        sheet.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
-        UsdGeom.PrimvarsAPI(sheet).CreatePrimvar("doNotCastShadows", Sdf.ValueTypeNames.Bool).Set(True)
-        UsdShade.MaterialBindingAPI.Apply(sheet.GetPrim()).Bind(mat)
+    for i, (x, y, r) in enumerate(legs):
+        c = UsdGeom.Cylinder.Define(stage, f"{ROOT}/FogVeil/leg_{i}")
+        c.CreateRadiusAttr(r * 1.02 + 0.08)
+        c.CreateHeightAttr(height + 2.0)
+        c.CreateAxisAttr(UsdGeom.Tokens.z)
+        c.AddTranslateOp().Set(Gf.Vec3d(x, y, sea_level_z + height / 2 - 1.0))
+        UsdGeom.PrimvarsAPI(c).CreatePrimvar("doNotCastShadows", Sdf.ValueTypeNames.Bool).Set(True)
+        UsdShade.MaterialBindingAPI.Apply(c.GetPrim()).Bind(mat)
     return camera
 
 
@@ -300,6 +300,7 @@ def add_environment(
     mdl_path.write_text(build_mdl(waves, legs))
     foam_level = foam_threshold(waves, min(0.5, whitecap_fraction(p.wind_speed) * p.foam_coverage))
     mat, shader = _add_material(stage, p, mdl_path, foam_level, horizon_color(sky_img))
+    shader.CreateInput("sea_level", Sdf.ValueTypeNames.Float).Set(float(sea_level_z))
     if splash_zone and legs:
         _add_splash_zones(stage, mdl_path, legs, sea_level_z)
 
@@ -325,7 +326,7 @@ def add_environment(
                            grid.spacing[:active].astype(np.float32))
     env = Environment(p, mesh, points, active, displacer, shader)
     env.legs = legs
-    if p.ground_fog:
-        env.camera_inputs.append(_add_ground_fog(stage, p, mdl_path, horizon_color(sky_img), sea_level_z))
+    if p.ground_fog and legs:
+        env.camera_inputs.append(_add_fog_veils(stage, p, mdl_path, horizon_color(sky_img), legs, sea_level_z))
     env.update(0.0)
     return env
