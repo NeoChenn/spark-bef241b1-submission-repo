@@ -1,0 +1,11 @@
+FROM nvcr.io/nvidia/isaac-sim:5.1.0
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends git ffmpeg build-essential cmake && rm -rf /var/lib/apt/lists/*
+RUN echo 'torch==2.7.0\ntorchvision==0.22.0\ntorchaudio==2.7.0' > /opt/torch-pin.txt
+ENV PIP_CONSTRAINT=/opt/torch-pin.txt ACCEPT_EULA=Y OMNI_KIT_ACCEPT_EULA=YES PRIVACY_CONSENT=Y ISAACLAB_PATH=/opt/IsaacLab PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+RUN git clone --depth 1 --branch v2.3.2 https://github.com/isaac-sim/IsaacLab.git /opt/IsaacLab && ln -s /isaac-sim /opt/IsaacLab/_isaac_sim
+RUN /isaac-sim/python.sh -m pip install --upgrade pip && /isaac-sim/python.sh -m pip install 'setuptools<80' wheel && /isaac-sim/python.sh -m pip install --no-build-isolation flatdict==4.0.1
+RUN cd /opt/IsaacLab && /isaac-sim/python.sh -m pip install --no-build-isolation -e source/isaaclab -e source/isaaclab_assets -e source/isaaclab_tasks -e 'source/isaaclab_rl[rsl_rl]' --extra-index-url https://pypi.nvidia.com
+RUN /isaac-sim/python.sh -m pip install tensordict==0.9.1 'imageio[ffmpeg]' tensorboard && /isaac-sim/python.sh -m pip install --force-reinstall --no-deps torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorch.org/whl/cu128
+RUN rm -rf /isaac-sim/exts/omni.isaac.ml_archive/pip_prebundle/torch && mkdir -p /isaac-sim/.cache /isaac-sim/kit/cache && chown -R 1234:1234 /opt/IsaacLab /isaac-sim/.cache /isaac-sim/kit/cache
+USER isaac-sim
