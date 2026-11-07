@@ -94,6 +94,8 @@ class ScrubEnvCfg(DirectRLEnvCfg):
     shoulder_offset: tuple = (-0.01, 0.0, 0.3159)
     spawn_pipe_visual: bool = True
     spawn_dog_visual: bool = False
+    backdrop_usd: str = ""
+    backdrop_translation: tuple = (0.0, 0.0, 0.0)
 
     spring_k_range: tuple = (1500.0, 4000.0)
     spring_k_nominal: float = 2500.0

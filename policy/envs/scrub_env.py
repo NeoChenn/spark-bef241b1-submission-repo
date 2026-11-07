@@ -24,6 +24,23 @@ def _skew(v: torch.Tensor) -> torch.Tensor:
     ], 1)
 
 
+def _add_backdrop(usd_path: str, translation) -> None:
+    import omni.usd
+    from pxr import Gf, Usd, UsdGeom, UsdPhysics
+
+    stage = omni.usd.get_context().get_stage()
+    prim = stage.DefinePrim("/World/Backdrop", "Xform")
+    prim.GetReferences().AddReference(usd_path)
+    UsdGeom.XformCommonAPI(prim).SetTranslate(Gf.Vec3d(*translation))
+    for p in list(Usd.PrimRange(prim)):
+        if p.IsA(UsdPhysics.Scene):
+            p.SetActive(False)
+        elif p.HasAPI(UsdPhysics.CollisionAPI):
+            UsdPhysics.CollisionAPI(p).CreateCollisionEnabledAttr(False)
+        if p.HasAPI(UsdPhysics.RigidBodyAPI):
+            UsdPhysics.RigidBodyAPI(p).CreateRigidBodyEnabledAttr(False)
+
+
 def _mid(r):
     return 0.5 * (r[0] + r[1])
 
@@ -79,7 +96,9 @@ class ScrubEnv(DirectRLEnv):
         c = self.cfg
         self._robot = Articulation(c.robot_cfg)
         self.scene.articulations["robot"] = self._robot
-        if c.spawn_pipe_visual or c.spawn_dog_visual:
+        if c.backdrop_usd:
+            _add_backdrop(c.backdrop_usd, c.backdrop_translation)
+        elif c.spawn_pipe_visual or c.spawn_dog_visual:
             ground = sim_utils.GroundPlaneCfg()
             ground.func("/World/ground", ground)
         if c.spawn_pipe_visual:
@@ -100,8 +119,9 @@ class ScrubEnv(DirectRLEnv):
             for i, (lx, ly) in enumerate([(0.24, 0.1), (0.24, -0.1), (-0.24, 0.1), (-0.24, -0.1)]):
                 leg.func(f"/World/envs/env_0/DogLeg{i}", leg, translation=(lx, ly, (c.base_height - 0.17) / 2))
         self.scene.clone_environments(copy_from_source=False)
-        light = sim_utils.DomeLightCfg(intensity=2500.0, color=(0.8, 0.8, 0.8))
-        light.func("/World/Light", light)
+        if not c.backdrop_usd:
+            light = sim_utils.DomeLightCfg(intensity=2500.0, color=(0.8, 0.8, 0.8))
+            light.func("/World/Light", light)
 
     def _make_markers(self):
         from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
