@@ -9,8 +9,8 @@ Bolt "torque stripe" misalignment is the angle of each bolt's hinge joint, in ra
 whose confidence drops with distance and with `dust`.
 
 Live scene-change hooks for the unscripted change in the video:
-- trigger_gas_leak()    a leak starts at the flange; the gas reading rises
-- loosen_bolt(i, rad)   a bolt turns, so its stripe misaligns
+- trigger_gas_leak()    loosens a bolt and starts a leak; the gas reading rises
+- loosen_bolt(i, rad)   a bolt turns, so its stripe misaligns (and a leak grows if active)
 - set_dust(level)       dust degrades sensor confidence (0 to 1)
 
 All noise and gas values are ILLUSTRATIVE.
@@ -26,6 +26,14 @@ FLANGE_XY = (2.0, 0.0)
 BOLT_RING_RADIUS = 0.4
 SENSOR_RANGE_M = 2.5
 REACH_M = 0.6
+
+# Gas model (ILLUSTRATIVE). The leak strength follows how loose the bolts are, so
+# tightening a bolt really does reduce the reading and verification means something.
+GAS_BASE = 0.02          # background reading, fraction of LEL
+LEAK_COEFF = 0.4         # peak extra reading at the flange for a full-strength leak
+LEAK_FULL_RAD = 0.6      # total bolt misalignment (rad) that gives a full-strength leak
+LEAK_RELAX = 0.2         # per-step relaxation of the leak level (gas takes time to clear)
+GAS_NOISE = 0.004        # sensor noise on the reading
 
 
 def _build_xml() -> str:
@@ -65,8 +73,9 @@ def _build_xml() -> str:
 
 @dataclass
 class Action:
-    kind: str  # "move_to", "retorque", "retreat" or "wait"
+    kind: str  # "move_to", "move_xy", "retorque", "retreat" or "wait"
     bolt: int | None = None
+    xy: tuple[float, float] | None = None  # target for "move_xy"
 
 
 class FlangeEnv:
@@ -86,11 +95,14 @@ class FlangeEnv:
             self.rng = np.random.default_rng(seed)
         mujoco.mj_resetData(self.model, self.data)
         self.leak_active = False
+        self._leak_level = 0.0
         self.dust = 0.0
         mujoco.mj_forward(self.model, self.data)
         return self.observe()
 
-    def trigger_gas_leak(self) -> None:
+    def trigger_gas_leak(self, bolt: int = 0, radians: float = 0.5) -> None:
+        """Start a leak by loosening one bolt. A larger angle gives a stronger leak."""
+        self.loosen_bolt(bolt, radians)
         self.leak_active = True
 
     def loosen_bolt(self, i: int, radians: float) -> None:
@@ -112,13 +124,17 @@ class FlangeEnv:
     def true_bolt_angle(self, i: int) -> float:
         return float(self.data.qpos[self._bolt_qpos[i]])
 
-    def gas_fraction_lel(self) -> float:
-        """Gas at the robot. Illustrative field: small background plus a leak at the flange."""
-        base = 0.02
+    def _leak_target(self) -> float:
+        """Leak strength (0 to 1) implied by the current bolt looseness."""
         if not self.leak_active:
-            return base
+            return 0.0
+        total = sum(abs(self.true_bolt_angle(i)) for i in range(N_BOLTS))
+        return float(np.clip(total / LEAK_FULL_RAD, 0.0, 1.0))
+
+    def gas_fraction_lel(self) -> float:
+        """True gas at the robot (no sensor noise): background plus a decaying leak plume."""
         d = float(np.linalg.norm(self.robot_xy - np.array(FLANGE_XY)))
-        return base + 0.6 * float(np.exp(-d / 1.5))
+        return GAS_BASE + LEAK_COEFF * self._leak_level * float(np.exp(-d / 1.5))
 
     # -- perception ----------------------------------------------------------
     def observe(self) -> dict:
@@ -133,13 +149,16 @@ class FlangeEnv:
             noise = float(self.rng.normal(0.0, 0.02 + 0.15 * (1.0 - confidence)))
             seen.append({"bolt": i, "stripe_misalignment_rad": self.true_bolt_angle(i) + noise,
                          "confidence": confidence, "distance_m": d})
-        return {"robot_xy": pos.tolist(), "gas_fraction_lel": self.gas_fraction_lel(), "bolts": seen}
+        gas = self.gas_fraction_lel() + float(self.rng.normal(0.0, GAS_NOISE))
+        return {"robot_xy": pos.tolist(), "gas_fraction_lel": gas, "bolts": seen}
 
     # -- dynamics ------------------------------------------------------------
     def step(self, action: Action) -> dict:
         target = None
         if action.kind == "move_to" and action.bolt is not None:
             target = self.bolt_world_xy(action.bolt) - np.array([0.5, 0.0])  # stand near, not on top
+        elif action.kind == "move_xy" and action.xy is not None:
+            target = np.array(action.xy, dtype=float)
         elif action.kind == "retreat":
             target = np.array([-5.0, 0.0])
 
@@ -158,6 +177,7 @@ class FlangeEnv:
                 dist = float(np.linalg.norm(delta))
                 self.data.ctrl[:2] = 0.0 if dist < 0.05 else 1.0 * delta / dist
             mujoco.mj_step(self.model, self.data)
+        self._leak_level += LEAK_RELAX * (self._leak_target() - self._leak_level)
         obs = self.observe()
         obs["retorqued"] = retorqued
         return obs
