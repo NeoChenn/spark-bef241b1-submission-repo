@@ -16,8 +16,10 @@ sources and the items still to verify.
 | Gemini wrapper (`gemini_client.py`) | Written and unit-tested with a fake backend. **Live call path untested: no key yet.** |
 | MuJoCo environment (`env.py`) | **Skeleton.** One flange, 8 bolts, a point-mass robot, scene-change hooks. No arm, no reward. Kept as a fast test and training twin. |
 | Isaac Sim on Modal (`isaac/`) | **Written, never run.** Render pipeline adapted from the organisers' example. Run the smoke test first. This is the demo and video world. |
-| Policy (PPO) | Not started. Needs a reward, a training env and a greedy baseline to beat. |
-| Perception model | Not started. Currently the env returns noisy readings directly. |
+| Repair policy (`policy.py`, `episode.py`) | Done as a **rule-based baseline**, 49 tests. Not learned. |
+| Diagnosis and supervisor alerts (`diagnosis.py`, `alerts.py`) | Done on the `gas-leak-detection` branch, over **simulated** camera features. See `docs/gas-leak-detection.md`. |
+| PPO decision policy | **Not trained.** Plan and reward are in `docs/gas-leak-detection.md`. |
+| Image-based perception model | Not started. Needs rendered images (Isaac Sim on Modal). |
 | Console UI, video, technical summary | Not started. |
 
 All limits in `config.py` are illustrative placeholders. Replace them with sourced values.

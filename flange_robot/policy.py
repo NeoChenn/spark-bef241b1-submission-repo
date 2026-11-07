@@ -36,8 +36,10 @@ from typing import Callable
 
 import numpy as np
 
+from .alerts import Alert, Notifier
 from .config import SafetyLimits
 from .decision_log import DecisionLog
+from .diagnosis import Diagnoser, Diagnosis, FaultKind
 from .env import FLANGE_XY, REACH_M, Action
 from .safety import SafetyInputs, Verdict, check
 
@@ -76,8 +78,10 @@ class RepairPolicy:
         limits: SafetyLimits = SafetyLimits(),
         config: PolicyConfig = PolicyConfig(),
         log: DecisionLog | None = None,
+        notify: Notifier | None = None,
     ):
         self.permit = permit
+        self.notify = notify
         self.limits = limits
         self.config = config
         self.log = log
@@ -92,6 +96,13 @@ class RepairPolicy:
         self._permit_ok = False
         self._gas_at_repair = 0.0
         self._suspect_pass_done = False
+        self.diagnoser = Diagnoser(limits, config.tolerance_rad, gas_clear=config.gas_clear)
+        self.diagnosis: Diagnosis | None = None
+        self.alerts: list[Alert] = []
+        self._alerted = False
+        self._repaired: list[int] = []
+        self._step = 0
+        self._last_gas = 0.0
 
     # -- perception bookkeeping ---------------------------------------------
     def _update(self, obs: dict) -> None:
@@ -117,8 +128,11 @@ class RepairPolicy:
     # -- the decision --------------------------------------------------------
     def act(self, obs: dict) -> tuple[Action, dict]:
         """Return the action to take and an info dict (phase, verdict, reason)."""
+        self._step += 1
         self._update(obs)
+        self.diagnoser.update(obs)
         gas = obs["gas_fraction_lel"]
+        self._last_gas = gas
         proposed = self._propose(obs, gas)
 
         confidence = 1.0
@@ -161,6 +175,8 @@ class RepairPolicy:
                 verdict=verdict.value,
                 reason=decision.reason,
             )
+        if self.phase in (Phase.DONE, Phase.ESCALATED) and not self._alerted:
+            self._emit_alert(gas)
         return final, info
 
     def _propose(self, obs: dict, gas: float) -> Action:
@@ -203,33 +219,33 @@ class RepairPolicy:
                 self._finish_verification(gas)
             return wait
 
-        if self.phase == Phase.ESCALATED and self.retreating:
+        # Handed over to a human: back off if the cause was gas or a crack, and also whenever gas is
+        # elevated, so being unsure never means waiting next to a possible leak.
+        if self.phase == Phase.ESCALATED and (self.retreating or self._last_gas > cfg.gas_clear):
             return Action("retreat")
-        return wait  # DONE, or ESCALATED and holding position
+        return wait  # DONE, or ESCALATED with clean air: hold position
 
     def _commit_retorque(self, bolt: int, gas: float) -> None:
         self._target = bolt
+        self._repaired.append(bolt)
         self._gas_at_repair = gas
         self._est.pop(bolt, None)  # discard old readings so verification uses fresh ones
         self.phase, self._counter = Phase.VERIFY, 0
 
     def _finish_inspection(self, gas: float) -> None:
-        cfg = self.config
-        loose, unreliable = [], []
-        for i, e in self._est.items():
-            if e["conf"] < self.limits.min_detection_confidence:
-                unreliable.append(i)
-            elif abs(self._angle(e)) > cfg.tolerance_rad:
-                loose.append((abs(self._angle(e)), i))
-        if loose:
-            self._queue = [i for _, i in sorted(loose, reverse=True)]  # worst first
+        """Diagnose first. Only a loose bolt is a repair the robot may attempt."""
+        d = self.diagnoser.diagnose(gas, self._est)
+        self.diagnosis = d
+        if d.kind == FaultKind.CRACK_OR_BURST:
+            self.retreating = True  # back off to a standoff: loss of containment is not a robot repair
+            self._escalate(f"diagnosis: {d.reason}; loss of containment, not a robot repair")
+        elif d.kind == FaultKind.LOOSE_BOLT:
+            self._queue = [i for i, _ in d.loose_bolts]  # worst first
             self.phase = Phase.REQUEST_PERMIT
-        elif unreliable:
-            self._escalate("perception too degraded to judge the bolts")
-        elif gas > cfg.gas_clear:
-            self._escalate("gas elevated but no loose bolt found")
+        elif d.kind == FaultKind.UNCERTAIN:
+            self._escalate(d.reason)
         else:
-            self.phase, self.reason = Phase.DONE, "no leak source found; all bolts within tolerance"
+            self.phase, self.reason = Phase.DONE, d.reason
 
     def _finish_verification(self, gas: float) -> None:
         cfg = self.config
@@ -258,6 +274,48 @@ class RepairPolicy:
                 self.phase = Phase.REQUEST_PERMIT
             else:
                 self._escalate("gas still elevated after all bolts repaired")
+
+    def _emit_alert(self, gas: float) -> None:
+        """Tell the supervisor how the episode ended: an all-clear note, or a request for a human."""
+        self._alerted = True
+        reason = self.reason
+        if self.phase == Phase.DONE:
+            if self._repaired:
+                kind, sev, ack = "repaired", "info", False
+                msg = f"Leak repaired: re-torqued bolt(s) {sorted(set(self._repaired))}; gas back to background."
+                rec = "No action needed. Re-check the flange at the next round."
+            else:
+                kind, sev, ack = "no_fault", "info", False
+                msg, rec = "No leak source found; all bolts within tolerance.", "No action needed."
+        elif reason.startswith("diagnosis: crack"):
+            kind, sev, ack = "crack_or_burst", "critical", True
+            msg = "Crack or burst suspected at the flange; robot has backed off and did not attempt repair."
+            rec = "Treat as loss of containment: keep people clear and follow site procedure before any repair."
+        elif reason.startswith("safety: gas"):
+            kind, sev, ack = "gas_limit", "critical", True
+            msg = "Gas reached the stop limit near the flange; robot has retreated."
+            rec = "Keep clear and send a gas-testing crew."
+        elif "permit" in reason:
+            kind, sev, ack = "permit_denied", "warning", True
+            msg = "Re-torque is waiting for approval; nothing was tightened."
+            rec = "Approve or decline the permit to work."
+        else:
+            kind, sev, ack = "needs_human", "warning", True
+            msg = f"Robot stopped and needs a human: {reason}."
+            rec = "Send a person, or re-inspect when conditions allow."
+        alert = Alert(
+            severity=sev, kind=kind, message=msg, recommended_action=rec, requires_ack=ack,
+            location_xy=tuple(self.config.flange_xy), gas_fraction_lel=round(gas, 3), step=self._step,
+            evidence={
+                "reason": reason,
+                "diagnosis": self.diagnosis.kind.value if self.diagnosis else None,
+                "diagnosis_evidence": self.diagnosis.evidence if self.diagnosis else None,
+                "repaired_bolts": sorted(set(self._repaired)),
+            },
+        )
+        self.alerts.append(alert)
+        if self.notify:
+            self.notify(alert)
 
     def _queue_suspects(self) -> bool:
         """Queue the most suspicious confident bolts still below tolerance. True if any were queued."""

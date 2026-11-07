@@ -6,7 +6,7 @@ from flange_robot.env import Action, FlangeEnv
 def test_env_builds_and_observes():
     env = FlangeEnv(seed=1)
     obs = env.reset(seed=1)
-    assert set(obs) == {"robot_xy", "gas_fraction_lel", "bolts"}
+    assert set(obs) == {"robot_xy", "gas_fraction_lel", "bolts", "camera"}
     assert obs["bolts"] == []  # flange is out of sensor range at the start
 
 

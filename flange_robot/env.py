@@ -11,6 +11,8 @@ whose confidence drops with distance and with `dust`.
 Live scene-change hooks for the unscripted change in the video:
 - trigger_gas_leak()    loosens a bolt and starts a leak; the gas reading rises
 - loosen_bolt(i, rad)   a bolt turns, so its stripe misaligns (and a leak grows if active)
+- trigger_crack(sev)    a crack or burst in the pipe: it leaks, the camera sees it, and
+                        tightening a bolt does NOT fix it
 - set_dust(level)       dust degrades sensor confidence (0 to 1)
 
 All noise and gas values are ILLUSTRATIVE.
@@ -34,6 +36,11 @@ LEAK_COEFF = 0.4         # peak extra reading at the flange for a full-strength 
 LEAK_FULL_RAD = 0.6      # total bolt misalignment (rad) that gives a full-strength leak
 LEAK_RELAX = 0.2         # per-step relaxation of the leak level (gas takes time to clear)
 GAS_NOISE = 0.004        # sensor noise on the reading
+
+# Simulated camera feature for a crack or burst (ILLUSTRATIVE). This is a stand-in for a real
+# image model: a crack-likeness score plus a confidence that drops with distance and dust.
+CRACK_SCORE_BASE = 0.55  # score for the faintest visible crack
+CRACK_SCORE_GAIN = 0.45  # added in proportion to severity
 
 
 def _build_xml() -> str:
@@ -93,8 +100,10 @@ class FlangeEnv:
     def reset(self, seed: int | None = None) -> dict:
         if seed is not None:
             self.rng = np.random.default_rng(seed)
+            self._cam_rng = np.random.default_rng(seed + 10_000)  # separate stream: camera noise
         mujoco.mj_resetData(self.model, self.data)
         self.leak_active = False
+        self.crack_severity = 0.0
         self._leak_level = 0.0
         self.dust = 0.0
         mujoco.mj_forward(self.model, self.data)
@@ -103,6 +112,11 @@ class FlangeEnv:
     def trigger_gas_leak(self, bolt: int = 0, radians: float = 0.5) -> None:
         """Start a leak by loosening one bolt. A larger angle gives a stronger leak."""
         self.loosen_bolt(bolt, radians)
+        self.leak_active = True
+
+    def trigger_crack(self, severity: float = 0.3) -> None:
+        """A crack or burst at the flange (0 to 1). It adds to the leak and cannot be fixed by tightening."""
+        self.crack_severity = float(np.clip(severity, 0.0, 1.0))
         self.leak_active = True
 
     def loosen_bolt(self, i: int, radians: float) -> None:
@@ -129,7 +143,7 @@ class FlangeEnv:
         if not self.leak_active:
             return 0.0
         total = sum(abs(self.true_bolt_angle(i)) for i in range(N_BOLTS))
-        return float(np.clip(total / LEAK_FULL_RAD, 0.0, 1.0))
+        return float(np.clip(total / LEAK_FULL_RAD + self.crack_severity, 0.0, 1.0))
 
     def gas_fraction_lel(self) -> float:
         """True gas at the robot (no sensor noise): background plus a decaying leak plume."""
@@ -150,7 +164,17 @@ class FlangeEnv:
             seen.append({"bolt": i, "stripe_misalignment_rad": self.true_bolt_angle(i) + noise,
                          "confidence": confidence, "distance_m": d})
         gas = self.gas_fraction_lel() + float(self.rng.normal(0.0, GAS_NOISE))
-        return {"robot_xy": pos.tolist(), "gas_fraction_lel": gas, "bolts": seen}
+
+        # Simulated camera: crack-likeness of the flange region. Never exposes the true severity.
+        d_flange = float(np.linalg.norm(pos - np.array(FLANGE_XY)))
+        if d_flange <= SENSOR_RANGE_M:
+            cam_conf = float(np.clip(1.0 - d_flange / SENSOR_RANGE_M - 0.6 * self.dust, 0.0, 1.0))
+            true_score = CRACK_SCORE_BASE + CRACK_SCORE_GAIN * self.crack_severity if self.crack_severity > 0 else 0.0
+            noise = float(self._cam_rng.normal(0.0, 0.05 + 0.2 * (1.0 - cam_conf)))
+            camera = {"crack_score": float(np.clip(true_score + noise, 0.0, 1.0)), "crack_confidence": cam_conf}
+        else:
+            camera = {"crack_score": 0.0, "crack_confidence": 0.0}
+        return {"robot_xy": pos.tolist(), "gas_fraction_lel": gas, "bolts": seen, "camera": camera}
 
     # -- dynamics ------------------------------------------------------------
     def step(self, action: Action) -> dict:
