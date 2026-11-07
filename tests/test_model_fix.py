@@ -12,6 +12,7 @@ from model_fix import (  # noqa: E402
     guess_up_axis,
     is_walkable,
     preview_cameras,
+    unitless,
     TextureMap,
 )
 
@@ -198,3 +199,13 @@ def test_preview_cameras_deck_shot_stands_on_deck():
     assert eye[2] == pytest.approx(1.7)
     assert abs(eye[0]) < 30.0 and abs(eye[1]) < 20.0
     assert target[2] > eye[2]
+
+
+def test_guess_scale_ignores_metadata_for_unitless_formats():
+    assert guess_scale(550.0, 0.01, trust_metadata=False) == pytest.approx(0.1)
+    assert guess_scale(60.0, 0.01, trust_metadata=False) == pytest.approx(1.0)
+
+
+def test_unitless_formats():
+    assert unitless("rig.stl") and unitless("rig.OBJ") and unitless("rig.ply")
+    assert not unitless("rig.glb") and not unitless("rig.fbx")

@@ -49,7 +49,15 @@ import omni.kit.app  # noqa: E402
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdPhysics, UsdShade  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from model_fix import TextureMap, converter_for, deck_level, guess_scale, guess_up_axis, is_walkable  # noqa: E402
+from model_fix import (  # noqa: E402
+    TextureMap,
+    converter_for,
+    deck_level,
+    guess_scale,
+    guess_up_axis,
+    is_walkable,
+    unitless,
+)
 
 AXES = "XYZ"
 UP_ROTATION = {"Z": ("X", 0.0), "Y": ("X", 90.0), "X": ("Y", -90.0)}
@@ -299,7 +307,7 @@ def main() -> None:
     points = np.concatenate([m["points"] for m in meshes])
     extent = float((points.max(0) - points.min(0)).max())
     up = guess_up_axis(raw_up, flat_area(meshes), forced=args.up)
-    scale = guess_scale(extent, raw_mpu, args.units) * (args.scale or 1.0)
+    scale = guess_scale(extent, raw_mpu, args.units, trust_metadata=not unitless(src.name)) * (args.scale or 1.0)
     rot = fix_matrix(scale, up)
     fixed = points @ rot.T
     deck = args.deck_z if args.deck_z is not None else deck_level(deck_samples(meshes, rot))

@@ -114,7 +114,7 @@ scripts/import_model.sh rig.fbx --name rig --units cm --up Y --deck-z 32 --drop 
 - `.blend` is rejected by both, so it goes through Blender 4.0.2 (Ubuntu arm64, `docker/blender.Dockerfile`).
 
 **Detection:**
-- Units come from the stage's metadata unless that gives a size under 1 m or over 2 km. In that case the importer picks
+- Units come from the stage's metadata unless that gives a size under 1 m or over 2 km, or the format is unitless (STL, OBJ, PLY). Then the importer picks
   the m/cm/mm/in/ft scale that gives a platform-sized result.
 - The up axis is the metadata axis unless twice as much flat area faces another axis.
 - The deck is the height band with the most upward-facing area, ignoring sea or seabed planes at the very bottom.

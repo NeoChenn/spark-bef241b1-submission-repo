@@ -32,11 +32,16 @@ def converter_for(path: str) -> str:
     raise ValueError(f"unsupported model format: {suffix}")
 
 
-def guess_scale(extent: float, meters_per_unit: float, units: str = "auto") -> float:
+def unitless(path: str) -> bool:
+    """Formats whose files carry no unit, so converter metadata is a guess."""
+    return Path(path).suffix.lower() in {".stl", ".obj", ".ply"}
+
+
+def guess_scale(extent: float, meters_per_unit: float, units: str = "auto", trust_metadata: bool = True) -> float:
     """Metres per source unit, given the model's largest bounding-box extent in source units."""
     if units != "auto":
         return UNITS[units]
-    if SANE_EXTENT_M[0] <= extent * meters_per_unit <= SANE_EXTENT_M[1]:
+    if trust_metadata and SANE_EXTENT_M[0] <= extent * meters_per_unit <= SANE_EXTENT_M[1]:
         return meters_per_unit
     low, high = PLAUSIBLE_EXTENT_M
     plausible = [s for s in SCALE_CANDIDATES if low <= extent * s <= high]
