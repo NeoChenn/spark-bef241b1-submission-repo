@@ -1,0 +1,39 @@
+# Secrets: never commit these. A leaked Gemini key gets the whole project's keys revoked.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+credentials*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Run output
+logs/
+runs/
+renders/
+*.mp4
+*.mov
+
+# Training artefacts (large)
+checkpoints/
+*.ckpt
+*.pt
+*.zip
+
+# Node (for the console, when added)
+node_modules/
+.next/
+.vercel/
+
+# OS and editor
+.DS_Store
+.idea/
+.vscode/

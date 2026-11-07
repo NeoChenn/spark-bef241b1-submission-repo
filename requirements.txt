@@ -1,0 +1,5 @@
+mujoco>=3.2
+numpy>=1.26
+pytest>=8.0
+# Needed only for the live Gemini call path (imported lazily):
+google-genai>=1.0
