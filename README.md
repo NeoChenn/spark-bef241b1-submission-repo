@@ -105,7 +105,7 @@ triangle, mesh and material counts, and lists missing textures.
 scripts/import_model.sh path/in/repo/rig.glb --name rig                 # glb gltf fbx obj stl ply usd usdz step stp iges
 scripts/import_model.sh path/in/repo/rig.blend --name rig               # blend dae 3ds x3d abc: Blender (rig-import-blender) -> GLB first
 scripts/import_model.sh rig.fbx --name rig --units cm --up Y --deck-z 32 --drop 'sea|boat'   # overrides when detection is wrong
-.work/<you>/... /isaac-sim/python.sh sim/tools/preview_model.py sim/assets/rig_model/rig/rig.usd --sea-z -20  # wide + deck PNGs
+/isaac-sim/python.sh sim/tools/preview_model.py sim/assets/rig_model/rig/rig.usd --sea-z -20   # in rig-sim:6.2.0; wide + deck PNGs
 ```
 
 **Converters on aarch64 (Isaac 6.2):**
