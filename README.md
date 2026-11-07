@@ -112,3 +112,19 @@ true gauge readings and a patrol route checked against the geometry.
 `sim/rig_details.py` adds the process pipes, valves, gauges, props, helideck markings and windows.
 `sim/tools/make_generated_assets.py` makes the files in `sim/assets/generated/`: an ocean sky with the coastline removed
 from Poly Haven's CC0 `aristea_wreck`, a sea ripple map and a gauge dial.
+
+## Rust detection and repair (branch `rust-detection`)
+
+A simulated quadruped with a scrubber arm finds rust on pipework and fixes it:
+detect → spray → wait 30 s → scrub (PPO) → re-detect → paint → verify. Training runs on Modal (L40S).
+
+| Path | What |
+|---|---|
+| `detection/` | Rust classifier (LoRA fine-tune), patch heatmap localizer, ONNX export. See `detection/DATA.md`. |
+| `policy/envs/` | Isaac Lab scrub environment + rust-state model (pure torch). |
+| `policy/skills/` | Classical spray / paint coverage skills. |
+| `policy/orchestrator.py` | Perception-driven state machine that sequences the repair. |
+| `infra/` | Shared Modal image + volumes for training. |
+| `integration/INTERFACE.md` | Contract with the rig scene (prim paths, rust texture, robot). |
+
+Setup: `uv venv --python 3.11 .venv && uv pip install --python .venv modal torch numpy pytest`

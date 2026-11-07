@@ -1,0 +1,109 @@
+# Sim ⇄ policy interface contract
+
+Owner: the orchestrator side (`policy/orchestrator.py`, `detection/localize.py`). The sim team implements
+**one class satisfying `policy.interfaces.SimBridge` + `Perception` + `ArmController`** inside the Isaac Sim 6.2
+process (`rig/sim/main.py` loop). Everything else is already written and tested against a CPU mock
+(`.venv/bin/python -m policy.demo_mock`, which uses the same geometry as `sim/output/rig_deck_meta.json`).
+
+```
+Isaac Sim (rig/sim/main.py)                         policy (same process, pure python/numpy/torch)
+  wrist / repair_closeup camera ─ rgb annotator ──► Perception.observe() ─► RustLocalizer (ONNX, CPU)
+  camera prim xform + focal ───────────────────────► Perception.camera()  ─► project_mask_to_grid
+  contact sensor on brush_link ────────────────────► ArmController.current_force()
+  diff-IK on brush_link ◄── apply_ee_delta / move_to ◄─────────────── Orchestrator state machine
+  rust overlay texture  ◄── RustState.to_texture(overlay=True) ◄──── RustState (spray / soak / abrade)
+  JPEG frame header "hud" ◄── bridge.publish_overlay(lines) ◄─────── every DecisionRecord
+```
+
+## 1. Frames and units
+
+* Metres, seconds (sim time), Z up, deck at z = 0 (same as `rig_deck_meta.json`).
+* **Main pipe**: axis along world +X, centre-line at y = 0, z = 1.1, radius 0.15.
+* **Pipe frame / angle**: `theta` is measured from **+Y toward +Z** (exactly the `center_angle` in
+  `sim/build_rig_deck.py::damage_patch`), so `PipeGeometry(axis=+X, ref=+Y)`. Seed 7 damage: `theta = atan2(0.7836, 0.6212) = 0.90 rad`.
+* **Work segment**: the rust grid covers a 0.8 m segment of the main pipe **centred on the damage x**
+  (`origin = (damage.x, 0, 1.1)`, `z ∈ [-0.4, 0.4]` along +X). Grid = `RustState(num_envs=1, H=40, W=64, length=0.8)`,
+  `radius[:] = 0.15`. Rows = z (axial), cols = theta (periodic). `policy.demo_mock.scene_geometry()` builds it from the meta JSON.
+* **Cameras**: our `CameraModel` is OpenCV (x right, y down, +z forward). Convert a USD camera with
+  `policy.interfaces.camera_from_usd(np.array(xform.ComputeLocalToWorldTransform(t)), focal, h_aperture, W, H)`
+  (fx = focal / h_aperture · W, square pixels, principal point at the centre).
+
+## 2. Prims and attributes we need
+
+| Prim path | What | Status |
+|---|---|---|
+| `/World/Pipes/main_pipe` | existing tube. **Add** custom attrs `rig:axis = (1,0,0)`, `rig:radius = 0.15`, `rig:segmentOrigin = (damage.x, 0, 1.1)`, `rig:segmentLength = 0.8` so `bridge.pipe()` reads geometry instead of hard-coding it | add attrs |
+| `/World/Pipes/rust_overlay` | **new** cylindrical sleeve mesh, radius 0.153 (just outside the pipe, like `damage_patch`), length 0.8, centred on the segment origin. UVs: `u = theta / 2π`, `v = (z + 0.4) / 0.8` (matches `RustState.surface_to_uv`). Material `/World/Looks/RustOverlay`: diffuse + opacity from a **dynamic texture** fed with `RustState.to_texture(overlay=True)[0]` (RGBA uint8, 40×64; rows = v, cols = u). Update ≥ 2 Hz. Use `omni.ui.DynamicTextureProvider("rust_state").set_bytes_data(...)` and texture path `dynamic://rust_state`. | new |
+| `/World/Pipes/damage_patch` | the static seed patch. Either hide it once `rust_overlay` exists, or initialise `RustState.rust` from its footprint (centre `theta`, approx radius in metres) so they agree. | hide or keep in sync |
+| `/World/Robots/scrubber_dog` | URDF import of `/assets/robot_dog.urdf` (fixed-base fallback: the existing Ridgeback Franka `/World/Robots/fitter`) | new |
+| `…/scrubber_dog/base_link` | quadruped trunk; `approach()` places it (teleport is fine for the demo) next to the pipe, within reach of the segment | URDF |
+| `…/arm_joint_1 … arm_joint_6` | arm revolute joints (names flexible; list them in `bridge.ARM_JOINTS`) | URDF |
+| `…/brush_link` | **tool frame**: origin at bristle tip, +Z along the brush axis (pointing into the surface). Rigid body with a **contact sensor** (`isaacsim.sensors.physics` ContactSensor or Isaac Lab `ContactSensor`) → `current_force()` = normal-force magnitude (N) | URDF + sensor |
+| `…/nozzle_link` | spray nozzle frame (+Z = spray direction). If absent we use `brush_link` with 0.15 m standoff | optional |
+| `…/wrist_cam_link/wrist_camera` | USD camera on the arm, 35 mm focal, 20.955 mm aperture, 640×360 render product + `rgb` annotator — **this is the localizer input** | new |
+| `/World/Cameras/repair_closeup` | fallback localizer input. **Problem (seed 7):** its eye `(dx+0.7, dy-1.2, dz+0.7)` is on the −Y side but the damage faces +Y/+Z: the ray to the damage centre meets the surface at cos = −0.13, so the damage is on the far side of the pipe. Put the eye on the damage-normal side instead, e.g. `eye = damage + 0.85·normal + (0.15, 0, 0)`, `target = damage` (what the mock uses). | fix eye |
+| `/World/Cameras/hero` | video camera for the demo; burn the HUD into this stream | existing |
+
+URDF on Modal: the `rig-assets` volume is mounted at `/assets`, so upload with
+`modal volume put rig-assets robot_dog.urdf /robot_dog.urdf` (meshes under `/meshes/...`, with URDF paths
+relative to the URDF file). The Isaac side reads `/assets/robot_dog.urdf` (`infra/common.py: ASSET_VOL, ASSET_DIR`).
+
+## 3. Methods to implement (see `policy/interfaces.py` for signatures)
+
+**Perception**
+* `observe() -> np.ndarray | None`: `np.asarray(ann.get_data())[..., :3]` as uint8 H×W×3 from the wrist camera
+  annotator (same as `rig/sim/main.py`). Return `None` if there is no frame yet (`data.size == 0`) or the mean is ≈ 0
+  (shader warm-up). A black or flat frame (std < 6) counts as occluded → orchestrator `HOLD`.
+* `camera() -> CameraModel`: `camera_from_usd(...)` of the camera that produced the last frame.
+* `request_view(i) -> bool`: move the camera to alternative viewpoint i ∈ {1, 2} (re-pose the arm wrist, or swap
+  to another camera prim). Suggested: rotate ±0.35 rad about the pipe axis and ±0.12 m along it, still looking at the
+  damage. Return False if it can't be reached.
+
+**ArmController** (all targets are world-frame, built from `PipeGeometry.surface_point`)
+* `move_to(waypoints) -> list[bool]`: for each `Waypoint(position, approach, standoff, flow_rate)` drive
+  `brush_link` (or `nozzle_link`) to `position` with tool +Z = `approach`, via Isaac Lab `DifferentialIKController`
+  (`command_type="pose"`, `ik_method="dls"`). Return reached flags (pos error < 1 cm). Spray: 0.15 m standoff; paint:
+  0.05 m (brush in contact).
+* `apply_ee_delta(a)`: **scrub action** `a = [d_theta (rad), d_z (m), press ∈ 0..1]` in pipe frame. Implementation:
+  `theta, z += clip(d_theta, ±0.15), clip(d_z, ±0.03)` → target `p, n = pipe.surface_point(theta, z)`, tool tip at
+  `p − 0.005·press·n` (pushes into the surface; admittance gives ≈ 25·press N), orientation `approach = −n`, one diff-IK
+  step. Then apply abrasion: `rust.abrade(rust.surface_to_uv(θ, z), 0.03, F_contact, slide_speed=0.3, dt)` where
+  `F_contact` is the contact sensor reading (rotary brush → constant 0.3 m/s slide). The orchestrator multiplies `press`
+  by a safety scale after every force back-off.
+* `ee_theta_z()`, `current_force()` (contact sensor, N), `back_off(0.05)` (retract along +n).
+
+**SimBridge**
+* `sim_time()`, `advance(dt)`: step physics/render for `dt` of sim time with the arm holding pose (the orchestrator
+  calls `RustState.step_soak(dt)` itself — **don't** step soak in the sim too).
+* `pipe() -> PipeGeometry` (read the `rig:*` attrs; re-read each frame so "move pipe" works),
+  `patrol_poses()`, `go_to_patrol_pose(p)`, `approach(theta, z, standoff)`.
+* `person_distance() -> float | None` (hook: distance from base_link to the nearest `/World/People/*` prim).
+* `scrub_obs() -> dict`: extra obs for the PPO policy, e.g. `{"policy": obs_tensor}` from `policy/envs/scrub_env.py`.
+* `publish_overlay(lines)`: called on every decision with 4 short strings. Easiest: keep the latest `lines` and
+  add them to the frame header — `sender.send({..., "hud": lines}, jpeg)` — and draw them in `rig/web/static`; or burn
+  them in before JPEG encode with `policy.orchestrator.draw_hud(rgb, lines)`.
+
+Control rates: physics 60–120 Hz; the orchestrator makes a scrub decision every 0.1 s sim time (10 Hz,
+`OrchestratorConfig.scrub_dt`), re-detects every 5 s during the 30 s soak and every 40 scrub steps.
+
+## 4. Mid-run change hooks for the video (not announced to the orchestrator)
+
+| Hook | Implementation | Expected on-screen reaction |
+|---|---|---|
+| `spawn_patch(theta, z, size)` | `RustState.add_patch(..., sprayed=False)` (or `MockRustWorld.inject_patch`) during SOAK or SCRUB | `SOAK→SPRAY "RE-PLAN: new rust #1 …"`, soak extended 30 s; mid-scrub: `SCRUB→SPRAY` |
+| `glare(on)` | raise the sun/dome intensity or add a spot light on the damage for view 0 | `DETECT→SECOND_VIEW` (unsure), then confident |
+| `occlude_camera(s)` | black frames / spray mist on lens for s seconds | `→HOLD`, then resume the same state |
+| `force_spike()` | a weld bead / collider on the scrub path | `SCRUB→BACK_OFF→SCRUB`, press scaled 0.7 |
+| `person_at(2.4 m)` | move a `/World/People/worker` prim near the robot | `→PAUSE_PERSON`, resume when > 3 m |
+| `move_pipe(dx)` | translate the segment origin attr + overlay | grid re-projected from the new `pipe()` |
+| stubborn rust | `RustState.abrasion_coef[:] = 0.1` | 3 failed VERIFYs → `ESCALATE_TO_HUMAN` with residual cells |
+
+## 5. Outputs
+
+* `runs/decisions.jsonl`: one line per transition:
+  `{"t", "from", "to", "reason", "evidence": {"detector_conf", "rust_fraction", "patch_ids", "force", …}}`.
+* HUD (`Orchestrator.overlay_text()`): `STATE`, rust-left %, detector confidence, patch ids, force, last reason.
+* Detector checkpoint: `/ckpt/detector/best/{model.onnx, meta.json}` on volume `rust-ckpt`. Load with
+  `RustLocalizer.from_checkpoint("/ckpt/detector/best", patch=96, stride=48)` (patch is resized to `meta.input_size`).
+  meta keys read: `input_size` (int or `[3,H,W]`), `mean`, `std`, `threshold`, `temperature`, `unsure_band`. ONNX input
+  NCHW float32 normalised, output `(N, 1)` rust logit.

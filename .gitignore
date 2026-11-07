@@ -6,6 +6,13 @@ logs/
 .superpowers/
 .pytest_cache/
 
+# Rust detection / policy artifacts (live on Modal volumes)
+data/
+runs/
+*.onnx
+*.pt
+*.pth
+
 # Regenerate with sim/tools/inspect_assets.py
 sim/output/asset_report.json
 
