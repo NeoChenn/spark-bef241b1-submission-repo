@@ -93,3 +93,17 @@ to use and redistribute. To add an asset, put its Poly Haven ID in `sim/assets/m
 | `sim/assets/` | Asset list and downloaded models, textures and skies |
 | `sim/output/` | Generated scene, metadata and preview images |
 | `sim/tools/` | Asset download and inspection scripts |
+
+## Full oil rig scene
+
+A textured, full-scale rig for Isaac Sim 6.2. Open `sim/output/full_rig.usda` with **File > Open**, or rebuild it from the
+repo root:
+
+```bat
+C:\isaacsim\python.bat sim\build_full_rig.py
+```
+
+The rig model is [Oil Rig](https://sketchfab.com/3d-models/oil-rig-2a9fadae585f4bbfa030772e54e64ace) by AnsysLearn under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), split, rescaled, textured and placed at sea for this project.
+See `sim/assets/third_party/oil_rig_ansyslearn/CREDITS.md`. The source gives no real-world size, so the 0.25 m per unit
+scale is an estimate. `sim/output/full_rig_meta.json` lists the rig's bounds, deck heights and parts.
