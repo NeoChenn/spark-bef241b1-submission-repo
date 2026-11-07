@@ -30,7 +30,6 @@
       ctx.drawImage(bmp, 0, 0);
       bmp.close();
       drawn.push(performance.now());
-      setStatus("live", true);
     } catch (e) {
       console.warn("decode failed", e);
     } finally {
@@ -46,6 +45,7 @@
     ws.onopen = () => {
       backoff = 500;
       setStatus("waiting for frames…");
+      pollHealth();
     };
     ws.onmessage = (ev) => {
       pending = ev.data;
@@ -64,11 +64,18 @@
     fpsEl.textContent = String(drawn.length);
   }, 250);
 
+  const STATE_TEXT = {
+    no_sim: "waiting for sim…",
+    warming: "rendering: shaders compiling (first start takes minutes)…",
+    stalled: "sim connected, frames stalled",
+    live: "live",
+  };
+
   async function pollHealth() {
     try {
       const h = await (await fetch("/api/health", { cache: "no-store" })).json();
       ageEl.textContent = h.frame_age_s == null ? "no frames" : h.frame_age_s.toFixed(1) + " s";
-      if (!h.sim_connected && statusEl.classList.contains("live") === false) setStatus("waiting for sim…");
+      setStatus(STATE_TEXT[h.state] || h.state, h.state === "live");
     } catch {
       ageEl.textContent = "–";
     }

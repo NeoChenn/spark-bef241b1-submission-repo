@@ -13,6 +13,8 @@ from rig.frames import read_message_async
 
 STATIC = Path(__file__).parent / "static"
 FPS_WINDOW_S = 2.0
+STALE_AFTER_S = 2.0
+BLACK_MEAN = 3.0
 
 
 class FrameHub:
@@ -95,11 +97,22 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000) -> FastAPI:
     @app.get("/api/health")
     async def health() -> dict:
         header = hub.latest[2] if hub.latest else {}
+        age = None if hub.last_frame_at is None else time.monotonic() - hub.last_frame_at
+        mean = header.get("mean")
+        if not hub.sim_connected:
+            state = "no_sim"
+        elif age is None or age > STALE_AFTER_S:
+            state = "stalled"
+        elif mean is not None and mean < BLACK_MEAN:
+            state = "warming"
+        else:
+            state = "live"
         return {
+            "state": state,
             "sim_connected": hub.sim_connected,
             "frames": hub.frames,
             "fps": round(hub.fps, 1),
-            "frame_age_s": None if hub.last_frame_at is None else round(time.monotonic() - hub.last_frame_at, 2),
+            "frame_age_s": None if age is None else round(age, 2),
             "w": header.get("w"),
             "h": header.get("h"),
         }

@@ -70,7 +70,7 @@ def main() -> None:
             mean = float(rgb.mean())
             buf = io.BytesIO()
             Image.fromarray(rgb).save(buf, "JPEG", quality=args.quality)
-            sender.send({"type": "frame", "w": rgb.shape[1], "h": rgb.shape[0], "seq": seq, "t": t}, buf.getvalue())
+            sender.send({"type": "frame", "w": rgb.shape[1], "h": rgb.shape[0], "seq": seq, "t": t, "mean": round(mean, 1)}, buf.getvalue())
             seq += 1
             if not snapshot_done and mean > 3:
                 Image.fromarray(rgb).save(args.snapshot)
