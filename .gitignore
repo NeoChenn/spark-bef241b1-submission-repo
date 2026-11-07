@@ -44,3 +44,6 @@ sim/output/asset_report.json
 Thumbs.db
 .idea/
 .vscode/
+
+# Large assets kept out of Git; fetch with sim/tools/fetch_assets.py --only <id>
+sim/assets/third_party/hdris/*/*_8k.hdr
