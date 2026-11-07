@@ -72,7 +72,7 @@ def worker(argv):
     p.add_argument("--video_steps", type=int, default=600)
     p.add_argument("--meta", type=str, default="")
     p.add_argument("--force_patch", action="store_true")
-    p.add_argument("--robot", type=str, default="lift", choices=["lift", "go2ur3", "franka"])
+    p.add_argument("--robot", type=str, default="lift", choices=["lift", "lift_v2", "go2ur3", "franka"])
     p.add_argument("--cam", type=str, default="", choices=["", "close", "wide"])
     from isaaclab.app import AppLauncher
 

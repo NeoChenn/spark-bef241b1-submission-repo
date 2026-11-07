@@ -48,7 +48,7 @@ def worker(argv):
     p.add_argument("--init_from", type=str, default="", help="checkpoint to initialise weights from (fine-tune)")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--urdf", type=str, default="")
-    p.add_argument("--robot", type=str, default="lift", choices=["lift", "go2ur3", "franka"])
+    p.add_argument("--robot", type=str, default="lift", choices=["lift", "lift_v2", "go2ur3", "franka"])
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
