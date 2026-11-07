@@ -85,11 +85,9 @@ class Orchestrator:
                  config: OrchestratorConfig | None = None,
                  spray: SpraySkill | None = None, paint: PaintSkill | None = None,
                  advisor=None):
-        """``advisor``: optional second-opinion inspector (policy.gemini_verifier.GeminiVerifier). Consulted
-        only when DETECT stays ambiguous and before VERIFY paints over a "clean" pipe; None = no change."""
         self.bridge, self.perception, self.localizer = bridge, perception, localizer
         self.advisor = advisor
-        self.advisor_last = None          # last GeminiVerdict (or None)
+        self.advisor_last = None
         self.advisor_vetoes = 0
         self.last_image: Optional[np.ndarray] = None
         self.world, self.arm, self.scrub_policy = world, arm, scrub_policy
@@ -279,7 +277,6 @@ class Orchestrator:
         return (where, f"looks clean but weak evidence ({vis:.0%} visible, {unc:.0%} uncertain) "
                 f"-> re-verify from view {self.view_idx}", ev)
 
-    # ------------------------------------------------------------- second opinion (Gemini)
     def _ask_advisor(self, question: str):
         if self.advisor is None or self.last_image is None:
             return None
@@ -292,7 +289,6 @@ class Orchestrator:
                               {"error": getattr(self.advisor, "last_error", None)}, **extra)
 
     def _advisor_detect(self, p: Perceived):
-        """Detector still unsure after the extra views: ask the advisor before calling a human."""
         verdict = self._ask_advisor("rust")
         if verdict is None or not self.advisor.confident(verdict):
             return None
@@ -321,7 +317,6 @@ class Orchestrator:
                 f"{self.baseline_cells} cells", self._advisor_evidence(verdict, new_patches=[_pdesc(t) for t in new]))
 
     def _advisor_verify(self, frac: float):
-        """About to paint: the advisor can veto a 'clean' verdict (at most twice per repair)."""
         if self.advisor_vetoes >= 2:
             return None
         verdict = self._ask_advisor("clean")

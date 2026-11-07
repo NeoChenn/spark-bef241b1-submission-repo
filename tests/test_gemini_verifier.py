@@ -1,4 +1,3 @@
-"""Gemini second opinion: reply parsing, offline fallback and the two orchestrator hooks (no network)."""
 import json
 
 import numpy as np

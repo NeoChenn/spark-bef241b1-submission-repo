@@ -1,12 +1,3 @@
-"""USD side of the sim bridge: adds the robot, rust overlay, cameras and demo props to the rig deck.
-
-Everything here needs pxr (run inside Isaac Sim). The orchestrator-facing logic is in isaac_bridge.py.
-
-Rust, wet remover and primer are shown as three thin sleeves around the pipe segment (radius 0.1522,
-0.153 and 0.1536 m over the 0.15 m pipe). Each sleeve is a fixed grid of quads; `SurfaceLayer.update`
-keeps only the faces whose cell is rusty / sprayed / painted, so the overlay always matches the
-RustState grid exactly (rows = z along the axis, cols = theta, as in RustState.surface_to_uv).
-"""
 from __future__ import annotations
 
 import math
@@ -32,7 +23,6 @@ WORKER_PATH = "/World/People/worker"
 SEGMENT_LENGTH = 0.8
 
 
-# ----------------------------------------------------------------------------------------- pipe
 def find_main_pipe(stage) -> Usd.Prim:
     for prim in stage.GetPrimAtPath(PIPE_SCOPE).GetChildren():
         if prim.GetName().startswith("main_pipe"):
@@ -42,7 +32,6 @@ def find_main_pipe(stage) -> Usd.Prim:
 
 def write_pipe_attrs(prim, origin, axis=(1.0, 0.0, 0.0), ref=(0.0, 1.0, 0.0), radius=0.15,
                      length=SEGMENT_LENGTH) -> None:
-    """INTERFACE.md section 2: rig:* attrs so the bridge reads the geometry instead of hard-coding it."""
     for name, kind, value in (
         ("rig:axis", Sdf.ValueTypeNames.Float3, Gf.Vec3f(*axis)),
         ("rig:ref", Sdf.ValueTypeNames.Float3, Gf.Vec3f(*ref)),
@@ -54,13 +43,12 @@ def write_pipe_attrs(prim, origin, axis=(1.0, 0.0, 0.0), ref=(0.0, 1.0, 0.0), ra
 
 
 def read_pipe(prim, n_z=40, n_theta=64) -> PipeGeometry:
-    get = lambda name: prim.GetAttribute(name).Get()  # noqa: E731
+    get = lambda name: prim.GetAttribute(name).Get()
     return PipeGeometry(origin=list(get("rig:segmentOrigin")), axis=list(get("rig:axis")),
                         ref=list(get("rig:ref")), radius=float(get("rig:radius")),
                         length=float(get("rig:segmentLength")), n_z=n_z, n_theta=n_theta)
 
 
-# ------------------------------------------------------------------------------------ materials
 def preview_material(stage, name, color, roughness, metallic=0.0, texture: Path | None = None, tile=(1.0, 1.0)):
     material = UsdShade.Material.Define(stage, f"{LOOKS}/{name}")
     shader = UsdShade.Shader.Define(stage, f"{LOOKS}/{name}/surface")
@@ -95,21 +83,19 @@ def bind(prim, material) -> None:
     UsdShade.MaterialBindingAPI.Apply(prim).Bind(material)
 
 
-# ------------------------------------------------------------------------------- surface layers
 class SurfaceLayer:
-    """A sleeve over the pipe segment whose quads are switched on per RustState cell."""
 
     def __init__(self, stage, path: str, pipe: PipeGeometry, radius: float, material, sub: int = 2):
         self.pipe, self.sub = pipe, sub
         self.n_z, self.n_t = pipe.n_z * sub, pipe.n_theta * sub
         theta = np.linspace(0.0, 2 * math.pi, self.n_t + 1)
         z = np.linspace(-pipe.length / 2, pipe.length / 2, self.n_z + 1)
-        tt, zz = np.meshgrid(theta, z)                      # (n_z+1, n_t+1)
+        tt, zz = np.meshgrid(theta, z)
         normal = np.cos(tt)[..., None] * pipe.ref + np.sin(tt)[..., None] * pipe.binormal
         points = pipe.origin + zz[..., None] * pipe.axis + radius * normal
         st = np.stack([tt * radius / 0.3, (zz + pipe.length / 2) / 0.3], -1)
         idx = np.arange((self.n_z + 1) * (self.n_t + 1)).reshape(self.n_z + 1, self.n_t + 1)
-        quads = np.stack([idx[:-1, :-1], idx[:-1, 1:], idx[1:, 1:], idx[1:, :-1]], -1)   # (n_z, n_t, 4)
+        quads = np.stack([idx[:-1, :-1], idx[:-1, 1:], idx[1:, 1:], idx[1:, :-1]], -1)
         self.quads = quads.reshape(-1, 4)
         self.st = st.reshape(-1, 2)
         self.mesh = UsdGeom.Mesh.Define(stage, path)
@@ -125,7 +111,6 @@ class SurfaceLayer:
         self.update(np.zeros(pipe.shape, bool))
 
     def _fine(self, field: np.ndarray) -> np.ndarray:
-        """Cell grid (n_z, n_theta) -> sub-sampled face grid with bilinear smoothing (theta periodic)."""
         f = np.asarray(field, np.float32)
         if self.sub == 1:
             return f
@@ -158,7 +143,6 @@ class SurfaceLayer:
 
 
 class RustOverlay:
-    """Wet remover, rust and primer sleeves driven from a RustState-like world (rust/sprayed/painted)."""
 
     def __init__(self, stage, pipe: PipeGeometry):
         wet = preview_material(stage, "wet_remover", (0.05, 0.07, 0.09), 0.08, 0.0)
@@ -177,9 +161,7 @@ class RustOverlay:
         self.primer.update(painted.astype(np.float32))
 
 
-# ---------------------------------------------------------------------------------------- robot
 class RobotPoser:
-    """References the imported robot (physics variant off) and writes link transforms from FK."""
 
     def __init__(self, stage, model: RobotModel, path: str = ROBOT_PATH):
         self.model = model
@@ -191,9 +173,6 @@ class RobotPoser:
         self.root_op = self.root.AddTransformOp()
         self.ops = {}
         by_child = {j.child: j for j in model.joints.values()}
-        # Link prims only: the root is the prim named after the root link directly under Geometry, and a
-        # child link must sit under its URDF parent link. Visual meshes reuse names like "base" (the trunk
-        # mesh has its own authored rotation), so matching by name alone would clobber them.
         link_prims = {}
         for p in Usd.PrimRange(prim):
             name, parent = p.GetName(), p.GetParent().GetName()
@@ -210,7 +189,6 @@ class RobotPoser:
         missing = set(by_child) - set(self.ops)
         if missing:
             raise RuntimeError(f"robot USD is missing link prims: {sorted(missing)[:5]}")
-        # Steel wire brush instead of the URDF's orange head, which a colour-based detector reads as rust.
         brush = preview_material(stage, "wire_brush", (0.36, 0.38, 0.42), 0.35, 0.9)
         for p in Usd.PrimRange(prim):
             if p.GetName() == "scrubber_link":
@@ -226,7 +204,6 @@ class RobotPoser:
             self.ops[name].Set(Gf.Matrix4d(*local.T.reshape(-1)))
 
 
-# -------------------------------------------------------------------------------------- cameras
 def look_at_matrix(eye, target, up=(0.0, 0.0, 1.0)) -> Gf.Matrix4d:
     view = Gf.Matrix4d().SetLookAt(Gf.Vec3d(*map(float, eye)), Gf.Vec3d(*map(float, target)),
                                    Gf.Vec3d(*map(float, up)))
@@ -260,7 +237,6 @@ class Camera:
 
 
 def inspection_views(pipe: PipeGeometry, theta: float) -> list[tuple[np.ndarray, np.ndarray]]:
-    """INTERFACE.md: nominal eye on the damage-normal side, plus +-0.35 rad / +-0.12 m alternatives."""
     surf, n = pipe.surface_point(theta, 0.0)
     n2 = pipe.surface_point(theta + 0.35, 0.0)[1]
     n3 = pipe.surface_point(theta - 0.35, 0.0)[1]
@@ -271,9 +247,7 @@ def inspection_views(pipe: PipeGeometry, theta: float) -> list[tuple[np.ndarray,
     ]
 
 
-# ---------------------------------------------------------------------------------------- props
 def add_worker(stage, path: str = WORKER_PATH):
-    """A simple high-vis figure for the person-proximity hook (hidden until moved in)."""
     root = UsdGeom.Xform.Define(stage, path)
     vest = preview_material(stage, "hi_vis", (1.0, 0.42, 0.02), 0.6)
     dark = preview_material(stage, "overalls", (0.1, 0.12, 0.16), 0.8)
@@ -308,8 +282,7 @@ def add_weld_bead(stage, path, pipe: PipeGeometry, theta: float, z: float, heigh
     bead = UsdGeom.Sphere.Define(stage, path)
     bead.CreateRadiusAttr(1.0)
     xf = UsdGeom.Xformable(bead)
-    # A flattened sphere centred on the surface, its short axis along the normal.
-    xaxis = np.cross(n, pipe.axis)          # right-handed frame [axis, n x axis, n]
+    xaxis = np.cross(n, pipe.axis)
     M = np.eye(4)
     M[:3, 0], M[:3, 1], M[:3, 2], M[:3, 3] = pipe.axis * radius, xaxis * radius, n * height * 1.3, surf
     xf.AddTransformOp().Set(Gf.Matrix4d(*M.T.reshape(-1)))
@@ -334,7 +307,7 @@ def set_spray(cone, op, tip: np.ndarray, direction: np.ndarray, length: float, o
         UsdGeom.Imageable(cone).MakeInvisible()
         return
     d = np.asarray(direction, float) / np.linalg.norm(direction)
-    zaxis = -d                                   # cone apex is at +Z/2: point the apex back at the nozzle
+    zaxis = -d
     xaxis = np.cross([0.0, 0.0, 1.0] if abs(zaxis[2]) < 0.9 else [1.0, 0.0, 0.0], zaxis)
     xaxis /= np.linalg.norm(xaxis)
     yaxis = np.cross(zaxis, xaxis)
@@ -347,7 +320,6 @@ def set_spray(cone, op, tip: np.ndarray, direction: np.ndarray, length: float, o
 
 
 def add_lens_mist(stage, camera_path: str):
-    """Spray mist on the inspection lens (occlusion hook): a grey card 3 cm in front of the camera."""
     card = UsdGeom.Cube.Define(stage, f"{camera_path}/lens_mist")
     card.CreateSizeAttr(1.0)
     xf = UsdGeom.Xformable(card)

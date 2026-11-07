@@ -1,10 +1,3 @@
-"""Forward and inverse kinematics for the Go2 + lift + UR3 URDF, in plain numpy.
-
-The Isaac Sim bridge poses the robot kinematically: it writes every link's world transform from
-`RobotModel.link_poses`, and moves the brush with `RobotModel.solve_ik`. Contact force is the same
-analytic spring the scrub policy was trained with (`policy/envs/scrub_env_cfg.py`, k = 2500 N/m), so
-no PhysX articulation is needed. Nothing here imports Isaac, so it is unit-testable on CPU.
-"""
 from __future__ import annotations
 
 import math
@@ -22,7 +15,6 @@ ARM_JOINTS = ["ur3_shoulder_pan_joint", "ur3_shoulder_lift_joint", "ur3_elbow_jo
 LIFT_JOINT = "lift_joint"
 TOOL_LINK = "brush_tip"
 
-# Standing pose and arm start pose from ScrubLiftEnvCfg (the trained policy's reset state).
 STANDING = {
     "FL_hip_joint": 0.1, "RL_hip_joint": 0.1, "FR_hip_joint": -0.1, "RR_hip_joint": -0.1,
     "FL_thigh_joint": 0.8, "FR_thigh_joint": 0.8, "RL_thigh_joint": 1.0, "RR_thigh_joint": 1.0,
@@ -33,7 +25,6 @@ ARM_START = {
     "ur3_elbow_joint": -0.963, "ur3_wrist_1_joint": -0.285, "ur3_wrist_2_joint": -1.288,
     "ur3_wrist_3_joint": 0.044,
 }
-# Arm folded on the back while walking (lift down, brush pointing forward and up).
 ARM_STOWED = {
     "lift_joint": 0.0, "ur3_shoulder_pan_joint": 0.0, "ur3_shoulder_lift_joint": -1.57,
     "ur3_elbow_joint": 2.4, "ur3_wrist_1_joint": -2.4, "ur3_wrist_2_joint": -1.57,
@@ -43,7 +34,6 @@ TRUNK_HEIGHT = 0.32
 
 
 def rpy_matrix(roll: float, pitch: float, yaw: float) -> np.ndarray:
-    """URDF fixed-axis roll-pitch-yaw: R = Rz(yaw) Ry(pitch) Rx(roll)."""
     cr, sr, cp, sp, cy, sy = (math.cos(roll), math.sin(roll), math.cos(pitch), math.sin(pitch),
                               math.cos(yaw), math.sin(yaw))
     return np.array([
@@ -151,7 +141,6 @@ class RobotModel:
         return q
 
     def link_poses(self, base: np.ndarray, q: dict) -> dict[str, np.ndarray]:
-        """World 4x4 of every link for root pose `base` and joint values `q`."""
         poses = {self.root: base}
         stack = [self.root]
         while stack:
@@ -187,9 +176,6 @@ class RobotModel:
     def solve_ik(self, base: np.ndarray, q: dict, target: np.ndarray, approach: np.ndarray,
                  joints: list[str] = ARM_JOINTS, iterations: int = 80, damping: float = 0.05,
                  tip: str = TOOL_LINK) -> IKResult:
-        """Damped least squares on tool position + tool x axis (the brush axis) = `approach`.
-
-        Roll about the brush axis is free (a rotary brush), so the task is 5-D on 6 joints."""
         q = dict(q)
         approach = np.asarray(approach, float) / np.linalg.norm(approach)
         target = np.asarray(target, float)
@@ -197,8 +183,6 @@ class RobotModel:
 
         def error(qq):
             T = self.tool_pose(base, qq, tip)
-            # (approach - x) is zero only when the brush points along approach, unlike a cross product,
-            # which would also accept the brush pointing straight backwards.
             return np.concatenate([target - T[:3, 3], approach - T[:3, 0]]), T
 
         it = 0
@@ -223,9 +207,6 @@ class RobotModel:
 
 
 def spring_force(tool_tip: np.ndarray, pipe, stiffness: float = 2500.0, bumps=()) -> float:
-    """Normal force from the analytic brush spring used in training: k x penetration into the pipe.
-
-    `bumps` are (theta, z, height, radius) weld beads that locally raise the surface (force-spike hook)."""
     rel = np.asarray(tool_tip, float) - pipe.origin
     z = float(rel @ pipe.axis)
     radial = rel - z * pipe.axis

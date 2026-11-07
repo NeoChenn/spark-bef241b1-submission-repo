@@ -1,10 +1,3 @@
-"""Convert go2_ur3_lift.urdf to USD with Isaac Sim's URDF importer.
-
-    C:\\isaacsim\\python.bat integration\\import_robot.py
-
-Writes sim/output/robot/ (the bridge references the .usd inside). Prints the link prims it finds,
-because the bridge poses each link by name.
-"""
 from __future__ import annotations
 
 import os
@@ -16,14 +9,14 @@ from isaacsim import SimulationApp
 
 app = SimulationApp({"headless": True})
 
-import omni.kit.app  # noqa: E402
+import omni.kit.app
 
 omni.kit.app.get_app().get_extension_manager().set_extension_enabled_immediate("isaacsim.asset.importer.urdf", True)
-from isaacsim.asset.importer.urdf import URDFImporter, URDFImporterConfig  # noqa: E402
-from pxr import Usd, UsdGeom  # noqa: E402
+from isaacsim.asset.importer.urdf import URDFImporter, URDFImporterConfig
+from pxr import Usd, UsdGeom
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from integration.kinematics import LIFT_URDF, RobotModel  # noqa: E402
+from integration.kinematics import LIFT_URDF, RobotModel
 
 OUT = Path(__file__).resolve().parent.parent / "sim/output/robot"
 

@@ -1,23 +1,3 @@
-"""Gemini second-opinion inspector for the repair orchestrator.
-
-The fast loop (detector, localizer, scrub policy) stays on the robot. Gemini is asked only at the
-decisions a human supervisor would otherwise make:
-
-  * DETECT is still ambiguous after the extra camera views -> instead of escalating straight away,
-    ask Gemini whether the pipe surface shows rust, and where.
-  * VERIFY is about to call the pipe clean and paint over it -> ask Gemini to confirm no rust is left
-    (catches a false "clean" from a misted lens, glare or an occluded view).
-
-If there is no API key, no network or the reply is unusable, `verify` returns None and the
-orchestrator behaves exactly as without Gemini (edge autonomy is kept).
-
-Pure Python + numpy + PIL; talks to the Gemini REST API with urllib, so it also runs inside Isaac Sim.
-
-    python -m policy.gemini_verifier path/to/frame.png [--question clean]    # live check with your key
-
-Key: GEMINI_API_KEY in the environment or in a .env file at the repo root (gitignored). Model:
-GEMINI_MODEL (default gemini-robotics-er-2-preview, from the Gemini API robotics docs, Nov 2026).
-"""
 from __future__ import annotations
 
 import base64
@@ -76,10 +56,10 @@ SCHEMA = {
 
 @dataclass
 class GeminiVerdict:
-    verdict: str                     # "rust" | "clean" | "cannot_tell"
+    verdict: str
     confidence: float
     reason: str
-    points: list = field(default_factory=list)   # [(x_px, y_px)] in the image that was sent
+    points: list = field(default_factory=list)
     latency_ms: float = 0.0
     model: str = ""
 
@@ -113,7 +93,6 @@ def load_api_key() -> Optional[str]:
 
 
 def encode_jpeg(image: np.ndarray, max_side: int = 768) -> tuple[bytes, float]:
-    """RGB uint8 -> JPEG bytes (downscaled so the long side is <= max_side) and the scale used."""
     from PIL import Image
     im = Image.fromarray(np.ascontiguousarray(np.asarray(image)[..., :3]).astype(np.uint8))
     scale = min(1.0, max_side / max(im.size))
@@ -125,7 +104,6 @@ def encode_jpeg(image: np.ndarray, max_side: int = 768) -> tuple[bytes, float]:
 
 
 def _extract_text(reply: dict) -> str:
-    """Text from a generateContent reply, or from an /interactions reply (field names vary)."""
     for cand in reply.get("candidates") or []:
         parts = (cand.get("content") or {}).get("parts") or []
         text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
@@ -145,7 +123,6 @@ def _extract_text(reply: dict) -> str:
 
 
 def parse_verdict(text: str, width: int, height: int) -> GeminiVerdict:
-    """Parse the model's JSON (tolerates ```json fences and extra prose) into a verdict with pixel points."""
     m = re.search(r"\{.*\}", text, re.S)
     if not m:
         raise ValueError(f"no JSON object in reply: {text[:120]!r}")
@@ -164,7 +141,6 @@ def parse_verdict(text: str, width: int, height: int) -> GeminiVerdict:
 
 
 class GeminiVerifier:
-    """Callable advisor: `verify(image, question)` -> GeminiVerdict, or None if Gemini is unavailable."""
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, timeout: float = 20.0,
                  endpoint: Optional[str] = None, min_confidence: float = 0.6, transport=None):
@@ -217,7 +193,7 @@ class GeminiVerifier:
             self.last_error = f"HTTP {e.code}: {detail}"
             self.calls.append({"question": question, "error": self.last_error})
             return None
-        except Exception as e:  # network down, timeout, bad JSON: fall back to the on-robot behaviour
+        except Exception as e:
             self.last_error = f"{type(e).__name__}: {e}"
             self.calls.append({"question": question, "error": self.last_error})
             return None

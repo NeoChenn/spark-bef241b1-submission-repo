@@ -14,7 +14,6 @@ def model():
 
 @pytest.fixture
 def pipe():
-    # rig_deck_meta.json seed 7: main pipe along +x at y=0, z=1.1, r=0.15, theta from +y toward +z
     return PipeGeometry(origin=[-0.4933, 0, 1.1], axis=[1, 0, 0], ref=[0, 1, 0], radius=0.15, length=0.8,
                         n_z=40, n_theta=64)
 
@@ -36,7 +35,6 @@ def test_chain_has_lift_and_six_arm_joints(model):
 
 
 def test_training_start_pose_is_8cm_from_damage(model, pipe):
-    """ScrubLiftEnvCfg says its FK-solved start puts brush_tip 8 cm off the damage, trunk 0.5 m from the axis."""
     surf, _ = pipe.surface_point(DAMAGE_THETA, 0.0)
     tip = model.tool_pose(pose(pipe.origin[0], 0.5, 0.32), model.default_q())[:3, 3]
     assert np.linalg.norm(tip - surf) == pytest.approx(0.08, abs=0.005)

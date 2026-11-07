@@ -39,30 +39,30 @@ parser.add_argument("--no-gemini", action="store_true",
                     help="skip the Gemini second opinion even if GEMINI_API_KEY is set")
 args = parser.parse_args()
 
-from isaacsim import SimulationApp  # noqa: E402
+from isaacsim import SimulationApp
 
 hero_w, hero_h = (int(v) for v in args.hero_size.split("x"))
 app = SimulationApp({"headless": True, "width": hero_w, "height": hero_h})
 
-import numpy as np  # noqa: E402
-import omni.kit.app  # noqa: E402
-import omni.usd  # noqa: E402
-import torch  # noqa: E402
-from PIL import Image, ImageDraw  # noqa: E402
+import numpy as np
+import omni.kit.app
+import omni.usd
+import torch
+from PIL import Image, ImageDraw
 
 manager = omni.kit.app.get_app().get_extension_manager()
 manager.set_extension_enabled_immediate("omni.replicator.core", True)
 manager.set_extension_enabled_immediate("omni.videoencoding", True)
-import omni.replicator.core as rep  # noqa: E402
-from pxr import UsdGeom  # noqa: E402
-from video_encoding import get_video_encoding_interface  # noqa: E402
+import omni.replicator.core as rep
+from pxr import UsdGeom
+from video_encoding import get_video_encoding_interface
 
-from detection.localize import RustLocalizer, fake_colour_classifier  # noqa: E402
-from integration import repair_scene as rs  # noqa: E402
-from integration.isaac_bridge import Frames, IsaacRigBridge  # noqa: E402
-from policy.demo_mock import GreedyScrub, MockRustWorld  # noqa: E402
-from policy.gemini_verifier import GeminiVerifier  # noqa: E402
-from policy.orchestrator import Orchestrator, OrchestratorConfig, S, draw_hud  # noqa: E402
+from detection.localize import RustLocalizer, fake_colour_classifier
+from integration import repair_scene as rs
+from integration.isaac_bridge import Frames, IsaacRigBridge
+from policy.demo_mock import GreedyScrub, MockRustWorld
+from policy.gemini_verifier import GeminiVerifier
+from policy.orchestrator import Orchestrator, OrchestratorConfig, S, draw_hud
 
 OUT = Path(args.out)
 FRAMES = OUT / "frames"
@@ -87,7 +87,7 @@ def setup_scene(stage):
     rs.write_pipe_attrs(rs.find_main_pipe(stage), origin, radius=float(pipe_meta["radius_m"]))
     patch = stage.GetPrimAtPath(f"{rs.PIPE_SCOPE}/damage_patch")
     if patch.IsValid():
-        UsdGeom.Imageable(patch).MakeInvisible()      # the RustState overlay replaces the static seed patch
+        UsdGeom.Imageable(patch).MakeInvisible()
     for robot in ("fitter", "welder"):
         prim = stage.GetPrimAtPath(f"/World/Robots/{robot}")
         if prim.IsValid():
@@ -171,7 +171,7 @@ def main() -> None:
                       hero=rep.AnnotatorRegistry.get_annotator("rgb"))
     annotators["inspection"].attach(inspection_rp)
     annotators["hero"].attach(hero_rp)
-    for _ in range(6):                                   # shader warm-up
+    for _ in range(6):
         render()
 
     localizer = make_localizer()

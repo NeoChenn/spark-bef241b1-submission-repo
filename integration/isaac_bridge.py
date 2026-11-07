@@ -1,17 +1,3 @@
-"""Isaac Sim 6.2 implementation of the orchestrator contract (integration/INTERFACE.md).
-
-One object, `IsaacRigBridge`, satisfies `policy.interfaces.SimBridge`, `Perception` and `ArmController`
-on the rig deck scene (sim/output/rig_deck.usda). It runs inside the Isaac Sim process; the scene
-pieces are in repair_scene.py and the arm maths in kinematics.py.
-
-What is simulated and what is not:
-  * Perception is real: `observe()` returns the RTX render of the inspection camera, so the localizer
-    sees whatever the scene shows (rust overlay, glare, lens mist, the arm in the way).
-  * The robot is posed kinematically from the URDF (IK on brush_tip), not simulated by PhysX: legs hold
-    the standing pose and the base glides between stations with a trot animation.
-  * Contact force is the analytic brush spring the scrub policy was trained with (k = 2500 N/m times
-    penetration of brush_tip into the pipe surface, including any weld bead), not a PhysX contact sensor.
-"""
 from __future__ import annotations
 
 import math
@@ -27,18 +13,17 @@ from integration.kinematics import ARM_STOWED, TRUNK_HEIGHT, RobotModel, pose, s
 from policy.interfaces import CameraModel, PipeGeometry, Waypoint, camera_from_usd
 
 TWO_PI = 2 * math.pi
-STIFFNESS = 2500.0          # N/m, ScrubEnvCfg.spring_k_nominal
-NOMINAL_FORCE = 25.0        # N at press = 1 (INTERFACE.md: admittance gives ~25 * press N)
-SLIDE_SPEED = 0.3           # m/s rotary brush
-CONTACT_RADIUS = 0.03       # m brush footprint
-AXIS_DISTANCE = 0.5         # m, trunk centreline to pipe axis (ScrubLiftEnvCfg.axis_dist_range middle)
+STIFFNESS = 2500.0
+NOMINAL_FORCE = 25.0
+SLIDE_SPEED = 0.3
+CONTACT_RADIUS = 0.03
+AXIS_DISTANCE = 0.5
 WORK_LIFT = 0.42
 
 
 @dataclass
 class Frames:
-    """Callbacks the runner provides: render one frame, optionally record it for the video."""
-    render: Callable[[], dict]            # -> {"inspection": rgb, "hero": rgb}
+    render: Callable[[], dict]
     record: Callable[[np.ndarray, list], None] = lambda rgb, hud: None
 
 
@@ -88,11 +73,10 @@ class IsaacRigBridge:
         self.last_inspection: Optional[np.ndarray] = None
         self.last_camera: Optional[CameraModel] = None
         self.occluded_until = -1.0
-        self.parked = True                      # starts stowed
+        self.parked = True
         self.unpark_q = self.model.default_q()
         self._sync()
 
-    # ------------------------------------------------------------------------------ helpers
     def log(self, msg: str) -> None:
         if self.verbose:
             print(msg, flush=True)
@@ -146,12 +130,10 @@ class IsaacRigBridge:
         self.state.force = spring_force(tip, self._pipe, STIFFNESS, self.bumps)
         return result.reached
 
-    # ========================================================================== SimBridge
     def sim_time(self) -> float:
         return self.state.t
 
     def advance(self, dt: float) -> None:
-        """Hold pose for dt of sim time. Long holds (soak) render one frame per second of sim time."""
         steps = max(1, int(round(dt / 1.0))) if dt >= 1.0 else 1
         for k in range(steps):
             self.state.t += dt / steps
@@ -193,10 +175,9 @@ class IsaacRigBridge:
         return True
 
     def approach(self, theta: float, z: float, standoff: float) -> bool:
-        """Walk next to the pipe (trunk 0.5 m from the axis, as in training) at the target's axial position."""
         x = float(self._pipe.origin[0] + z * self._pipe.axis[0])
         self._walk(x, float(self._pipe.origin[1] + AXIS_DISTANCE))
-        for f in range(1, 9):                       # raise the lift and unfold the arm to the start pose
+        for f in range(1, 9):
             s = f / 8
             start = self.model.default_q()
             for name in ARM_STOWED:
@@ -221,12 +202,7 @@ class IsaacRigBridge:
     def publish_overlay(self, lines: list[str]) -> None:
         self.state.hud = list(lines)
 
-    # ========================================================================= Perception
     def observe(self) -> Optional[np.ndarray]:
-        """Inspection frame with everything except the pipe segment greyed out.
-
-        HANDOFF.md: classify crops of the pipe surface, not wide views (the rusty deck grate reads as rust).
-        The robot knows where the pipe is, so pixels whose ray misses the segment are set to neutral grey."""
         self._park_arm()
         images = self._render()
         rgb = images.get("inspection")
@@ -235,13 +211,11 @@ class IsaacRigBridge:
         roi = self._pipe_roi()
         pipe_pixels = rgb[roi].astype(np.float32)
         if not len(pipe_pixels) or pipe_pixels.std() < 6.0 or pipe_pixels.mean() < 8.0:
-            return rgb          # blocked / misted lens: hand back the flat raw frame so the orchestrator HOLDs
+            return rgb
         out = rgb.copy()
         out[~roi] = 118
         return out
 
-    # The arm lifts out of the inspection camera's view before every look (a real robot would too), and
-    # swings back to where it was before the next tool command.
     def _animate(self, q_target: dict, frames: int = 4, dt: float = 0.1) -> None:
         start = dict(self.state.q)
         for f in range(1, frames + 1):
@@ -283,15 +257,14 @@ class IsaacRigBridge:
         self.inspection.look(*self.views[index])
         return True
 
-    # ====================================================================== ArmController
     def move_to(self, waypoints) -> list[bool]:
         reached = []
         every = max(1, len(waypoints) // 40)
         for k, wp in enumerate(waypoints):
             spraying = wp.flow_rate > 0 and wp.standoff >= 0.1
             target = np.asarray(wp.position, float)
-            if not spraying:      # paint brush works in contact: the waypoint standoff is the bristle length
-                target = target + wp.standoff * np.asarray(wp.approach, float)   # approach = -n
+            if not spraying:
+                target = target + wp.standoff * np.asarray(wp.approach, float)
             ok = self._move_tool(target, np.asarray(wp.approach))
             reached.append(bool(ok))
             self.state.theta, self.state.z = wp.theta, wp.z
@@ -314,7 +287,6 @@ class IsaacRigBridge:
         surf, n = p.surface_point(self.state.theta, self.state.z)
         depth = NOMINAL_FORCE * press / STIFFNESS
         if not self._move_tool(surf - depth * n, -n):
-            # IK missed: report where the brush really is, so commanded and actual (theta, z) never drift apart
             self.state.theta, self.state.z = self._theta_z_of(self.tool()[:3, 3])
         if self.state.force >= 5.0:
             tip = self.tool()[:3, 3]
@@ -334,7 +306,6 @@ class IsaacRigBridge:
         self.state.force = 0.0
         self._render()
 
-    # =================================================================== mid-run hooks (section 4)
     def spawn_patch(self, theta: float, z: float, size: float = 0.04, level: float = 0.8) -> None:
         self.world.inject_patch(theta, z, size=size, level=level)
 
@@ -346,9 +317,6 @@ class IsaacRigBridge:
         img.MakeVisible() if on else img.MakeInvisible()
 
     def force_spike(self, height: float = 0.010, radius: float = 0.03) -> None:
-        # 10 mm adds 25 N: with the nominal 25 N press it trips the 40 N limit once; after the orchestrator
-        # scales press by 0.7 it stays under (12 + 25 = 37 N), so the demo shows one BACK_OFF, not an escalation.
-        """A weld bead right on the brush path: a real bump in the surface the spring force sees."""
         theta, z = self.ee_theta_z()
         self.bumps.append((theta, z, height, radius))
         rs.add_weld_bead(self.stage, f"{rs.PIPE_SCOPE}/weld_bead_{len(self.bumps)}", self._pipe, theta, z, height, radius)
