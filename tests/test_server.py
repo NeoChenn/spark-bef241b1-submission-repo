@@ -100,3 +100,48 @@ def test_viewer_uses_page_scheme():
     js = VIEWER_JS.read_text()
     assert 'location.protocol === "https:"' in js
     assert '"wss:"' in js
+
+
+def frame_with_mean(seq: int, mean: float) -> bytes:
+    return encode({"type": "frame", "w": 640, "h": 360, "seq": seq, "t": 0.0, "mean": mean}, b"\xff\xd8" + bytes([seq]))
+
+
+def test_state_no_sim_before_frames(client):
+    assert client.get("/api/health").json()["state"] == "no_sim"
+
+
+def test_state_warming_on_black_frames(client):
+    with connect(client.app) as s:
+        s.sendall(frame_with_mean(0, 0.4))
+        assert wait_frames(client, 1)["state"] == "warming"
+
+
+def test_state_live_on_rendered_frames(client):
+    with connect(client.app) as s:
+        s.sendall(frame_with_mean(0, 120.0))
+        assert wait_frames(client, 1)["state"] == "live"
+
+
+def test_state_stalled_when_frames_stop(client):
+    with connect(client.app) as s:
+        s.sendall(frame_with_mean(0, 120.0))
+        wait_frames(client, 1)
+        client.app.state.hub.last_frame_at -= 10
+        assert client.get("/api/health").json()["state"] == "stalled"
+
+
+def test_state_no_sim_after_disconnect(client):
+    s = connect(client.app)
+    s.sendall(frame_with_mean(0, 120.0))
+    wait_frames(client, 1)
+    s.close()
+    deadline = time.monotonic() + 2
+    while client.get("/api/health").json()["sim_connected"] and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert client.get("/api/health").json()["state"] == "no_sim"
+
+
+def test_viewer_shows_server_state():
+    js = VIEWER_JS.read_text()
+    assert "h.state" in js
+    assert 'setStatus("live", true)' not in js
