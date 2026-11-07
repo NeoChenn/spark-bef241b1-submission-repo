@@ -85,13 +85,15 @@ def project(camera, points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def look_at(eye, target, up=(0, 0, 1)) -> np.ndarray:
-    """4x4 camera pose (OpenCV optical frame) looking from eye to target. Same as policy.demo_mock.look_at."""
+    """4x4 camera pose (OpenCV optical frame: x right, y down, z forward) looking from eye to target, upright
+    (world up appears at the top of the image). Note: policy.demo_mock.look_at uses cross(z, -up), which rolls the
+    image 180 degrees; harmless for a round pipe, but it would show the flange upside down."""
     eye, target, up = (np.asarray(v, float) for v in (eye, target, up))
     zc = target - eye
     zc /= np.linalg.norm(zc)
     if abs(zc.dot(up / np.linalg.norm(up))) > 0.99:   # looking straight up or down: pick another up
         up = np.array([0.0, 1.0, 0.0])
-    xc = np.cross(zc, -up)
+    xc = np.cross(zc, up)
     xc /= np.linalg.norm(xc)
     yc = np.cross(zc, xc)
     T = np.eye(4)
