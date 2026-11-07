@@ -39,6 +39,7 @@ MATERIALS = {
     "module_grey": Mat("Paint004", 2.0, (0.45, 0.48, 0.49), 0.0),
     "steel_grey": Mat("Paint004", 2.0, (0.5, 0.53, 0.55), 0.0),
     "steel_weathered": Mat("PaintedMetal014", 3.0, (0.8, 0.82, 0.84)),
+    "cladding": Mat("Paint004", 2.0, (0.66, 0.68, 0.67), 0.0),
     "deck_plate": Mat("Asphalt031", 2.0, (0.42, 0.47, 0.44), 0.0),
     "deck_edge": Mat("MetalPlates010", 3.0, (0.85, 0.85, 0.83)),
     "underside": Mat("Metal053C", 3.0, (0.7, 0.7, 0.7)),
@@ -89,6 +90,8 @@ def classify_faces(name: str, tris: np.ndarray) -> np.ndarray:
         out[flat & _near(zc, [DECK_TOPS[0]])] = "grating"
         out[flat & _near(zc, undersides)] = "underside"
     elif name == "legs_and_lower_deck_frame":
+        area = np.linalg.norm(np.cross(tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0]), axis=1) / 2
+        out[area > 15.0] = "cladding"
         for top in DECK_TOPS:
             out[(zmin > top - SLAB - 0.05) & (zmax < top + 0.05)] = "deck_edge"
     elif name == "helideck_helideck":
