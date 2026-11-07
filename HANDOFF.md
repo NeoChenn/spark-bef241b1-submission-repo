@@ -18,7 +18,7 @@ single take), 5-min live pitch.
 | Piece | State | Where |
 |---|---|---|
 | Dataset | ✅ 5,894 imgs (2,203 rust / 3,691 clean), phash-deduped, split by source group | `detection/prepare_data.py`, `detection/DATA.md` |
-| Detector | ✅ on real photos; ❌ misses rust in sim renders; sim-domain retrain **in progress, uncommitted** | `detection/` |
+| Detector | ✅ DONE. mnv4 LoRA on rust_v2 (real + ~3400 synthetic sim-style crops): real test F1 0.977, held-out sim renders 13/13. Deployed at `rust-ckpt:/detector/best` (jacobyuan99) and `runs/detector/best`. **See `detection/RESULTS.md` — it supersedes the detector numbers below.** | `detection/` |
 | Localizer (patch heatmap → mask → pipe grid) | ✅ | `detection/localize.py` |
 | Orchestrator state machine + spray/paint skills + mock demo | ✅ 22 tests | `policy/orchestrator.py`, `policy/skills/`, `policy/demo_mock.py` |
 | Robot with lift mast | ✅ | `sim/assets/go2_ur3/go2_ur3_lift.urdf`, generator `integration/make_go2_ur3_lift.py` |
@@ -56,8 +56,11 @@ weak) − unsprayed scrubbing − action rate − distance shaping.
 
 ## 3. Immediate next steps (priority order)
 
-1. **Finish the sim-domain detector.** Make sure the rendered damage patch in `sim/output/preview_repair_closeup.png`
-   scores > 0.5. Promote to `/ckpt/detector/best` + `runs/detector/best`, write `detection/RESULTS.md`, commit.
+1. ~~Finish the sim-domain detector~~ — done (see `detection/RESULTS.md`). Inference:
+   `detection.export.OnnxRustClassifier("runs/detector/best").predict(img)` → `{p_rust, rust, unsure, logit}`
+   (T 2.607, threshold 0.476, unsure band 0.35–0.65, 1.1 ms CPU). Classify crops of the pipe surface, not wide
+   views (the rusty deck grate reads as rust). Open question for the sim team: is the brown `rusty_painted_metal`
+   pipe "rust"? The model calls it clean.
 2. **Scrub v2 (force fix)** — user had not yet approved; ask first. Resume from latest `scrub_lift_v1` checkpoint
    with `w_over_force` ×5, clamp the force setpoint ≤ 38 N, harder randomisation (friction ±50%, patch count 1–4,
    pipe yaw ±10°). ~15 min on one L40S. Target: episode-max force < 40 N on ≥ 95% of episodes, success ≥ 95%.

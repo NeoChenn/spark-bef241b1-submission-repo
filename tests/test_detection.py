@@ -60,3 +60,21 @@ def test_eval_utils():
     assert ece(p, y) <= ece(1 / (1 + np.exp(-z)), y) + 1e-6
     rep = full_report({"val": z, "test": z}, {"val": y, "test": y})
     assert rep["splits"]["test"]["at_thr"]["recall"] >= 0.95
+
+
+def test_domain_threshold_and_synth_helpers():
+    from detection.synth_sim import blob_mask, camera, rust_fraction, shade
+
+    rng = np.random.default_rng(0)
+    y = rng.integers(0, 2, 300)
+    z = (y * 2 - 1) * 2.0 + rng.normal(0, 1.5, 300)
+    dom = np.arange(300) < 150
+    rep = full_report({"val": z, "test": z}, {"val": y, "test": y}, val_domains=[dom, ~dom])
+    for m in (dom, ~dom):  # recall >= 0.95 must hold in each domain
+        assert ((z[m] >= rep["threshold_logit"]) & (y[m] == 1)).sum() / (y[m] == 1).sum() >= 0.95
+    m = blob_mask(rng, 0.3)
+    assert 0.2 < (m > 0.5).mean() < 0.4
+    img = camera(shade(np.full((224, 224, 3), 128, np.float32), rng), rng)
+    assert img.size == (224, 224)
+    rusty = np.zeros((32, 32, 3)) + np.array([150, 70, 30])
+    assert rust_fraction(rusty) > 0.9 and rust_fraction(np.full((32, 32, 3), 120.0)) == 0.0
