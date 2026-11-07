@@ -65,3 +65,16 @@ def test_mdl_bakes_every_wave_and_leg():
     assert "LEG_COUNT = 2;" in src and "float3(3, 4, 0.8)" in src
     assert "LEG_COUNT = 0;" in build_mdl(w)
     assert "@" not in build_mdl(w)
+
+
+def test_foam_threshold_tracks_coverage():
+    from sim.ocean_waves import foam_threshold, jacobian, whitecap_fraction
+
+    assert whitecap_fraction(14.0) > 5 * whitecap_fraction(8.0)
+    w = make_waves(wind_speed=12.0, wind_dir_deg=0.0, seed=1)
+    th = foam_threshold(w, 0.05)
+    rng = np.random.default_rng(9)
+    xy = rng.uniform(-300, 300, (20000, 2))
+    frac = np.mean(jacobian(w, xy[:, 0], xy[:, 1], 33.0) < th)
+    assert 0.03 < frac < 0.08
+    assert th < 1.0

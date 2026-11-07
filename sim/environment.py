@@ -12,10 +12,11 @@ from pathlib import Path
 import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
+from sim.hdri import horizon_color, read_hdr
 from sim.ocean_legs import cluster_circles, waterline_points
 from sim.ocean_mdl import MODULE, build_mdl
 from sim.ocean_presets import Preset, get_preset, render_settings
-from sim.ocean_waves import EARTH_RADIUS, Waves, make_waves, polar_grid
+from sim.ocean_waves import EARTH_RADIUS, Waves, foam_threshold, make_waves, polar_grid, whitecap_fraction
 
 ROOT = "/Environment"
 HDRI_DIR = Path(__file__).resolve().parent / "assets" / "third_party" / "hdris"
@@ -114,19 +115,26 @@ class _Displacer:
 
 class Environment:
     def __init__(self, preset: Preset, mesh: UsdGeom.Mesh, points: np.ndarray, active: int,
-                 displacer: _Displacer, time_input: UsdShade.Input):
+                 displacer: _Displacer, shader: UsdShade.Shader):
         self.preset = preset
         self.mesh = mesh
         self.points = points
         self.active = active
         self.displacer = displacer
-        self.time_input = time_input
+        self.time_input = shader.GetInput("time")
+        self.camera_input = shader.GetInput("camera_position")
         self._points_attr = mesh.GetPointsAttr()
 
-    def update(self, t: float) -> None:
+    def update(self, t: float, camera: str | tuple[float, float, float] | None = None) -> None:
+        """Animate the sea to time t. ``camera`` (prim path or xyz) sharpens wave detail for that viewpoint."""
         self.points[: self.active] = self.displacer(t)
         self._points_attr.Set(Vt.Vec3fArray.FromNumpy(self.points))
         self.time_input.Set(float(t))
+        if camera is not None:
+            if isinstance(camera, str):
+                prim = self.mesh.GetPrim().GetStage().GetPrimAtPath(camera)
+                camera = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()).ExtractTranslation()
+            self.camera_input.Set(Gf.Vec3f(*camera))
 
 
 def find_legs(stage: Usd.Stage, sea_level_z: float) -> list[tuple[float, float, float]]:
@@ -163,9 +171,18 @@ def _add_sky(stage: Usd.Stage, preset: Preset) -> None:
     dome.CreateTextureFormatAttr(UsdLux.Tokens.latlong)
     dome.CreateIntensityAttr(preset.dome_intensity)
     UsdGeom.Xformable(dome).AddRotateZOp().Set(preset.dome_rotate_z)
+    if preset.sun:
+        azimuth, elevation, intensity, color = preset.sun
+        sun = UsdLux.DistantLight.Define(stage, f"{ROOT}/Sun")
+        sun.CreateIntensityAttr(intensity)
+        sun.CreateColorAttr(Gf.Vec3f(*color))
+        sun.CreateAngleAttr(0.53)
+        xf = UsdGeom.Xformable(sun)
+        xf.AddRotateZOp().Set(azimuth + preset.dome_rotate_z)
+        xf.AddRotateYOp().Set(90.0 - elevation)
 
 
-def _add_material(stage: Usd.Stage, preset: Preset, mdl_path: Path) -> tuple[UsdShade.Material, UsdShade.Input]:
+def _add_material(stage: Usd.Stage, preset: Preset, mdl_path: Path, foam_level: float) -> tuple[UsdShade.Material, UsdShade.Shader]:
     mat = UsdShade.Material.Define(stage, f"{ROOT}/Looks/OceanWater")
     shader = UsdShade.Shader.Define(stage, f"{ROOT}/Looks/OceanWater/Shader")
     shader.SetSourceAsset(Sdf.AssetPath(str(mdl_path)), "mdl")
@@ -175,14 +192,35 @@ def _add_material(stage: Usd.Stage, preset: Preset, mdl_path: Path) -> tuple[Usd
     mat.CreateVolumeOutput("mdl").ConnectToSource(out)
     mat.CreateDisplacementOutput("mdl").ConnectToSource(out)
     color = Sdf.ValueTypeNames.Color3f
+    haze = horizon_color(read_hdr(HDRI_DIR / f"{preset.hdri}.hdr")) * preset.dome_intensity * preset.haze_gain
     for name, value in (("deep_color", preset.deep_color), ("crest_color", preset.crest_color),
-                        ("haze_radiance", preset.haze_radiance)):
+                        ("haze_radiance", tuple(float(v) for v in haze))):
         shader.CreateInput(name, color).Set(Gf.Vec3f(*value))
-    for name in ("foam_threshold", "foam_amount", "roughness", "haze_distance"):
+    for name in ("foam_amount", "roughness", "haze_distance"):
         shader.CreateInput(name, Sdf.ValueTypeNames.Float).Set(float(getattr(preset, name)))
+    shader.CreateInput("foam_threshold", Sdf.ValueTypeNames.Float).Set(foam_level)
     time_input = shader.CreateInput("time", Sdf.ValueTypeNames.Float)
     time_input.Set(0.0)
-    return mat, time_input
+    shader.CreateInput("camera_position", Sdf.ValueTypeNames.Float3).Set(Gf.Vec3f(0.0, 0.0, 40.0))
+    return mat, shader
+
+
+def _add_splash_zones(stage: Usd.Stage, mdl_path: Path, legs, sea_level_z: float) -> None:
+    """Wet, marine-growth band around each leg at the waterline, as a thin sleeve with a ragged cutout top."""
+    mat = UsdShade.Material.Define(stage, f"{ROOT}/Looks/SplashZone")
+    shader = UsdShade.Shader.Define(stage, f"{ROOT}/Looks/SplashZone/Shader")
+    shader.SetSourceAsset(Sdf.AssetPath(str(mdl_path)), "mdl")
+    shader.SetSourceAssetSubIdentifier("SplashZone", "mdl")
+    out = shader.CreateOutput("out", Sdf.ValueTypeNames.Token)
+    mat.CreateSurfaceOutput("mdl").ConnectToSource(out)
+    shader.CreateInput("sea_level", Sdf.ValueTypeNames.Float).Set(float(sea_level_z))
+    for i, (x, y, r) in enumerate(legs):
+        c = UsdGeom.Cylinder.Define(stage, f"{ROOT}/SplashZone/leg_{i}")
+        c.CreateRadiusAttr(r * 1.006 + 0.02)
+        c.CreateHeightAttr(10.0)
+        c.CreateAxisAttr(UsdGeom.Tokens.z)
+        c.AddTranslateOp().Set(Gf.Vec3d(x, y, sea_level_z))
+        UsdShade.MaterialBindingAPI.Apply(c.GetPrim()).Bind(mat)
 
 
 def _apply_render_settings(preset: Preset) -> None:
@@ -201,6 +239,7 @@ def add_environment(
     sea_level_z: float = -25.0,
     legs: list[tuple[float, float, float]] | None = None,
     seed: int = 7,
+    splash_zone: bool = True,
 ) -> Environment:
     p = get_preset(preset)
     UsdGeom.Scope.Define(stage, ROOT)
@@ -214,7 +253,10 @@ def add_environment(
     mdl_dir = Path(tempfile.mkdtemp(prefix="rig_ocean_"))
     mdl_path = mdl_dir / f"{MODULE}.mdl"
     mdl_path.write_text(build_mdl(waves, legs))
-    mat, time_input = _add_material(stage, p, mdl_path)
+    foam_level = foam_threshold(waves, min(0.5, whitecap_fraction(p.wind_speed) * p.foam_coverage))
+    mat, shader = _add_material(stage, p, mdl_path, foam_level)
+    if splash_zone and legs:
+        _add_splash_zones(stage, mdl_path, legs, sea_level_z)
 
     grid = polar_grid()
     r = np.hypot(grid.xy[:, 0], grid.xy[:, 1])
@@ -236,7 +278,7 @@ def add_environment(
 
     displacer = _Displacer(waves, grid.xy[:active].astype(np.float32), base_z[:active], fade,
                            grid.spacing[:active].astype(np.float32))
-    env = Environment(p, mesh, points, active, displacer, time_input)
+    env = Environment(p, mesh, points, active, displacer, shader)
     env.legs = legs
     env.update(0.0)
     return env

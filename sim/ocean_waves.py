@@ -34,9 +34,9 @@ def make_waves(
     wind_speed: float,
     wind_dir_deg: float,
     seed: int = 0,
-    bands: int = 20,
-    per_band: int = 3,
-    min_wavelength: float = 1.0,
+    bands: int = 28,
+    per_band: int = 4,
+    min_wavelength: float = 0.1,
     spread: float = 0.5,
     choppiness: float = 0.8,
     swell: tuple[float, float, float] | None = None,
@@ -48,9 +48,11 @@ def make_waves(
     edges = np.geomspace(0.6 * w_peak, max(w_max, 0.7 * w_peak * 1.01), bands + 1)
     centers = np.sqrt(edges[:-1] * edges[1:])
     energy = 2 * pierson_moskowitz(centers, wind_speed) * np.diff(edges)
-    omega = np.repeat(centers, per_band) * rng.uniform(0.97, 1.03, bands * per_band)
+    lo, hi = np.repeat(edges[:-1], per_band), np.repeat(edges[1:], per_band)
+    omega = np.exp(rng.uniform(np.log(lo), np.log(hi)))
     amp2 = np.repeat(energy / per_band, per_band)
-    theta = np.radians(wind_dir_deg) + rng.normal(0.0, spread, omega.size)
+    widen = np.clip(np.sqrt(omega / w_peak), 1.0, 3.0)
+    theta = np.radians(wind_dir_deg) + rng.normal(0.0, 1.0, omega.size) * spread * widen
     if swell:
         h, length, sdir = swell
         sw = np.full(3, np.sqrt(2 * np.pi * G / length)) * np.array([0.98, 1.0, 1.03])
@@ -143,3 +145,26 @@ def polar_grid(
     quads = np.stack([v0, v0 + segments, v1 + segments, v1], -1).reshape(-1)
     counts = np.concatenate([np.full(segments, 3), np.full(quads.size // 4, 4)])
     return PolarGrid(xy, counts.astype(np.int32), np.concatenate([fan, quads]).astype(np.int32), radii, spacing)
+
+
+def jacobian(w: Waves, x: np.ndarray, y: np.ndarray, t: float) -> np.ndarray:
+    """Determinant of the horizontal Gerstner map; below ~0.5 the surface is folding into a breaking crest."""
+    theta = (np.outer(x, w.dir[:, 0] * w.k) + np.outer(y, w.dir[:, 1] * w.k)) - (w.omega * t - w.phase)
+    qs = (w.q * w.k * w.amp) * np.sin(theta)
+    jxx = qs @ (w.dir[:, 0] ** 2)
+    jyy = qs @ (w.dir[:, 1] ** 2)
+    jxy = qs @ (w.dir[:, 0] * w.dir[:, 1])
+    return (1 - jxx) * (1 - jyy) - jxy**2
+
+
+def whitecap_fraction(wind_speed: float) -> float:
+    """Monahan & O'Muircheartaigh (1980) whitecap coverage."""
+    return 3.84e-6 * wind_speed**3.41
+
+
+def foam_threshold(w: Waves, coverage: float, seed: int = 0, samples: int = 20_000) -> float:
+    """Jacobian level below which the given fraction of the sea surface is covered."""
+    rng = np.random.default_rng(seed)
+    xy = rng.uniform(-500, 500, (samples, 2))
+    j = jacobian(w, xy[:, 0], xy[:, 1], float(rng.uniform(0, 100)))
+    return float(np.quantile(j, coverage))

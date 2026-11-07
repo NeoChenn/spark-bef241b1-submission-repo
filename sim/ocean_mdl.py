@@ -48,7 +48,7 @@ ocean_sample ocean_eval(float2 p, float t, float footprint)
         jxx += qs * a.x * a.x;
         jyy += qs * a.y * a.y;
         jxy += qs * a.x * a.y;
-        h += amp * s;
+        h += a.z > 0.25 ? amp * s : 0.0;
         float slope = a.z * a.w;
         lost += 0.5 * slope * slope * (1.0 - w * w);
     }
@@ -81,25 +81,31 @@ export material OceanWater(
     color crest_color = color(0.02, 0.09, 0.08),
     color foam_color = color(0.82),
     float roughness = 0.03,
-    float crest_height = 1.5,
-    float foam_threshold = 0.35,
+    float crest_height = 0.6,
+    float foam_threshold = 0.85,
+    float foam_softness = 0.08,
     float foam_amount = 1.0,
     float leg_foam_amount = 1.0,
-    float pixel_angle = 0.0015,
-    float min_footprint = 0.05,
+    float3 camera_position = float3(0.0, 0.0, 40.0),
+    float pixel_angle = 0.001,
+    float min_footprint = 0.02,
     float haze_distance = 0.0,
     color haze_radiance = color(0.0)
 )
 = let {
     float2 p = float2(state::texture_coordinate(0).x, state::texture_coordinate(0).y);
-    float r = math::length(p);
-    ocean_sample o = ocean_eval(p, time, math::max(min_footprint, r * pixel_angle));
+    float3 pw = state::transform_point(state::coordinate_internal, state::coordinate_world, state::position());
+    float3 to_cam = camera_position - pw;
+    float dist = math::length(to_cam);
+    float stretch = math::sqrt(1.0 / math::max(math::abs(to_cam.z) / math::max(dist, 1e-3), 0.05));
+    ocean_sample o = ocean_eval(p, time, math::max(min_footprint, dist * pixel_angle * stretch));
     float alpha = math::min(math::sqrt(roughness * roughness + 2.0 * o.lost), 0.5);
-    float n1 = noise(p, time * 0.15, 6.0, 4);
+    float n1 = noise(p, time * 0.15, 3.0, 4);
     float n2 = noise(p * 0.21 + float2(time * 0.4, 0.0), time * 0.05, 3.0, 3);
-    float crest_foam = math::saturate((foam_threshold - o.jac) / math::max(foam_threshold, 1e-3) * 2.5);
-    float foam = math::saturate(foam_amount * crest_foam * math::smoothstep(0.25, 0.75, n1 + 0.35 * n2)
-        + leg_foam_amount * leg_foam(p, time) * math::smoothstep(0.35, 0.7, n1));
+    float n3 = noise(p, time * 0.3, 0.5, 2);
+    float crest_foam = math::saturate((foam_threshold - o.jac) / foam_softness + 0.5);
+    float foam = math::saturate(foam_amount * crest_foam * math::smoothstep(0.3, 0.8, n1 + 0.35 * n2) * (0.6 + 0.4 * n3)
+        + leg_foam_amount * leg_foam(p, time) * (0.25 + 0.75 * math::smoothstep(0.3, 0.7, n1)) * (0.5 + 0.5 * n3));
     float crest = math::pow(math::saturate(o.h / crest_height), 1.5);
     color body = math::lerp(deep_color, crest_color, crest);
     float3 n = state::transform_normal(state::coordinate_world, state::coordinate_internal, o.n);
@@ -109,13 +115,40 @@ export material OceanWater(
         base: df::diffuse_reflection_bsdf(tint: body)
     );
     bsdf surf = df::weighted_layer(weight: foam, layer: df::diffuse_reflection_bsdf(tint: foam_color), base: water);
-    float haze = haze_distance > 0.0 ? 1.0 - math::exp(-r / haze_distance) : 0.0;
+    float haze = haze_distance > 0.0 ? 1.0 - math::exp(-dist / haze_distance) : 0.0;
 } in material(
     surface: material_surface(
         scattering: df::weighted_layer(weight: 1.0 - haze, layer: surf, base: bsdf()),
         emission: material_emission(emission: df::diffuse_edf(), intensity: haze_radiance * (haze * math::PI), mode: intensity_radiant_exitance)
     ),
     geometry: material_geometry(normal: n)
+);
+
+export material SplashZone(
+    float sea_level = 0.0,
+    float band = 2.5,
+    color wet_color = color(0.035, 0.035, 0.03),
+    color growth_color = color(0.025, 0.04, 0.02),
+    float roughness = 0.12
+)
+= let {
+    float3 pw = state::transform_point(state::coordinate_internal, state::coordinate_world, state::position());
+    float h = pw.z - sea_level;
+    float edge = band * (0.55 + 0.6 * noise(float2(pw.x * 0.7 + pw.y * 0.7, pw.z * 1.5), 0.0, 0.8, 3));
+    float streak = noise(float2((pw.x - pw.y) * 3.0, pw.z * 0.15), 0.0, 0.4, 2);
+    float top = edge + 1.2 * math::smoothstep(0.55, 0.8, streak);
+    float growth = 1.0 - math::smoothstep(0.0, 0.6, h - 0.4 * band * noise(float2(pw.x + pw.y, pw.z), 0.0, 0.3, 3));
+    color tint = math::lerp(wet_color, growth_color, growth);
+    float alpha = math::lerp(roughness, 0.4, growth);
+} in material(
+    surface: material_surface(
+        scattering: df::fresnel_layer(
+            ior: 1.33,
+            layer: df::microfacet_ggx_smith_bsdf(roughness_u: alpha, roughness_v: alpha, tint: color(1.0), mode: df::scatter_reflect),
+            base: df::diffuse_reflection_bsdf(tint: tint)
+        )
+    ),
+    geometry: material_geometry(cutout_opacity: h < top ? 1.0 : 0.0)
 );
 """
 
