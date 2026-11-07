@@ -168,7 +168,7 @@ SCENARIOS = {
 }
 
 
-def build_rig(log_path=None, leak="none", rust=True, glare=False, dust=0.0, verbose=False, seed=0):
+def build_rig(log_path=None, leak="none", rust=True, glare=False, dust=0.0, verbose=False, seed=0, crack_ckpt=None):
     pipe, dmg_theta = scene_geometry()
     world = MockRustWorld(H=pipe.n_z, W=pipe.n_theta, length=pipe.length, radius=pipe.radius)
     world.set_rust(world.blob(dmg_theta, 0.0, size=0.05, level=0.85) if rust
@@ -191,7 +191,7 @@ def build_rig(log_path=None, leak="none", rust=True, glare=False, dust=0.0, verb
     loc = RustLocalizer(fake_colour_classifier, patch=16, stride=8, threshold=0.5, temperature=1.0)
     orch = RigOrchestrator(bridge, perc, loc, world, arm, GreedyScrub(pipe),
                            OrchestratorConfig(log_path=log_path, scrub_steps=200, scrub_redetect_every=40),
-                           leak=LeakJob(LeakLocalizer()))
+                           leak=LeakJob(LeakLocalizer.from_checkpoint(crack_ckpt) if crack_ckpt else LeakLocalizer()))
     return orch, bridge, world, leak_world, perc, arm, pipe
 
 
@@ -201,13 +201,15 @@ def main(argv=None):
     ap.add_argument("--no-rust", action="store_true")
     ap.add_argument("--gas-during-scrub", action="store_true", help="a bolt works loose while the robot scrubs rust")
     ap.add_argument("--log", default="runs/decisions.jsonl")
+    ap.add_argument("--crack-ckpt", default="", help="trained crack detector dir (model.onnx + meta.json)")
     a = ap.parse_args(argv)
     t0 = time.time()
     leak = "loose" if a.leak == "dust" else a.leak
     if a.gas_during_scrub:
         leak = "none"
     orch, bridge, world, leak_world, perc, arm, pipe = build_rig(a.log, leak=leak, rust=not a.no_rust,
-                                                                  dust=0.4 if a.leak == "dust" else 0.0, verbose=True)
+                                                                  dust=0.4 if a.leak == "dust" else 0.0, verbose=True,
+                                                                  crack_ckpt=a.crack_ckpt or None)
     scheduled = False
     while orch.state not in (S.DONE, S.ESCALATE_TO_HUMAN) and len(orch.records) < 500:
         prev = orch.state
