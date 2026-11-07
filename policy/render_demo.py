@@ -118,7 +118,7 @@ def draw_hud(rgb, lines, font, small):
 
     im = Image.fromarray(np.ascontiguousarray(rgb[..., :3]))
     d = ImageDraw.Draw(im, "RGBA")
-    x0, y0, w = 28, im.height - 28 - 34 - 26 * (len(lines) - 1), 470
+    x0, y0, w = 28, im.height - 28 - 34 - 26 * (len(lines) - 1), 640
     d.rounded_rectangle([x0 - 14, y0 - 12, x0 + w, im.height - 22], radius=8, fill=(10, 14, 18, 165))
     state, color = lines[0]
     d.text((x0, y0), state, fill=color, font=font)
