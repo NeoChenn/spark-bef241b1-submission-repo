@@ -18,6 +18,7 @@ module-root = ""
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["sim/tools"]
 
 [dependency-groups]
 dev = [
