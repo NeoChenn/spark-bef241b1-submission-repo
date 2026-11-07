@@ -116,3 +116,4 @@ from Poly Haven's CC0 `aristea_wreck`, a sea ripple map and a gauge dial.
 ## Other modules
 
 - `flange_robot/`: gas-leak diagnosis, flange repair policy and supervisor alerts (MuJoCo skeleton, tests). See `flange_robot/README.md` and `docs/gas-leak-detection.md`.
+- `flange_robot/studio.py`: puts our module on the studio web page as a 2D live dashboard (its own relay, ports 8081/9001). See `docs/studio.md`.

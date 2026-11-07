@@ -129,6 +129,15 @@ class RepairPolicy:
     def _angle(e: dict) -> float:
         return e["wa"] / e["w"] if e["w"] > 0 else 0.0
 
+    @property
+    def target_bolt(self) -> int | None:
+        """The bolt most recently tightened, whose readings are being refreshed."""
+        return self._target
+
+    def bolt_estimates(self) -> dict[int, tuple[float, float]]:
+        """What the robot currently believes: bolt -> (estimated misalignment in rad, latest confidence)."""
+        return {i: (self._angle(e), e["conf"]) for i, e in self._est.items()}
+
     def _escalate(self, reason: str) -> None:
         self.phase = Phase.ESCALATED
         if not self.reason:
