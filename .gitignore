@@ -1,10 +1,13 @@
-# Regenerate with sim/tools/inspect_assets.py
-sim/output/asset_report.json
-
-# Python
+.env
+.venv/
 __pycache__/
 *.pyc
-.venv/
+logs/
+.superpowers/
+.pytest_cache/
+
+# Regenerate with sim/tools/inspect_assets.py
+sim/output/asset_report.json
 
 # Editors and OS
 .vscode/

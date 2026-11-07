@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rig Camera</title>
+  <style>
+    :root { --bg: #0b0d10; --fg: #d8dee6; --dim: #7d8794; --live: #3fb950; --warn: #d29922; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.4 ui-monospace, Menlo, monospace; }
+    header { display: flex; gap: 16px; align-items: baseline; padding: 10px 16px; flex-wrap: wrap; }
+    h1 { font-size: 15px; margin: 0; font-weight: 600; }
+    #status { color: var(--warn); }
+    #status.live { color: var(--live); }
+    .stat { color: var(--dim); }
+    main { padding: 0 16px 16px; }
+    canvas { display: block; width: 100%; max-width: 1280px; aspect-ratio: 16 / 9; height: auto; margin: 0 auto; background: #000; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>rig / camera</h1>
+    <span id="status">connecting…</span>
+    <span class="stat">fps <span id="fps">–</span></span>
+    <span class="stat">frame age <span id="age">–</span></span>
+  </header>
+  <main><canvas id="view" width="640" height="360"></canvas></main>
+  <script src="/static/viewer.js"></script>
+</body>
+</html>
