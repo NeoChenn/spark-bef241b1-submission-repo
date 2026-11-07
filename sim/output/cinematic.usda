@@ -105,13 +105,13 @@ over "World"
                     prepend apiSchemas = ["MaterialBindingAPI"]
                 )
                 {
-                    rel material:binding = </World/Looks/lamp_amber>
+                    rel material:binding = </World/Looks/lamp_led>
                     double radius = 0.34
                 }
 
                 def SphereLight "light"
                 {
-                    color3f inputs:color = (1, 0.56, 0.17)
+                    color3f inputs:color = (0.78, 0.88, 1)
                     float inputs:intensity = 240000
                     float inputs:radius = 0.25
                     custom float spark:baseIntensity = 240000
@@ -171,13 +171,13 @@ over "World"
                     prepend apiSchemas = ["MaterialBindingAPI"]
                 )
                 {
-                    rel material:binding = </World/Looks/lamp_amber>
+                    rel material:binding = </World/Looks/lamp_led>
                     double radius = 0.34
                 }
 
                 def SphereLight "light"
                 {
-                    color3f inputs:color = (1, 0.56, 0.17)
+                    color3f inputs:color = (0.78, 0.88, 1)
                     float inputs:intensity = 240000
                     float inputs:radius = 0.25
                     custom float spark:baseIntensity = 240000
@@ -237,13 +237,13 @@ over "World"
                     prepend apiSchemas = ["MaterialBindingAPI"]
                 )
                 {
-                    rel material:binding = </World/Looks/lamp_amber>
+                    rel material:binding = </World/Looks/lamp_led>
                     double radius = 0.34
                 }
 
                 def SphereLight "light"
                 {
-                    color3f inputs:color = (1, 0.56, 0.17)
+                    color3f inputs:color = (0.78, 0.88, 1)
                     float inputs:intensity = 240000
                     float inputs:radius = 0.25
                     custom float spark:baseIntensity = 240000
@@ -303,13 +303,13 @@ over "World"
                     prepend apiSchemas = ["MaterialBindingAPI"]
                 )
                 {
-                    rel material:binding = </World/Looks/lamp_amber>
+                    rel material:binding = </World/Looks/lamp_led>
                     double radius = 0.34
                 }
 
                 def SphereLight "light"
                 {
-                    color3f inputs:color = (1, 0.56, 0.17)
+                    color3f inputs:color = (0.78, 0.88, 1)
                     float inputs:intensity = 240000
                     float inputs:radius = 0.25
                     custom float spark:baseIntensity = 240000
@@ -369,13 +369,13 @@ over "World"
                     prepend apiSchemas = ["MaterialBindingAPI"]
                 )
                 {
-                    rel material:binding = </World/Looks/lamp_amber>
+                    rel material:binding = </World/Looks/lamp_led>
                     double radius = 0.34
                 }
 
                 def SphereLight "light"
                 {
-                    color3f inputs:color = (1, 0.56, 0.17)
+                    color3f inputs:color = (0.78, 0.88, 1)
                     float inputs:intensity = 240000
                     float inputs:radius = 0.25
                     custom float spark:baseIntensity = 240000
@@ -435,13 +435,13 @@ over "World"
                     prepend apiSchemas = ["MaterialBindingAPI"]
                 )
                 {
-                    rel material:binding = </World/Looks/lamp_amber>
+                    rel material:binding = </World/Looks/lamp_led>
                     double radius = 0.34
                 }
 
                 def SphereLight "light"
                 {
-                    color3f inputs:color = (1, 0.56, 0.17)
+                    color3f inputs:color = (0.78, 0.88, 1)
                     float inputs:intensity = 240000
                     float inputs:radius = 0.25
                     custom float spark:baseIntensity = 240000
@@ -501,13 +501,13 @@ over "World"
                     prepend apiSchemas = ["MaterialBindingAPI"]
                 )
                 {
-                    rel material:binding = </World/Looks/lamp_amber>
+                    rel material:binding = </World/Looks/lamp_led>
                     double radius = 0.34
                 }
 
                 def SphereLight "light"
                 {
-                    color3f inputs:color = (1, 0.56, 0.17)
+                    color3f inputs:color = (0.78, 0.88, 1)
                     float inputs:intensity = 240000
                     float inputs:radius = 0.25
                     custom float spark:baseIntensity = 240000
@@ -567,13 +567,13 @@ over "World"
                     prepend apiSchemas = ["MaterialBindingAPI"]
                 )
                 {
-                    rel material:binding = </World/Looks/lamp_amber>
+                    rel material:binding = </World/Looks/lamp_led>
                     double radius = 0.34
                 }
 
                 def SphereLight "light"
                 {
-                    color3f inputs:color = (1, 0.56, 0.17)
+                    color3f inputs:color = (0.78, 0.88, 1)
                     float inputs:intensity = 240000
                     float inputs:radius = 0.25
                     custom float spark:baseIntensity = 240000
@@ -633,13 +633,13 @@ over "World"
                     prepend apiSchemas = ["MaterialBindingAPI"]
                 )
                 {
-                    rel material:binding = </World/Looks/lamp_amber>
+                    rel material:binding = </World/Looks/lamp_led>
                     double radius = 0.34
                 }
 
                 def SphereLight "light"
                 {
-                    color3f inputs:color = (1, 0.56, 0.17)
+                    color3f inputs:color = (0.78, 0.88, 1)
                     float inputs:intensity = 240000
                     float inputs:radius = 0.25
                     custom float spark:baseIntensity = 240000
@@ -699,13 +699,13 @@ over "World"
                     prepend apiSchemas = ["MaterialBindingAPI"]
                 )
                 {
-                    rel material:binding = </World/Looks/lamp_amber>
+                    rel material:binding = </World/Looks/lamp_led>
                     double radius = 0.34
                 }
 
                 def SphereLight "light"
                 {
-                    color3f inputs:color = (1, 0.56, 0.17)
+                    color3f inputs:color = (0.78, 0.88, 1)
                     float inputs:intensity = 240000
                     float inputs:radius = 0.25
                     custom float spark:baseIntensity = 240000
@@ -765,13 +765,13 @@ over "World"
                     prepend apiSchemas = ["MaterialBindingAPI"]
                 )
                 {
-                    rel material:binding = </World/Looks/lamp_amber>
+                    rel material:binding = </World/Looks/lamp_led>
                     double radius = 0.34
                 }
 
                 def SphereLight "light"
                 {
-                    color3f inputs:color = (1, 0.56, 0.17)
+                    color3f inputs:color = (0.78, 0.88, 1)
                     float inputs:intensity = 240000
                     float inputs:radius = 0.25
                     custom float spark:baseIntensity = 240000
@@ -863,6 +863,952 @@ over "World"
                     float inputs:intensity = 60000
                     float inputs:radius = 0.3
                     custom float spark:baseIntensity = 60000
+                }
+            }
+
+            def Xform "lamp_903"
+            {
+                double3 xformOp:translate = (15, 15, 66)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_red>
+                    double radius = 0.45
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.05, 0.03)
+                    float inputs:intensity = 90000
+                    float inputs:radius = 0.3
+                    custom float spark:baseIntensity = 90000
+                }
+            }
+
+            def Xform "lamp_904"
+            {
+                double3 xformOp:translate = (25, 25, 66)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_red>
+                    double radius = 0.45
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.05, 0.03)
+                    float inputs:intensity = 90000
+                    float inputs:radius = 0.3
+                    custom float spark:baseIntensity = 90000
+                }
+            }
+
+            def Xform "lamp_905"
+            {
+                double3 xformOp:translate = (15, 25, 54)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_red>
+                    double radius = 0.45
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.05, 0.03)
+                    float inputs:intensity = 90000
+                    float inputs:radius = 0.3
+                    custom float spark:baseIntensity = 90000
+                }
+            }
+
+            def Xform "lamp_906"
+            {
+                double3 xformOp:translate = (25, 15, 54)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_red>
+                    double radius = 0.45
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.05, 0.03)
+                    float inputs:intensity = 90000
+                    float inputs:radius = 0.3
+                    custom float spark:baseIntensity = 90000
+                }
+            }
+
+            def Xform "lamp_907"
+            {
+                double3 xformOp:translate = (34.7, -4.5, 51.6)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_red>
+                    double radius = 0.45
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.05, 0.03)
+                    float inputs:intensity = 90000
+                    float inputs:radius = 0.3
+                    custom float spark:baseIntensity = 90000
+                }
+            }
+
+            def Xform "lamp_908"
+            {
+                double3 xformOp:translate = (-55, 8, 66.5)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_red>
+                    double radius = 0.5
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.05, 0.03)
+                    float inputs:intensity = 150000
+                    float inputs:radius = 0.4
+                    custom float spark:baseIntensity = 150000
+                }
+            }
+
+            def Xform "lamp_909"
+            {
+                double3 xformOp:translate = (-11.6, 20.8, 41.6)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_red>
+                    double radius = 0.4
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.05, 0.03)
+                    float inputs:intensity = 60000
+                    float inputs:radius = 0.3
+                    custom float spark:baseIntensity = 60000
+                }
+            }
+
+            def Xform "lamp_930"
+            {
+                double3 xformOp:translate = (-12, -22.5, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_931"
+            {
+                double3 xformOp:translate = (-12.79926490863149, -18.481823960166558, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_932"
+            {
+                double3 xformOp:translate = (-15.075378797541251, -15.075378797541251, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_933"
+            {
+                double3 xformOp:translate = (-18.481823960166558, -12.79926490863149, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_934"
+            {
+                double3 xformOp:translate = (-22.5, -12, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_935"
+            {
+                double3 xformOp:translate = (-26.518176039833442, -12.79926490863149, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_936"
+            {
+                double3 xformOp:translate = (-29.92462120245875, -15.075378797541251, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_937"
+            {
+                double3 xformOp:translate = (-32.200735091368514, -18.481823960166558, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_938"
+            {
+                double3 xformOp:translate = (-33, -22.5, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_939"
+            {
+                double3 xformOp:translate = (-32.200735091368514, -26.518176039833442, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_940"
+            {
+                double3 xformOp:translate = (-29.924621202458752, -29.92462120245875, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_941"
+            {
+                double3 xformOp:translate = (-26.51817603983345, -32.20073509136851, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_942"
+            {
+                double3 xformOp:translate = (-22.500000000000004, -33, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_943"
+            {
+                double3 xformOp:translate = (-18.481823960166555, -32.20073509136851, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_944"
+            {
+                double3 xformOp:translate = (-15.075378797541253, -29.924621202458752, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_945"
+            {
+                double3 xformOp:translate = (-12.799264908631491, -26.51817603983345, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_green>
+                    double radius = 0.22
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.05, 1, 0.15)
+                    float inputs:intensity = 20000
+                    float inputs:radius = 0.15
+                    custom float spark:baseIntensity = 20000
+                }
+            }
+
+            def Xform "lamp_950"
+            {
+                double3 xformOp:translate = (-14.3, -22.5, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_yellow>
+                    double radius = 0.16
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.75, 0.05)
+                    float inputs:intensity = 12000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 12000
+                }
+            }
+
+            def Xform "lamp_951"
+            {
+                double3 xformOp:translate = (-15.398591688967603, -18.400000000000002, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_yellow>
+                    double radius = 0.16
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.75, 0.05)
+                    float inputs:intensity = 12000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 12000
+                }
+            }
+
+            def Xform "lamp_952"
+            {
+                double3 xformOp:translate = (-18.4, -15.398591688967604, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_yellow>
+                    double radius = 0.16
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.75, 0.05)
+                    float inputs:intensity = 12000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 12000
+                }
+            }
+
+            def Xform "lamp_953"
+            {
+                double3 xformOp:translate = (-22.5, -14.3, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_yellow>
+                    double radius = 0.16
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.75, 0.05)
+                    float inputs:intensity = 12000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 12000
+                }
+            }
+
+            def Xform "lamp_954"
+            {
+                double3 xformOp:translate = (-26.599999999999998, -15.398591688967603, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_yellow>
+                    double radius = 0.16
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.75, 0.05)
+                    float inputs:intensity = 12000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 12000
+                }
+            }
+
+            def Xform "lamp_955"
+            {
+                double3 xformOp:translate = (-29.601408311032397, -18.400000000000002, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_yellow>
+                    double radius = 0.16
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.75, 0.05)
+                    float inputs:intensity = 12000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 12000
+                }
+            }
+
+            def Xform "lamp_956"
+            {
+                double3 xformOp:translate = (-30.7, -22.5, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_yellow>
+                    double radius = 0.16
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.75, 0.05)
+                    float inputs:intensity = 12000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 12000
+                }
+            }
+
+            def Xform "lamp_957"
+            {
+                double3 xformOp:translate = (-29.601408311032397, -26.599999999999998, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_yellow>
+                    double radius = 0.16
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.75, 0.05)
+                    float inputs:intensity = 12000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 12000
+                }
+            }
+
+            def Xform "lamp_958"
+            {
+                double3 xformOp:translate = (-26.6, -29.601408311032394, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_yellow>
+                    double radius = 0.16
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.75, 0.05)
+                    float inputs:intensity = 12000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 12000
+                }
+            }
+
+            def Xform "lamp_959"
+            {
+                double3 xformOp:translate = (-22.5, -30.7, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_yellow>
+                    double radius = 0.16
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.75, 0.05)
+                    float inputs:intensity = 12000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 12000
+                }
+            }
+
+            def Xform "lamp_960"
+            {
+                double3 xformOp:translate = (-18.4, -29.601408311032394, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_yellow>
+                    double radius = 0.16
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.75, 0.05)
+                    float inputs:intensity = 12000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 12000
+                }
+            }
+
+            def Xform "lamp_961"
+            {
+                double3 xformOp:translate = (-15.398591688967606, -26.6, 51.4)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_yellow>
+                    double radius = 0.16
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.75, 0.05)
+                    float inputs:intensity = 12000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 12000
+                }
+            }
+
+            def Xform "lamp_970"
+            {
+                double3 xformOp:translate = (-27.2, 27, 49.2)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_white>
+                    double radius = 0.35
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 200000
+                    float inputs:radius = 0.3
+                    custom float spark:baseIntensity = 200000
+                }
+            }
+
+            def Xform "lamp_971"
+            {
+                double3 xformOp:translate = (37.2, -27.2, 49.2)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_white>
+                    double radius = 0.35
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 200000
+                    float inputs:radius = 0.3
+                    custom float spark:baseIntensity = 200000
+                }
+            }
+
+            def Xform "lamp_972"
+            {
+                double3 xformOp:translate = (-27.2, -27.4, 49.2)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_white>
+                    double radius = 0.35
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 200000
+                    float inputs:radius = 0.3
+                    custom float spark:baseIntensity = 200000
+                }
+            }
+
+            def Xform "lamp_973"
+            {
+                double3 xformOp:translate = (37.2, 27.2, 49.6)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_white>
+                    double radius = 0.35
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 1, 1)
+                    float inputs:intensity = 200000
+                    float inputs:radius = 0.3
+                    custom float spark:baseIntensity = 200000
+                }
+            }
+
+            def Xform "lamp_980"
+            {
+                double3 xformOp:translate = (1.1, -5.8, 23)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_status_980>
+                    double radius = 0.15
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.1, 0.45, 1)
+                    float inputs:intensity = 15000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 15000
+                }
+            }
+
+            def Xform "lamp_981"
+            {
+                double3 xformOp:translate = (11.1, -5.8, 23)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_status_981>
+                    double radius = 0.15
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.1, 0.45, 1)
+                    float inputs:intensity = 15000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 15000
+                }
+            }
+
+            def Xform "lamp_982"
+            {
+                double3 xformOp:translate = (-3.9, -5.8, 23)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_status_982>
+                    double radius = 0.15
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (0.1, 1, 0.3)
+                    float inputs:intensity = 15000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 15000
+                }
+            }
+
+            def Xform "lamp_983"
+            {
+                double3 xformOp:translate = (6.1, -5.8, 23)
+                uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                def Sphere "bulb" (
+                    prepend apiSchemas = ["MaterialBindingAPI"]
+                )
+                {
+                    rel material:binding = </World/Looks/lamp_status_983>
+                    double radius = 0.15
+                }
+
+                def SphereLight "light"
+                {
+                    color3f inputs:color = (1, 0.75, 0.05)
+                    float inputs:intensity = 15000
+                    float inputs:radius = 0.12
+                    custom float spark:baseIntensity = 15000
                 }
             }
 
@@ -1198,7 +2144,7 @@ over "World"
                     interpolation = "vertex"
                 )
                 uniform token subdivisionScheme = "none"
-                quatd xformOp:orient = (0.35172667320884426, 0, -0.9361027440155482, 0)
+                quatd xformOp:orient = (0.35172667320884404, 0, -0.9361027440155483, 0)
                 double3 xformOp:translate = (-26, 8, 42)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
             }
@@ -1219,7 +2165,7 @@ over "World"
                     interpolation = "vertex"
                 )
                 uniform token subdivisionScheme = "none"
-                quatd xformOp:orient = (0.4612885490143724, 0, -0.8872501758513295, 0)
+                quatd xformOp:orient = (0.46128854901437244, 0, -0.8872501758513296, 0)
                 double3 xformOp:translate = (-26, 8, 31)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
             }
@@ -1371,7 +2317,7 @@ over "World"
             {
                 float2 clippingRange = (0.5, 60000)
                 float focalLength = 28
-                matrix4d xformOp:transform = ( (0.9074948835017347, 0.42006313384796456, 0, -0), (0.04469049534661839, -0.09654833428656237, 0.9943244836431235, 0), (0.41767905866088967, -0.902344381446639, -0.10638994890418886, 0), (110, -235, 9, 1.0000000000000002) )
+                matrix4d xformOp:transform = ( (0.9074948835017347, 0.42006313384796456, -2.1569592904679347e-18, -0), (0.04469049534661839, -0.09654833428656237, 0.9943244836431235, 0), (0.41767905866088967, -0.902344381446639, -0.10638994890418886, 0), (110, -235, 9.000000000000002, 1.0000000000000002) )
                 uniform token[] xformOpOrder = ["xformOp:transform"]
             }
 
@@ -1379,7 +2325,7 @@ over "World"
             {
                 float2 clippingRange = (0.5, 60000)
                 float focalLength = 36
-                matrix4d xformOp:transform = ( (0.7496669128519812, 0.6618153215021396, -1.387778780781446e-17, 0), (-0.15630744799036114, 0.1770562242722675, 0.9717093573436397, -0), (0.6430921407370181, -0.7284583541091887, 0.23617985699633856, 0), (230.00000000000003, -260, 104.99999999999999, 0.9999999999999999) )
+                matrix4d xformOp:transform = ( (0.7496669128519812, 0.6618153215021396, -8.053479330553561e-18, 0), (-0.15630744799036114, 0.1770562242722675, 0.9717093573436397, -0), (0.6430921407370181, -0.7284583541091887, 0.23617985699633856, 0), (230, -260, 105, 1) )
                 uniform token[] xformOpOrder = ["xformOp:transform"]
             }
 
@@ -1387,7 +2333,7 @@ over "World"
             {
                 float2 clippingRange = (0.5, 60000)
                 float focalLength = 18
-                matrix4d xformOp:transform = ( (0.7990104478368706, 0.6013171411555831, 1.3877787807814457e-17, -0), (0.09774607543788993, -0.1298817714722647, 0.986699766988782, 0), (0.5933194830645744, -0.7883834227022427, -0.16255328303139024, 0), (75, -105, 3.9999999999999964, 1) )
+                matrix4d xformOp:transform = ( (0.7990104478368706, 0.6013171411555831, 8.914352169001445e-18, -0), (0.09774607543788993, -0.1298817714722647, 0.986699766988782, 0), (0.5933194830645744, -0.7883834227022427, -0.16255328303139024, 0), (75, -105, 4.000000000000006, 1) )
                 uniform token[] xformOpOrder = ["xformOp:transform"]
             }
         }
@@ -1483,6 +2429,19 @@ over "World"
             }
         }
 
+        def Material "lamp_led"
+        {
+            token outputs:surface.connect = </World/Looks/lamp_led/surface.outputs:surface>
+
+            def Shader "surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.02, 0.02, 0.02)
+                color3f inputs:emissiveColor = (7.02, 7.92, 9)
+                token outputs:surface
+            }
+        }
+
         def Material "lamp_red"
         {
             token outputs:surface.connect = </World/Looks/lamp_red/surface.outputs:surface>
@@ -1492,6 +2451,97 @@ over "World"
                 uniform token info:id = "UsdPreviewSurface"
                 color3f inputs:diffuseColor = (0.02, 0.02, 0.02)
                 color3f inputs:emissiveColor = (26, 0.9, 0.4)
+                token outputs:surface
+            }
+        }
+
+        def Material "lamp_green"
+        {
+            token outputs:surface.connect = </World/Looks/lamp_green/surface.outputs:surface>
+
+            def Shader "surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.02, 0.02, 0.02)
+                color3f inputs:emissiveColor = (0.6, 22, 2)
+                token outputs:surface
+            }
+        }
+
+        def Material "lamp_yellow"
+        {
+            token outputs:surface.connect = </World/Looks/lamp_yellow/surface.outputs:surface>
+
+            def Shader "surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.02, 0.02, 0.02)
+                color3f inputs:emissiveColor = (20, 14, 0.5)
+                token outputs:surface
+            }
+        }
+
+        def Material "lamp_white"
+        {
+            token outputs:surface.connect = </World/Looks/lamp_white/surface.outputs:surface>
+
+            def Shader "surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.02, 0.02, 0.02)
+                color3f inputs:emissiveColor = (30, 30, 30)
+                token outputs:surface
+            }
+        }
+
+        def Material "lamp_status_980"
+        {
+            token outputs:surface.connect = </World/Looks/lamp_status_980/surface.outputs:surface>
+
+            def Shader "surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.02, 0.02, 0.02)
+                color3f inputs:emissiveColor = (1.8, 8.1, 18)
+                token outputs:surface
+            }
+        }
+
+        def Material "lamp_status_981"
+        {
+            token outputs:surface.connect = </World/Looks/lamp_status_981/surface.outputs:surface>
+
+            def Shader "surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.02, 0.02, 0.02)
+                color3f inputs:emissiveColor = (1.8, 8.1, 18)
+                token outputs:surface
+            }
+        }
+
+        def Material "lamp_status_982"
+        {
+            token outputs:surface.connect = </World/Looks/lamp_status_982/surface.outputs:surface>
+
+            def Shader "surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.02, 0.02, 0.02)
+                color3f inputs:emissiveColor = (1.8, 18, 5.4)
+                token outputs:surface
+            }
+        }
+
+        def Material "lamp_status_983"
+        {
+            token outputs:surface.connect = </World/Looks/lamp_status_983/surface.outputs:surface>
+
+            def Shader "surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.02, 0.02, 0.02)
+                color3f inputs:emissiveColor = (18, 13.5, 0.9)
                 token outputs:surface
             }
         }
