@@ -18,6 +18,7 @@
     defaultPrim = "World"
     metersPerUnit = 1
     subLayers = [
+        @leak_flanges.usda@,
         @full_rig.usda@
     ]
     upAxis = "Z"

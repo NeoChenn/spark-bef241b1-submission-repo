@@ -127,6 +127,8 @@ Built on CPU and tested against the mock; **nothing here has run inside Isaac Si
 * **Scene:** `python sim/build_leak_flanges.py` writes `sim/output/leak_flanges.usda` (a bolted flange with torque
   stripes beside each of the 6 valves), `full_rig_leak.usda` (that layer over `full_rig.usda`: **open this one**) and
   `leak_flanges_meta.json`. Placement is a guess from the valve positions: check it visually.
+  The cinematic scene (`sim/output/cinematic.usda`, what `run_demo.py`, `render_sequence.py` and the stream open)
+  also loads `leak_flanges.usda`, so the flanges appear in the team video and stream.
 
 | Prim | What |
 |---|---|
