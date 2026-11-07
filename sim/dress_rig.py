@@ -270,8 +270,8 @@ def add_flare(stage, looks) -> None:
         tube.CreateHeightAttr(float(np.linalg.norm(b - a)))
         tube.CreateAxisAttr("Z")
         bind(tube.GetPrim(), steel)
-    fire = looks.plain("flame", (0, 0, 0), 0.9, emissive=(1400.0, 420.0, 60.0))
-    core = looks.plain("flame_core", (0, 0, 0), 0.9, emissive=(2600.0, 1500.0, 450.0))
+    fire = looks.plain("flame", (0, 0, 0), 0.9, emissive=(500.0, 150.0, 20.0))
+    core = looks.plain("flame_core", (0, 0, 0), 0.9, emissive=(900.0, 500.0, 150.0))
     for name, scale, material, lift in (("flame", (1.3, 1.3, 3.6), fire, 2.2), ("flame_core", (0.6, 0.6, 1.6), core, 0.8)):
         xf = xform_at(stage, f"{ROOT}/Flare/{name}", translate=(flame[0], flame[1], flame[2] + lift))
         xf.AddScaleOp().Set(Gf.Vec3f(*scale))
@@ -301,7 +301,7 @@ def add_helideck_lamps(stage, looks) -> None:
 
 
 def add_windows(stage, looks) -> None:
-    lit = looks.plain("window_lit", (0.02, 0.02, 0.02), 0.1, emissive=(1100.0, 700.0, 340.0))
+    lit = looks.plain("window_lit", (0.02, 0.02, 0.02), 0.1, emissive=(300.0, 190.0, 90.0))
     dark = looks.plain("window_dark", (0.015, 0.02, 0.025), 0.08, 0.2)
     frame = looks.plain("window_frame", (0.55, 0.57, 0.58), 0.5, 0.3)
     for i, w in enumerate(dp.windows()):
