@@ -5,8 +5,9 @@ runs identically against the Isaac Sim scene (SimBridge implementation by the si
 team), the Isaac Lab scrub env, and the CPU-only mock in ``policy.demo_mock``.
 
 Conventions (see integration/INTERFACE.md for the full contract):
-  * Rust grid is (n_theta, n_z): rows = theta in [0, 2pi), cols = z along the
-    pipe axis in [0, length]. Levels in [0, 1].
+  * Rust grid matches policy/envs/rust_state.RustState: (n_z, n_theta) =
+    (H, W); rows = z along the pipe axis in [-L/2, L/2] (cell centres
+    (i+0.5)/H*L - L/2), cols = theta in [0, 2pi) (periodic). Levels in [0, 1].
   * Camera frame is OpenCV (x right, y down, z forward); ``T_world_cam`` is the
     4x4 pose of the camera in the world.
   * Pipe frame: origin at one end of the pipe centre-line, ``axis`` unit vector
@@ -32,13 +33,13 @@ class CameraModel:
 
 @dataclass
 class PipeGeometry:
-    origin: np.ndarray       # (3,) world point on the axis at z = 0
+    origin: np.ndarray       # (3,) world point on the axis at z = 0 (segment centre)
     axis: np.ndarray         # (3,) unit vector along the pipe
     ref: np.ndarray          # (3,) unit vector, theta = 0 direction (perp. to axis)
     radius: float            # metres
     length: float            # metres
-    n_theta: int = 64        # rust grid rows
-    n_z: int = 48            # rust grid cols
+    n_z: int = 32            # rust grid rows (H)
+    n_theta: int = 64        # rust grid cols (W)
 
     def __post_init__(self):
         self.origin = np.asarray(self.origin, dtype=np.float64)
@@ -52,15 +53,20 @@ class PipeGeometry:
     def binormal(self) -> np.ndarray:
         return np.cross(self.axis, self.ref)
 
+    @property
+    def shape(self) -> tuple[int, int]:
+        return (self.n_z, self.n_theta)
+
     def cell_to_theta_z(self, i, j):
-        """Grid indices (row=theta, col=z) -> cell-centre (theta, z)."""
-        theta = (np.asarray(i, dtype=np.float64) + 0.5) * (2 * np.pi / self.n_theta)
-        z = (np.asarray(j, dtype=np.float64) + 0.5) * (self.length / self.n_z)
+        """Grid indices (row=z, col=theta) -> cell-centre (theta, z)."""
+        z = (np.asarray(i, dtype=np.float64) + 0.5) * (self.length / self.n_z) - self.length / 2
+        theta = (np.asarray(j, dtype=np.float64) + 0.5) * (2 * np.pi / self.n_theta)
         return theta, z
 
     def theta_z_to_cell(self, theta, z):
-        i = np.floor(np.mod(theta, 2 * np.pi) / (2 * np.pi) * self.n_theta).astype(int) % self.n_theta
-        j = np.clip(np.floor(np.asarray(z) / self.length * self.n_z).astype(int), 0, self.n_z - 1)
+        """(theta, z) -> (row, col) indices."""
+        i = np.clip(np.floor((np.asarray(z) + self.length / 2) / self.length * self.n_z).astype(int), 0, self.n_z - 1)
+        j = np.floor(np.mod(theta, 2 * np.pi) / (2 * np.pi) * self.n_theta).astype(int) % self.n_theta
         return i, j
 
     def surface_point(self, theta, z):
@@ -120,12 +126,12 @@ class Localizer(Protocol):
 
 @runtime_checkable
 class RustWorld(Protocol):
-    """policy/envs/rust_state.RustState API (torch tensors, (n_theta, n_z))."""
-    levels: Any
+    """policy/envs/rust_state.RustState API (torch tensors, (num_envs, H=n_z, W=n_theta); attr `rust` = levels)."""
+    rust: Any
     sprayed: Any
     soak_time: Any
 
-    def spray(self, mask) -> None: ...
+    def spray(self, mask) -> None: ...          # mask (H, W) bool tensor, broadcasts to envs
     def step_soak(self, dt: float) -> None: ...
     def abrade(self, *args, **kwargs) -> Any: ...
     def fraction_remaining(self) -> float: ...
@@ -139,8 +145,8 @@ class ScrubPolicy(Protocol):
     def reset(self) -> None: ...
 
     def step(self, obs: dict) -> np.ndarray:
-        """obs keys (always present): ee_theta_z (2,), target_mask (n_theta,n_z) bool,
-        perceived_rust (n_theta,n_z) float, force (float), plus whatever
+        """obs keys (always present): ee_theta_z (2,), target_mask (n_z,n_theta) bool,
+        perceived_rust (n_z,n_theta) float, force (float), plus whatever
         SimBridge.scrub_obs() adds (e.g. the Isaac Lab policy observation under
         key "policy"). Returns action = [d_theta (rad), d_z (m), press (0..1)]
         in pipe frame; ArmController.apply_ee_delta executes it via diff-IK."""
@@ -185,3 +191,23 @@ class SimBridge(Protocol):
 
     def publish_overlay(self, lines: list[str]) -> None:
         """Draw HUD text on the recorded video."""
+
+
+def camera_from_usd(world_matrix, focal_length_mm: float, horizontal_aperture_mm: float,
+                    width: int, height: int) -> CameraModel:
+    """USD camera -> CameraModel (pure numpy, no pxr import needed).
+
+    ``world_matrix``: 4x4 from ``UsdGeom.Xformable(cam).ComputeLocalToWorldTransform(t)``
+    converted with ``np.array(m)`` (USD row-vector convention: translation in the last
+    row). USD cameras look down -Z with +Y up; OpenCV looks down +Z with +Y down.
+    Square pixels assumed (vertical aperture follows the image aspect).
+    """
+    M = np.asarray(world_matrix, dtype=np.float64)
+    R_usd = M[:3, :3].T                      # columns = camera axes in world
+    R_usd = R_usd / np.linalg.norm(R_usd, axis=0, keepdims=True)
+    T = np.eye(4)
+    T[:3, :3] = R_usd @ np.diag([1.0, -1.0, -1.0])
+    T[:3, 3] = M[3, :3]
+    f = focal_length_mm / horizontal_aperture_mm * width
+    K = np.array([[f, 0, width / 2], [0, f, height / 2], [0, 0, 1.0]])
+    return CameraModel(K, T, width, height)

@@ -101,11 +101,59 @@ def load_plain(ckpt: str | Path):
     return m.eval(), meta
 
 
+class OnnxRustClassifier:
+    """Inference wrapper the orchestrator can use: loads meta.json + model.onnx from one directory.
+
+    clf = OnnxRustClassifier("/ckpt/detector/best"); clf.predict(pil_image)
+    -> {"p_rust": calibrated prob, "rust": bool, "unsure": bool, "logit": raw}
+    """
+
+    def __init__(self, model_dir: str | Path, threads: int = 4):
+        import onnxruntime as ort
+
+        d = Path(model_dir)
+        self.meta = json.loads((d / "meta.json").read_text())
+        so = ort.SessionOptions()
+        so.intra_op_num_threads = threads
+        self.sess = ort.InferenceSession(str(d / "model.onnx"), so, providers=["CPUExecutionProvider"])
+        self.mean = np.array(self.meta["mean"], np.float32)[:, None, None]
+        self.std = np.array(self.meta["std"], np.float32)[:, None, None]
+        self.size = self.meta["input_size"][-1]
+
+    def preprocess(self, img) -> np.ndarray:
+        from PIL import Image
+
+        if not isinstance(img, Image.Image):
+            img = Image.fromarray(np.asarray(img, dtype=np.uint8))
+        x = np.asarray(img.convert("RGB").resize((self.size, self.size), Image.BILINEAR), np.float32) / 255.0
+        return (x.transpose(2, 0, 1) - self.mean) / self.std
+
+    def predict_batch(self, imgs) -> list[dict]:
+        x = np.stack([self.preprocess(i) for i in imgs]).astype(np.float32)
+        z = self.sess.run(None, {"input": x})[0].reshape(-1)
+        p = 1.0 / (1.0 + np.exp(-z / self.meta["temperature"]))
+        lo, hi = self.meta["unsure_band"]
+        return [{"logit": float(zi), "p_rust": float(pi), "rust": bool(pi >= self.meta["threshold"]),
+                 "unsure": bool(lo <= pi <= hi)} for zi, pi in zip(z, p)]
+
+    def predict(self, img) -> dict:
+        return self.predict_batch([img])[0]
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ckpt", required=True)
+    ap.add_argument("--ckpt", default=None, help="model.pt to export + benchmark")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--predict-dir", default=None, help="dir with meta.json+model.onnx; classify --images")
+    ap.add_argument("--images", nargs="*", default=[])
     a = ap.parse_args()
+    if a.predict_dir:
+        clf = OnnxRustClassifier(a.predict_dir)
+        from PIL import Image
+
+        for p in a.images:
+            print(p, json.dumps(clf.predict(Image.open(p))))
+        return
     m, _ = load_plain(a.ckpt)
     out = a.out or str(Path(a.ckpt).with_suffix(".onnx"))
     export_onnx(m, out)

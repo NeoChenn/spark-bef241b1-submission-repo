@@ -1,7 +1,8 @@
-"""Boustrophedon coverage over a binary mask on the pipe (theta, z) grid.
+"""Boustrophedon coverage over a binary mask on the pipe grid.
 
-Lanes run along the pipe axis (z) at fixed theta; consecutive lanes alternate
-direction and step in theta by ``lane_width`` rows. Theta wraps around the pipe.
+Grid convention = RustState: (n_z, n_theta), rows = z (axial), cols = theta
+(periodic). Lanes run along the pipe axis (z) at fixed theta; consecutive lanes
+alternate direction and step in theta by ``lane_width`` columns (wrapping).
 """
 from __future__ import annotations
 
@@ -11,42 +12,41 @@ from policy.interfaces import PipeGeometry, Waypoint
 
 
 def dilate(mask: np.ndarray, k: int) -> np.ndarray:
-    """Square dilation by k cells; wraps in theta (rows), clips in z (cols)."""
+    """Square dilation by k cells; wraps in theta (cols), clips in z (rows)."""
     m = np.asarray(mask, bool)
     if k <= 0:
         return m.copy()
     out = m.copy()
-    for di in range(-k, k + 1):
-        rolled = np.roll(m, di, axis=0)
-        for dj in range(-k, k + 1):
-            if dj == 0:
+    for dj in range(-k, k + 1):
+        rolled = np.roll(m, dj, axis=1)
+        for di in range(-k, k + 1):
+            if di == 0:
                 out |= rolled
-            elif dj > 0:
-                out[:, dj:] |= rolled[:, :-dj]
+            elif di > 0:
+                out[di:] |= rolled[:-di]
             else:
-                out[:, :dj] |= rolled[:, -dj:]
+                out[:di] |= rolled[-di:]
     return out
 
 
 def boustrophedon_cells(mask: np.ndarray, lane_width: int = 1) -> list[tuple[int, int]]:
-    """Ordered (row, col) cells visiting every lane that intersects ``mask``.
+    """Ordered (row=z, col=theta) cells visiting every lane that intersects ``mask``.
 
-    Each lane is ``lane_width`` rows tall; the tool is assumed to cover the whole
-    lane height, so a waypoint at lane-centre row covers all rows of the lane.
-    Starts at the first occupied theta row after the largest empty theta gap so a
-    patch straddling theta = 0 is swept contiguously.
+    Each lane is ``lane_width`` theta-columns wide; the tool covers the whole lane
+    width, so one waypoint at the lane-centre column covers every column of the
+    lane. Starts after the largest empty theta gap so a patch straddling
+    theta = 0 is swept contiguously.
     """
     m = np.asarray(mask, bool)
-    nT = m.shape[0]
-    rows_occ = m.any(axis=1)
-    if not rows_occ.any():
+    nT = m.shape[1]
+    cols_occ = m.any(axis=0)
+    if not cols_occ.any():
         return []
-    # start after the largest run of empty rows (handles wrap-around)
     start = 0
-    if not rows_occ.all():
+    if not cols_occ.all():
         best, run, best_end = -1, 0, 0
         for k in range(2 * nT):
-            if not rows_occ[k % nT]:
+            if not cols_occ[k % nT]:
                 run += 1
                 if run > best:
                     best, best_end = run, k
@@ -56,23 +56,23 @@ def boustrophedon_cells(mask: np.ndarray, lane_width: int = 1) -> list[tuple[int
     order = [(start + k) % nT for k in range(nT)]
     cells, forward = [], True
     for li in range(0, nT, lane_width):
-        lane_rows = order[li:li + lane_width]
-        cols = np.nonzero(m[lane_rows].any(axis=0))[0]
-        if len(cols) == 0:
+        lane = order[li:li + lane_width]
+        rows = np.nonzero(m[:, lane].any(axis=1))[0]
+        if len(rows) == 0:
             continue
-        centre = lane_rows[len(lane_rows) // 2]
-        seq = cols if forward else cols[::-1]
-        cells.extend((int(centre), int(c)) for c in seq)
+        centre = lane[len(lane) // 2]
+        seq = rows if forward else rows[::-1]
+        cells.extend((int(r), int(centre)) for r in seq)
         forward = not forward
     return cells
 
 
-def lane_footprint(cell: tuple[int, int], lane_width: int, n_theta: int, n_z: int,
+def lane_footprint(cell: tuple[int, int], lane_width: int, n_z: int, n_theta: int,
                    z_half: int = 0) -> list[tuple[int, int]]:
     i, j = cell
     h = lane_width // 2
-    rows = [(i + d) % n_theta for d in range(-h, lane_width - h)]
-    cols = range(max(0, j - z_half), min(n_z, j + z_half + 1))
+    cols = [(j + d) % n_theta for d in range(-h, lane_width - h)]
+    rows = range(max(0, i - z_half), min(n_z, i + z_half + 1))
     return [(r, c) for r in rows for c in cols]
 
 

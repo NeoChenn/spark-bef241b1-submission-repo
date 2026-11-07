@@ -59,12 +59,15 @@ def random_patches(
     size_range: tuple[float, float] = (0.03, 0.09),
     device: str | torch.device = "cpu",
     generator: torch.Generator | None = None,
+    theta_window: tuple[float, float] | None = None,
 ) -> torch.Tensor:
     """1..3 blobby rust patches per env. Returns (N, H, W) float in [0,1].
 
     Each patch = 3-5 anisotropic gaussian lobes around a centre (sizes in metres, converted with the
     per-env radius so patches look the same on thin and thick pipes), soft-thresholded into a blob
     with ragged, noisy edges and a 0.5-1.0 interior level.
+    theta_window=(centre, half_width) restricts patches to an arc (e.g. the side the arm can reach);
+    rust beyond half_width + 0.3 rad is cut off.
     """
     dev = torch.device(device)
     rad = _per_env(radius, num_envs, dev)
@@ -81,7 +84,10 @@ def random_patches(
     max_lobes = 5
     for p in range(n_max):
         active = (n_patches > p).float().view(-1, 1, 1)
-        ct = rnd(num_envs) * TWO_PI
+        if theta_window is None:
+            ct = rnd(num_envs) * TWO_PI
+        else:
+            ct = theta_window[0] + (2 * rnd(num_envs) - 1) * theta_window[1]
         cz = (rnd(num_envs) - 0.5) * length * 0.75
         size = size_range[0] + rnd(num_envs) * (size_range[1] - size_range[0])
         blob = torch.zeros(num_envs, H, W, device=dev)
@@ -100,7 +106,11 @@ def random_patches(
     # soft threshold with noisy edges
     level = torch.clamp((field + 0.25 * (noise - 0.5) - 0.35) / 0.25, 0.0, 1.0)
     interior = 0.6 + 0.4 * rnd(num_envs, 1, 1)
-    return level * interior
+    level = level * interior
+    if theta_window is not None:
+        inside = _wrap_angle(theta - theta_window[0]).abs() <= theta_window[1] + 0.3
+        level = level * inside.view(1, 1, W).float()
+    return level
 
 
 class RustState:
@@ -114,8 +124,10 @@ class RustState:
         length: float = 0.6,
         device: str | torch.device = "cpu",
         params: AbrasionParams | None = None,
+        theta_window: tuple[float, float] | None = None,
     ):
         self.num_envs, self.H, self.W, self.length = num_envs, H, W, length
+        self.theta_window = theta_window
         self.device = torch.device(device)
         self.p = params or AbrasionParams()
         d = self.device
@@ -160,7 +172,8 @@ class RustState:
         if abrasion_coef is not None:
             self.abrasion_coef[ids] = _per_env(abrasion_coef, n, self.device)
         if rust is None:
-            rust = random_patches(n, self.H, self.W, self.radius[ids], self.length, device=self.device, generator=generator)
+            rust = random_patches(n, self.H, self.W, self.radius[ids], self.length, device=self.device,
+                                  generator=generator, theta_window=self.theta_window)
         self.rust[ids] = rust.to(self.device).float().clamp(0, 1)
         self.sprayed[ids] = False
         self.soak_time[ids] = 0.0
@@ -201,7 +214,8 @@ class RustState:
         if ids.numel() == 0:
             return torch.zeros(0, self.H, self.W, device=self.device)
         patch = random_patches(ids.numel(), self.H, self.W, self.radius[ids], self.length, n_min=1, n_max=1,
-                               size_range=size_range, device=self.device, generator=generator)
+                               size_range=size_range, device=self.device, generator=generator,
+                               theta_window=self.theta_window)
         self.rust[ids] = torch.maximum(self.rust[ids], patch)
         if sprayed:
             self.spray(self.dilate(patch > self.p.rust_eps, 2), env_ids=ids, soak_time=soak_time)
@@ -318,3 +332,39 @@ class RustState:
             rgb = steel + (rust_col - steel) * r.clamp(0, 1) ** 0.7 + tint
             a = torch.full_like(r, 255.0)
         return torch.cat([rgb, a], dim=-1).round().clamp(0, 255).to(torch.uint8)
+
+
+# ------------------------------------------------------------------------------------------- scene helpers
+def rig_meta_scene(meta_path: str = "sim/output/rig_deck_meta.json", standoff: float = 0.30,
+                   base_height: float = 0.55) -> dict:
+    """Read the sim team's rig_deck_meta.json and return the exact demo geometry (pure python, no Isaac):
+
+    pipe frame (origin on the axis at the damage x, axis=+x, ref=+y towards the robot, binormal=+z),
+    the damage location in grid terms (theta, z) and the arm-base world pose. The scrub env's env-local frame
+    is the world shifted by `env_to_world` (arm base at env (0, 0, base_height))."""
+    import json
+
+    with open(meta_path) as f:
+        m = json.load(f)
+    pipe, dmg = m["main_pipe"], m["damage"]
+    r = float(pipe["radius_m"])
+    xd, yd, zd = (float(v) for v in dmg["position_m"])
+    n = dmg["surface_normal"]
+    side = 1.0 if (yd - pipe["y_m"]) >= 0 else -1.0       # robot stands on the damaged side
+    theta = math.atan2(float(n[2]), side * float(n[1]))     # ref = side * y, binormal = z
+    origin = (xd, float(pipe["y_m"]), float(pipe["z_m"]))
+    robot_pos = (xd, origin[1] + side * (r + standoff), base_height)
+    return {
+        "pipe_origin": origin,
+        "pipe_axis": (1.0, 0.0, 0.0),
+        "pipe_ref": (0.0, side, 0.0),
+        "pipe_radius": r,
+        "damage_theta": theta,
+        "damage_z": 0.0,
+        "damage_radius": float(dmg.get("approx_radius_m", 0.1)),
+        "robot_pos_world": robot_pos,
+        "robot_yaw_world": -side * math.pi / 2,
+        "standoff": standoff,
+        "env_to_world": {"translation": (xd, robot_pos[1], 0.0), "yaw": 0.0 if side > 0 else math.pi},
+        "work_zone": m.get("work_zone_m"),
+    }

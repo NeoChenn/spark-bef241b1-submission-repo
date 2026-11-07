@@ -67,8 +67,8 @@ def fake_colour_classifier(patches: np.ndarray) -> np.ndarray:
     p = patches.astype(np.float32) / 255.0
     r, g, b = p[..., 0], p[..., 1], p[..., 2]
     hue = (r - g) / (r + 1e-3)                # ~0.5 rust, ~0 steel/primer
-    warm = (g >= b - 0.02) & (r > 0.12)
-    score = np.clip((hue - 0.12) / 0.25, 0.0, 1.0) * warm
+    warm = (r > b) & (r > 0.12)
+    score = np.clip((hue - 0.07) / 0.2, 0.0, 1.0) * warm
     frac = score.reshape(len(p), -1).mean(axis=1)
     return (frac - 0.15) * 30.0
 
@@ -107,16 +107,17 @@ class RustLocalizer:
     def __init__(self, classifier: PatchClassifier, patch: int = 32, stride: int = 16,
                  threshold: float = 0.5, temperature: float = 1.0, batch_size: int = 256,
                  min_cells: int = 1, unsure_band: tuple[float, float] = (UNSURE_LO, UNSURE_HI),
-                 unsure_ignore_edges: bool = True):
+                 unsure_ignore_edges: bool = True, edge_conf: float = 0.9):
         self.classifier = classifier
         self.patch, self.stride = int(patch), int(stride)
         self.threshold, self.temperature = float(threshold), float(temperature)
         self.batch_size = batch_size
         self.min_cells = min_cells
         self.unsure_band = unsure_band
-        # A mid-prob patch touching a confident rust patch is just a blob boundary,
-        # not real ambiguity; only isolated mid-prob regions raise `unsure`.
+        # A mid-prob patch touching a very confident (> edge_conf) rust patch is just a
+        # blob boundary, not real ambiguity; other mid-prob patches raise `unsure`.
         self.unsure_ignore_edges = unsure_ignore_edges
+        self.edge_conf = edge_conf
 
     @classmethod
     def from_checkpoint(cls, ckpt_dir: str = "/ckpt/detector/best", **kw) -> "RustLocalizer":
@@ -165,7 +166,7 @@ class RustLocalizer:
         lo, hi = self.unsure_band
         mid = (heat >= lo) & (heat <= hi)
         if self.unsure_ignore_edges:
-            conf = heat > hi
+            conf = heat > self.edge_conf
             near = np.zeros_like(conf)
             for di in (-1, 0, 1):
                 for dj in (-1, 0, 1):
@@ -235,7 +236,7 @@ def pixel_rays(camera, stride: int = 1):
 
 
 def ray_cylinder(origin: np.ndarray, dirs: np.ndarray, pipe):
-    """Intersect rays with the (finite) pipe cylinder.
+    """Intersect rays with the (finite) pipe cylinder (z in [-L/2, L/2]).
 
     Returns (hit bool (...), theta (...), z (...), points (...,3)). Only the first
     (camera-facing) intersection is used.
@@ -258,7 +259,7 @@ def ray_cylinder(origin: np.ndarray, dirs: np.ndarray, pipe):
     radial = rel - z[..., None] * a
     b = np.cross(a, pipe.ref)
     theta = np.mod(np.arctan2(radial @ b, radial @ pipe.ref), 2 * np.pi)
-    ok &= (z >= 0) & (z <= pipe.length)
+    ok &= np.abs(z) <= pipe.length / 2
     return ok, theta, z, pts
 
 
@@ -266,23 +267,24 @@ def project_mask_to_grid(mask: np.ndarray, camera, pipe, prob_map: Optional[np.n
                          min_frac: float = 0.5):
     """Project a pixel rust mask onto the pipe (theta, z) grid.
 
-    Returns (rust_grid bool (n_theta, n_z), visible bool (n_theta, n_z),
-    conf_grid float (n_theta, n_z) = mean prob of pixels landing in the cell).
-    A cell is rust if >= ``min_frac`` of the pixels landing in it are rust.
+    Returns (rust_grid bool (n_z, n_theta), visible bool, conf_grid float = mean
+    prob of the pixels landing in each cell). Grid convention = RustState: rows z
+    in [-L/2, L/2], cols theta in [0, 2pi). A cell is rust if >= ``min_frac`` of the
+    pixels landing in it are rust.
     """
     o, d = pixel_rays(camera)
     hit, theta, z, _ = ray_cylinder(o, d, pipe)
     nT, nZ = pipe.n_theta, pipe.n_z
-    i = (np.floor(theta / (2 * np.pi) * nT).astype(int)) % nT
-    j = np.clip(np.floor(z / pipe.length * nZ).astype(int), 0, nZ - 1)
-    flat = (i * nZ + j)[hit]
+    j = (np.floor(theta / (2 * np.pi) * nT).astype(int)) % nT
+    i = np.clip(np.floor((z + pipe.length / 2) / pipe.length * nZ).astype(int), 0, nZ - 1)
+    flat = (i * nT + j)[hit]
     total = np.bincount(flat, minlength=nT * nZ)
     rust = np.bincount(flat, weights=mask[hit].astype(np.float64), minlength=nT * nZ)
     pm = prob_map if prob_map is not None else mask.astype(np.float64)
     psum = np.bincount(flat, weights=pm[hit].astype(np.float64), minlength=nT * nZ)
-    visible = (total > 0).reshape(nT, nZ)
-    frac = (rust / np.maximum(total, 1)).reshape(nT, nZ)
-    conf = (psum / np.maximum(total, 1)).reshape(nT, nZ)
+    visible = (total > 0).reshape(nZ, nT)
+    frac = (rust / np.maximum(total, 1)).reshape(nZ, nT)
+    conf = (psum / np.maximum(total, 1)).reshape(nZ, nT)
     return (frac >= min_frac) & visible, visible, conf
 
 

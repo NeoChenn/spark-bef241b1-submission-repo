@@ -11,7 +11,7 @@ from policy.skills.coverage import coverage_path, covered_by
 
 def to_world_mask(world, mask: np.ndarray):
     """numpy bool mask -> same type as world.levels (torch tensor if torch)."""
-    lv = getattr(world, "levels", None)
+    lv = getattr(world, "rust", getattr(world, "levels", None))
     try:
         import torch
         if isinstance(lv, torch.Tensor):

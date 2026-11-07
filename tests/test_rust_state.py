@@ -197,3 +197,28 @@ def test_cuda_if_available():
     rs.abrade(torch.rand(4, 2, device="cuda"), 0.03, torch.full((4,), 20.0, device="cuda"),
               torch.full((4,), 0.2, device="cuda"), 0.1)
     rs.to_texture()
+
+
+def test_theta_window_restricts_patches():
+    g = torch.Generator().manual_seed(5)
+    r = random_patches(32, H, W, radius=0.1, generator=g, theta_window=(0.6, 0.8))
+    theta = (torch.arange(W).float() + 0.5) / W * 2 * math.pi
+    d = torch.remainder(theta - 0.6 + math.pi, 2 * math.pi) - math.pi
+    assert (r[..., d.abs() > 1.1] == 0).all()
+    assert (r.sum(dim=(1, 2)) > 0).all()
+
+
+def test_rig_meta_scene():
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sim", "output", "rig_deck_meta.json")
+    if not os.path.exists(path):
+        return
+    from policy.envs.rust_state import rig_meta_scene
+
+    m = rig_meta_scene(path)
+    assert math.isclose(m["pipe_radius"], 0.15) and math.isclose(m["pipe_origin"][2], 1.1)
+    assert 0.85 < m["damage_theta"] < 0.95  # normal [0, .62, .78]
+    # damage point lies on the surface at that theta
+    th = m["damage_theta"]
+    y = m["pipe_origin"][1] + m["pipe_ref"][1] * 0.15 * math.cos(th)
+    z = m["pipe_origin"][2] + 0.15 * math.sin(th)
+    assert abs(y - 0.095) < 0.01 and abs(z - 1.2199) < 0.01

@@ -60,6 +60,8 @@ isaac_image = (
     )
     .run_commands(
         f"git clone --depth 1 --branch {ISAACLAB_TAG} https://github.com/isaac-sim/IsaacLab.git {ISAACLAB_DIR}",
+        # flatdict's sdist needs pkg_resources (removed in setuptools>=81) -> pin + no build isolation
+        "python -m pip install 'setuptools<80' wheel && python -m pip install --no-build-isolation flatdict==4.0.1",
         # same as `./isaaclab.sh --install rsl_rl` but explicit (editable, like isaaclab.sh does)
         f"cd {ISAACLAB_DIR} && python -m pip install "
         "-e source/isaaclab -e source/isaaclab_assets -e source/isaaclab_tasks "
