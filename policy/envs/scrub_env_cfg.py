@@ -121,6 +121,8 @@ class ScrubEnvCfg(DirectRLEnvCfg):
     shoulder_offset: tuple = (-0.01, 0.0, 0.3159)  # ur3_shoulder_link in the trunk frame at lift = 0
     spawn_pipe_visual: bool = True           # visual-only cylinder (contact is analytic) at the nominal pose
     spawn_dog_visual: bool = False           # box stand-in for the dog body (only useful for the Franka variant)
+    backdrop_usd: str = ""                   # visual-only scene (e.g. sim/output/rig_deck.usda) instead of ground+light
+    backdrop_translation: tuple = (0.0, 0.0, 0.0)
 
     # ---- contact / abrasion DR
     spring_k_range: tuple = (1500.0, 4000.0)  # N/m brush stiffness
