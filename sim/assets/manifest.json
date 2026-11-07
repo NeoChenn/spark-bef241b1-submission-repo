@@ -27,7 +27,8 @@
     "green_metal_rust",
     "blue_metal_plate",
     "metal_plate",
-    "concrete_floor_damaged_01"
+    "concrete_floor_damaged_01",
+    "box_profile_metal_sheet"
   ],
   "hdris": [
     "gray_pier",
