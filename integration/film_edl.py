@@ -8,8 +8,8 @@ from typing import Callable, Optional
 
 import numpy as np
 
-from integration.film_camera import (DEFAULT_FILM_SCENE, TRUNK_Z, FilmScene, birdseye, conclusion, control_push,
-                                     control_room, follow, rig_orbit, unit1_job, unit2_job)
+from integration.film_camera import (DEFAULT_FILM_SCENE, TRUNK_Z, FilmScene, conclusion, control_push,
+                                     control_room, follow, rig_orbit, unit1_job, unit2_job, walk_home)
 from rig.sim.zoom import ease
 
 REPO = Path(__file__).resolve().parent.parent
@@ -161,13 +161,14 @@ def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE
         ("unit1_soak", 1.0, (b.soak, b.scrub), j1, "cut", "cut", False),
         ("unit1_scrub", 8.0, (b.scrub, b.scrub_done), j1, "cut", "cut", False),
         ("unit1_paint", 4.6, (b.scrub_done, b.paint_done + 0.3), j1, "cut", "xfade", False),
-        ("walk_back", 4.0, (home, home + 10.0), lambda u, t: birdseye(tr("unit1", home if t is None else t),
-                                                                      tr("unit2", home if t is None else t)),
-         "xfade", "xfade", False),
+        ("walk_back_u1", 2.0, (home + 5.0, home + 10.0),
+         lambda u, t: walk_home("unit1", tr("unit1", home + 10.0 if t is None else t)), "xfade", "cut", False),
+        ("walk_back_u2", 2.0, (home + 10.0, home + 15.0),
+         lambda u, t: walk_home("unit2", tr("unit2", home + 15.0 if t is None else t)), "cut", "xfade", False),
     ]
     shots, t, prev = [], 0.0, None
     for name, dur, sim, cam, t_in, t_out, two_d in plan:
-        rate = 2.5 if name == "walk_back" else (sim[1] - sim[0]) / dur
+        rate = (sim[1] - sim[0]) / dur
         if name in ("unit2_job", "unit1_spray"):
             cam = _blend(prev, cam, MOVE_S, dur)
         badge = "" if rate <= 1.05 or two_d else f"{rate:.1f}x".replace(".0x", "x")
