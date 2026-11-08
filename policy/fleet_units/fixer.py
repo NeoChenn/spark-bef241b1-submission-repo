@@ -72,17 +72,83 @@ class TimedTorque:
         self.job = None
         self.started: list[tuple[str, int]] = []
         self.progress = 0.0
+        self.torqued = False
+        self.phase = None
 
     def start(self, flange, bolt: int) -> None:
-        self.job, self.t, self.progress = (flange.id, bolt), 0.0, 0.0
+        self.job, self.t, self.progress, self.torqued = (flange.id, bolt), 0.0, 0.0, False
         self.started.append(self.job)
 
     def step(self, dt: float) -> str:
         self.t += dt
         self.progress = min(1.0, self.t / self.duration)
+        failed = self.fail(*self.job)
+        self.torqued = not failed and self.progress >= 0.6
         if self.progress < 1.0:
             return "running"
-        return "failed" if self.fail(*self.job) else "done"
+        return "failed" if failed else "done"
+
+
+class RetorqueArm:
+    def __init__(self, skill=None, deck_z: Optional[float] = None, torque_angle: Optional[float] = None):
+        from policy.skills import retorque as rt
+        self.rt = rt
+        self.skill = skill or rt.RetorqueSkill()
+        self.deck_z = rt.DECK_Z if deck_z is None else deck_z
+        self.torque_angle = torque_angle
+        self.traj = None
+        self.t = 0.0
+        self.t_torqued = 0.0
+        self.torqued = False
+        self.error: Optional[str] = None
+        self.started: list[tuple[str, int]] = []
+        self._sniff: dict = {}
+
+    def base(self, flange) -> np.ndarray:
+        return self.rt.work_pose(flange, self.deck_z)
+
+    def stand(self, flange) -> tuple[np.ndarray, float]:
+        b = self.base(flange)
+        return b[:2, 3].copy(), math.atan2(b[1, 0], b[0, 0])
+
+    def start(self, flange, bolt: int) -> None:
+        self.started.append((flange.id, bolt))
+        self.t, self.torqued, self.error = 0.0, False, None
+        try:
+            self.traj = self.skill.plan(flange, bolt, self.base(flange), torque_angle=self.torque_angle)
+            self.t_torqued = self.traj.phase_span("torque")[1]
+        except self.rt.Unreachable as e:
+            self.traj, self.error = None, str(e)
+
+    def step(self, dt: float) -> str:
+        if self.traj is None:
+            return "failed"
+        self.t += dt
+        self.torqued = self.t >= self.t_torqued
+        return "running" if self.t < self.traj.duration else "done"
+
+    @property
+    def progress(self) -> float:
+        return 0.0 if self.traj is None else min(1.0, self.t / self.traj.duration)
+
+    @property
+    def phase(self) -> Optional[str]:
+        if self.traj is None:
+            return None
+        i = min(int(np.searchsorted(self.traj.t, self.t)), len(self.traj.phase) - 1)
+        return self.traj.phase[i]
+
+    @property
+    def q(self) -> Optional[dict]:
+        return None if self.traj is None else self.traj.at(min(self.t, self.traj.duration))
+
+    def sniff_q(self, flange) -> Optional[dict]:
+        if flange.id not in self._sniff:
+            try:
+                self._sniff[flange.id] = self.skill.verify_pose(flange, self.base(flange)).q
+            except self.rt.Unreachable:
+                self._sniff[flange.id] = None
+        return self._sniff[flange.id]
 
 
 @dataclass
@@ -90,6 +156,7 @@ class FixerConfig:
     sniff_s: float = 8.0
     seek_dt: float = 0.5
     sniff_radius_m: float = 1.0
+    sniff_min_m: float = 0.5
     stand_m: float = 0.55
     trunk_z: float = 0.45
     await_s: float = 20.0
@@ -149,6 +216,7 @@ class _Arm:
     def torque(self, fid: str, bolt: int) -> bool:
         self.fx.arm.start(self.fx.flanges[fid], bolt)
         self.fx.torquing = (fid, bolt)
+        self.fx.tightened = False
         return True
 
 
@@ -166,11 +234,13 @@ class Fixer:
     def __init__(self, world, dock_xy, detectors=(), walker: Optional[Walker] = None, arm: Optional[ArmSkill] = None,
                  gas_at: Optional[Callable] = None, tighten: Optional[Callable[[str, int], object]] = None,
                  wind: Optional[Wind] = None, stands: Optional[dict] = None, perception=None, localizer=None,
-                 config: Optional[FixerConfig] = None, leak_config: Optional[LeakConfig] = None, robot: str = FIXER):
+                 config: Optional[FixerConfig] = None, leak_config: Optional[LeakConfig] = None, robot: str = FIXER,
+                 on_step: Optional[Callable[["Fixer"], None]] = None):
+        self.on_step = on_step
         self.id = robot
         self.cfg = config or FixerConfig()
         self.lcfg = leak_config or LeakConfig()
-        self.flanges = {fid: s.geom for fid, s in world.flanges.items()}
+        self.flanges = {fid: getattr(s, "geom", s) for fid, s in world.flanges.items()}
         self.gas_at = gas_at or world.gas_at
         self.tighten = tighten or getattr(world, "tighten", None)
         self.detectors = {d.id: d for d in detectors}
@@ -190,12 +260,13 @@ class Fixer:
         self.target: Optional[str] = None
         self.sensor: Optional[str] = None
         self.torquing: Optional[tuple[str, int]] = None
+        self.tightened = False
         self.backoff = False
         self.alert: Optional[dict] = None
         self.alerts: list[dict] = []
         self.reports: list[dict] = []
         self.log: list[dict] = []
-        self.onboard_lel = self._read()
+        self.onboard_lel = 0.0
         self._reset_sniff()
 
     def _reset_sniff(self) -> None:
@@ -224,6 +295,8 @@ class Fixer:
     def stand(self, fid: str) -> np.ndarray:
         if fid in self.stands:
             return self.stands[fid]
+        if hasattr(self.arm, "stand"):
+            return self.arm.stand(self.flanges[fid])[0]
         g = self.flanges[fid]
         n = g.normal[:2]
         d = unit(n) if float(np.linalg.norm(n)) > 0.5 else unit(self.dock - g.center[:2])
@@ -304,6 +377,8 @@ class Fixer:
 
     def step(self, dt: float) -> None:
         self.t += dt
+        if self.on_step is not None:
+            self.on_step(self)
         self.onboard_lel = self._read()
         if self.state not in (DOCKED, RETREATING) and self.onboard_lel >= self.cfg.stop_lel:
             self._retreat(f"sniffer {self.onboard_lel:.0f} %LEL >= stop {self.cfg.stop_lel:.0f}")
@@ -357,6 +432,10 @@ class Fixer:
         r = float(np.linalg.norm(off))
         if r > self.cfg.sniff_radius_m:
             nxt = home + off / r * self.cfg.sniff_radius_m
+        c = self.flanges[self.target].center[:2]
+        gap = float(np.linalg.norm(nxt - c))
+        if gap < self.cfg.sniff_min_m:
+            nxt = c + (nxt - c) / max(gap, 1e-6) * self.cfg.sniff_min_m
         self.walker.go(nxt)
         self.caption = (f"sniff {self.seeker.mode.lower()} at {self.target}: {self.onboard_lel:.1f} %LEL "
                         f"(peak {self.peak_lel:.1f})")
@@ -412,12 +491,15 @@ class Fixer:
     def _run_inner(self, dt: float) -> None:
         if self.torquing is not None:
             r = self.arm.step(dt)
-            if r == "running":
-                return
             fid, k = self.torquing
+            if not self.tightened and r != "failed" and (getattr(self.arm, "torqued", False) or r == "done"):
+                self.tightened = True
+                if self.tighten is not None:
+                    self.tighten(fid, k)
+            if r == "running":
+                self.caption = f"re-torque bolt #{k} at {fid}: {getattr(self.arm, 'phase', None) or 'arm moving'}"
+                return
             self.torquing = None
-            if r == "done" and self.tighten is not None:
-                self.tighten(fid, k)
             self.caption = f"bolt #{k} {'re-torqued' if r == 'done' else 'tool slipped'}: verify"
         self.debt -= dt
         for _ in range(16):
@@ -498,10 +580,51 @@ class Fixer:
             ev["repaired"] = list(self.inner.repaired)
             if self.torquing is not None:
                 ev["bolt"] = self.torquing[1]
+                ev["arm_phase"] = self.arm_phase
             elif self.inner.target_bolt is not None:
                 ev["bolt"] = self.inner.target_bolt
         return ev
 
+    @property
+    def arm_phase(self) -> Optional[str]:
+        return getattr(self.arm, "phase", None) if self.torquing is not None else None
+
+    @property
+    def arm_q(self) -> Optional[dict]:
+        if self.torquing is not None:
+            return getattr(self.arm, "q", None)
+        if self.target is not None and self.state in (SNIFF, INSPECT, VERIFY) and hasattr(self.arm, "sniff_q"):
+            return self.arm.sniff_q(self.flanges[self.target])
+        return None
+
     def status(self) -> dict:
         return {"state": self.state, "job": self.job, "target": self.target, "pos": self.evidence["xy"],
                 "sniffer_lel": self.onboard_lel, "caption": self.caption}
+
+
+def from_scenario(sc, dock_xy, walker: Optional[Walker] = None, arm: Optional[ArmSkill] = None,
+                  sniff_z: Optional[float] = None, **kw) -> Fixer:
+    from policy.leak.mock import LeakPerception
+    from policy.leak.world import LeakWorld
+
+    mirror = LeakWorld(list(sc.flanges.values()))
+    arm = arm or RetorqueArm()
+    box: dict = {}
+
+    def sync(fx: Fixer) -> None:
+        mirror.flanges[sc.leak_flange].angles[sc.bolt] = sc.bolt_angle(fx.t)
+
+    def tighten(fid: str, bolt: int) -> None:
+        if fid == sc.leak_flange and hasattr(sc, "fix"):
+            sc.fix(box["fx"].t)
+
+    def gas_at(p) -> float:
+        q = np.asarray(p, float).copy()
+        if sniff_z is not None:
+            q[2] = sniff_z
+        return sc.gas_frac(q, box["fx"].t)
+
+    fx = Fixer(sc, dock_xy, sc.detectors, walker=walker, arm=arm, gas_at=gas_at, tighten=tighten,
+               perception=LeakPerception(mirror), on_step=sync, **kw)
+    box["fx"] = fx
+    return fx
