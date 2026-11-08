@@ -45,32 +45,36 @@ def _up(p, dz: float) -> Vec3:
     return (float(p[0]), float(p[1]), float(p[2] + dz))
 
 
-RIG_CORNERS = [(x, y, z) for x in (-37.0, 37.5) for y in (-39.0, 27.4) for z in (18.0, 42.5)] + [(20.0, 20.0, 81.3)]
 ORBIT = (-62.0, 18.0, 23.0, 26.0)
 
 
-def frames(eye, target, focal: float, pts, margin: float = 30.0) -> bool:
-    cam = look_at(eye, target, focal, APERTURE, W, H)
-    return all(z > 0 and margin <= u <= W - margin and margin <= v <= H - margin
-               for u, v, z in (project(cam, p) for p in pts))
-
-
 RIG_DECK = [(x, y, z) for x in (-37.0, 37.5) for y in (-39.0, 27.4) for z in (18.0, 42.5)]
-RIG_FILL = 0.675
+RIG_TOPS = [(-62.6, 8.0, 82.5), (-25.6, 8.0, 41.6), (15.0, 15.0, 81.3), (25.0, 25.0, 81.3), (15.0, 25.0, 81.3),
+            (25.0, 15.0, 81.3)]
+RIG_KEEP = [p for p in RIG_DECK if p[2] > 40.0] + RIG_TOPS
+ORBIT_TARGET = (1.0, 4.0, 52.0)
+EDGE = 0.05
 
 
-def width_fraction(eye, focal: float, pts=RIG_DECK) -> float:
-    cam = look_at(eye, RIG_CENTER, focal, APERTURE, W, H)
+def width_fraction(eye, focal: float, pts=RIG_DECK, target=ORBIT_TARGET) -> float:
+    cam = look_at(eye, target, focal, APERTURE, W, H)
     us = [project(cam, p)[0] for p in pts]
     return (max(us) - min(us)) / W
 
 
-def rig_radius(az0: float, sweep: float, el: float, focal: float, fill: float = RIG_FILL) -> float:
-    lo, hi = 20.0, 600.0
+def inside_edges(eye, target, focal: float, pts, edge: float = EDGE) -> bool:
+    cam = look_at(eye, target, focal, APERTURE, W, H)
+    return all(z > 0 and edge * W <= u <= (1 - edge) * W and edge * H <= v <= (1 - edge) * H
+               for u, v, z in (project(cam, p) for p in pts))
+
+
+def rig_radius(az0: float, sweep: float, el: float, focal: float) -> float:
+    lo, hi = 20.0, 900.0
     for _ in range(40):
         d = (lo + hi) / 2
-        wide = width_fraction(spherical(RIG_CENTER, d, az0 + sweep / 2, el), focal) > fill
-        lo, hi = (d, hi) if wide else (lo, d)
+        ok = all(inside_edges(spherical(ORBIT_TARGET, d, az0 + sweep * k / 16, el), ORBIT_TARGET, focal, RIG_KEEP)
+                 for k in range(17))
+        lo, hi = (lo, d) if ok else (d, hi)
     return hi
 
 
@@ -79,7 +83,7 @@ RIG_RADIUS = rig_radius(*ORBIT)
 
 def rig_orbit(u: float) -> tuple[Vec3, Vec3, float]:
     az0, sweep, el, focal = ORBIT
-    return spherical(RIG_CENTER, RIG_RADIUS, az0 + sweep * ease(u), el), RIG_CENTER, focal
+    return spherical(ORBIT_TARGET, RIG_RADIUS, az0 + sweep * ease(u), el), ORBIT_TARGET, focal
 
 
 def control_push(u: float) -> tuple[Vec3, Vec3, float]:

@@ -3,8 +3,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from integration.film_camera import (CONTROL_ROOM, DEFAULT_FILM_SCENE, RIG_DECK, apply_usd_pose, frames, rig_orbit,
-                                     view, width_fraction)
+from integration.film_camera import (CONTROL_ROOM, DEFAULT_FILM_SCENE, RIG_KEEP, apply_usd_pose, inside_edges,
+                                     rig_orbit, view, width_fraction)
 from integration.film_edl import FilmBeats, camera_at_film, default_track, edl, to_json
 from integration.fleet_camera import DEFAULT_SCENE
 from rig.camera import project
@@ -89,11 +89,12 @@ def test_the_camera_is_continuous_inside_every_shot():
     assert 15.0 <= abs(ang[-1] - ang[0]) <= 20.0
 
 
-def test_the_rig_fills_two_thirds_of_the_frame_in_the_orbit():
-    for u in np.linspace(0, 1, 9):
+def test_the_whole_rig_with_flare_and_derrick_stays_inside_the_orbit():
+    for u in np.linspace(0, 1, 25):
         e, g, f = rig_orbit(u)
-        assert 0.6 <= width_fraction(e, f) <= 0.75
-        assert frames(e, g, f, [p for p in RIG_DECK if p[2] > 40.0], margin=0.0)
+        assert 0.58 <= width_fraction(e, f) <= 0.75
+        assert inside_edges(e, g, f, RIG_KEEP, 0.05)
+        assert inside_edges(e, g, f, [(-62.6, 8.0, 82.5), (20.0, 20.0, 81.3)], 0.05)
 
 
 def test_the_walk_back_tracks_both_robots_from_low_and_oblique():
