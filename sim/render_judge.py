@@ -30,6 +30,7 @@ ap.add_argument("--look", default="offline")
 ap.add_argument("--weather", default="")
 ap.add_argument("--weather-at", type=float, default=0.0)
 ap.add_argument("--set-time", default="")
+ap.add_argument("--zoom-at", default="")
 args = ap.parse_args()
 os.environ["RIG_QUALITY"] = args.quality
 
@@ -77,6 +78,8 @@ meta = json.loads((Path("/rig/sim/output") / "rig_merged_meta.json").read_text()
 zoom = ZoomPath(wide_target=tuple(meta["zoom"]["wide_target"]), close_target=tuple(meta["zoom"]["close_target"]))
 VIEWS["repair"] = zoom.at(zoom.orbit_s + zoom.descend_s + 1.0)
 VIEWS["approach"] = zoom.at(zoom.orbit_s + 0.62 * zoom.descend_s)
+for zt in filter(None, args.zoom_at.split(",")):
+    VIEWS[f"z{zt}"] = zoom.at(float(zt))
 cam = UsdGeom.Camera.Define(stage, "/World/Judge/Cam")
 cam.CreateClippingRangeAttr(Gf.Vec2f(0.05, 60000))
 cam.CreateHorizontalApertureAttr(20.955)

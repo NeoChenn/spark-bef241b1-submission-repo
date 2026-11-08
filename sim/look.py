@@ -34,10 +34,21 @@ TONEMAP = {
     "/rtx/pathtracing/fractionalCutoutOpacity": True,
     "/rtx/post/histogram/enabled": False,
 }
+BLOOM_CUTOFF = 6.0
+SUN_DISC = {"distance": 5000.0, "radius": 70.0, "color": (1.0, 0.62, 0.32), "gain": 60.0}
+
+
+def sun_direction(rotate_xyz) -> tuple:
+    x, _, z = (math.radians(a) for a in rotate_xyz)
+    travel = np.array([-math.sin(z) * math.sin(x), math.cos(z) * math.sin(x), -math.cos(x)])
+    return tuple(float(v) for v in -travel)
+
+
 def bloom(scale: float) -> dict:
     return {"/rtx/post/lensFlares/enabled": True, "/rtx/post/lensFlares/physicalSettings": False,
             "/rtx/post/lensFlares/flareScale": scale, "/rtx/post/lensFlares/anisoFlareWeight": 0.0,
-            "/rtx/post/lensFlares/haloFlareWeight": 0.0, "/rtx/post/lensFlares/isotropicFlareWeight": 0.5}
+            "/rtx/post/lensFlares/haloFlareWeight": 0.0, "/rtx/post/lensFlares/isotropicFlareWeight": 0.4,
+            "/rtx/post/lensFlares/cutoffPoint": [BLOOM_CUTOFF] * 3, "/rtx/post/lensFlares/cutoffFuzziness": 0.8}
 
 
 GRADE = {"contrast": 0.3, "toe": 1.15, "lift": (0.0, 0.002, 0.004), "shadow": (-0.03, 0.008, 0.035),

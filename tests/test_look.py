@@ -113,3 +113,17 @@ def test_dusk_grade_warmer_highlights():
 def test_dusk_exposure_darkens_far_hazy_views_and_lifts_close_ones():
     assert look.view_look("wide", 250.0, True, "dusk")["ev"] < look.view_look("wide", 250.0, True)["ev"]
     assert look.view_look("repair", 1.9, True, "dusk")["ev"] > look.view_look("repair", 1.9, True)["ev"]
+
+
+def test_sun_direction_points_at_sky_source():
+    d = look.sun_direction((85.0, 0.0, 205.0))
+    assert np.linalg.norm(d) == pytest.approx(1.0)
+    assert 0.05 < d[2] < 0.12
+    az = np.degrees(np.arctan2(d[1], d[0])) % 360
+    assert az == pytest.approx(115.0, abs=1.0)
+    assert look.sun_direction((0.0, 0.0, 0.0))[2] == pytest.approx(1.0)
+
+
+def test_bloom_threshold_raised():
+    b = look.bloom(0.1)
+    assert b["/rtx/post/lensFlares/cutoffPoint"] == [look.BLOOM_CUTOFF] * 3
