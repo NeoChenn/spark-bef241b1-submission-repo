@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from rig.web.server import create_app, default_fleet
 with TestClient(create_app(sim_port=0, fleet=default_fleet())) as c:
     out = {p: c.get(p).status_code for p in ("/api/fleet", "/api/fleet/map")}
+    out["mock"] = [c.get(p).status_code for p in ("/api/mock", "/api/mock/shot/1", "/api/mock/shot/3")]
     out["bench"] = sorted(b["name"] for b in c.get("/api/bench").json())
     import policy.fleet
     from rig.web.server import default_control
@@ -58,6 +59,7 @@ def test_web_image_serves_fleet_and_bench(tmp_path, fleet):
     got = json.loads(out.stdout.strip().splitlines()[-1])
     assert got["/api/fleet"] == 200 and got["/api/fleet/map"] == 200 and got["from_image"]
     assert {"orch", "detect", "safety", "scrub"} <= set(got["bench"])
+    assert got["mock"] == [200, 200, 200]
     assert got["control"] == "ControlCentre"
     if fleet == "judges":
         assert {"control", "gas", "fleet", "robots", "caption", "sensors", "orchestrator"} <= set(got["mission"])
