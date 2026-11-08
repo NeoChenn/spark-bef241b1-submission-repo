@@ -63,21 +63,3 @@ def inside(eye, spec: dict, margin: float = 1.15) -> bool:
     if h <= 0 or h >= spec["length"]:
         return False
     return float(np.linalg.norm(rel - h * w)) < h * math.tan(math.radians(spec["angle"])) * margin
-
-
-def smooth(e0: float, e1: float, x):
-    t = np.clip((x - e0) / (e1 - e0), 0.0, 1.0)
-    return t * t * (3 - 2 * t)
-
-
-def alpha(points, normals, s, eye, spec: dict, t: float = 0.0) -> np.ndarray:
-    if inside(eye, spec):
-        return np.zeros(len(points))
-    view = np.asarray(eye, float) - points
-    d = np.linalg.norm(view, axis=-1)
-    facing = np.abs(np.einsum("ij,ij->i", normals, view / np.maximum(d, 1e-6)[:, None]))
-    along = smooth(0.0, 0.08, s) * (1 - s) ** 1.3 * smooth(1.0, 0.7, s)
-    near = smooth(2.0, 8.0, d)
-    p = points * 0.35
-    motes = 0.82 + 0.18 * np.sin(p[:, 0] + 0.7 * t) * np.sin(p[:, 1] * 1.3 - 0.5 * t) * np.sin(p[:, 2] * 0.9 + 1.1 * t)
-    return np.clip(facing ** 1.5 * along * near * motes, 0.0, 1.0)

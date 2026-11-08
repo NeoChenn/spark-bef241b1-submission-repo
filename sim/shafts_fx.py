@@ -15,7 +15,7 @@ PRESENCE = 0.3
 GAIN = 2.0
 
 
-def _material(stage, name: str, tint, gain: float):
+def _material(stage, name: str, tint, gain: float, sp: dict):
     path = f"{ROOT}/Looks/{name}"
     mat = UsdShade.Material.Define(stage, path)
     sh = UsdShade.Shader.Define(stage, f"{path}/shader")
@@ -24,6 +24,12 @@ def _material(stage, name: str, tint, gain: float):
     sh.CreateInput("tint", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*map(float, tint)))
     sh.CreateInput("gain", Sdf.ValueTypeNames.Float).Set(float(gain))
     sh.CreateInput("presence", Sdf.ValueTypeNames.Float).Set(PRESENCE)
+    sh.CreateInput("apex", Sdf.ValueTypeNames.Float3).Set(Gf.Vec3f(*sp["apex"]))
+    sh.CreateInput("axis", Sdf.ValueTypeNames.Float3).Set(Gf.Vec3f(*sp["aim"]))
+    sh.CreateInput("length", Sdf.ValueTypeNames.Float).Set(sp["length"])
+    for k in ("visible", "time"):
+        sh.CreateInput(k, Sdf.ValueTypeNames.Float).Set(0.0)
+    sh.CreateInput("eye", Sdf.ValueTypeNames.Float3).Set(Gf.Vec3f(0.0, 0.0, 0.0))
     out = sh.CreateOutput("out", Sdf.ValueTypeNames.Token)
     mat.CreateSurfaceOutput("mdl").ConnectToSource(out)
     mat.CreateSurfaceOutput().ConnectToSource(out)
@@ -38,7 +44,7 @@ class Shafts:
             return
         UsdGeom.Scope.Define(stage, ROOT)
         for i, sp in enumerate(specs):
-            pts, nrm, s, counts, idx = shafts.cone(sp)
+            pts, nrm, _, counts, idx = shafts.cone(sp)
             m = UsdGeom.Mesh.Define(stage, f"{ROOT}/cone_{i}")
             m.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
             m.CreateNormalsAttr(Vt.Vec3fArray.FromNumpy(nrm.astype(np.float32)))
@@ -50,16 +56,15 @@ class Shafts:
             for flag in ("doNotCastShadows", "invisibleToSecondaryRays"):
                 m.GetPrim().CreateAttribute(f"primvars:{flag}", Sdf.ValueTypeNames.Bool).Set(True)
             tint = kelvin_rgb(look.KELVIN.get(sp["kelvin"], sp["kelvin"]))
-            mat = _material(stage, f"cone_{i}", tint, gain * sp["gain"])
-            st = UsdGeom.PrimvarsAPI(m).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex)
-            st.Set(Vt.Vec2fArray.FromNumpy(np.zeros((len(pts), 2), np.float32)))
+            mat = _material(stage, f"cone_{i}", tint, gain * sp["gain"], sp)
             UsdShade.MaterialBindingAPI.Apply(m.GetPrim()).Bind(mat)
-            self.items.append((m, sp, pts, nrm, s, st))
+            self.items.append((m, sp, UsdShade.Shader(stage.GetPrimAtPath(f"{ROOT}/Looks/cone_{i}/shader"))))
 
     def update(self, eye, t: float) -> None:
-        for _, sp, pts, nrm, s, st in self.items:
-            a = shafts.alpha(pts, nrm, s, eye, sp, t)
-            st.Set(Vt.Vec2fArray.FromNumpy(np.stack((a, np.zeros_like(a)), -1).astype(np.float32)))
+        for _, sp, sh in self.items:
+            sh.GetInput("eye").Set(Gf.Vec3f(*map(float, eye)))
+            sh.GetInput("time").Set(float(t))
+            sh.GetInput("visible").Set(0.0 if shafts.inside(eye, sp) else 1.0)
 
     def show(self, on: bool) -> None:
         for m, *_ in self.items:

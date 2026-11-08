@@ -38,26 +38,11 @@ def test_cone_geometry():
     assert np.allclose(np.linalg.norm(nrm, axis=-1), 1.0)
 
 
-def test_inside_hides_cone():
+def test_inside_cone():
     sp = shafts.specs(AREA, SEA, "offline")[3]
-    pts, nrm, s, _, _ = shafts.cone(sp)
-    inner = np.add(sp["apex"], np.multiply(sp["aim"], sp["length"] * 0.5))
-    assert shafts.inside(inner, sp)
-    assert not shafts.alpha(pts, nrm, s, inner, sp).any()
-    far = (200.0, -200.0, 10.0)
-    assert not shafts.inside(far, sp)
-    a = shafts.alpha(pts, nrm, s, far, sp, 1.0)
-    assert a.max() > 0.2 and a.min() >= 0.0 and a.max() <= 1.0
-
-
-def test_alpha_fades_at_apex_floor_and_silhouette():
-    sp = shafts.specs(AREA, SEA, "offline")[3]
-    pts, nrm, s, _, _ = shafts.cone(sp, segs=64, rings=12)
-    a = shafts.alpha(pts, nrm, s, (200.0, -31.0, 8.0), sp)
-    assert a[s == 0].max() == 0.0 and a[s == 1].max() == 0.0
-    mid = (s > 0.2) & (s < 0.5)
-    facing = np.abs(nrm[mid] @ np.array([1.0, 0.0, 0.0]))
-    assert a[mid][facing > 0.8].mean() > 3 * a[mid][facing < 0.1].mean()
+    assert shafts.inside(np.add(sp["apex"], np.multiply(sp["aim"], sp["length"] * 0.5)), sp)
+    assert not shafts.inside((200.0, -200.0, 10.0), sp)
+    assert not shafts.inside(np.add(sp["apex"], (0.0, 0.0, 3.0)), sp)
 
 
 def test_usd_cones_update_and_hide():
@@ -73,10 +58,10 @@ def test_usd_cones_update_and_hide():
     fx = shafts_fx.Shafts(stage, "offline", AREA, SEA)
     assert len(fx.items) == len(shafts.PICKS)
     fx.update((200.0, -200.0, 10.0), 0.5)
-    st = np.array(fx.items[3][5].Get())
-    assert 0 < st[:, 0].max() <= 1 and not st[:, 1].any()
+    sh = fx.items[3][2]
+    assert sh.GetInput("visible").Get() == 1.0 and tuple(sh.GetInput("eye").Get()) == (200.0, -200.0, 10.0)
     fx.update(np.add(fx.items[3][1]["apex"], np.multiply(fx.items[3][1]["aim"], 5.0)), 0.5)
-    assert not np.array(fx.items[3][5].Get()).any()
+    assert sh.GetInput("visible").Get() == 0.0
     assert shafts_fx.MDL.exists()
     fx.show(False)
     assert UsdGeom.Imageable(fx.items[0][0]).ComputeVisibility() == "invisible"
