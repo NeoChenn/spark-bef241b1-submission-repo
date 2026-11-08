@@ -130,6 +130,7 @@ class Seek:
         self.done = False
         self.err_m = None
         self.path = [self.pos.round(2).tolist()]
+        self.lels = [0.0]
 
     def tip_xy(self) -> np.ndarray:
         return self.pos + TIP_M * np.array([math.cos(self.yaw), math.sin(self.yaw)])
@@ -168,6 +169,7 @@ class Seek:
         self.pos = self._clamp(self.pos + v * dt)
         if len(self.path) < 600 and np.linalg.norm(self.pos - np.asarray(self.path[-1])) > 0.3:
             self.path.append(self.pos.round(2).tolist())
+            self.lels.append(round(float(self.trunk.lel), 4))
         close = float(np.linalg.norm(self.pos - src)) < FOUND_M
         sure = sig < 0.6 and float(np.linalg.norm(self.pos - m)) < 0.7 and self.hits > 5
         if close or sure or self.t > SEEK_MAX_S:

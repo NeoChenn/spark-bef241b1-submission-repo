@@ -234,6 +234,14 @@ def test_rain_and_fog_together_slow_and_blind_the_planner():
     assert f.hz.weather["label"] == "calm" and f.hz.weather["time"] == "dusk"
 
 
+def test_drop_at_a_robot_that_is_not_moving_lands_beside_it():
+    f, rm = make([("R1", "dock", 1.0)])
+    f.step()
+    f.event("drop_obstacle", kind="puddle", at="R1")
+    ob = next(iter(f.hz.obstacles.values()))
+    assert 1.0 < math.dist(ob["xyz"], by_id(f, "R1").pos) < 4.5
+
+
 def test_drum_pose_extrapolates_spins_and_faces_its_motion():
     from rig.sim.obstacle_math import DRUM_R, drum_pose, puddle_edge
     mv = {"p": (0.0, 0.0, 20.0), "v": (0.0, 1.0), "t": 10.0, "from": (0.0, 0.0, 20.0)}
