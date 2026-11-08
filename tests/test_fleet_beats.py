@@ -58,7 +58,7 @@ def run_stuck(link, until=16.0, value=15.0):
 def stuck_replay(tmp_path):
     return replay(tmp_path,
                   rec("G-F6:UNVERIFIED", [("hold", SCRUBBER, "F6"), ("go_check", FIXER, "F6")]),
-                  rec("G-F6:PIPE_SENSOR_FAULT", [("log_sensor_fault", "", "G-F6")], verdict=PIPE_SENSOR_FAULT),
+                  rec("G-F6:PIPE_SENSOR_FAULT", [("log_sensor_fault", "supv", "G-F6")], verdict=PIPE_SENSOR_FAULT),
                   rec("zone:clear", [("resume_rust", SCRUBBER, "")], verdict="OK"))
 
 
