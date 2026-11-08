@@ -151,3 +151,33 @@ def test_end_to_end_on_a_looped_rig_still(tmp_path):
     assert s["height"] == 1080 and s["width"] == 1920
     s, dur = probe(r["teaser"])
     assert abs(dur - av.TEASER_S) < 0.2 and Path(r["gif"]).stat().st_size > 0
+
+
+def test_tick_headers_resample_to_frame_times():
+    hs = [{"t": round(0.1 * i, 1), "robots": [{"id": "unit1", "state": "SCRUB" if i < 5 else "HOLD"}]}
+          for i in range(10)]
+    out = av.align(hs, 30, 30)
+    assert len(out) == 30 and out[14]["robots"][0]["state"] == "SCRUB" and out[15]["robots"][0]["state"] == "HOLD"
+    assert av.align(hs, 10, 30) is hs
+
+
+def test_camera_adapter_and_overlay_header_shape(monkeypatch):
+    import sys, types
+    seen = {}
+
+    def labels(t, beats, positions=None, w=1280, h=720):
+        seen.update(t=t, beats=beats, positions=positions, size=(w, h))
+        return {"unit1": {"mode": "on", "x": 10.0, "y": 20.0, "angle": None},
+                "unit2": {"mode": "behind", "x": None, "y": None, "angle": None}}
+
+    beats_cls = types.SimpleNamespace(from_events=lambda e: ("beats", tuple(e)))
+    fc = types.SimpleNamespace(Beats=beats_cls, DEFAULT_BEATS="default", labels=labels)
+    monkeypatch.setitem(sys.modules, "integration.fleet_camera", fc)
+    fn = av.camera_labels({"amber": 16.0})
+    h = {"t": 3.5, "robots": [{"id": "unit1", "world_pos": [1, 2, 3]}, {"id": "unit2", "pose": [4, 5, 6, 0.1]}]}
+    out = fn(h, (1920, 1080))
+    assert out == {"unit1": {"xy": (10.0, 20.0), "visible": True, "mode": "on"}}
+    assert seen == {"t": 3.5, "beats": ("beats", ("amber",)), "positions": {"unit1": (1.0, 2.0, 3.0),
+                                                                            "unit2": (4.0, 5.0, 6.0)},
+                    "size": (1920, 1080)}
+    assert set(av.for_overlay(h)["robots"]) == {"unit1", "unit2"} and isinstance(h["robots"], list)

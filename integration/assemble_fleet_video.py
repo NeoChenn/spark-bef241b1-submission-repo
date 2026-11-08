@@ -47,9 +47,18 @@ def read_jsonl(path) -> list[dict]:
 
 
 def load_headers(path) -> list[dict]:
-    rows = [r for r in read_jsonl(path) if r.get("type", "frame") == "frame"]
+    rows = [r for r in read_jsonl(path) if r.get("type", "frame") in ("frame", "tick")]
     key = next((k for k in ("seq", "frame") if all(k in r for r in rows)), None)
-    return sorted(rows, key=lambda r: r[key]) if key else rows
+    return sorted(rows, key=lambda r: r[key]) if key else sorted(rows, key=lambda r: float(r.get("t", 0.0)))
+
+
+def align(headers: list[dict], n: int, fps_in: float) -> list[dict]:
+    if n == len(headers) or not headers:
+        return headers
+    ts = np.array([float(h.get("t", 0.0)) for h in headers])
+    at = ts[0] + np.arange(n) / fps_in
+    k = np.clip(np.searchsorted(ts, at + 1e-6, side="right") - 1, 0, len(headers) - 1)
+    return [dict(headers[j], t=round(float(t), 4)) for j, t in zip(k, at)]
 
 
 def times(headers: list[dict], fps_in: float) -> np.ndarray:
@@ -206,17 +215,26 @@ def probe_size(path) -> tuple[int, int]:
 IMAGES = (".png", ".jpg", ".jpeg")
 
 
-def source(path, n: int) -> tuple[Iterator[np.ndarray], tuple[int, int]]:
+def count_frames(path) -> int:
+    out = subprocess.run([shutil.which("ffprobe") or "/opt/homebrew/bin/ffprobe", "-v", "error", "-select_streams",
+                          "v:0", "-count_packets", "-show_entries", "stream=nb_read_packets", "-of", "csv=p=0",
+                          str(path)], capture_output=True, text=True, check=True).stdout.strip()
+    return int(out.split(",")[0])
+
+
+def source(path, headers: list[dict], fps_in: float) -> tuple[Iterator[np.ndarray], tuple[int, int], int]:
     p = Path(path)
     if p.is_dir():
         files = sorted(f for f in p.iterdir() if f.suffix.lower() in IMAGES)
         w, h = Image.open(files[0]).size
-        return (np.asarray(Image.open(f).convert("RGB")) for f in files), (w, h)
+        return (np.asarray(Image.open(f).convert("RGB")) for f in files), (w, h), len(files)
     if p.suffix.lower() in IMAGES:
         still = np.asarray(Image.open(p).convert("RGB"))
-        return (still for _ in range(n)), (still.shape[1], still.shape[0])
+        ts = [float(x.get("t", 0.0)) for x in headers]
+        n = len(headers) if "seq" in headers[0] else int(round((ts[-1] - ts[0]) * fps_in)) + 1
+        return (still for _ in range(n)), (still.shape[1], still.shape[0]), n
     w, h = probe_size(p)
-    return frames_from_video(p, w, h), (w, h)
+    return frames_from_video(p, w, h), (w, h), count_frames(p)
 
 
 def pick(frames: Iterator[np.ndarray], idx: list[int]) -> Iterator[tuple[int, int, np.ndarray]]:
@@ -241,14 +259,48 @@ def resolve(spec: Optional[str]) -> Optional[Callable]:
         return None
 
 
-def labels_for(fn: Optional[Callable], header: dict, size: tuple[int, int]) -> list:
+def labels_for(fn: Optional[Callable], header: dict, size: tuple[int, int]) -> dict:
     if fn is None:
-        return []
+        return {}
     try:
-        return list(fn(header, size) or [])
+        return fn(header, size) or {}
     except Exception as e:
         print(f"assemble: labels failed at t={header.get('t')}: {e}", file=sys.stderr)
-        return []
+        return {}
+
+
+def world_positions(header: dict) -> dict:
+    rs = header.get("robots") or []
+    items = rs.items() if isinstance(rs, dict) else ((r.get("id"), r) for r in rs if isinstance(r, dict))
+    out = {}
+    for rid, r in items:
+        p = r.get("world_pos") or r.get("pos") or (r.get("pose")[:3] if isinstance(r.get("pose"), list) else None)
+        if rid and p is not None and len(p) >= 3:
+            out[rid] = tuple(float(c) for c in p[:3])
+    return out
+
+
+def camera_labels(beats=None) -> Optional[Callable]:
+    try:
+        fc = importlib.import_module("integration.fleet_camera")
+    except ImportError as e:
+        print(f"assemble: integration.fleet_camera unavailable ({e}); no labels", file=sys.stderr)
+        return None
+    b = fc.Beats.from_events(beats) if beats else fc.DEFAULT_BEATS
+
+    def fn(header: dict, size: tuple[int, int]) -> dict:
+        raw = fc.labels(float(header.get("t", 0.0)), b, positions=world_positions(header) or None, w=size[0],
+                        h=size[1])
+        return {k: {"xy": (a["x"], a["y"]), "visible": a.get("mode") in ("on", "edge"), "mode": a.get("mode")}
+                for k, a in raw.items() if a.get("x") is not None}
+    return fn
+
+
+def for_overlay(header: dict) -> dict:
+    rs = header.get("robots")
+    if isinstance(rs, list):
+        header = dict(header, robots={r["id"]: r for r in rs if isinstance(r, dict) and r.get("id")})
+    return header
 
 
 def badge(img: np.ndarray, top: float, alpha: float) -> np.ndarray:
@@ -386,16 +438,17 @@ def _even(f: np.ndarray) -> np.ndarray:
 
 
 def assemble(raw, headers_path, out, timeline_path=None, fps_in: float = FPS,
-             overlay: Optional[str] = "policy.fleet_overlay:draw",
-             labels: Optional[str] = "integration.fleet_camera:labels", hd: bool = True, teaser: bool = True,
-             budget_s: float = BUDGET_S) -> dict:
+             overlay: Optional[str] = "policy.fleet_overlay:draw", labels: Optional[str] = None, beats=None,
+             hd: bool = True, teaser: bool = True, budget_s: float = BUDGET_S) -> dict:
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     headers = load_headers(headers_path)
     timeline = read_jsonl(timeline_path) if timeline_path else []
+    frames, size, n = source(raw, headers, fps_in)
+    headers = align(headers, n, fps_in)
     p = plan(headers, fps_in, timeline, budget_s)
-    draw, label_fn = resolve(overlay), resolve(labels)
-    frames, size = source(raw, len(headers))
+    draw = resolve(overlay)
+    label_fn = resolve(labels) if labels else camera_labels(beats)
     w, h = size[0] - size[0] % 2, size[1] - size[1] % 2
     enc = writer(out, w, h)
     stats = key_numbers(timeline, headers)
@@ -406,7 +459,7 @@ def assemble(raw, headers_path, out, timeline_path=None, fps_in: float = FPS,
     for k, i, f in pick(frames, p.idx):
         f = _even(f)
         hd_ = dict(headers[i], timelapse=round(float(p.speed[i]), 2))
-        g = draw(f.copy(), hd_, labels_for(label_fn, hd_, (w, h))) if draw else f
+        g = draw(f.copy(), for_overlay(hd_), labels_for(label_fn, hd_, (w, h))) if draw else f
         g = np.ascontiguousarray(np.asarray(g, np.uint8)[:h, :w, :3])
         g = badge(g, p.top, (p.speed[i] - 1.0) / max(p.top - 1.0, 1e-6))
         if last is None:
@@ -457,12 +510,14 @@ def main(argv=None) -> int:
     ap.add_argument("--out", default="runs/fleet/fleet_video.mp4")
     ap.add_argument("--fps-in", type=float, default=FPS)
     ap.add_argument("--overlay", default="policy.fleet_overlay:draw")
-    ap.add_argument("--labels", default="integration.fleet_camera:labels")
+    ap.add_argument("--labels", default="", help="module:fn(header, size); default projects via fleet_camera")
+    ap.add_argument("--beats", help="JSON of fleet_camera beat times (dict or event list) used for the render")
     ap.add_argument("--budget", type=float, default=BUDGET_S)
     ap.add_argument("--no-hd", action="store_true")
     ap.add_argument("--no-teaser", action="store_true")
     a = ap.parse_args(argv)
-    r = assemble(a.raw, a.headers, a.out, a.timeline, a.fps_in, a.overlay or None, a.labels or None,
+    beats = json.loads(Path(a.beats).read_text()) if a.beats else None
+    r = assemble(a.raw, a.headers, a.out, a.timeline, a.fps_in, a.overlay or None, a.labels or None, beats,
                  not a.no_hd, not a.no_teaser, a.budget)
     print(json.dumps(r, indent=2))
     return 0 if r["seconds"] <= a.budget + 1e-6 else 1
