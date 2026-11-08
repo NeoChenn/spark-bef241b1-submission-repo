@@ -26,8 +26,9 @@ def _axes(ax):
 
 def reroute_plot(reroutes: list[dict], path: str) -> None:
     rows = [r for r in reroutes if r["extra_m"] is not None]
-    labels = [f"t={r['t']:.0f}s {r['robot']}\n{r['cause'][:22]}" for r in rows]
-    fig, axs = plt.subplots(1, 2, figsize=(11, 3.8), facecolor=SURFACE)
+    short = lambda c: c.replace("weather ", "").replace(" + cleared", " + clear").replace("cleared", "clear")
+    labels = [f"t={r['t']:.0f}s {r['robot']}\n{short(r['cause'])}" for r in rows]
+    fig, axs = plt.subplots(1, 2, figsize=(12, 3.8), facecolor=SURFACE)
     for ax, key, unit, title in ((axs[0], "extra_m", "m", "Extra distance per re-route"),
                                  (axs[1], "extra_s", "s", "Extra time per re-route")):
         _axes(ax)
@@ -52,8 +53,8 @@ def completion_plot(curves: dict[str, list[tuple[float, int]]], path: str, event
         ts = [0.0] + [t for t, _ in pts]
         ns = [0] + [n for _, n in pts]
         ax.step(ts, ns, where="post", color=col, linewidth=2, label=name)
-        ax.annotate(f"{name}: {ns[-1]} jobs by {ts[-1]:.0f} s", (ts[-1], ns[-1]), xytext=(4, -14 if col == S2 else 4),
-                    textcoords="offset points", fontsize=8, color=INK)
+        ax.annotate(f"{name}: {ns[-1]} jobs by {ts[-1]:.0f} s", (ts[-1], ns[-1]), xytext=(-6, 6),
+                    textcoords="offset points", fontsize=8, color=INK, ha="right")
     for t, label in events:
         ax.axvline(t, color=INK2, linewidth=0.8, linestyle=(0, (3, 3)))
         ax.annotate(label, (t, ax.get_ylim()[1]), xytext=(3, -12), textcoords="offset points", fontsize=7,
@@ -61,7 +62,7 @@ def completion_plot(curves: dict[str, list[tuple[float, int]]], path: str, event
     ax.set_xlabel("mission time (s)", color=INK2, fontsize=9)
     ax.set_ylabel("jobs completed", color=INK2, fontsize=9)
     ax.set_title("Task completion with and without disturbances", loc="left", fontsize=11, color=INK)
-    ax.legend(frameon=False, fontsize=8, labelcolor=INK2, loc="upper left")
+    ax.legend(frameon=False, fontsize=8, labelcolor=INK2, loc="lower right")
     fig.tight_layout()
     fig.savefig(path, dpi=150, facecolor=SURFACE)
     plt.close(fig)
