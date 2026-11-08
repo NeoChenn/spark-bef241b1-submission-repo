@@ -330,6 +330,7 @@ def render(args, meta, full):
 
     env, policy = load_policy(make_env(cfg, render=True), args.ckpt)
     base = env.unwrapped
+    stage = omni.usd.get_context().get_stage()
     print("[walk] colliders off", n_off, "look", look_info, "origin", base.scene.env_origins[0].tolist(), flush=True)
     settings = carb.settings.get_settings()
     for key, val in cfg.sim.render.carb_settings.items():
@@ -347,7 +348,8 @@ def render(args, meta, full):
         apply_payload(base, torch.zeros(1, device=base.device))
     dt = base.step_dt
     obs = env.get_observations()
-    hero = np.array([gx + 2.6, gy + 2.4, 1.75]), np.array([gx - 0.2, gy - 0.35, 0.75])
+    hero = np.array([gx + 2.6, gy + 2.1, 1.75]), np.array([gx, gy - 0.25, 0.8])
+    stage.GetPrimAtPath(cfg.viewer.cam_prim_path).GetAttribute("focalLength").Set(args.focal)
     cam_eye, cam_look = None, None
     frames, log, t, t_stop, alpha = [], [], 0.0, None, 0.0
     os.makedirs(args.out_dir, exist_ok=True)
@@ -424,7 +426,8 @@ def main(argv):
     p.add_argument("--eval_s", type=float, default=60.0)
     p.add_argument("--patrol_s", type=float, default=150.0)
     p.add_argument("--v_max", type=float, default=1.0)
-    p.add_argument("--start_back", type=float, default=13.0)
+    p.add_argument("--start_back", type=float, default=10.0)
+    p.add_argument("--focal", type=float, default=24.0)
     p.add_argument("--blend_m", type=float, default=4.0)
     p.add_argument("--settle_s", type=float, default=0.6)
     p.add_argument("--deploy_s", type=float, default=3.0)
