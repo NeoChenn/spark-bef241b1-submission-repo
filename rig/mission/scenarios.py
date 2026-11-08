@@ -735,6 +735,7 @@ class Scenarios:
         self.asked: set = set()
         self.last_i = None
         self.leak0 = (dict(mission.leak.flanges), mission.leak.bounds)
+        self.hid = False
 
     def alert(self, kind: str, text: str) -> dict:
         self.seq += 1
@@ -767,7 +768,10 @@ class Scenarios:
         self.hazard("set_weather", **s.weather)
         m.sim_out.append({"name": "set_weather", "args": dict(s.weather)})
         m.sim_out.extend(s.sim_events() if hasattr(s, "sim_events") else [])
-        m.sim_out.append({"name": "hide_props", "args": {"paths": list(getattr(s, "hide", ()))}})
+        paths = list(getattr(s, "hide", ()))
+        if paths or self.hid:
+            m.sim_out.append({"name": "hide_props", "args": {"paths": paths}})
+        self.hid = bool(paths)
         self.selected = s.main or None
         self.camera = {"mode": "flyby" if sid == "flyby" else (getattr(s, "cam", None) or {}).get("mode", "deck"), "robot": None, "view": None}
         self.last_i = None

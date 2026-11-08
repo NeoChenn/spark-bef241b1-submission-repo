@@ -38,7 +38,7 @@ def test_demo_geometry_matches_the_rig_meta():
 def test_rust_demo_walks_in_scrubs_clean_and_parks():
     m, sim, (r0, r1, r2, r3, r4, r5) = run([0.0, 3.0, 5.5, 8.0, 12.0, 20.0])
     assert m.scen.cur.id == "demo_rust" and m.scen.selected == "R1"
-    assert sim == ["set_weather", "camera", "select", "views", "hide_props"]
+    assert sim == ["set_weather", "camera", "select", "views"]
     s = m.scen.cur
     assert r0["pose"]["x"] == pytest.approx(s.start[0], abs=0.01) and r0["rust"] == 1.0
     assert r1["state"] == "TRANSIT" and s.start[0] < r1["pose"]["x"] < s.stop[0]

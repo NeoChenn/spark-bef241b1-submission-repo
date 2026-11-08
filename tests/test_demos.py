@@ -57,7 +57,7 @@ def test_demo_start_queues_camera_select_and_head_cam():
     m = MissionLive(obs=False)
     m.event("demo", {"id": "can"})
     names = [e["name"] for e in m.take_sim()]
-    assert names == ["set_weather", "camera", "select", "views", "hide_props"]
+    assert names == ["set_weather", "camera", "select", "views"]
 
 
 def test_rollout_can_starts_on_deck_and_ends_in_tote():
@@ -104,6 +104,7 @@ def test_gas_demo_searches_isolates_and_stops_the_vapour():
     assert [x["kind"] for x in m.scen.alerts] == ["gas_alarm"]
     m.event("demo", {"id": "reset"})
     assert "F5" in m.leak.flanges and "F7" not in m.leak.flanges
+    assert {"name": "hide_props", "args": {"paths": []}} in m.take_sim()
 
 
 def test_valve_turn_reaches_and_spins_the_wrist():
