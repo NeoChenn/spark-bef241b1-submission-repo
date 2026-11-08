@@ -7,8 +7,12 @@ import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
 import assets_hero
+import look
 import ocean
+import hero_mat
+import ocean_fx
 import photoreal
+import structure
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
 from topside_frames import aim_from_down, kelvin_rgb
 
@@ -430,10 +434,70 @@ def build_stage() -> Usd.Stage:
     return stage
 
 
+def _relight(prim, f: dict) -> None:
+    light = prim.GetChild("light") if prim else None
+    if not light:
+        return
+    color = kelvin_rgb(f["kelvin"])
+    light.GetAttribute("inputs:color").Set(Gf.Vec3f(*color))
+    light.GetAttribute("inputs:intensity").Set(f["intensity"])
+    base = light.GetAttribute("spark:baseIntensity")
+    if base.IsValid():
+        base.Set(f["intensity"])
+    if f.get("cone") is not None:
+        shaping = UsdLux.ShapingAPI.Apply(light)
+        shaping.CreateShapingConeAngleAttr().Set(f["cone"])
+        shaping.CreateShapingConeSoftnessAttr().Set(f["softness"])
+        shaping.CreateShapingFocusAttr().Set(f["focus"])
+    lens = prim.GetChild("lens")
+    if lens:
+        glow = emissive_material(prim.GetStage(), f"fixture_glow_{int(f['kelvin'])}", tuple(c * 40 for c in color))
+        UsdShade.MaterialBindingAPI.Apply(lens).Bind(glow)
+
+
+def relight(stage) -> None:
+    lamps = "/World/Cinematic/Lamps"
+    for index, (kind, _, kelvin, intensity, _, shape) in enumerate(AREA_LIGHTS):
+        _relight(stage.GetPrimAtPath(f"{lamps}/area_{500 + index:03d}"),
+                 look.fixture(kind, kelvin, intensity, shape if kind == "spot" else None))
+    for index, (_, kelvin, intensity) in enumerate(BULBS):
+        _relight(stage.GetPrimAtPath(f"{lamps}/lamp_{index:03d}"), look.fixture("bulb", kelvin, intensity))
+
+
+def add_work_light(stage) -> None:
+    meta = OUTPUT / "rig_merged_meta.json"
+    if not stage.GetPrimAtPath("/World/Pipes/damage_patch") or not meta.exists():
+        return
+    import json
+
+    k = look.WORK_LIGHT
+    pos, aim = look.work_light(json.loads(meta.read_text())["world"]["damage"]["position_m"])
+    root = UsdGeom.Xform.Define(stage, "/World/Cinematic/Lamps/work_light")
+    w, x, y, z = aim_from_down(aim)
+    m = Gf.Matrix4d().SetRotate(Gf.Quatd(float(w), float(x), float(y), float(z)))
+    m.SetTranslateOnly(Gf.Vec3d(*pos))
+    root.MakeMatrixXform().Set(m)
+    light = UsdLux.SphereLight.Define(stage, "/World/Cinematic/Lamps/work_light/light")
+    light.CreateRadiusAttr().Set(k["radius"])
+    light.CreateIntensityAttr().Set(k["intensity"])
+    light.CreateColorAttr().Set(Gf.Vec3f(*kelvin_rgb(k["kelvin"])))
+    shaping = UsdLux.ShapingAPI.Apply(light.GetPrim())
+    shaping.CreateShapingConeAngleAttr().Set(k["cone"])
+    shaping.CreateShapingConeSoftnessAttr().Set(k["softness"])
+    base = light.GetPrim().GetAttribute("spark:baseIntensity")
+    if base.IsValid():
+        base.Set(k["intensity"])
+
+
 def apply_preset(stage, name: str) -> None:
     preset = PRESETS[name]
     assets_hero.attach(stage)
     photoreal.apply(stage, name)
+    structure.apply(stage, name)
+    hero_mat.apply(stage, name)
+    ocean_fx.apply(stage, name, preset["wave_height"])
+    relight(stage)
+    add_work_light(stage)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))
     dome.GetIntensityAttr().Set(preset["dome"])
@@ -531,3 +595,4 @@ def animate_ocean(stage, rest, distance, time: float, height: float) -> None:
     mesh.GetNormalsAttr().Set(Vt.Vec3fArray.FromNumpy(normals.astype(np.float32)))
     scroll = UsdShade.Shader.Get(stage, "/World/Looks/cinematic_sea/scroll")
     scroll.GetInput("translation").Set(Gf.Vec2f(time * 0.035, time * 0.02))
+    ocean_fx.animate(stage, time)

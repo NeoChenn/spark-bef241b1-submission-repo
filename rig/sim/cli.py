@@ -21,6 +21,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--weather", default=os.environ.get("RIG_WEATHER", ""), help="calm|wind|rain|fog|storm, a 0..1 level, or a schedule like calm@0,storm@20")
     p.add_argument("--wind-dir", type=float, default=None, help="wind direction in degrees (towards), as set_weather")
     p.add_argument("--gust", type=float, default=None, help="gust strength, as set_weather (18 = nominal)")
+    p.add_argument("--look", default=os.environ.get("RIG_LOOK", "live"), choices=["none", "live", "offline"], help="with --cinematic: sim/look.py exposure, tonemap and grade tier")
     p.add_argument("--lens", action="store_true", help="with --atmos: rain droplets on the camera lens")
     p.add_argument("--orbit-target", type=vec3, default=None, metavar="X,Y,Z", help="orbit target; default = view ray hit on --orbit-z")
     p.add_argument("--orbit-radius", type=float, default=0.0, help="orbit radius; 0 = keep the camera's distance")
