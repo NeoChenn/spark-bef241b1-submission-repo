@@ -170,8 +170,10 @@ def make_obstacles(stage, cine_update, args):
     return scene, tick
 
 
-def handle_event(scene, event: dict) -> None:
+def handle_event(scene, event: dict, atm=None) -> None:
     name, args = event.get("name"), event.get("args") or {}
+    if atm is not None and name == "set_weather":
+        atm.set_weather(**{k: args[k] for k in ("level", "wind_dir", "gust") if k in args})
     if scene is not None and name == "fleet":
         scene.sync(args)
         return
@@ -327,7 +329,7 @@ def main() -> None:
             if leak and ev["name"] == "gas_leak":
                 print(f"rig sim: gas_leak {ev['args']} -> {leak.event(ev['args'])}", flush=True)
             else:
-                handle_event(obstacles, ev)
+                handle_event(obstacles, ev, atm)
         for tick in tickers:
             tick(t)
         rep.orchestrator.step(rt_subframes=args.subframes, pause_timeline=False, wait_for_render=args.wait_render)

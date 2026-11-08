@@ -52,3 +52,28 @@ def test_grade_neutral_is_identity_and_lift_brightens_shadows():
     assert np.array_equal(grade(img), img)
     dark = np.full((4, 4, 3), 10, np.uint8)
     assert grade(dark, lift=(0.05, 0.04, 0.03)).mean() > dark.mean()
+
+
+def test_height_fog_thickens_with_distance_and_settles_low():
+    from rig.camera import look_at
+    from rig.post import height_fog
+
+    cam = look_at((0.0, -100.0, 5.0), (0.0, 0.0, 5.0), 24.0, w=64, h=36)
+    img = np.zeros((36, 64, 3), np.uint8)
+    near = np.full((36, 64), 20.0, np.float32)
+    far = np.full((36, 64), 800.0, np.float32)
+    a = height_fog(img, near, cam, density=0.01, falloff=15.0, colour=(200, 200, 200))
+    b = height_fog(img, far, cam, density=0.01, falloff=15.0, colour=(200, 200, 200))
+    assert b.mean() > a.mean() > 0
+    assert b[-1].mean() > b[0].mean()
+    assert np.array_equal(height_fog(img, far, cam, density=0.0, falloff=15.0, colour=(200, 200, 200)), img)
+
+
+def test_god_rays_spread_light_from_source():
+    from rig.post import god_rays
+
+    img = np.zeros((90, 160, 3), np.uint8)
+    img[40:50, 75:85] = 255
+    out = god_rays(img, (80, 45), strength=0.8, samples=24)
+    assert out[45, 88].sum() > 30 and out[10, 10].sum() == 0
+    assert np.array_equal(god_rays(img, (80, 45), strength=0.0), img)

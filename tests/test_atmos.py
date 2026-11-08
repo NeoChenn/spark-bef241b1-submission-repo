@@ -7,7 +7,6 @@ from sim.atmos import (
     KINDS,
     TIERS,
     Particles,
-    fog_cards,
     parse_schedule,
     schedule_at,
     streak_points,
@@ -63,16 +62,15 @@ def test_schedule_parse_and_lookup():
 def test_tiers_live_is_cheaper_than_offline():
     live, off = TIERS["live"], TIERS["offline"]
     assert live["rain"] < off["rain"] and live["embers"] < off["embers"]
-    assert live["fog_cards"] <= off["fog_cards"]
     assert off["width"] == 1920 and live["width"] == 1280
 
 
 def test_volumetric_settings_enable_media_and_scale_with_fog():
     calm = volumetric_settings("night", "live", weather_state("calm"))
     fog = volumetric_settings("night", "live", weather_state("fog"))
-    key = "/rtx/raytracing/inscattering/densityMult"
+    key = "/rtx/raytracing/inscattering/transmittanceMeasurementDistance"
     assert calm["/rtx/raytracing/globalVolumetricEffects/enabled"] is True
-    assert fog[key] > calm[key] > 0
+    assert 0 < fog[key] < calm[key]
     assert volumetric_settings("night", "offline", weather_state("calm"))["/rtx/raytracing/inscattering/depthSlices"] > calm[
         "/rtx/raytracing/inscattering/depthSlices"]
     assert len(calm["/rtx/raytracing/inscattering/transmittanceColor"]) == 3
@@ -138,15 +136,6 @@ def test_streak_points_two_per_particle_along_velocity():
     np.testing.assert_allclose(pts[2], [0.9, 1.0, 5.0])
 
 
-def test_fog_cards_low_and_wrap_while_drifting():
-    cards = fog_cards(12, radius=400.0, z=(2.0, 14.0), seed=5)
-    assert cards["centre"].shape == (12, 3)
-    assert (cards["centre"][:, 2] >= 2.0).all() and (cards["centre"][:, 2] <= 14.0).all()
-    moved = fog_cards(12, radius=400.0, z=(2.0, 14.0), seed=5, t=1e4, wind=(6.0, 0.0))
-    assert (np.hypot(moved["centre"][:, 0], moved["centre"][:, 1]) <= 400.0 * math.sqrt(2) + 1e-6).all()
-    assert not np.allclose(moved["centre"], cards["centre"])
-
-
 def test_soft_texture_fades_to_clear_edges():
     from sim.atmos import soft_texture
 
@@ -157,19 +146,44 @@ def test_soft_texture_fades_to_clear_edges():
     assert not np.array_equal(a, soft_texture(64, seed=2))
 
 
-def test_flow_usda_has_fire_steam_layers_and_wind():
-    from pxr import Sdf
+def test_billboard_quats_turn_minus_y_face_towards_eye():
+    from sim.atmos import billboard_quats
 
-    from sim.atmos import flow_usda
+    pos = np.array([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+    eyes = np.array([0.0, -50.0, 0.0])
+    q = billboard_quats(pos, eyes)
+    assert q.shape == (3, 4)
+    np.testing.assert_allclose(np.linalg.norm(q, axis=1), 1.0)
 
-    text = flow_usda(flare=(-58.0, 8.0, 70.0), vents=[(0.0, 0.0, 40.0), (5.0, 5.0, 41.0)], wind=(6.0, -2.0), cell=0.3)
-    layer = Sdf.Layer.CreateAnonymous("f.usda")
-    assert layer.ImportFromString(text)
-    flame = layer.GetPrimAtPath("/Flow/flare")
-    assert flame.typeName == "FlowEmitterSphere"
-    assert flame.attributes["layer"].default == 0
-    assert [layer.GetPrimAtPath(f"/Flow/vent_{i}").attributes["layer"].default for i in range(2)] == [1, 1]
-    assert layer.GetPrimAtPath("/Flow/wind_0").attributes["velocity"].default == (6.0, -2.0, 0.0)
-    assert layer.GetPrimAtPath("/Flow/wind_0").attributes["allocationScale"].default == 0.0
-    assert layer.GetPrimAtPath("/Flow/sim_1").attributes["densityCellSize"].default == pytest.approx(0.3)
-    assert {p.typeName for p in layer.GetPrimAtPath("/Flow").nameChildren} >= {"FlowSimulate", "FlowOffscreen", "FlowRender"}
+    def rotate(qq, v):
+        w, x, y, z = qq
+        u = np.array([x, y, z])
+        return v + 2 * np.cross(u, np.cross(u, v) + w * v)
+
+    for p, qq in zip(pos, q):
+        to_eye = (eyes - p) / np.linalg.norm(eyes - p)
+        np.testing.assert_allclose(rotate(qq, np.array([0.0, -1.0, 0.0])), to_eye, atol=1e-6)
+    above = billboard_quats(np.zeros((1, 3)), np.array([0.0, -10.0, 10.0]))[0]
+    np.testing.assert_allclose(rotate(above, np.array([0.0, -1.0, 0.0])), np.array([0, -1, 1]) / np.sqrt(2), atol=1e-6)
+
+
+def test_fade_bucket_ramps_in_and_out():
+    from sim.atmos import fade_bucket
+
+    age = np.array([0.0, 0.5, 5.0, 9.9])
+    ttl = np.full(4, 10.0)
+    b = fade_bucket(age, ttl, 4)
+    assert b.dtype.kind == "i" and b.min() >= 0 and b.max() <= 3
+    assert b[2] == 3 and b[0] < b[2] and b[3] < b[2]
+
+
+def test_flow_overrides_retarget_preset_for_flare_and_vents():
+    from sim.atmos import flow_overrides
+
+    o = flow_overrides((-58.0, 8.0, 70.0), [(0.0, 0.0, 40.0), (5.0, 5.0, 41.0)], wind=(6.0, 0.0), cell=0.3)
+    assert o["flowEmitterSphere"]["position"] == (-58.0, 8.0, 70.0)
+    assert o["flowSimulate"]["densityCellSize"] == 0.3
+    assert o["flowSimulate/advection"]["gravity"][2] < 0 and o["flowSimulate/advection"]["gravity"][1] == 0
+    assert o["flowEmitterSphere"]["velocity"][0] > 0 and o["flowEmitterSphere"]["velocity"][2] > 0
+    assert [v["position"] for v in o["vents"]] == [(0.0, 0.0, 40.0), (5.0, 5.0, 41.0)]
+    assert all(v["fuel"] == 0 and v["smoke"] > 0 and v["layer"] == 0 for v in o["vents"])
