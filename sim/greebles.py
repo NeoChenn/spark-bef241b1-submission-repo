@@ -247,7 +247,6 @@ PRACTICAL_LIGHTS = (0, 3)
 SCENE_SOURCES = ((-10.8, -6.8, 4.5), (0.0, -5.2, 10.5), (-19.8, 9.8, 5.5))
 VIEW_EYES = ((3.0055, 7.2214, 2.5819), (6.5, 9.0, 4.5))
 FRAMING_POLE = (2.1, 6.4, 4.6)
-FRAMING_CHAIN = ((2.38, 6.3, 4.4), 2.1)
 
 
 def mirror_point(eye, src, deck: float = 0.0):

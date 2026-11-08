@@ -945,12 +945,7 @@ def framing(kit):
     for z in (0.9, 2.6):
         kit.seg(MAT["black"], "cyl", (x, y, z - 0.03), (x, y, z + 0.03), 0.44)
     kit.box(MAT["black"], (x, y, 0.015), (0.5, 0.5, 0.03))
-    (cx, cy, top), length = g.FRAMING_CHAIN
-    pts = np.array([(cx, cy, top - length * s) for s in np.linspace(0, 1, 30)]) + np.array([[0.04 * math.sin(s * 6), 0, 0] for s in np.linspace(0, 1, 30)])
-    for c, b in dg.chain_links(pts, 0.06):
-        q = Gf.Matrix3d(*b.T.reshape(-1).tolist()).ExtractRotation().GetQuat()
-        kit.add(MAT["black"], "link", c, (q.GetReal(), *q.GetImaginary()), (1.2, 1.2, 1.2))
-    kit.add(MAT["black"], "box", (cx, cy, top - length - 0.05), IDENT, (0.05, 0.05, 0.1))
+
 
 
 def drip_streaks(root):
