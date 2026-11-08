@@ -85,7 +85,7 @@ def run_gemini_mode(scen, cfg, model, key, mode, hold_s, thinking, spend, worker
 def latency_note(arms: dict) -> str:
     ppo = arms[LABELS["ppo"]]["decision_latency_ms"]["median"]
     gem = arms[LABELS["paused"]]["decision_latency_ms"]["median"]
-    return f"Decision latency: PPO {ppo:.3f} ms on CPU vs Gemini {gem / 1000:.1f} s per call (~{gem / ppo:,.0f}x slower)."
+    return f"Decision latency: PPO {ppo:.3f} ms on CPU vs Gemini {gem / 1000:.1f} s/call (~{gem / ppo:,.0f}x)."
 
 
 def chart(path, arms: dict, note: str):
@@ -98,8 +98,9 @@ def chart(path, arms: dict, note: str):
               {"title": "Rust removed (%/s of sim time)", "values": v("removed_pct_per_s"), "fmt": "{:.1f}"},
               {"title": "Decision latency, median (ms, log)",
                "values": {m: {"mean": arms[m]["decision_latency_ms"]["median"]} for m in methods}, "fmt": "{:.3g}", "log": True},
-              {"title": "Wall time per episode (s, log)",
-               "values": {m: {"mean": arms[m]["wall_s_per_episode"]} for m in methods}, "fmt": "{:.3g}", "log": True}]
+              {"title": "Wall time per 15 s episode (s, log)",
+               "values": {m: {"mean": arms[m]["sim_s_per_episode" if m == LABELS["realtime"] else "wall_s_per_episode"]}
+                          for m in methods}, "fmt": "{:.3g}", "log": True}]
     return bar_panels(path, "Scrub control: before RL vs after RL vs Gemini 4 Argon as the controller (CPU mock)",
                       methods, panels, latency_note(arms) + " " + note, colors=COLORS)
 
@@ -117,7 +118,7 @@ def table(arms: dict) -> list[str]:
         cost = a["api_cost_usd_per_episode"]
         rows.append(f"| {m} | {a['episodes']} | {fmt_ci(a['success'], True)} | {fmt_ci(a['success_within_ppo_time'], True)} | "
                     f"{fmt_ci(a['time_to_clean_s'])} | {100 * a['fraction_removed']['mean']:.1f}% | "
-                    f"{fmt_ci(a['removed_pct_per_s'])} | {ls} | {hz} | {calls} | {a['wall_s_per_episode']:.2f} | "
+                    f"{fmt_ci(a['removed_pct_per_s'])} | {ls} | {hz} | {calls} | {a['sim_s_per_episode' if m == LABELS['realtime'] else 'wall_s_per_episode']:.2f} | "
                     f"{'$0 (on robot)' if not cost else f'${cost:.3f}'} |")
     return rows
 
@@ -183,9 +184,8 @@ def render(sample: Path) -> dict:
     res = json.loads((sample / "scrub_gemini.json").read_text())
     arms = res["arms"]
     n = arms[LABELS["ppo"]]["episodes"]
-    note = (f"{n} identical seeded scenarios per arm, 95% CI. {res['model']} (thinking {res['thinking']}): unlimited = sim "
-            f"paused, {1 / res['hold_s_unlimited']:.0f} decisions per sim s; real time = sim runs during API latency. "
-            "Kinematic CPU mock, not PhysX.")
+    note = (f"n={n} same seeds, 95% CI. Unlimited = sim "
+            f"paused, {1 / res['hold_s_unlimited']:.0f} decisions/sim s. Real time = sim runs on during API latency.")
     chart(sample / "scrub_vs_gemini.png", arms, note)
     md = section(res)
     p = sample / "scrub.md"
