@@ -13,7 +13,7 @@ from rig.mission.gas import ALARM_LEL, FLOW_GS, INFOTAXIS, METHODS, GasLeak
 IDS = ("gas", "patrol", "repair", "flyby")
 NAMES = {"gas": "Gas leak", "patrol": "Deck patrol", "repair": "Pipe repair", "flyby": "Fly-by"}
 WEATHER = {"level": "rain", "time": "dusk", "rain": 0.8, "fog": 0.6, "wind_dir": 240.0}
-DEMO_WEATHER = {"level": "calm", "time": "dusk", "rain": 0.0, "fog": 0.0, "wind_dir": 240.0}
+DEMO_WEATHER = {"level": "rain", "time": "dusk", "rain": 0.35, "fog": 0.25, "wind_dir": 240.0}
 ALERTS_KEEP = 10
 OPEN = ("pending", "assigned", "active")
 BEAT_S = 6.0
