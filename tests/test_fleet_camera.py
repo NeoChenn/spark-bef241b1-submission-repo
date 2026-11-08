@@ -44,6 +44,11 @@ def test_beats_follow_the_scenario_script():
     assert b.push < b.amber and b.step_back > b.red and b.arrive < b.fixed and b.resume > b.green
     assert b.end - b.start <= 60.0
     assert Beats.from_events({"script": SCRIPT, "duration_s": 55.0}).end == 55.0
+    run = Beats.from_events({"beats": {"2_gf5_amber": 6.8, "2_gf5_red": 8.6, "3_unit1_held": 10.4,
+                                       "4_unit2_sniffs": 26.0, "4_gf5_green": 41.0, "5_resume_rust": 43.5,
+                                       "6_link_cut": None}})
+    assert (run.amber, run.red, run.step_back, run.arrive, run.green, run.resume) == (6.8, 8.6, 10.4, 26.0, 41.0, 43.5)
+    assert run.red < run.step_back < run.arrive < run.fixed < run.green < run.resume < run.spray < run.paint < run.end
     late = Beats.from_events({"amber": 12.0, "red": 14.0, "fixed": 38.0, "green": 44.0})
     detector = next(s for s in beat_spans(late) if s[0] == "detector")
     assert detector[1] < late.amber < late.red < detector[2]

@@ -20,7 +20,9 @@ TANGENT = 0.75
 TRUNK_Z = 42.82
 ALIASES = {"retorque_done": "fixed", "gas_clear": "green", "hold": "step_back", "retreat": "step_back",
            "resume_rust": "resume", "unit2_arrive": "arrive", "duration_s": "end", "SPRAY": "spray",
-           "PAINT": "paint", "spray_start": "spray", "paint_start": "paint"}
+           "PAINT": "paint", "spray_start": "spray", "paint_start": "paint", "2_gf5_amber": "amber",
+           "2_gf5_red": "red", "3_unit1_held": "step_back", "4_unit2_sniffs": "arrive", "4_gf5_green": "green",
+           "5_resume_rust": "resume"}
 RIG_BOXES = (
     ((11.15, -5.9, 43.45), (26.35, -5.6, 43.75)),
     ((15.5, -10.82, 43.28), (35.0, -10.58, 43.52)),
@@ -76,6 +78,8 @@ class Beats:
 
     @classmethod
     def from_events(cls, events) -> "Beats":
+        if isinstance(events, dict) and isinstance(events.get("beats"), dict):
+            events = events["beats"]
         if isinstance(events, dict) and "script" in events:
             events = [*events["script"], {"name": "end", "t": events.get("duration_s")}]
         if isinstance(events, dict):
@@ -96,7 +100,7 @@ class Beats:
         green = g("green", fixed + 6.2)
         resume = g("resume", green + 2.5)
         end = g("end", start + 60.0)
-        paint = g("paint", end - 10.0)
+        paint = g("paint", max(end - 10.0, resume + 5.0))
         return cls(start, g("push", max(start + 0.5, amber - 6.25)), amber, red, g("step_back", red + 1.5),
                    g("arrive", fixed - 7.0), fixed, green, resume, g("spray", max(resume + 1.0, paint - 5.0)), paint, end)
 
