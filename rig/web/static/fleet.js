@@ -1,9 +1,10 @@
 (() => {
   const H = HUD, { S, esc } = H;
   const VERDICT = { LEAK_CONFIRMED: ["stop", "Leak confirmed"], PIPE_SENSOR_FAULT: ["warn", "Sensor fault"], LEAK_UNSEEN_BY_FIXED: ["stop", "Leak unseen by fixed"], UNVERIFIED: ["warn", "Unverified"], OK: ["ok", "OK"] };
-  const CMD = { reroute: ["warn", "Reroute", "block"], go_check: ["act", "Go check", "target"], fix_leak: ["act", "Fix leak", "bolt"], retreat: ["stop", "Retreat", "warn"], resume_rust: ["ok", "Resume rust", "check"], log_sensor_fault: ["warn", "Log sensor fault", "tag"], hold: ["warn", "Hold", "hand"] };
+  const CMD = { hold_for_crew: ["warn", "Hold for crew", "hand"], reroute: ["warn", "Reroute", "block"], go_check: ["act", "Go check", "target"], fix_leak: ["act", "Fix leak", "bolt"], retreat: ["stop", "Retreat", "warn"], resume_rust: ["ok", "Resume rust", "check"], log_sensor_fault: ["warn", "Log sensor fault", "tag"], hold: ["warn", "Hold", "hand"] };
   const WHO = { unit1: "Unit 1", unit2: "Unit 2", supv: "Supervisor" };
   const who = (id) => WHO[id] || (S.robots.find((r) => r.id === id)?.name || id || "").split(" ·")[0];
+  const aim = (c) => (c.finding === "OBJECT_ON_WALKWAY" || c.kind === "hold_for_crew" ? "object on walkway" : c.target ? "→ " + c.target : "");
   const lel = (v) => (v == null ? "—" : (+v).toFixed(1));
   const ledOf = (v) => (v == null ? "grey" : v >= 10 ? "red" : v >= 5 ? "amber" : "green");
   Object.assign(S, { findings: {}, commands: [], tickets: [], argonCalls: [] });
@@ -14,8 +15,8 @@
     } else if (r.type === "command") {
       S.commands.unshift(r); S.commands.length = Math.min(S.commands.length, 8);
       const [tone, label, ic] = CMD[r.kind] || ["act", r.kind, "bolt"], why = String(r.reason || "").split(" | ")[0];
-      if (!quiet) H.addLog({ t: r.t, from: r.source === "edge" ? "Edge rule" : "Argon", to: r.kind.toUpperCase(), reason: `${who(r.robot)}${r.target ? " → " + r.target : ""} · ${r.reason}` });
-      H.banner(tone === "act" ? "run" : tone, `Argon · ${label} · ${who(r.robot)}`, why, ic, 3600);
+      relog(r, r.kind.toUpperCase(), r.kind.toUpperCase(), `${who(r.robot)} · ${aim(r)}${r.source === "edge" ? " (edge rule)" : ""} · ${r.reason}`, r.source === "edge" ? "Edge rule" : "Argon");
+      H.banner(tone === "act" ? "run" : tone, `${r.source === "edge" ? "Edge rule" : "Argon"} · ${label} · ${who(r.robot)}`, why, ic, 3600);
     } else if (r.type === "ticket") {
       S.tickets.push(r);
       if (!quiet) H.addLog({ t: r.t, from: "Argon", to: "TICKET", reason: `${r.id} · ${r.sensor} · ${r.reason || "maintenance"}` });
@@ -26,7 +27,51 @@
       if (e) { Object.assign(e, { from: "Argon", to: "VETOED", reason }); S.logN++; } else H.addLog({ t: r.t, from: "Argon", to: "VETOED", reason });
       H.banner("warn", `Refused · Argon's ${label.toLowerCase()}`, r.why || "safety envelope", "block", 3600);
     } else if (r.type === "argon_call") { S.argonCall = r; S.argonCalls.push(r); }
+    else if (r.type === "scenario") scene(r, quiet);
+    else if (r.type === "object_report") relog(r, "OBJECT_REPORT", "OBJECT_REPORT", `${who(r.robot)} lidar: ${r.object === "box" ? "crate" : r.object} ${(+r.dist_m).toFixed(1)} m ahead · stopped and reported`, "Object report");
+    else if (r.type === "nav_event") nav(r);
   }
+  function relog(r, match, to, reason, from) {
+    const e = S.log.find((x) => +x.t === +r.t && x.to === match && !x._re);
+    if (e) { Object.assign(e, { to, reason, from: from || e.from, _re: 1 }); S.logN++; } else H.addLog({ t: r.t, from: from || "Scenario", to, reason, _re: 1 });
+  }
+  function scene(r, quiet) {
+    const what = r.kind || r.object || "object";
+    if (r.name === "object_dropped") {
+      S.crate = { xyz: r.xyz, size: r.size_m, kind: what };
+      relog(r, "CRATE", "CRATE_DROPPED", `${(r.size_m?.[0] ?? 0.5)} m ${what} dropped on ${who(r.robot)}'s walkway`);
+      H.banner("warn", `A ${what} on the walkway`, `Dropped in ${who(r.robot)}'s path`, "block", 3200);
+    } else if (r.name === "object_cleared") {
+      S.crate = null;
+      relog(r, "CRATE", "CRATE_CLEARED", `Deck crew cleared the ${what}`);
+      H.banner("ok", `${what[0].toUpperCase() + what.slice(1)} cleared`, `${who(r.robot)} can walk on`, "check", 2800);
+    } else if (r.name === "push") {
+      S.pushAt = +r.t;
+      relog(r, "PUSH", "PUSH", `${who(r.robot)} shoved ${(+r.offset_m).toFixed(1)} m sideways`);
+      H.banner("warn", `Push · ${who(r.robot)}`, `${(+r.offset_m).toFixed(1)} m lateral shove`, "hand", 3000);
+    } else if (!quiet) H.addLog({ t: r.t, from: "Scenario", to: String(r.name).toUpperCase(), reason: r.flange || r.detector || "" });
+  }
+  function nav(r) {
+    const lat = r.lateral_m != null ? Math.abs(+r.lateral_m).toFixed(2) + " m" : "";
+    if (r.event === "object_on_walkway") H.banner("warn", `${who(r.robot)} · lidar stop`, `Object ${(+r.ahead_m).toFixed(1)} m ahead · reporting it`, "eye", 3000);
+    else if (r.event === "cleared") H.addLog({ t: r.t, from: "Nav", to: "WALKS_ON", reason: `${who(r.robot)} path clear, walking on` });
+    else if (r.event === "off_path" && S.pushAt != null && +r.t - S.pushAt < 5) H.addLog({ t: r.t, from: "Nav", to: "OFF_PATH", reason: `${who(r.robot)} ${lat} off its path` });
+    else if (r.event === "recovered" && S.pushAt != null && +r.t - S.pushAt < 5) {
+      H.addLog({ t: r.t, from: "Nav", to: "BACK_ON_PATH", reason: `${who(r.robot)} back within ${lat} of its path` });
+      H.banner("ok", `${who(r.robot)} back on its path`, `Recovered ${(+r.t - S.pushAt).toFixed(1)} s after the push`, "check", 3000);
+    }
+  }
+  const NAV = (r) => { const n = r.nav || {}, lid = n.lidar_min, lat = Math.abs(n.lateral_m || 0);
+    return `<div class="nv"><b>${esc(who(r.id))}</b><span class="dim">${esc(H.nice(n.state || ""))}</span><em class="tnum">${n.vx != null ? (+n.vx).toFixed(2) + " m/s" : ""}</em>`
+      + `<span>Lidar</span><i><s style="width:${lid == null ? 0 : Math.min(100, (lid / 2) * 100)}%;background:${lid != null && lid < 0.6 ? "var(--warn)" : ""}"></s></i><em class="tnum">${lid == null ? "—" : (+lid).toFixed(2) + " m"}</em>`
+      + `<span>Off path</span><i><s style="width:${Math.min(100, (lat / 0.5) * 100)}%;background:${lat > 0.25 ? "var(--warn)" : ""}"></s><u></u></i><em class="tnum">${lat.toFixed(2)} m</em></div>`; };
+  H.panel({ id: "nav", title: "Navigation", meta: "lidar · path", icon: "map", key: "j", edge: "right", priority: 75, keys: "lidar obstacle crate push path lateral walkway",
+    phases: (S) => S.robots.some((r) => r.nav && (r.nav.state === "REPORT" || Math.abs(r.nav.lateral_m || 0) > 0.25)),
+    desc: "Each robot's walking state, nearest lidar return and how far it is off its planned path (0.25 m mark).", hint: (S) => (S.crate ? "Object on the walkway" : ""),
+    render(el, S) {
+      const html = S.robots.filter((r) => r.nav).map(NAV).join("") || `<p class="none">No navigation data in this run</p>`;
+      if (el._h !== html) { el._h = html; el.innerHTML = html; }
+    } });
   H.on((h) => {
     if (h.argon) S.argon = h.argon;
     if (h.detectors) S.detectors = h.detectors;
@@ -57,7 +102,7 @@
     return rows + (quiet.length ? `<p class="fu-quiet"><i class="led green"></i>${esc(quiet.join(", "))} · OK</p>` : "");
   }
   const cmdRow = (c) => { const [tone, label] = CMD[c.kind] || ["act", c.kind]; const [sit, why] = String(c.reason || "").split(" | ");
-    return `<li class="${c.vetoed ? "vetoed" : ""}"><span class="tnum">${c.t != null ? (+c.t).toFixed(1) : ""}</span><b class="${c.vetoed ? "stop" : tone}">${c.vetoed ? `<s>${esc(label)}</s> refused` : esc(label)}</b><span>${esc(who(c.robot))}${c.target ? " → " + esc(c.target) : ""}<small>${c.vetoed ? "Edge veto · " + esc(c.why || "") : `${c.source === "edge" ? "Edge rule" : "Argon " + Math.round((c.confidence ?? 1) * 100)} · ${esc(why || sit)}`}</small></span></li>`; };
+    return `<li class="${c.vetoed ? "vetoed" : ""}"><span class="tnum">${c.t != null ? (+c.t).toFixed(1) : ""}</span><b class="${c.vetoed ? "stop" : tone}">${c.vetoed ? `<s>${esc(label)}</s> refused` : esc(label)}</b><span>${esc(who(c.robot))} ${esc(aim(c))}<small>${c.vetoed ? "Edge veto · " + esc(c.why || "") : `${c.source === "edge" ? "Edge rule" : "Argon " + Math.round((c.confidence ?? 1) * 100)} · ${esc(why || sit)}`}</small></span></li>`; };
   H.fusion = (S) => {
     if (!live()) return "";
     const a = S.argon || {}, cmds = S.commands.length ? S.commands : a.last_command ? [a.last_command] : [];

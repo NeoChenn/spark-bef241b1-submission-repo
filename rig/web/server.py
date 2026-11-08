@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import gzip
 import json
 import os
 from collections import deque
@@ -7,7 +8,7 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -28,7 +29,7 @@ STALE_AFTER_S = 2.0
 BLACK_MEAN = 3.0
 HEADER_FILES = ("headers.jsonl", "header.jsonl", "hud.jsonl", "frames.jsonl", "live_hud.jsonl", "live_hud_1hz.jsonl")
 TIMELINE_FILES = ("timeline.jsonl", "live_timeline.jsonl")
-TIMELINE_TYPES = ("finding", "argon_request", "argon_call", "command", "ticket", "vetoed")
+TIMELINE_TYPES = ("finding", "argon_request", "argon_call", "command", "ticket", "vetoed", "object_report", "nav_event", "scenario")
 
 
 def fleet_session(p: Path) -> dict | None:
@@ -216,7 +217,7 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
         return FileResponse(fleet_file("fleet_map.json"), media_type="application/json")
 
     @app.get("/api/replay")
-    async def replay(path: str) -> dict:
+    async def replay(path: str, request: Request) -> Response:
         from rig.replay import load_timeline, timeline_session
         p = (root / path).resolve()
         if not any(p.is_relative_to(root / d) for d in ("runs", "runs_sample")):
@@ -225,7 +226,11 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             raise HTTPException(404, f"no {path}")
         fleet = await asyncio.to_thread(fleet_session, p)
         if fleet is not None:
-            return fleet
+            body = await asyncio.to_thread(lambda: json.dumps(fleet, separators=(",", ":")).encode())
+            if "gzip" not in request.headers.get("accept-encoding", ""):
+                return Response(body, media_type="application/json")
+            body = await asyncio.to_thread(gzip.compress, body, 5)
+            return Response(body, media_type="application/json", headers={"Content-Encoding": "gzip"})
         if not p.is_file():
             raise HTTPException(404, f"no replay in {path}")
         return await asyncio.to_thread(lambda: timeline_session(load_timeline(p)))

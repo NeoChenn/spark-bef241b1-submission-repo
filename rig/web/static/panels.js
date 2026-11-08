@@ -223,6 +223,11 @@
       else { g.strokeStyle = z.kind === "person" ? COL.warn : "rgba(235,235,245,.4)"; g.setLineDash(z.kind === "no_fly" ? [4, 4] : []); g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, r, 0, 7); g.stroke(); g.setLineDash([]); }
       if (z.kind === "person") { g.fillStyle = COL.warn; g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill(); }
     });
+    if (S.crate?.xyz) {
+      const x = X(S.crate.xyz[0]), y = Y(S.crate.xyz[1]), sz = Math.max(big ? 8 : 6, (S.crate.size?.[0] || 0.5) * k);
+      g.fillStyle = COL.warn; g.fillRect(x - sz / 2, y - sz / 2, sz, sz);
+      g.fillStyle = "rgba(255,255,255,.85)"; g.font = `500 ${big ? 11 : 10}px -apple-system, system-ui, sans-serif`; g.textAlign = "center"; g.fillText(S.crate.kind || "object", x, y + sz / 2 + (big ? 13 : 11)); g.textAlign = "start";
+    }
     const hits = [];
     rs.forEach((r) => {
       if (deck !== "all" && r.deck !== deck && r.deck !== "air") return;
