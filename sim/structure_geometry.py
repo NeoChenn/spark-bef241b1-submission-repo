@@ -266,3 +266,30 @@ def walkway(p, q, z: float, width: float = 1.0, hang_to: float | None = None, sp
             if hang_to is not None:
                 hangers.append((base, base * (1, 1, 0) + (0, 0, hang_to)))
     return {"deck": ((p + q) / 2, angle, (length, width, 0.06)), "rails": rails, "posts": posts, "hangers": hangers}
+
+
+def caged_ladder(base, z0: float, z1: float, angle_deg: float, half: float = 0.23, pitch: float = 0.3,
+                 cage_from: float = 2.4, hoop_pitch: float = 0.9) -> dict:
+    u, t = _frame(angle_deg)
+    b = np.array((base[0], base[1], 0.0))
+    rails = [(b + t * s + (0, 0, z0), b + t * s + (0, 0, z1 + 1.0)) for s in (-half, half)]
+    rungs = [(b - t * half + (0, 0, z), b + t * half + (0, 0, z)) for z in np.arange(z0 + pitch, z1 - 1e-6, pitch)]
+    hoops = [(b + (0, 0, z), angle_deg) for z in np.arange(z0 + cage_from, z1 + 1.0, hoop_pitch)]
+    straps = []
+    if hoops:
+        top = z1 + 1.0
+        for off in (u * 0.42, t * 0.42, -t * 0.42):
+            straps.append((b + off + (0, 0, z0 + cage_from), b + off + (0, 0, top)))
+    return {"rails": rails, "rungs": rungs, "hoops": hoops, "straps": straps}
+
+
+def edge_detail(p, q, z0: float, height: float, outward, spacing: float = 2.2) -> dict:
+    p, q = np.array((p[0], p[1]), float), np.array((q[0], q[1]), float)
+    d = q - p
+    length = float(np.linalg.norm(d))
+    u = d / length
+    out = np.asarray(outward, float) * 0.06
+    angle = math.degrees(math.atan2(u[1], u[0]))
+    ribs = [(np.append(p + u * f + out, z0 + height / 2), angle) for f in np.arange(1.0, length - 0.5, spacing)]
+    strip = (np.append(p + out, z0 + height - 0.05), np.append(q + out, z0 + height - 0.05))
+    return {"ribs": ribs, "strip": strip, "size": (0.1, 0.14, height)}

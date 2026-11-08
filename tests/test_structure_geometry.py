@@ -145,3 +145,17 @@ def test_walkway_rails_and_hangers():
     assert np.allclose(centre, (5, 0, 16)) and math.isclose(angle, 0.0) and math.isclose(size[0], 10.0)
     assert len(w["rails"]) == 4 and len(w["posts"]) == 2 * 5
     assert all(math.isclose(b[2], 18.0) for _, b in w["hangers"])
+
+
+def test_caged_ladder_spans_levels():
+    l = sg.caged_ladder((1.0, 2.0), 31.25, 42.5, 0.0)
+    assert len(l["rails"]) == 2 and all(math.isclose(a[2], 31.25) and math.isclose(b[2], 43.5) for a, b in l["rails"])
+    assert len(l["rungs"]) == 37 and all(31.25 < a[2] < 42.5 for a, _ in l["rungs"])
+    assert l["hoops"][0][0][2] > 33.0 and len(l["straps"]) == 3
+
+
+def test_edge_detail_ribs_sit_outside():
+    e = sg.edge_detail((0, -37.5), (10, -37.5), 30.0, 1.25, (0, -1))
+    assert len(e["ribs"]) == 4
+    assert all(r[0][1] < -37.5 and math.isclose(r[0][2], 30.625) for r in e["ribs"])
+    assert math.isclose(e["strip"][0][2], 31.2)

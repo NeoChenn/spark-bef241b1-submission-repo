@@ -33,6 +33,18 @@ RISERS = (
     ((-100.0, 0.4), (-84.0, 0.3), (75.0, 0.32)),
     ((60.0, 0.4), (105.0, 0.32), (30.0, 0.55)),
 )
+KELVINS = (3200, 4300, 2700, 5000)
+LOWER, MIDDLE, TOP = 20.0, 31.25, 42.5
+STAIRS = (((6.0, -39.75), LOWER, MIDDLE, "x"), ((25.2, 8.0), LOWER, MIDDLE, "y"), ((2.0, -29.8), MIDDLE, TOP, "x"))
+LADDERS = (((37.75, -30.0), MIDDLE, 40.0, 0.0), ((37.75, 19.0), MIDDLE, 41.2, 0.0), ((14.0, -37.8), LOWER, MIDDLE, -90.0))
+EDGES = (
+    ((0.3, -37.5), (37.5, -37.5), 30.0, 1.25, (0.0, -1.0)),
+    ((37.5, -37.5), (37.5, 25.0), 30.0, 1.25, (1.0, 0.0)),
+    ((0.3, -27.64), (37.5, -27.64), 41.25, 1.25, (0.0, -1.0)),
+    ((37.5, -27.64), (37.5, 27.36), 41.25, 1.25, (1.0, 0.0)),
+)
+TOP_UNDERSIDE = ((0.3, -27.6), (25.3, -14.2), 41.25)
+FLOODS_CALM = ((150000.0, 2400), (110000.0, 4500), (70000.0, 3400))
 LIGHT_SPOTS = ((0.0, -17.5), (0.0, 17.5), (-17.5, 0.0), (17.5, 0.0), (-9.0, -9.0), (9.0, 9.0), (9.0, -26.0), (-9.0, 9.0))
 
 
@@ -61,7 +73,7 @@ def make_looks(stage) -> dict:
     shader = UsdShade.Shader.Define(stage, f"{s.LOOKS}/lamp/surface")
     shader.CreateIdAttr("UsdPreviewSurface")
     shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.1, 0.1, 0.1))
-    shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*(c * 40 for c in tf.kelvin_rgb(2200))))
+    shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*(c * 25 for c in tf.kelvin_rgb(3600))))
     lamp.CreateSurfaceOutput().ConnectToSource(shader.CreateOutput("surface", Sdf.ValueTypeNames.Token))
     looks["lamp"] = lamp
     return looks
@@ -81,6 +93,30 @@ def write_mesh(stage, path, m, material, double=False):
     if material is not None:
         UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material)
     return mesh
+
+
+def add_light(stage, path, pos, intensity, kelvin, cone, softness=0.5):
+    light = UsdLux.SphereLight.Define(stage, path)
+    UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(*map(float, pos)))
+    light.CreateRadiusAttr(0.25)
+    light.CreateIntensityAttr(intensity)
+    light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(kelvin)))
+    shaping = UsdLux.ShapingAPI.Apply(light.GetPrim())
+    shaping.CreateShapingConeAngleAttr(cone)
+    shaping.CreateShapingConeSoftnessAttr(softness)
+    return light
+
+
+def calm_floods(stage):
+    for n, (intensity, kelvin) in enumerate(FLOODS_CALM):
+        prim = stage.OverridePrim(f"/World/Cinematic/Lamps/lamp_{320 + n}/light")
+        light = UsdLux.SphereLight(prim)
+        light.CreateIntensityAttr(intensity)
+        prim.CreateAttribute("spark:baseIntensity", Sdf.ValueTypeNames.Float, custom=True).Set(intensity)
+        light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(kelvin)))
+        shaping = UsdLux.ShapingAPI.Apply(prim)
+        shaping.CreateShapingConeAngleAttr(50.0)
+        shaping.CreateShapingConeSoftnessAttr(0.6)
 
 
 def light_path(kind, n, live):
@@ -239,11 +275,7 @@ def build_landing(stage, looks, kit, leg):
         if n == 0:
             kit.tube("landing", pos - (0, 0, dz - 4.8), pos + (0, 0, 0.35), 0.05)
         kit.add("lamp", "box", pos, zquat(LANDING_ANGLE), (0.45, 0.45, 0.04))
-        light = UsdLux.SphereLight.Define(stage, light_path("landing", n, n == 0))
-        UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(*(pos + u * 0.6 - (0, 0, 0.3))))
-        light.CreateRadiusAttr(0.25)
-        light.CreateIntensityAttr(320000.0)
-        light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(kelvin)))
+        add_light(stage, light_path("landing", n, n == 0), pos + u * 0.6 - (0, 0, 0.3), 150000.0, kelvin, 65.0)
     for side in (-3.6, 0.0, 3.6):
         kit.add("landing", "box", bl["deck"] + t * side - (0, 0, 0.18), zquat(LANDING_ANGLE), (3.0, 0.14, 0.26))
 
@@ -277,11 +309,7 @@ def build_overhang(stage, looks, kit):
     for n, (x, y) in enumerate(((31.25, -30.0), (31.25, -12.0), (31.25, 6.0), (31.25, 20.0))):
         kit.add("steel", "box", (x, y, z - 1.75), scale=(0.7, 0.35, 0.22))
         kit.add("lamp", "box", (x, y, z - 1.87), scale=(0.6, 0.28, 0.03))
-        light = UsdLux.SphereLight.Define(stage, light_path("overhang", n, n == 1))
-        UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(x, y, z - 2.2))
-        light.CreateRadiusAttr(0.25)
-        light.CreateIntensityAttr(200000.0)
-        light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(2300 if n % 2 else 4000)))
+        add_light(stage, light_path("overhang", n, n == 1), (x, y, z - 2.2), 90000.0, KELVINS[n % len(KELVINS)], 50.0)
 
 
 def build_underside(stage, looks, kit, legs):
@@ -343,11 +371,64 @@ def build_underside(stage, looks, kit, legs):
         zl = z - 2.35 if (abs(abs(x) - 17.5) < 0.1 or abs(abs(y) - 17.5) < 0.1) else z - 0.9
         kit.add("steel", "box", (x, y, zl + 0.12), scale=(0.7, 0.35, 0.22))
         kit.add("lamp", "box", (x, y, zl), scale=(0.6, 0.28, 0.03))
-        light = UsdLux.SphereLight.Define(stage, light_path("under", n, n < 4))
-        UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(x, y, zl - 0.35))
-        light.CreateRadiusAttr(0.25)
-        light.CreateIntensityAttr(260000.0)
-        light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(2300 if n % 3 else 4000)))
+        add_light(stage, light_path("under", n, n < 4), (x, y, zl - 0.35), 100000.0, KELVINS[n % len(KELVINS)], 45.0)
+
+
+def add_stair(kit, origin, z0, z1, axis):
+    st = tf.stair_tower(origin, z0, z1, axis=axis)
+    for centre, size in st["steps"] + st["landings"]:
+        kit.add("grating", "box", centre, scale=size)
+    for a, b in st["stringers"]:
+        kit.member("landing", "box", a, b, (0.02, 0.25))
+        kit.member("landing", "cyl", (a[0], a[1], a[2] + 1.0), (b[0], b[1], b[2] + 1.0), (0.05, 0.05))
+    f = st["frame"]
+    for p, q in f["columns"]:
+        kit.member("landing", "ibeam", p, q, (0.16, 0.16))
+    for p, q in f["beams"]:
+        kit.member("landing", "ibeam", p, q, (0.11, 0.16))
+    for p, q in f["braces"]:
+        kit.member("landing", "cyl", p, q, (0.08, 0.08))
+
+
+def add_ladder(kit, base, z0, z1, angle):
+    lad = sg.caged_ladder(base, z0, z1, angle)
+    for p, q in lad["rails"] + lad["straps"]:
+        kit.tube("landing", p, q, 0.03)
+    for p, q in lad["rungs"]:
+        kit.tube("landing", p, q, 0.02)
+    for pos, a in lad["hoops"]:
+        kit.add("landing", "hoop", pos, zquat(a))
+
+
+def build_access(kit):
+    for origin, z0, z1, axis in STAIRS:
+        add_stair(kit, origin, z0, z1, axis)
+    for base, z0, z1, angle in LADDERS:
+        add_ladder(kit, base, z0, z1, angle)
+
+
+def build_edges(kit):
+    for p, q, z0, height, out in EDGES:
+        e = sg.edge_detail(p, q, z0, height, out)
+        for pos, angle in e["ribs"]:
+            kit.add("steel", "box", pos, zquat(angle), e["size"])
+        kit.member("seam", "box", e["strip"][0], e["strip"][1], (0.12, 0.1))
+
+
+def build_top_underside(stage, kit):
+    (x0, y0), (x1, y1), z = TOP_UNDERSIDE
+    for x in sg.clear_stations(x0, x1, 3.1):
+        kit.member("steel", "ibeam", (x, y0 + 0.2, z - 0.35), (x, y1 - 0.2, z - 0.35), (0.3, 0.7))
+    for y in (y0 + 0.3, y1 - 0.3):
+        kit.member("steel", "ibeam", (x0, y, z - 0.6), (x1, y, z - 0.6), (0.5, 1.2))
+    for y, r, look in ((-21.0, 0.2, "pipe_grey"), (-20.4, 0.12, "pipe_yellow"), (-18.0, 0.16, "pipe_green")):
+        kit.tube(look, (x0 + 0.5, y, z - 1.0), (x1 - 0.5, y, z - 1.0), r)
+        for x in np.arange(x0 + 1.5, x1 - 1.0, 4.0):
+            kit.tube("galv", (x, y, z - 1.0 + r), (x, y, z - 0.7), 0.025)
+    for n, x in enumerate((7.0, 18.0)):
+        kit.add("steel", "box", (x, -24.0, z - 0.95), scale=(0.7, 0.35, 0.22))
+        kit.add("lamp", "box", (x, -24.0, z - 1.07), scale=(0.6, 0.28, 0.03))
+        add_light(stage, light_path("top", n, False), (x, -24.0, z - 1.4), 70000.0, KELVINS[n + 1], 55.0)
 
 
 def build_drips(stage, looks, legs, seed=7):
@@ -405,6 +486,10 @@ def build() -> Path:
     build_braces(kit, legs)
     build_underside(stage, looks, kit, legs)
     build_overhang(stage, looks, kit)
+    build_access(kit)
+    build_edges(kit)
+    build_top_underside(stage, kit)
+    calm_floods(stage)
     drips = build_drips(stage, looks, legs)
     total = kit.write()
     stage.OverridePrim(LEGS_MESH).SetActive(False)

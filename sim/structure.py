@@ -13,18 +13,18 @@ GROWTH_TEX = pr.GENERATED / "marine_growth"
 DRIP_TEX = pr.GENERATED / "rust_drip.png"
 GROWTH_TOP, SPLASH_TOP = 1.7, 6.2
 BAND_NAMES = ("growth", "splash", "column")
-COLUMN = (0.42, 0.3, 0.075)
+COLUMN = (0.29, 0.215, 0.07)
 
 RECIPES = {
     "column": {"kind": "paint", "paint_color": COLUMN, "chip_amount": 0.0, "rust_amount": 0.3, "streak_amount": 1.0,
-               "salt_amount": 0.3, "macro_scale": 19.0, "scale": 2.4},
+               "salt_amount": 0.3, "macro_scale": 19.0, "scale": 3.7},
     "seam": {"kind": "paint", "paint_color": COLUMN, "chip_amount": 0.9, "rust_amount": 0.62, "streak_amount": 1.0,
              "salt_amount": 0.2, "macro_scale": 4.0, "scale": 1.2},
     "splash": {"kind": "textured", "texture": "rusty_metal_02", "tint": (0.62, 0.45, 0.34), "rust_amount": 0.4,
                "scale": 2.2, "streak_amount": 0.9, "salt_amount": 0.55, "macro_scale": 7.0},
     "growth": {"kind": "textured", "texture": "rusty_metal_02", "tint": (0.75, 1.0, 0.6), "rust_amount": 0.06, "scale": 1.7, "streak_amount": 0.0,
                "salt_amount": 0.05, "macro_scale": 5.0, "normal_strength": 1.4},
-    "brace": {"kind": "paint", "paint_color": (0.36, 0.25, 0.06), "chip_amount": 0.35, "rust_amount": 0.48,
+    "brace": {"kind": "paint", "paint_color": (0.25, 0.19, 0.065), "chip_amount": 0.35, "rust_amount": 0.48,
               "streak_amount": 1.0, "salt_amount": 0.35, "macro_scale": 5.0, "scale": 1.6},
     "steel": {"kind": "paint", "paint_color": (0.2, 0.215, 0.22), "chip_amount": 0.7, "rust_amount": 0.42,
               "streak_amount": 0.9, "salt_amount": 0.25, "macro_scale": 9.0},
