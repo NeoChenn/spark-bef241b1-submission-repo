@@ -27,14 +27,14 @@ TITLE_S = 1.5
 END_S = 3.5
 BUDGET_S = 60.0
 SPEEDS = (4.0, 6.0, 8.0, 12.0, 16.0)
-PAD_S = 1.0
+PAD_S = 0.5
 SOAK = ("SOAK",)
 WALKS = ("TRANSIT", "RETURN", "TO_DOCK")
 WALK_MIN_S = 6.0
 KEEP = ("PAINT", "RETORQUE")
 RAMP_S = 0.5
 TEASER_S = 10.0
-BEAT_ROWS = ("finding", "command", "ticket", "vetoed", "argon_call", "link")
+BEAT_ROWS = ("command", "ticket", "vetoed")
 TEXT = (238, 242, 246)
 DIM = (150, 160, 172)
 ACCENT = (255, 184, 64)
@@ -108,8 +108,9 @@ def _detectors(h: dict) -> list:
 
 def signature(h: dict) -> str:
     a = argon(h)
-    sig = {k: a.get(k) for k in ("held", "link", "last_command", "verdicts", "tickets")}
-    sig.update(robots=_robots(h), detectors=_detectors(h), beat=h.get("beat"), job=h.get("job"))
+    cmd = a.get("last_command") or {}
+    sig = {"command": [cmd.get(k) for k in ("kind", "robot", "target", "t")] if isinstance(cmd, dict) else cmd,
+           "tickets": a.get("tickets"), "robots": _robots(h), "detectors": _detectors(h), "beat": h.get("beat")}
     return json.dumps(sig, sort_keys=True, default=str)
 
 
@@ -366,7 +367,7 @@ def _beats(fc, beats):
 
 
 def _label(a: dict, sx: float = 1.0, sy: float = 1.0) -> dict:
-    return {"xy": (a["x"] * sx, a["y"] * sy), "visible": a.get("mode") in ("on", "edge"), "mode": a.get("mode")}
+    return {"xy": (a["x"] * sx, a["y"] * sy), "visible": True, "mode": a.get("mode")}
 
 
 def camera_labels(beats=None) -> Optional[Callable]:
@@ -390,11 +391,11 @@ def camera_labels(beats=None) -> Optional[Callable]:
             raw = {k: anchor(cam, p, lift=lift) for k, p in pos.items()}
             raw.update({k: anchor(cam, p, lift=0.12) for k, p in dets.items()})
             sx, sy = size[0] / cam.get("w", size[0]), size[1] / cam.get("h", size[1])
-            return {k: _label(a, sx, sy) for k, a in raw.items() if a.get("x") is not None}
+            return {k: _label(a, sx, sy) for k, a in raw.items() if a.get("mode") == "on"}
         if fc is None:
             return {}
         raw = fc.labels(float(header.get("t", 0.0)), b, positions=pos or None, w=size[0], h=size[1])
-        return {k: _label(a) for k, a in raw.items() if a.get("x") is not None}
+        return {k: _label(a) for k, a in raw.items() if a.get("mode") == "on"}
     return fn
 
 
