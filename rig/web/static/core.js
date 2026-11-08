@@ -185,11 +185,11 @@
   }
   const pal = $("palette"), inp = $("p-input"), list = $("p-list"), pv = $("p-preview");
   let palOpen = false, items = [], sel = 0, pvCmd, pvView = null, recent = store.get("recent", []);
-  const GROUPS = ["Suggested now", "Top hit", "Recent", "Control centre", "Views", "Panels", "Unscripted change", "Robots", "Cameras", "Demo", "Help"];
+  const GROUPS = ["Suggested now", "Top hit", "Tell Argon", "Recent", "Control centre", "Views", "Panels", "Unscripted change", "Robots", "Cameras", "Demo", "Help"];
   const score = (c) => (c.panel ? (pins.has(c.id) ? 0 : slot === c.id ? 0.9 : live(c.panel) ? prio(c.panel) / 100 : c.panel.suggest ? c.panel.suggest(S) : 0) : c.score ? c.score(S) : 0);
   const val = (h) => (typeof h === "function" ? h(S) : h) ?? "";
   const kbd = (k) => (k ? (k.length === 1 ? k.toUpperCase() : k) : "");
-  let asking = null;
+  let asking = null, free = null;
   const PH = inp.placeholder;
   function openPal(text = "") { palOpen = true; pal.classList.add("open"); inp.value = text; filter(); inp.focus(); }
   function closePal() { palOpen = false; asking = null; inp.placeholder = PH; pal.classList.remove("open"); inp.blur(); setPreview(null); }
@@ -218,6 +218,8 @@
       const rows = all.map((c) => ({ c, m: match(qq, c) })).filter((r) => r.m).map((r) => ({ ...r, s: r.m.sc + score(r.c) * 4, g: r.c.group })).sort((a, b) => b.s - a.s);
       if (rows[0]) rows[0].g = score(rows[0].c) > 0 ? "Suggested now" : "Top hit";
       items = rows.sort((a, b) => GROUPS.indexOf(a.g) - GROUPS.indexOf(b.g) || b.s - a.s);
+      const text = inp.value.trim();
+      if (free && text.length > 3) { const it = { c: free(text), g: "Tell Argon" }; if (!items.length || text.split(/\s+/).length > 2 || (rows[0] && rows[0].m.sc < 4)) items.unshift(it); else items.push(it); }
     }
     sel = 0;
     renderList();
@@ -288,23 +290,29 @@
   }
   function island() {
     if (!isl.classList.contains("big")) { const tone = S.gasAlarm ? "stop" : TONE[S.state] || (S.linkCut ? "warn" : S.started ? "run" : ""); if (isl.dataset.tone !== tone) isl.dataset.tone = tone; }
-    set($("i-state"), S.state ? nice(S.state) : S.started ? "Live" : "Ready");
+    const units = S.robots.length || S.fleet?.robots?.length || 0;
+    set($("i-state"), S.gasAlarm ? "Gas alarm" : S.state ? nice(S.state) : S.started ? (units > 1 ? `Live · ${units} units` : "Live") : SIM ? "Ready" : "Connecting");
     num($("i-time"), S.t, 1);
     const k = S.gasAlarm && S.gasMax ? [S.gasMax * 100, 0, "% LEL"] : S.soak ? [S.soak.left, 0, "s left"] : FORCE.has(S.state) ? [S.force, 1, "N"] : S.rust != null ? [S.rust, 1, "% rust"] : null;
     isl.classList.toggle("nokey", !k);
     if (k) { if ($("i-unit").textContent !== k[2]) { tweens.delete($("i-key")); $("i-key")._v = null; } num($("i-key"), k[0], k[1]); set($("i-unit"), k[2]); }
-    set($("i-edge"), S.linkCut || S.control?.link === "CUT" ? "edge only" : "");
+    const cut = S.linkCut || S.control?.link === "CUT", md = S.control?.mode;
+    set($("i-edge"), cut ? "edge only" : md ? "Argon " + (md === "CLOUD" ? "cloud" : "edge") : "");
+    $("i-edge").classList.toggle("cloud", !cut && md === "CLOUD");
   }
   const sub = $("subtitle");
   let subKey = null, layer = 0;
   function caption() {
-    if (!S.started) return { lead: "Offshore rig autonomy", rest: " · press Space to begin", tone: "act" };
+    if (!S.started) return SIM ? { lead: "Offshore rig autonomy", rest: " · press Space to begin", tone: "act" } : { lead: "Connecting", rest: " to the rig…", tone: "act" };
     if (S.robots.length > 1) {
       const rank = (r) => (RANK[r.caption?.tone] || 0) + (S.gasAlarm && /GAS|LEAK|RETORQUE/.test(r.state) ? 2.5 : 0) - (/DOCK|CHARG/.test(r.state) ? 1.5 : 0);
       const r = S.robots.reduce((a, b) => (rank(b) > rank(a) ? b : a));
-      return r.caption && { ...r.caption, lead: `${r.name.split(" ·")[0]} · ${r.caption.lead}` };
+      return r.caption && { ...r.caption, lead: `${String(r.name || r.id).split(" ·")[0]} · ${r.caption.lead || ""}` };
     }
-    return S.caption || S.robots[0]?.caption;
+    const c = S.caption || S.robots[0]?.caption;
+    if (c || SIM) return c;
+    const n = S.fleet?.robots?.length || 0, cc = S.control;
+    return { lead: "Live", rest: [n ? ` · ${n} robots on the rig` : " · offshore rig", cc?.situation?.[0] ? " · " + String(cc.situation[0]).replace(/\.$/, "") : ""].join(""), tone: "act" };
   }
   function subtitle() {
     const c = caption(), html = c ? `<b>${esc(c.lead)}</b>${esc(c.rest)}` : "", key = (c?.tone || "") + html.replace(/\d+(\.\d+)?/g, "#");
@@ -329,7 +337,7 @@
     const k = Math.max(r.width / cam.w, r.height / cam.h), ox = r.left + (r.width - cam.w * k) / 2, oy = r.top + (r.height - cam.h * k) / 2, M = 30;
     const keep = new Set(), lo = DOCK.left._p ? DOCK.left.getBoundingClientRect().right + 8 : 8, hi = DOCK.right._p ? DOCK.right.getBoundingClientRect().left - 8 : innerWidth - 8;
     S.robots.forEach((rb) => {
-      if (!rb.world_pos) return;
+      if (!Array.isArray(rb.world_pos) || rb.world_pos.length < 3) return;
       keep.add(rb.id);
       let el = LBL.querySelector(`[data-id="${rb.id}"]`);
       if (!el) { el = document.createElement("div"); el.dataset.id = rb.id; el.innerHTML = `<div class="lc"><b><i></i><span></span></b><small></small></div>`; LBL.appendChild(el); }
@@ -338,7 +346,7 @@
       if (!mode && (x < M || x > innerWidth - M || y < M + 60 || y > innerHeight - M)) { x = Math.min(innerWidth - M, Math.max(M, x)); y = Math.min(innerHeight - M, Math.max(M + 60, y)); mode = "edge"; }
       el.className = `lbl ${rb.caption?.tone || ""} ${mode} ${S.ping === rb.id ? "ping" : ""} ${S.focus === rb.id ? "focus" : ""}`;
       el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
-      set(el.querySelector("span"), rb.name); set(el.querySelector("small"), rb.caption?.text);
+      set(el.querySelector("span"), rb.name || rb.id); set(el.querySelector("small"), rb.caption?.text);
       const cw = el.firstChild.offsetWidth, dx = Math.min(Math.max(x - cw / 2, lo), hi - cw) - (x - cw / 2);
       el.firstChild.style.marginLeft = dx.toFixed(0) + "px";
     });
@@ -351,6 +359,7 @@
     if (st === "DONE" && MOCK) setTimeout(() => S.state === "DONE" && shot(1), 3500);
   }
   function gasIn(g) {
+    if (!Array.isArray(g.sensors)) g = { ...g, sensors: [] };
     const m = g.max ?? Math.max(0, ...(g.sensors || []).map((s) => s.lel || 0)), al = g.alarm ?? m >= GAS;
     if (al && !S.gasAlarm) {
       S.gasAt = now();
@@ -364,25 +373,27 @@
   function apply(h) {
     KEEP.forEach((k) => { if (h[k] != null) S[k] = h[k]; });
     if (h.fleet) S.fleetLive = true;
-    if (h.robots) { const ids = h.robots.map((r) => r.id).join(); if (ids !== S.ids) { S.ids = ids; robotCommands(h.robots); } S.robots = h.robots; }
-    if (h.camera) S.camera = h.camera;
+    if (Array.isArray(h.robots)) { const rs = h.robots.filter((r) => r && r.id), ids = rs.map((r) => r.id).join(); if (ids !== S.ids) { S.ids = ids; robotCommands(rs); } S.robots = rs; }
+    if (h.camera && h.camera.T && h.camera.K) S.camera = h.camera;
     if ("caption" in h) S.caption = h.caption;
     if (h.t != null) S.t = h.t;
     if (SIM && h.shot && h.shot !== S.shot) shot(h.shot);
     if (h.state && h.state !== S.state) setState(h.state);
     (h.events || []).forEach(addLog);
+    const sf = h.force_n == null && Array.isArray(h.robots) && h.sensors?.[h.robots[0]?.id]?.force_n;
+    if (typeof sf === "number") h = { ...h, force_n: sf };
     if (h.force_n != null) { S.force = Math.max(h.force_n, S.spike); S.peak = Math.max(S.peak, S.force); push("force", S.force); }
     if (h.rust_fraction != null) push("rust", (S.rust = h.rust_fraction * 100));
     if (h.detector_conf != null) push("conf", (S.conf = h.detector_conf));
     if ("soak" in h) S.soak = h.soak;
     if (h.gemini) { const k = JSON.stringify(h.gemini); if (k !== S.gkey) { S.gkey = k; S.gemini = h.gemini; S.gemAt = S.at || now(); } }
-    if (h.gas) gasIn(h.gas);
-    if (h.sensors) Object.entries(h.sensors).forEach(([id, v]) => Object.entries(v).forEach(([m, x]) => push(id + "." + m, x)));
+    if (h.gas && typeof h.gas === "object") gasIn(h.gas);
+    if (h.sensors && typeof h.sensors === "object") Object.entries(h.sensors).forEach(([id, v]) => v && typeof v === "object" && Object.entries(v).forEach(([m, x]) => typeof x === "number" && push(id + "." + m, x)));
     hooks.forEach((f) => f(h, S));
   }
   function robotCommands(rs) {
     [...C.keys()].filter((id) => id.startsWith("robot.")).forEach(uncommand);
-    rs.forEach((r) => command({ id: "robot." + r.id, group: "Robots", label: r.name, icon: "robot", keys: "unit robot focus " + r.id, desc: "Focus this robot: its label pings, and First person and Sensors follow it.",
+    rs.forEach((r) => command({ id: "robot." + r.id, group: "Robots", label: r.name || r.id, icon: "robot", keys: "unit robot focus " + r.id, desc: "Focus this robot: its label pings, and First person and Sensors follow it.",
       hint: () => S.robots.find((x) => x.id === r.id)?.caption?.lead, active: () => S.focus === r.id, run: () => focus(r.id) }));
   }
   function focus(id) { S.focus = id; S.ping = id; clearTimeout(S.pingT); S.pingT = setTimeout(() => (S.ping = null), 1200); }
@@ -431,7 +442,7 @@
   }
   function liveState() {
     const ws = new WebSocket((location.protocol === "https:" ? "wss:" : "ws:") + "//" + location.host + "/ws/state");
-    ws.onmessage = (ev) => { try { apply(JSON.parse(ev.data)); } catch (e) { console.warn(e); } };
+    ws.onmessage = (ev) => { S.started = true; try { apply(JSON.parse(ev.data)); } catch (e) { console.warn(e); } };
     ws.onclose = () => setTimeout(liveState, 1500);
   }
   const json = (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null);
@@ -484,7 +495,7 @@
   isl.onclick = () => (palOpen ? closePal() : openPal());
   $("p-keep").textContent = MAC ? "⌘↵" : "Ctrl ↵";
   B.classList.toggle("presenter", presenter);
-  window.HUD = { S, ask, panel, command, uncommand, view, on: (f) => hooks.push(f), apply, event, post, judge, banner, addLog, setState, focus, shot, openView, num, set, esc, q, fit, spark, push, icon, nice, now, json };
+  window.HUD = { S, sheetId: () => sheet.id, free: (f) => (free = f), ask, panel, command, uncommand, view, on: (f) => hooks.push(f), apply, event, post, judge, banner, addLog, setState, focus, shot, openView, num, set, esc, q, fit, spark, push, icon, nice, now, json };
   addEventListener("DOMContentLoaded", () => {
     booted = true;
     pins.forEach((id) => show(id));

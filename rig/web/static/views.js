@@ -25,24 +25,65 @@
         + `<div class="legend col"><span><i class="lg r"></i>robot · heading</span><span><i class="lg t"></i>drone</span><span><i class="lg g"></i>gas plume</span><span><i class="lg p"></i>person · 3 m</span><span><i class="lg d"></i>dock</span><span><i class="lg n"></i>no-fly zone</span></div>`;
       if (x.side._h !== rows) { x.side._h = rows; x.side.innerHTML = (S.fleet ? "" : `<p class="none">No fleet snapshot yet</p>`) + rows; }
     } });
-  H.view({ id: "fpv", title: "First person", icon: "cam", key: "⇧F", keys: "camera robot pov perception mask gauge overlay",
-    desc: "The focused robot's camera with what it perceives: rust mask, gauge reading, gas reading and Gemini's points.",
+  const KIND = { fpv: ["Camera", "cam"], rgb: ["Camera", "cam"], policy: ["Detector boxes", "target"], det: ["Detector boxes", "target"], ogi: ["OGI gas", "wind"], gas: ["OGI gas", "wind"], bev: ["Lidar BEV", "map"], lidar: ["Lidar BEV", "map"], depth: ["Depth", "layers"], thermal: ["Thermal", "sun"] };
+  const ORDER = Object.keys(KIND);
+  const kname = (k) => KIND[k]?.[0] || String(k).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+  H.on((h) => {
+    if (!h.views || typeof h.views !== "object") return;
+    const v = (S.views ||= {});
+    Object.entries(h.views).forEach(([rid, ks]) => { if (ks && typeof ks === "object") v[rid] = { ...(v[rid] || {}), ...ks }; });
+    const ks = [...new Set(Object.values(v).flatMap((x) => Object.keys(x || {})))].sort((a, b) => (ORDER.indexOf(a) + 99) % 99 - (ORDER.indexOf(b) + 99) % 99);
+    if (ks.join() === S.vkinds) return;
+    S.vkinds = ks.join();
+    [...Array(8).keys()].forEach((n) => H.uncommand("pv." + n));
+    ks.slice(0, 8).forEach((k, n) => H.command({ id: "pv." + n, group: "Views", label: "Policy view: " + kname(k), icon: KIND[k]?.[1] || "eye", keys: "perspective policy sees inset overlay " + k,
+      desc: "Opens First person on what the focused robot's policy is conditioned on: " + kname(k).toLowerCase() + ".", active: () => S.kind === k && H.sheetId?.() === "fpv", run: () => { S.kind = k; H.openView("fpv"); } }));
+  });
+  const kindsOf = (id) => { const v = S.views?.[id] || {}; return Object.keys(v).filter((k) => v[k] && (v[k].jpg || v[k].seq != null || v[k].url)).sort((a, b) => (ORDER.indexOf(a) + 99) % 99 - (ORDER.indexOf(b) + 99) % 99); };
+  const entry = (id, k) => S.views?.[id]?.[k];
+  const srcOf = (id, k, e = entry(id, k)) => (!e ? null : e.jpg ? "data:image/jpeg;base64," + e.jpg : e.url || `/api/views/${encodeURIComponent(id)}/${encodeURIComponent(k)}.jpg?seq=${e.seq}`);
+  const legacy = (r) => { const f = S.fpv?.[r?.id]; return f?.jpg ? f : r && r.id === fleetBots()[0]?.id && S.inspection?.jpg ? S.inspection : null; };
+  H.viewSrc = (id) => { const ks = kindsOf(id); if (ks.length) return srcOf(id, ks.includes(S.kind) ? S.kind : ks[0]); const f = legacy({ id }); return f ? "data:image/jpeg;base64," + f.jpg : null; };
+  const boxes = (e) => (Array.isArray(e?.boxes) && e.w ? e.boxes.map((b) => { const [x, y, w, h] = b.xywh || [b.x, b.y, b.w, b.h]; return `<rect x="${x}" y="${y}" width="${w}" height="${h}"/>${b.label ? `<text x="${x + 4}" y="${Math.max(12, y - 5)}">${esc(b.label)}${b.score != null ? " " + (+b.score).toFixed(2) : ""}</text>` : ""}`; }).join("") : "");
+  H.view({ id: "fpv", title: "First person", icon: "cam", key: "⇧F", keys: "camera robot pov perception policy detector boxes ogi gas lidar bev mask overlay",
+    desc: "The focused robot's own sensors and what its policy is conditioned on: camera, detector boxes, OGI gas false colour and lidar BEV. Switch robot and view at the top.",
     render(el) {
-      const r = bot(), id = r?.id, f = S.fpv?.[id] || (r && r === fleetBots()[0] && S.inspection ? S.inspection : null);
-      const x = q(el, `<div class="seg" data-k="who"></div><div class="fp"><div class="fp-img"><img data-k="img" alt=""><svg data-k="pts"></svg><p class="none" data-k="none"></p></div><aside class="side" data-k="side"></aside></div>`);
+      const r = bot(), id = r?.id, ks = kindsOf(id), k = ks.includes(S.kind) ? S.kind : ks[0], e = k ? entry(id, k) : null, f = e ? null : legacy(r);
+      const x = q(el, `<div class="fp-bar"><div class="seg" data-k="who"></div><div class="seg" data-k="kinds"></div></div><div class="fp"><div class="fp-img"><img data-k="img" alt=""><svg data-k="pts"></svg><span class="fp-cap" data-k="cap"></span><p class="none" data-k="none"></p></div><aside class="side" data-k="side"></aside></div>`);
       onFocus(x.who);
+      if (!x.kinds._b) { x.kinds._b = 1; x.kinds.onclick = (ev) => { const b = ev.target.closest("[data-kind]"); if (b) S.kind = b.dataset.kind; }; }
       const c = chips(id);
       if (x.who._h !== c) { x.who._h = c; x.who.innerHTML = c; }
-      if (f?.jpg && x.img._j !== f.jpg) { x.img._j = f.jpg; x.img.src = "data:image/jpeg;base64," + f.jpg; }
-      x.img.hidden = !f; set(x.none, f ? "" : `No camera feed from ${r ? r.name || H.rname(r) : "any robot"} in this run`);
-      const g = S.gemini, gk = f && g && f === S.inspection ? S.gkey : "";
-      if (x.pts._k !== gk) { x.pts._k = gk; x.pts.setAttribute("viewBox", `0 0 ${f?.w || 1} ${f?.h || 1}`); x.pts.setAttribute("preserveAspectRatio", "xMidYMid meet"); x.pts.innerHTML = gk ? (g.points || []).map(([a, b]) => `<circle cx="${a}" cy="${b}" r="${f.w / 40}" stroke-width="${f.w / 160}"/>`).join("") : ""; }
-      const gas = last(id + ".gas_lel") ?? (S.gasMax || null), lead = r === fleetBots()[0];
-      const kv = [["Phase", r?.caption?.text || H.nice(r?.state)], ["Rust mask", f === S.inspection && f ? "outlined in red" : "—"], ["Gauge", f?.gauge ?? "—"],
-        ["Gas", gas == null ? "—" : (gas * 100).toFixed(1) + " % LEL"], ["Brush force", lead ? S.force.toFixed(1) + " N" : "—"], ["Detector", lead && S.conf != null ? S.conf.toFixed(2) : "—"],
-        ["Gemini", lead && g ? `${g.verdict.replace("_", " ")} · ${(g.confidence || 0).toFixed(2)}` : "—"]];
-      const side = kv.map(([k, v]) => `<div class="kv"><span>${k}</span><b>${esc(v)}</b></div>`).join("");
-      if (x.side._h !== side) { x.side._h = side; x.side.innerHTML = side; }
+      const kc = ks.length > 1 ? ks.map((kk) => `<button data-kind="${esc(kk)}" class="${kk === k ? "on" : ""}">${esc(kname(kk))}</button>`).join("") : "";
+      if (x.kinds._h !== kc) { x.kinds._h = kc; x.kinds.innerHTML = kc; }
+      const src = e ? srcOf(id, k, e) : f ? "data:image/jpeg;base64," + f.jpg : null;
+      if (src && x.img._s !== src) { x.img._s = src; x.img.src = src; }
+      x.img.hidden = !src;
+      set(x.none, src ? "" : `No camera feed from ${r ? r.name || H.rname(r) : "any robot"} yet`);
+      set(x.cap, e ? [kname(k), e.caption].filter(Boolean).join(" · ") : f ? "Inspection camera" : "");
+      const g = S.gemini, gk = f && g && f === S.inspection ? S.gkey : "", bk = e ? k + (e.seq ?? "") + JSON.stringify(e.boxes || "") : gk;
+      if (x.pts._k !== bk) {
+        x.pts._k = bk; const iw = (e || f)?.w || 1, ih = (e || f)?.h || 1;
+        x.pts.setAttribute("viewBox", `0 0 ${iw} ${ih}`); x.pts.setAttribute("preserveAspectRatio", "xMidYMid meet");
+        x.pts.style.setProperty("--sw", iw / 320);
+        x.pts.innerHTML = e ? boxes(e) : gk ? (g.points || []).map(([a, b]) => `<circle cx="${a}" cy="${b}" r="${f.w / 40}" stroke-width="${f.w / 160}"/>`).join("") : "";
+      }
+      const gas = last(id + ".gas_lel") ?? (S.gasMax || null), lead = r && r.id === fleetBots()[0]?.id;
+      const kv = [["Phase", r?.caption?.text || H.nice(r?.state) || "—"], ["Rust mask", f && f === S.inspection ? "outlined in red" : "—"], ["Gauge", f?.gauge ?? "—"],
+        ["Gas", gas == null ? "—" : (gas * 100).toFixed(1) + " % LEL"], ["Brush force", last(id + ".force_n") != null ? last(id + ".force_n").toFixed(1) + " N" : lead ? S.force.toFixed(1) + " N" : "—"], ["Detector", lead && S.conf != null ? S.conf.toFixed(2) : "—"],
+        ["Gemini", lead && g ? `${String(g.verdict || "").replace("_", " ")} · ${(g.confidence || 0).toFixed(2)}` : "—"]].filter(([kk, v]) => v !== "—" || ["Phase", "Gas"].includes(kk));
+      const th = ks.length > 1 ? `<div class="fp-th">${ks.filter((kk) => kk !== k).map((kk) => `<button data-kind="${esc(kk)}"><img src="${srcOf(id, kk)}" alt=""><span>${esc(kname(kk))}</span></button>`).join("")}</div>` : "";
+      const side = kv.map(([kk, v]) => `<div class="kv"><span>${kk}</span><b>${esc(v)}</b></div>`).join("") + th;
+      if (x.side._h !== side) { x.side._h = side; x.side.innerHTML = side; if (!x.side._b) { x.side._b = 1; x.side.addEventListener("click", (ev) => { const b = ev.target.closest("[data-kind]"); if (b) S.kind = b.dataset.kind; }); } }
+    } });
+  H.panel({ id: "persp", title: "Policy view", icon: "eye", key: "j", keys: "perspective inset policy sees camera detector ogi lidar bev pip",
+    desc: "A small inset of what the focused robot's policy sees. ⇧F opens it full size.", suggest: (S) => (S.vkinds ? 0.3 : 0), hint: () => (S.vkinds ? kname(kindsOf(bot()?.id)[0] || "") : ""),
+    render(el) {
+      const r = bot(), id = r?.id, ks = kindsOf(id), k = ks.includes(S.kind) ? S.kind : ks[0], src = k ? srcOf(id, k) : null;
+      const x = q(el, `<div class="pip on"><img data-k="img" alt=""><span class="fp-cap" data-k="cap"></span><span class="pip-none" data-k="none"></span></div>`);
+      if (src && x.img._s !== src) { x.img._s = src; x.img.src = src; }
+      x.img.hidden = !src;
+      set(x.cap, src ? `${r.name || H.rname(r)} · ${kname(k)}` : ""); set(x.none, src ? "" : "No policy views from the sim yet");
     } });
   const MET = [["gas_lel", "Gas", "% LEL", 100, 1, { min: 0, max: 30, color: "#F85149", refs: [[10, "rgba(227,179,65,.5)"]] }],
     ["thermal_c", "Thermal", "°C", 1, 1, { min: 0, max: 80, color: "rgba(255,255,255,.75)" }],
@@ -53,10 +94,16 @@
     desc: "Per robot: gas, thermal, contact force against the 40 N line, battery and IK reach, over the last 30 s.",
     render(el) {
       const ids = fleetBots().map((r) => r.id), head = `<div class="sg" style="--n:${MET.length}"><span></span>${MET.map((m) => `<span class="sh">${m[1]} <em>${m[2]}</em></span>`).join("")}${ids.map((id) =>
-        `<b class="${id === S.focus ? "on" : ""}">${esc(short(id))}</b>${MET.map((m) => `<div class="cell"><b class="tnum" data-k="${id}.${m[0]}"></b><canvas data-k="${id}.${m[0]}C"></canvas></div>`).join("")}`).join("")}</div>`;
-      const x = q(el, ids.length ? head : `<p class="none">No robots reporting yet</p>`);
+        `<b class="${id === S.focus ? "on" : ""}" data-id="${esc(id)}">${esc(short(id))}</b>${MET.map((m) => `<div class="cell"><b class="tnum" data-k="${id}.${m[0]}"></b><canvas data-k="${id}.${m[0]}C"></canvas></div>`).join("")}`).join("")}</div>`;
+      const x = q(el, ids.length ? `<div class="sv">${head}<div class="pvs" data-k="pvs"></div></div>` : `<p class="none">No robots reporting yet</p>`);
       if (now() - (el._t || 0) < 0.1) return;
       el._t = now();
+      if (x.pvs) {
+        onFocus(x.pvs.parentNode);
+        const rows = ids.filter((id) => kindsOf(id).length).map((id) => `<div class="pv-row"><b>${esc(short(id))}</b>${kindsOf(id).map((k) => `<figure><img src="${srcOf(id, k)}" alt=""><figcaption>${esc(kname(k))}${entry(id, k)?.caption ? ` · ${esc(entry(id, k).caption)}` : ""}</figcaption></figure>`).join("")}</div>`).join("");
+        const html = rows ? `<h3>What each policy sees</h3>${rows}` : "";
+        if (x.pvs._h !== html) { x.pvs._h = html; x.pvs.innerHTML = html; }
+      }
       ids.forEach((id, n) => MET.forEach(([m, , , mul, d, o]) => {
         const k = id + "." + m, data = S.series[k] || (n === 0 && m === "force_n" ? S.series.force : null);
         const v = data?.at(-1)?.[1] ?? (m === "battery" ? (S.fleet?.robots || []).find((r) => r.id === id)?.battery?.soc : null);
@@ -65,17 +112,20 @@
     } });
   const GROUP = [["Running", /RUNNING|ASSIGNED|active|assigned/], ["Waiting approval", /WAITING/], ["Queued", /QUEUED|pending/], ["Done", /DONE|FINDING|done/], ["Crew and failed", /HUMAN|FAIL|escalat/]];
   const decided = new Map();
+  H.decided = decided;
   function decide(job, ok) {
-    H.event(ok ? "approve" : "reject", { job }, () => decided.set(job, ok ? "QUEUED" : "REJECTED"));
+    decided.set(job, ok ? "QUEUED" : "REJECTED");
+    H.event(ok ? "approve" : "reject", { job, id: job });
     H.addLog({ t: S.t, from: "Operator", to: ok ? "APPROVED" : "REJECTED", reason: job });
   }
+  H.decide = decide;
   H.view({ id: "orch", title: "Orchestrator", icon: "inbox", key: "⇧O", keys: "jobs queue approvals inbox approve reject decisions why",
     desc: "The job queue by status, the approval inbox with Gemini's reasoning, and every decision with its why.",
     render(el) {
       const x = q(el, `<div class="orch"><section><h3>Job queue</h3><div data-k="jobs"></div></section><section><h3>Approval inbox</h3><div data-k="inbox"></div></section><section><h3>Decisions</h3><ol class="log long" data-k="log"></ol></section></div>`);
       if (!x.inbox._b) { x.inbox._b = 1; x.inbox.onclick = (e) => { const b = e.target.closest("[data-job]"); if (b) decide(b.dataset.job, b.dataset.a === "1"); }; }
       const o = S.orchestrator, jobs = (o?.jobs || (S.fleet?.tasks || []).map((t) => ({ id: t.id, kind: t.kind, target: t.poi, status: t.status, robot: t.robot, priority: t.priority }))).map((j) => (decided.has(j.id) ? { ...j, status: decided.get(j.id) } : j));
-      const aps = (o?.approvals || []).filter((a) => !decided.has(a.job)), c = H.ctl(S), key = JSON.stringify(o) + decided.size + jobs.length + JSON.stringify(c?.agent) + JSON.stringify(c?.vetoed);
+      const aps = (o?.approvals || []).filter((a) => a && !decided.has(a.job)), c = H.ctl(S), key = JSON.stringify(o) + decided.size + jobs.length + JSON.stringify(c?.agent) + JSON.stringify(c?.vetoed);
       if (x.jobs._k !== key) {
         x.jobs._k = key;
         x.jobs.innerHTML = GROUP.map(([g, re]) => { const js = jobs.filter((j) => re.test(j.status)); return js.length ? `<h4>${g} <em>${js.length}</em></h4>` + js.slice(0, 8).map((j) =>
@@ -85,31 +135,19 @@
       }
       if (x.log._n !== S.logN) { x.log._n = S.logN; x.log.innerHTML = H.logRows(S, 16); }
     } });
-  const rowsOf = (b) => (b.rows || b.methods || Object.entries(b.results || {}).map(([label, v]) => ({ label, ...(typeof v === "object" ? v : { value: v }) })))
-    .map((r) => ({ label: r.label || r.name || r.method, v: r.value ?? r.mean, ci: r.ci || r.ci95 || (r.lo != null ? [r.lo, r.hi] : null) })).filter((r) => typeof r.v === "number");
-  function benchCard(b) {
-    const rs = rowsOf(b), hi = Math.max(...rs.map((r) => (r.ci ? r.ci[1] : r.v)), 1e-9), w = (v) => Math.max(0, Math.min(100, (v / hi) * 100));
-    return `<div class="bench"><b>${esc(b.title || b.name)}</b><em>${esc(b.unit || b.metric || "")}${b.lower_is_better ? " · lower is better" : ""}</em>${rs.map((r) =>
-      `<div class="br"><span>${esc(r.label)}</span><i><s style="width:${w(r.v)}%"></s>${r.ci ? `<u style="left:${w(r.ci[0])}%;width:${w(r.ci[1]) - w(r.ci[0])}%"></u>` : ""}</i><b class="tnum">${+r.v.toPrecision(3)}</b></div>`).join("")}${b.source ? `<p>${esc(b.source)}</p>` : ""}</div>`;
-  }
-  H.view({ id: "bench", title: "Benchmarks", icon: "chart", key: "⇧B", keys: "evidence charts ppo gemini greedy detector orchestration results",
-    desc: "Measured results from bench/ (runs_sample/bench/*.json): means with 95 % intervals over the same seeded scenarios.",
-    render(el) {
-      if (!el._l) { el._l = 1; H.json("/api/bench").then((b) => (S.bench = b || [])); }
-      const html = !S.bench ? `<p class="none">Loading…</p>` : S.bench.length ? `<div class="benches">${S.bench.map(benchCard).join("")}</div>` : `<p class="none">No benchmark results yet. bench/ writes runs_sample/bench/*.json.</p>`;
-      if (el._h !== html) { el._h = html; el.innerHTML = html; }
-    } });
   H.on((h) => {
     const ap = h.orchestrator?.approvals;
     if (!ap) return;
     [...Array(6).keys()].forEach((n) => H.uncommand("ap." + n));
-    ap.filter((a) => !decided.has(a.job)).slice(0, 6).forEach((a, n) => H.command({ id: "ap." + n, group: "Control centre", label: `Approve ${(a.kind || "").replace(/_/g, " ")} · ${a.target || a.job}`, icon: "check",
+    ap.filter((a) => a && !decided.has(a.job)).slice(0, 6).forEach((a, n) => H.command({ id: "ap." + n, group: "Control centre", label: `Approve ${(a.kind || "").replace(/_/g, " ")} · ${a.target || a.job}`, icon: "check",
       keys: "approve approval supv inbox", desc: a.text, hint: "SUPV", score: () => 0.92, run: () => decide(a.job, true) }));
   });
-  H.command({ id: "intent", group: "Control centre", label: "Tell the planner…", icon: "spark", key: "⇧T", keys: "intent instruct operator gemini planner order",
+  H.command({ id: "intent", group: "Control centre", label: "Tell Argon…", icon: "spark", key: "⇧T", keys: "intent instruct operator gemini planner order",
     desc: "Type an instruction in plain words, such as “inspect deck 2, isolate any leak, don't paint without me”. Gemini turns it into jobs; the safety envelope still applies.",
     hint: () => (S.intent || S.control?.agent?.intent ? "Has an intent" : ""), score: () => (S.control ? 0.25 : 0),
-    run: () => setTimeout(() => H.ask("Tell the planner", "Inspect deck 2, isolate any leak, don't paint without me", (text) => H.event("intent", { text }, () => { S.intent = text; H.addLog({ t: S.t, from: "Operator", to: "INTENT", reason: text }); })), 0) });
+    run: () => setTimeout(() => H.ask("Tell Argon", "Inspect deck 2, isolate any leak, don't paint without me", tell), 0) });
+  function tell(text) { S.intent = text; H.event("intent", { text }, () => H.addLog({ t: S.t, from: "Operator", to: "INTENT", reason: text })); H.banner("run", "Sent to Argon", text.length > 64 ? text.slice(0, 62) + "…" : text, "spark", 2600); }
+  H.free((text) => ({ id: "tell", group: "Tell Argon", icon: "spark", label: `Tell Argon “${text}”`, desc: "Sends this to Gemini 4 Argon as an operator intent. It turns it into jobs through the coordinator; the edge safety envelope still applies and it cannot approve its own SUPV jobs.", run: () => tell(text) }));
   const T = {};
   const U = (id, label, ic, key, name, args, local, o = {}) => H.command({ id: "u." + id, group: "Unscripted change", label, icon: ic, key, keys: "unscripted inject judge change " + (o.keys || ""), desc: o.desc,
     active: o.tog ? () => !!T[id] : undefined, score: o.score, run: () => { if (o.tog) T[id] = !T[id]; if (o.pre) o.pre(); H.event(name, typeof args === "function" ? args() : args, local); } });
