@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rig Rust Repair: Technical Summary</title>
+<style>
+:root{--ink:#16202b;--mute:#566372;--line:#d5dce4;--soft:#f2f5f8;--accent:#c4501a;--blue:#2c5d8a;--blue-soft:#e6eef6;--ok:#2d7a4b;--warn:#a3301b}
+@page{size:A4;margin:0}
+*{box-sizing:border-box}
+html,body{margin:0;background:#fff;color:var(--ink)}
+body{font:7.05pt/1.28 "Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{width:210mm;height:297mm;padding:8.5mm 9.5mm 7mm;overflow:hidden;display:flex;flex-direction:column;gap:2.2mm}
+header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--accent);padding-bottom:1.6mm}
+h1{font-size:13.6pt;white-space:nowrap;margin:0;letter-spacing:-.2px;line-height:1.1}
+.sub{color:var(--mute);font-size:7.3pt;margin-top:.8mm}
+.tag{text-align:right;font-size:6.8pt;color:var(--mute);line-height:1.35;white-space:nowrap;padding-left:4mm}
+.tag b{color:var(--ink)}
+h2{font-size:7.8pt;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);margin:0 0 .8mm;border-bottom:1px solid var(--line);padding-bottom:.4mm}
+p{margin:0 0 .9mm}
+ul{margin:0;padding-left:3.4mm}
+li{margin:0 0 .4mm}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:2.2mm 4.5mm}
+.span{grid-column:1/-1}
+table{border-collapse:collapse;width:100%;font-size:6.75pt}
+th,td{text-align:left;padding:.35mm .9mm;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--soft);font-weight:600}
+td.n,th.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.good{color:var(--ok);font-weight:700}
+.bad{color:var(--warn)}
+.tbd{background:#fff0a8;padding:0 .8mm;border-radius:1px;font-weight:700}
+.flow{display:flex;flex-wrap:wrap;gap:.5mm;align-items:center;font-size:6.5pt;margin:1mm 0 0}
+.flow span{background:var(--blue-soft);color:var(--blue);padding:.2mm 1mm;border-radius:1mm;font-weight:600}
+.flow i{color:var(--mute);font-style:normal}
+.fm td:first-child{font-weight:600;white-space:nowrap}
+.note{margin-top:.7mm;color:var(--mute);font-size:6.4pt}
+svg text{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}
+.foot{margin-top:auto;font-size:6.2pt;color:var(--mute);border-top:1px solid var(--line);padding-top:1mm}
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+  <div>
+    <h1>Rig Rust Repair: a quadruped that finds and fixes pipe corrosion</h1>
+    <div class="sub">Unitree Go2 + 0–0.45 m lift mast + UR3 arm on an offshore oil rig in Isaac Sim 6.2. It detects rust, sprays, soaks 30 s, scrubs with a PPO policy, verifies and paints, and every step is decided by what its camera sees.</div>
+  </div>
+  <div class="tag"><b>Agentverse 2026</b> · Robotics track<br>Technical summary</div>
+</header>
+
+<div class="grid">
+<section>
+  <h2>User and problem</h2>
+  <p><b>User:</b> asset-integrity and maintenance crews on offshore platforms. Topside pipework corrodes all the time in salt spray. Today people find it from rope access or scaffolding near live hydrocarbons, then fix it by hand with remover, wire brush and paint.</p>
+  <p><b>Why it matters:</b> the work is <b>dangerous</b> (height, weather, possible gas release), <b>costly</b> (every task needs a person flown offshore) and <b>never finished</b> (kilometres of pipe per platform keep corroding). A robot that patrols, judges and does the routine repair, and hands only the doubtful cases to a person, keeps people out of the hazard zone.</p>
+</section>
+<section>
+  <h2>What it does</h2>
+  <ul>
+    <li><b>Perception decides the action.</b> The rust heatmap is projected onto a (θ, z) grid on the pipe; that grid sets the spray path, scrub targets, paint path and when the repair is done.</li>
+    <li><b>Adapts mid-run.</b> New rust during the soak or scrub → re-plan: spray the new patch, extend the soak. Weld bead → back off. Glare → second view. Lens mist → hold. Worker within 3 m → pause.</li>
+    <li><b>Grounded scrubbing.</b> Archard-style wear (removal ~ force × speed), 4× faster on sprayed and soaked cells, so the chemistry step matters to the policy.</li>
+    <li><b>Auditable.</b> Every transition logs detector confidence, rust fraction, patch ids and force to <code>decisions.jsonl</code> and the HUD.</li>
+  </ul>
+</section>
+
+<section class="span">
+  <h2>System architecture</h2>
+  <svg viewBox="0 0 760 196" width="100%" style="display:block">
+    <defs>
+      <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="#566372"/></marker>
+    </defs>
+    <rect x="160" y="3" width="592" height="100" rx="5" fill="none" stroke="#c4501a" stroke-dasharray="4 3"/>
+    <text x="168" y="14" font-size="9" fill="#c4501a" font-weight="700">ON ROBOT (EDGE): CPU only, no network needed in the fast loop</text>
+
+    <rect x="6" y="22" width="134" height="72" rx="4" fill="#e6eef6" stroke="#2c5d8a"/>
+    <text x="73" y="37" font-size="10" font-weight="700" text-anchor="middle" fill="#2c5d8a">Isaac Sim 6.2</text>
+    <text x="73" y="50" font-size="8.2" text-anchor="middle">rig deck + Go2/lift/UR3</text>
+    <text x="73" y="61" font-size="8.2" text-anchor="middle">RTX inspection camera</text>
+    <text x="73" y="72" font-size="8.2" text-anchor="middle">brush contact force</text>
+    <text x="73" y="85" font-size="8.2" text-anchor="middle" fill="#566372">NVIDIA GB10 (aarch64)</text>
+
+    <rect x="172" y="22" width="166" height="72" rx="4" fill="#fff" stroke="#16202b"/>
+    <text x="255" y="37" font-size="10" font-weight="700" text-anchor="middle">Perception</text>
+    <text x="255" y="50" font-size="8.2" text-anchor="middle">MobileNetV4-S + LoRA, ONNX</text>
+    <text x="255" y="61" font-size="8.2" text-anchor="middle">96 px patches, stride 48 → heatmap</text>
+    <text x="255" y="72" font-size="8.2" text-anchor="middle">mask → ray–cylinder → (θ, z) grid</text>
+    <text x="255" y="85" font-size="8.2" text-anchor="middle" fill="#566372">1.1 ms per crop · unsure 0.35–0.65</text>
+
+    <rect x="354" y="22" width="168" height="72" rx="4" fill="#fbe9df" stroke="#c4501a"/>
+    <text x="438" y="37" font-size="10" font-weight="700" text-anchor="middle" fill="#c4501a">Orchestrator</text>
+    <text x="438" y="50" font-size="8.2" text-anchor="middle">state machine, 15 states</text>
+    <text x="438" y="61" font-size="8.2" text-anchor="middle">re-plan on new patch · safety gates</text>
+    <text x="438" y="72" font-size="8.2" text-anchor="middle">force limit 40 N · person 3 m</text>
+    <text x="438" y="85" font-size="8.2" text-anchor="middle" fill="#566372">10 Hz scrub decisions</text>
+
+    <rect x="538" y="22" width="206" height="72" rx="4" fill="#fff" stroke="#16202b"/>
+    <text x="641" y="37" font-size="10" font-weight="700" text-anchor="middle">Skills → Go2 + lift + UR3</text>
+    <text x="641" y="50" font-size="8.2" text-anchor="middle">Spray / Paint: coverage paths</text>
+    <text x="641" y="61" font-size="8.2" text-anchor="middle">Scrub: PPO MLP 327 → 4, ONNX</text>
+    <text x="641" y="72" font-size="8.2" text-anchor="middle">Δ brush pose + force setpoint ≤ 38 N</text>
+    <text x="641" y="85" font-size="8.2" text-anchor="middle" fill="#566372">lift height from rust z · DLS IK</text>
+
+    <line x1="140" y1="52" x2="170" y2="52" stroke="#566372" stroke-width="1.3" marker-end="url(#a)"/>
+    <line x1="338" y1="52" x2="352" y2="52" stroke="#566372" stroke-width="1.3" marker-end="url(#a)"/>
+    <line x1="522" y1="52" x2="536" y2="52" stroke="#566372" stroke-width="1.3" marker-end="url(#a)"/>
+
+    <rect x="354" y="122" width="168" height="48" rx="4" fill="#fff" stroke="#566372" stroke-dasharray="3 2"/>
+    <text x="438" y="136" font-size="9.2" font-weight="700" text-anchor="middle">Gemini Robotics-ER (cloud)</text>
+    <text x="438" y="148" font-size="8" text-anchor="middle">2nd opinion: ambiguous DETECT,</text>
+    <text x="438" y="159" font-size="8" text-anchor="middle">pre-paint VERIFY veto · async, optional</text>
+    <line x1="438" y1="96" x2="438" y2="120" stroke="#566372" stroke-dasharray="3 2" stroke-width="1.2" marker-end="url(#a)" marker-start="url(#a)"/>
+
+    <rect x="538" y="122" width="206" height="48" rx="4" fill="#f2f5f8" stroke="#566372"/>
+    <text x="641" y="136" font-size="9.2" font-weight="700" text-anchor="middle">Training (offline)</text>
+    <text x="641" y="148" font-size="8" text-anchor="middle">detector: Modal A10G · PPO: Isaac Lab,</text>
+    <text x="641" y="159" font-size="8" text-anchor="middle">2048 envs on Modal L40S and the GB10</text>
+    <line x1="641" y1="120" x2="641" y2="96" stroke="#566372" stroke-dasharray="3 2" stroke-width="1.2" marker-end="url(#a)"/>
+    <text x="646" y="112" font-size="7.6" fill="#566372">ONNX weights</text>
+
+    <rect x="172" y="122" width="166" height="48" rx="4" fill="#fff" stroke="#2c5d8a"/>
+    <text x="255" y="136" font-size="9.2" font-weight="700" text-anchor="middle" fill="#2c5d8a">Live stream + HUD</text>
+    <text x="255" y="148" font-size="8" text-anchor="middle">camera → JPEG → FastAPI → WebSocket</text>
+    <text x="255" y="159" font-size="8" text-anchor="middle">HUD lines from every decision</text>
+    <line x1="120" y1="94" x2="170" y2="138" stroke="#566372" stroke-width="1.2" marker-end="url(#a)"/>
+
+    <polyline points="744,58 754,58 754,184 40,184 40,96" fill="none" stroke="#2c5d8a" stroke-width="1.4" marker-end="url(#a)"/>
+    <text x="397" y="193" font-size="8" text-anchor="middle" fill="#2c5d8a">arm + lift commands act on the pipe; the rust grid updates; the camera checks the result (closed loop)</text>
+  </svg>
+  <div class="flow"><span>PATROL</span><i>→</i><span>DETECT</span><i>⇄ SECOND_VIEW →</i><span>APPROACH</span><i>→</i><span>SPRAY</span><i>→</i><span>SOAK 30 s</span><i>(new patch ⇒ re-spray) →</i><span>SCRUB (PPO)</span><i>⇄ BACK_OFF →</i><span>VERIFY</span><i>(&gt;5 % rust ⇒ scrub, ≤3 cycles) →</i><span>PAINT</span><i>→</i><span>VERIFY_PAINT</span><i>→</i><span>DONE</span><i>· any state → HOLD / PAUSE_PERSON / ESCALATE_TO_HUMAN</i></div>
+</section>
+
+<section>
+  <h2>Where each model runs</h2>
+  <table>
+    <tr><th style="width:39%">Component</th><th style="width:26%">Runs on</th><th class="n">Latency / rate</th></tr>
+    <tr><td>Rust classifier (2.49 M, 0.19 GMACs)</td><td>robot CPU, ONNX</td><td class="n">1.1 ms (4 thr) · 2.6 ms (1 thr)</td></tr>
+    <tr><td>Localizer (patches on 640×360)</td><td>robot CPU</td><td class="n">batched · every 5 s in soak</td></tr>
+    <tr><td>Scrub policy (MLP, 327 → 4)</td><td>robot CPU, ONNX</td><td class="n">0.012 ms* · 10 Hz loop</td></tr>
+    <tr><td>Orchestrator + skills</td><td>robot CPU, Python</td><td class="n">10 Hz scrub decisions</td></tr>
+    <tr><td>Gemini Robotics-ER 2 preview</td><td>cloud API, async</td><td class="n"><span class="tbd">TBD</span> · 20 s timeout</td></tr>
+    <tr><td>Isaac Sim 6.2 render + stream</td><td>GB10, 121 GB unified</td><td class="n">RTX · JPEG over WebSocket</td></tr>
+    <tr><td>Detector training</td><td>Modal A10G</td><td class="n">minutes per run</td></tr>
+    <tr><td>PPO training, Isaac Lab 2.3.2</td><td>Modal L40S / GB10</td><td class="n">~45k / ~15k env-steps/s</td></tr>
+  </table>
+  <p class="note">*Apple M5 Max CPU, batch 1. Detector latency from the bake-off. GB10: 150 PPO iterations × 2048 envs in 524 s. Modal cannot render (gVisor, no Vulkan), so all RTX rendering runs on the GB10.</p>
+</section>
+<section>
+  <h2>Key results</h2>
+  <table>
+    <tr><th>Detector: MobileNetV4-S + LoRA r=16 (0.26 M trainable)</th><th class="n"></th></tr>
+    <tr><td>Real-photo test (881): F1 / recall / precision / AUROC</td><td class="n"><b>0.977</b> / 0.983 / 0.970 / 0.998</td></tr>
+    <tr><td>Held-out Isaac render crops (v1 → v2 model)</td><td class="n">10/13 → <b>13/13</b></td></tr>
+    <tr><td>Synthetic sim-domain test F1 (v1 → v2)</td><td class="n">0.795 → 1.000</td></tr>
+  </table>
+  <table style="margin-top:1mm">
+    <tr><th>Scrub PPO · rig geometry · new patch each episode</th><th class="n">v1</th><th class="n">v2</th></tr>
+    <tr><td>Success (&lt;5 % rust left) · episodes</td><td class="n">100 % · 513</td><td class="n">97.6 % · 1026</td></tr>
+    <tr><td>Episodes with force &gt; 40 N</td><td class="n bad">76.8 %</td><td class="n good">1.0 %</td></tr>
+    <tr><td>Mean / p95 episode-max force</td><td class="n bad">49.9 / 70.1 N</td><td class="n good">29.9 / 35.7 N</td></tr>
+    <tr><td>Mean time to clean</td><td class="n">5.2 s</td><td class="n">6.8 s</td></tr>
+  </table>
+  <p style="margin-top:.7mm">v2 gives up 2.4 points of success to stay inside the force budget (fine-tuned with a quadratic penalty above 30 N, a 38 N setpoint cap and wider randomisation). Full repair loop in Isaac 6.2 with the trained models: <span class="tbd">TBD</span>.</p>
+</section>
+
+<section>
+  <h2>Critical failure modes → response (on the HUD)</h2>
+  <table class="fm">
+    <tr><td>Over-force</td><td>Force &gt; 40 N → <b>BACK_OFF</b>: retract 5 cm, press × 0.7; 3 back-offs → <b>ESCALATE</b>. The policy is trained to stay under 40 N, and its setpoint is capped at 38 N outside the network.</td></tr>
+    <tr><td>Missed / residual rust</td><td>Painting over rust is the costliest error. The threshold is set for recall ≥ 0.95 in both domains. VERIFY needs &lt;5 % rust, ≥80 % of the target visible and ≤5 % uncertain cells. Gemini can veto paint. Still rusty after 3 cycles → <b>ESCALATE_TO_HUMAN</b> with the residual cells.</td></tr>
+    <tr><td>Ambiguous view</td><td>p in 0.35–0.65 → up to 2 <b>SECOND_VIEW</b>s, then Gemini, then a human.</td></tr>
+    <tr><td>Occlusion</td><td>No frame or a flat frame → <b>HOLD</b>; escalate after 5 s.</td></tr>
+    <tr><td>Person nearby</td><td>Worker &lt; 3 m → <b>PAUSE_PERSON</b>; resume when clear.</td></tr>
+  </table>
+</section>
+<section>
+  <h2>Safety design</h2>
+  <ul>
+    <li>Conservative by default: in doubt it looks again, holds or asks a person, and it never paints when unsure.</li>
+    <li>Hard limits live outside the learned policy: the 40 N gate, the 38 N clamp, the 3 m person radius, and caps on cycles, back-offs and holds.</li>
+    <li>The fast loop never waits on the cloud. With no key, network or valid reply, it runs exactly as it does without Gemini.</li>
+    <li>Escalations carry evidence (frame, confidence, residual cells), so a person can decide quickly.</li>
+  </ul>
+  <h2 style="margin-top:1.4mm">Limits</h2>
+  <ul>
+    <li>Simulation only. The bridge poses the robot kinematically (FK/IK, not PhysX), the legs are fixed while scrubbing, and the brush force is an analytic spring, not a contact sensor.</li>
+    <li>The scrub policy trains on privileged grid state; in deployment, the localizer fills the grid.</li>
+    <li>There are only 13 sim-render test crops and no real painted-steel negatives. One real source has up to 13 % false positives on weathered surfaces.</li>
+    <li>The rusty deck grate reads as rust, so only pipe pixels are classified; the rest are masked grey.</li>
+    <li>The arm links do not collide with the pipe, and the IK does not hold the brush normal to the surface.</li>
+  </ul>
+</section>
+</div>
+
+<div class="foot">Sources: <code>detection/RESULTS.md</code>, <code>policy/SCRUB.md</code>, <code>runs/scrub_v2/eval_rig_meta_forcepatch.json</code>, <code>runs/scrub_watson/eval_rig_meta_forcepatch.json</code>, <code>integration/INTERFACE.md</code>, <code>integration/SIM_BRIDGE.md</code>, <code>docs/diagrams.md</code>. Live stream: rig.zeecloud.org. TBD = still being produced.</div>
+</div>
+</body>
+</html>
