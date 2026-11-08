@@ -261,10 +261,14 @@ def dress(stage, work, args):
         from policy import night_look
     except ImportError:
         return {}
-    info = night_look.apply(stage, "/World/Backdrop/RepairZone", work, full=True, lamp_gain=args.lamp_gain,
-                            robot_root="/World/envs/env_0/Robot", robot_color=args.robot_color)
     from pxr import Usd, UsdShade
 
+    for _ in range(4):
+        inst = [p for p in Usd.PrimRange(stage.GetPrimAtPath("/World/envs/env_0/Robot")) if p.IsInstance()]
+        for p in inst:
+            p.SetInstanceable(False)
+    info = night_look.apply(stage, "/World/Backdrop/RepairZone", work, full=True, lamp_gain=args.lamp_gain,
+                            robot_root="/World/envs/env_0/Robot", robot_color=args.robot_color)
     for prim in Usd.PrimRange(stage.GetPrimAtPath("/World/envs/env_0/Robot"), Usd.TraverseInstanceProxies()):
         if prim.IsA(UsdGeom.Mesh) and "visual" in str(prim.GetPath()):
             m, _ = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()
