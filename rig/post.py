@@ -82,3 +82,50 @@ def grade(img: np.ndarray, lift=(0.0, 0.0, 0.0), gain=(1.0, 1.0, 1.0), vignette:
         r = ((xx / w - 0.5) ** 2 + (yy / h - 0.5) ** 2) * 2
         f *= (1 - vignette * r ** 1.5)[..., None]
     return (np.clip(f, 0, 1) * 255 + 0.5).astype(np.uint8)
+
+
+def height_fog(img: np.ndarray, depth: np.ndarray, cam: dict, density: float, falloff: float, colour,
+               max_dist: float = 3000.0) -> np.ndarray:
+    if density <= 0:
+        return img
+    h, w = depth.shape
+    K, T = np.asarray(cam["K"], np.float32), np.asarray(cam["T"], np.float32)
+    sy, sx = img.shape[0] / h, img.shape[1] / w
+    v, u = np.mgrid[0:h, 0:w].astype(np.float32)
+    rays = np.stack([((u + 0.5) * sx - K[0, 2]) / K[0, 0], ((v + 0.5) * sy - K[1, 2]) / K[1, 1], np.ones_like(u)], -1)
+    dz = (rays @ T[:3, :3].T)[..., 2] / np.linalg.norm(rays, axis=-1)
+    d = np.where(np.isfinite(depth) & (depth > 0), np.minimum(depth, max_dist), max_dist)
+    z0 = max(float(T[2, 3]), 0.0)
+    k = dz * d / falloff
+    ratio = np.where(np.abs(k) > 1e-4, (1 - np.exp(-np.clip(k, -30, 30))) / np.where(np.abs(k) > 1e-4, k, 1), 1.0)
+    tau = density * d * np.exp(-z0 / falloff) * ratio
+    fog = 1 - np.exp(-np.clip(tau, 0, 50))
+    if fog.shape != img.shape[:2]:
+        fog = np.asarray(Image.fromarray(fog.astype(np.float32)).resize((img.shape[1], img.shape[0]), Image.BILINEAR))
+    f = img[..., :3].astype(np.float32)
+    out = f + (np.asarray(colour, np.float32) - f) * fog[..., None]
+    return np.clip(out + 0.5, 0, 255).astype(np.uint8)
+
+
+def god_rays(img: np.ndarray, source, strength: float, samples: int = 24, decay: float = 0.94, threshold: float = 170.0,
+             scale: int = 4, reach: float = 0.75) -> np.ndarray:
+    if strength <= 0:
+        return img
+    h, w = img.shape[:2]
+    small = np.asarray(Image.fromarray(img[..., :3]).resize((w // scale, h // scale), Image.BILINEAR), np.float32)
+    bright = np.clip(small - threshold, 0, None) * (255.0 / (255.0 - threshold))
+    sh, sw = bright.shape[:2]
+    cx, cy = source[0] / scale, source[1] / scale
+    yy, xx = np.mgrid[0:sh, 0:sw].astype(np.float32)
+    acc = np.zeros_like(bright)
+    wgt = 1.0
+    for i in range(samples):
+        s = 1.0 - reach * i / samples
+        x = np.clip(np.rint(cx + (xx - cx) * s), 0, sw - 1).astype(np.intp)
+        y = np.clip(np.rint(cy + (yy - cy) * s), 0, sh - 1).astype(np.intp)
+        acc += bright[y, x] * wgt
+        wgt *= decay
+    acc *= strength * 3.0 / samples
+    up = np.asarray(Image.fromarray(np.clip(acc, 0, 255).astype(np.uint8)).resize((w, h), Image.BILINEAR), np.float32)
+    out = img[..., :3].astype(np.float32) + up
+    return np.clip(out, 0, 255).astype(np.uint8)
