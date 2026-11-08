@@ -978,6 +978,56 @@ def build_compressor(stage, kit, okit):
     rails_around(kit, [(-24.6, 5.4), (-5.4, 5.4), (-5.4, 24.6), (-24.6, 24.6)], z0)
 
 
+UTILITIES = ((-24.5, -17.4, 42.6), (-5.5, 1.4, 48.7))
+UTILITY_LOOKS = ("machine_green", "vessel_grey", "vessel_white", "black", "pipe_grey", "valve_red")
+
+
+def hide_topside_utilities(stage):
+    full = Usd.Stage.Open(str(pr.OUTPUT / "full_rig.usda"), Usd.Stage.LoadNone)
+    (x0, y0, z0), (x1, y1, z1) = UTILITIES
+    hidden = 0
+    for name in UTILITY_LOOKS:
+        pi = UsdGeom.PointInstancer(full.GetPrimAtPath(f"/World/Topside/{name}"))
+        if not pi:
+            continue
+        pos = np.array(pi.GetPositionsAttr().Get())
+        sel = np.flatnonzero((pos[:, 0] > x0) & (pos[:, 0] < x1) & (pos[:, 1] > y0) & (pos[:, 1] < y1) &
+                             (pos[:, 2] > z0) & (pos[:, 2] < z1))
+        if len(sel):
+            over = UsdGeom.PointInstancer(stage.OverridePrim(f"/World/Topside/{name}"))
+            over.CreateInvisibleIdsAttr(Vt.Int64Array([int(i) for i in sel]))
+            hidden += len(sel)
+    return hidden
+
+
+def build_gensets(stage, looks, kit, okit):
+    y = -14.4
+    for n, x in enumerate((-21.9, -17.4, -12.9, -8.4)):
+        z = DECK_TOP
+        kit.add("steel", "box", (x, y, z + 0.13), scale=(3.9, 2.4, 0.25))
+        look = "proc_green" if n % 2 else "proc_grey"
+        kit.add(look, "box", (x - 0.3, y, z + 1.3), scale=(2.8, 2.1, 2.1))
+        for side in (-1, 1):
+            for zz in np.arange(z + 0.6, z + 2.2, 0.2):
+                okit.add("galv", "box", (x - 0.3, y + side * 1.08, zz), (math.cos(0.26), side * math.sin(0.26), 0.0, 0.0),
+                         (2.4, 0.03, 0.17))
+        kit.add("proc_grey", "box", (x + 1.45, y, z + 1.35), scale=(0.5, 2.2, 2.2))
+        for zz in np.arange(z + 0.45, z + 2.3, 0.18):
+            okit.add("black", "box", (x + 1.71, y, zz), scale=(0.03, 2.0, 0.06))
+        kit.member("proc_grey", "cyl", (x - 1.3, y + 0.5, z + 2.75), (x + 0.5, y + 0.5, z + 2.75), (0.55, 0.55))
+        kit.tube("proc_grey", (x - 1.0, y + 0.5, z + 2.35), (x - 1.0, y + 0.5, z + 2.75), 0.12)
+        kit.tube("proc_grey", (x + 0.5, y + 0.5, z + 2.75), (x + 0.5, y + 0.5, 47.9), 0.18)
+        kit.tube("soot", (x + 0.5, y + 0.5, 47.6), (x + 0.5, y + 0.5, 47.95), 0.2)
+        kit.add("crane_yellow", "box", (x - 1.85, y - 0.8, z + 1.0), scale=(0.25, 0.4, 0.6))
+    cx, cy = -15.0, -1.6
+    vessel(stage, looks, "day_tank", (cx, cy, DECK_TOP + 1.5), (1, 0, 0), 7.6, 0.9, "proc_white")
+    for x in (cx - 2.5, cx, cx + 2.6):
+        nozzle(kit, (x, cy, DECK_TOP + 2.35), (0, 0, 1), 0.12, 0.45)
+    kit.tube("galv", (cx + 1.2, cy - 0.98, DECK_TOP + 0.9), (cx + 1.2, cy - 0.98, DECK_TOP + 2.1), 0.04)
+    kit.tube("pipe_yellow", (cx - 4.4, cy, DECK_TOP + 1.5), (cx - 4.9, cy, DECK_TOP + 1.5), 0.1)
+    kit.tube("pipe_yellow", (cx - 4.9, cy, DECK_TOP + 1.5), (cx - 4.9, -13.0, DECK_TOP + 1.5), 0.1)
+
+
 def build_process(stage, looks, kit, okit):
     dropped = trim_stl(stage)
     build_tank(stage, looks, kit, okit)
@@ -988,6 +1038,8 @@ def build_process(stage, looks, kit, okit):
     ehouse(stage, kit, okit, (27.0, 4.7, DECK_TOP), 0.0, "box_white", 0)
     ehouse(stage, kit, okit, (27.0, 1.75, DECK_TOP), 0.0, "box_blue", 1)
     ehouse(stage, kit, okit, (-9.5, 9.0, RAISED), 90.0, "box_white", 2)
+    dropped += hide_topside_utilities(stage)
+    build_gensets(stage, looks, kit, okit)
     return dropped
 
 
