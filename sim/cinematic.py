@@ -9,6 +9,7 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 import look
 import ocean
 import hero_mat
+import ocean_fx
 import photoreal
 import structure
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
@@ -492,6 +493,7 @@ def apply_preset(stage, name: str) -> None:
     photoreal.apply(stage, name)
     structure.apply(stage, name)
     hero_mat.apply(stage, name)
+    ocean_fx.apply(stage, name, preset["wave_height"])
     relight(stage)
     add_work_light(stage)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
@@ -591,3 +593,4 @@ def animate_ocean(stage, rest, distance, time: float, height: float) -> None:
     mesh.GetNormalsAttr().Set(Vt.Vec3fArray.FromNumpy(normals.astype(np.float32)))
     scroll = UsdShade.Shader.Get(stage, "/World/Looks/cinematic_sea/scroll")
     scroll.GetInput("translation").Set(Gf.Vec2f(time * 0.035, time * 0.02))
+    ocean_fx.animate(stage, time)
