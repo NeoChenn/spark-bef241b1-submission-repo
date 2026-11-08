@@ -239,3 +239,56 @@ def visible(eye, target, focal, p, aperture=20.955, aspect=16 / 9):
     y = sum(a * b for a, b in zip(d, u))
     tx = aperture / 2 / focal
     return z > 0 and abs(x / z) <= tx and abs(y / z) <= tx / aspect
+
+
+def test_wide_turns_or_pulls_in_when_view_blocked():
+    poses = {"R2": (0.0, 0.0, MID, 0.0)}
+    h = cam(poses)
+    h.event("scenario", {"id": "gas"})
+    free_az = []
+
+    def blocked(a, b):
+        az = math.degrees(math.atan2(b[1] - a[1], b[0] - a[0]))
+        if abs(((az - 145.0) + 180) % 360 - 180) < 1.0:
+            free_az.append(az)
+            return None
+        return 5.0
+
+    h.blocked = blocked
+    eye, look, _ = run(h, 0.0, 8.0)
+    assert free_az
+    az = math.degrees(math.atan2(eye[1] - look[1], eye[0] - look[0]))
+    assert abs(((az - 145.0) + 180) % 360 - 180) < 2.0
+
+
+def test_wide_pulls_in_when_all_sides_blocked():
+    h = cam({"R2": (0.0, 0.0, MID, 0.0)})
+    h.event("scenario", {"id": "gas"})
+    h.blocked = lambda a, b: 9.0
+    eye, look, _ = run(h, 0.0, 8.0)
+    assert math.dist(eye, look) < 9.0
+
+
+def test_first_blocker_combines_and_caches_mesh_per_cell():
+    from rig.sim.herocam import first_hit, mesh_ray
+
+    assert first_hit(lambda a, b: None, lambda a, b: 3.0)((0, 0, 0), (9, 0, 0)) == 3.0
+    assert first_hit(lambda a, b: 2.0, lambda a, b: 3.0)((0, 0, 0), (9, 0, 0)) == 2.0
+    assert first_hit(None, lambda a, b: None)((0, 0, 0), (9, 0, 0)) is None
+    built = []
+
+    class Caster:
+        def cast(self, o, dirs, max_t):
+            return [4.0 if dirs[0][0] > 0 else -1.0]
+
+    def build(center):
+        built.append(tuple(center))
+        return Caster()
+
+    ray = mesh_ray(build, cell=20.0)
+    assert ray((0, 0, 30), (10, 0, 30)) == 4.0
+    assert ray((1, 1, 30), (-10, 0, 30)) is None
+    assert ray((2, 0, 30), (2, 0, 30)) is None
+    assert len(built) == 1
+    ray((80, 0, 30), (90, 0, 30))
+    assert len(built) == 2
