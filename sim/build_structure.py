@@ -410,6 +410,7 @@ def build() -> Path:
     stage.OverridePrim(LEGS_MESH).SetActive(False)
     for path in SPLASH_BANDS:
         UsdGeom.Imageable(stage.OverridePrim(path)).CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
+    stage.GetRootLayer().GetPrimAtPath("/World").specifier = Sdf.SpecifierOver
     stage.GetRootLayer().Save()
     print(f"STRUCTURE_WRITTEN {s.LAYER} legs={len(legs)} instances={total} drips={drips}")
     return s.LAYER
