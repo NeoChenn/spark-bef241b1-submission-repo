@@ -1,79 +1,96 @@
-# Pitch: Rig Rust Repair (5 minutes)
+# Pitch: Rig Robot, one quadruped with two jobs (5 minutes)
 
 Agentverse 2026, Robotics track. There are 10 slides; the deck is `docs/pitch.html` (← → or space to move, F for fullscreen; `docs/pitch.pdf` is the same deck). The one-page summary is `docs/technical_summary.pdf`.
 
-The judging weights tell us where to spend the time. Perception-driven action (25 %) is covered on slides 4–5, adaptation (25 %) on slides 4 and 7, edge autonomy (15 %) on slide 8, relevance and the critical failure mode (20 %) on slides 2, 6 and 7, and ambition and quality (15 %) throughout.
+The judging weights tell us where to spend the time. Perception-driven action (25 %) is covered on slides 4, 5 and 7, adaptation (25 %) on slides 4, 7 and 8, edge autonomy (15 %) on slide 9, relevance and the critical failure mode (20 %) on slides 2 and 8, and ambition and quality (15 %) on slides 6, 9 and throughout.
 
-Items marked **TBD** are still being produced by other agents: the live repair-loop numbers, HUD screenshots, the final video file and Gemini latency. Fill them in before the talk, or drop the line.
+Items marked **TBD** are still being produced:
+- the final one-take video file
+- the live two-job loop in Isaac 6.2 with the trained models
+- Gemini latency
+- the GB10 TensorRT numbers (`edge-bench`)
+- unit 2, the gas robot (`leak-bot`)
+- the gas plume window (`gas-plume`)
+- the fleet planner (`fleet-planner`)
+- storm adaptation (`storm-adapt`)
+- Go2 walking (`go2-walk`)
+
+Fill them in before the talk, or drop the line.
 
 | # | Slide | Time | Cumulative |
 |---|---|---|---|
-| 1 | Hook | 0:20 | 0:20 |
-| 2 | The problem | 0:30 | 0:50 |
-| 3 | What we built | 0:25 | 1:15 |
-| 4 | **Demo video** (≤ 60 s) | 1:05 | 2:20 |
-| 5 | Perception drives every action | 0:35 | 2:55 |
-| 6 | The scrub policy and the force problem | 0:35 | 3:30 |
-| 7 | When things go wrong | 0:30 | 4:00 |
-| 8 | Edge autonomy: where everything runs | 0:25 | 4:25 |
-| 9 | Limits, honestly | 0:20 | 4:45 |
-| 10 | Close | 0:15 | 5:00 |
+| 1 | Hook | 0:15 | 0:15 |
+| 2 | The problem: two chronic jobs | 0:25 | 0:40 |
+| 3 | One platform, two jobs | 0:25 | 1:05 |
+| 4 | **Demo video** (≤ 60 s) | 1:05 | 2:10 |
+| 5 | Perception drives every action | 0:30 | 2:40 |
+| 6 | The scrub policy and the force problem | 0:30 | 3:10 |
+| 7 | The gas-leak job: loose bolt or crack? | 0:30 | 3:40 |
+| 8 | When things go wrong | 0:25 | 4:05 |
+| 9 | Edge autonomy, and what's coming | 0:30 | 4:35 |
+| 10 | Limits and close | 0:25 | 5:00 |
 
 ---
 
-## 1. Hook (0:00–0:20)
+## 1. Hook (0:00–0:15)
 
-**On screen:** a hero still of the night rig scene with the Go2 at the pipe (from the stream at rig.zeecloud.org or the cinematic render). Title: *Rig Rust Repair: a robot dog that finds and fixes pipe corrosion.*
-
-**Say:**
-> "Every offshore platform is slowly rusting. Today the fix is a person on a rope, 30 metres up, in salt spray, next to live hydrocarbons, with a wire brush. We built a robot that finds the rust, repairs it, checks its own work, and calls a human only when it isn't sure."
-
-## 2. The problem (0:20–0:50)
-
-**On screen:** three words, each with one line under it.
-- **Dangerous**: height, weather, the chance of a gas release.
-- **Costly**: every repair needs people flown offshore.
-- **Never finished**: kilometres of pipe per platform, corroding again.
-
-User: the asset-integrity and maintenance crews on the platform.
+**On screen:** the night rig hero render. Title: *Rig Robot: one quadruped, two jobs.*
 
 **Say:**
-> "The users are the asset-integrity crews. Corrosion is their chronic job. It isn't hard work, but it is dangerous, slow and endless. That is the kind of work a robot should take over. The robot has to be trusted, though. The worst thing it can do is paint over rust and hide it."
+> "Two jobs keep sending people into the most dangerous place on an offshore platform: fixing rust, and chasing small gas leaks. We built one robot that does both, and that knows when to call a human."
 
-*(That last line sets up the critical failure mode. Come back to it on slide 7.)*
+## 2. The problem: two chronic jobs (0:15–0:40)
 
-## 3. What we built (0:50–1:15)
+**On screen:** two columns.
+- **Corrosion**: pipework rusts constantly in salt spray, and people fix it by hand from rope access.
+- **Small gas leaks**: bolted flanges work loose, and a person with a gas detector walks up to find them.
 
-**On screen:** the robot (Unitree Go2 + 0–0.45 m lift mast + UR3 arm) and the repair loop as a strip:
-`detect → spray → soak 30 s → scrub (PPO) → verify (detector + Gemini) → paint`.
+Underneath: **dangerous · costly · never finished**. The user is the asset-integrity and maintenance crews.
 
 **Say:**
-> "It's a Unitree Go2 quadruped with a lift mast and a UR3 arm, on a full offshore rig in Isaac Sim 6.2. It patrols, spots rust, sprays remover, waits 30 seconds for it to soak, scrubs with a reinforcement-learning policy, checks the result with its own detector and a Gemini second opinion, and only then paints."
+> "Neither job is hard. Both are dangerous, slow and endless. The robot has to be trusted, and there are two things it must never do: paint over rust, and put a wrench on a cracked flange."
 
-## 4. Demo video (1:15–2:20)
+*(This sets up the critical failure modes. Come back to them on slide 8.)*
 
-**DEMO CUE:** say the intro line, then **play the video** (≤ 60 s, one take). File: **TBD** (it will be in `~/Downloads/rig-videos/`; check the name with the video agent). Don't talk over it except for the three call-outs below. Read them off the HUD as they happen.
+## 3. One platform, two jobs (0:40–1:05)
+
+**On screen:** the robot (Go2 + 0–0.45 m lift mast + UR3) and two loops:
+- **Rust**: detect → spray → soak 30 s → scrub (PPO) → verify (detector + Gemini) → paint
+- **Leak**: gas check → walk to flange → inspect bolts and face → re-torque → verify (stripe aligned, gas falling)
+
+Underneath: *one state machine, one camera, one arm, one decision log; gas pre-empts everything.*
+
+**Say:**
+> "It's a Unitree Go2 with a lift mast and a UR3 arm, on a full rig in Isaac Sim 6.2. At every patrol stop it checks the gas first. If the air is clean, it hunts rust: spray, soak, scrub with a reinforcement-learning policy, verify, paint. If there's gas, it finds the flange, reads the bolts, and tightens the loose one. Both jobs share one brain, and gas always wins."
+
+## 4. Demo video (1:05–2:10)
+
+**DEMO CUE:** say the intro line, then **play the video** (≤ 60 s, one take). The final file is **TBD**. The current renders are in `~/Downloads/rig-videos/`; `demo_combined.mp4` is the v2 scrub render. Don't talk over it except for the call-outs. Read them off the HUD as they happen.
 
 **Intro (5 s):**
-> "This is one take. Nothing is scripted except that we change the world while it works. Watch the HUD in the corner."
+> "This is one take. We change the world while it works, and nothing tells the robot. Watch the HUD."
 
 **Call-outs while it plays:**
-1. When the detector inset shows the red mask: *"That's the detector. The red mask becomes the robot's target grid on the pipe."*
-2. At the unscripted change (a new rust patch appears mid-soak or mid-scrub): *"New rust. It wasn't told. It sees it, re-plans and sprays the new patch."* The HUD shows `RE-PLAN`.
-3. At BACK_OFF, HOLD or PAUSE_PERSON (whichever the take shows): *"Too much force, so it backs off"* / *"Lens blocked, so it holds"* / *"A worker walked in, so it pauses."*
+1. On the detector mask or pipe map: *"That's the detector. The red mask becomes the target grid on the pipe."*
+2. At the unscripted change:
+   - New rust: *"New rust. It sees it and re-plans."*
+   - A bolt loosening mid-scrub: *"Gas. It drops the scrub, fixes the bolt, and comes back to the scrub exactly where it left off."*
+3. At BACK_OFF, HOLD or PAUSE_PERSON: *"Too much force, so it backs off"* / *"Lens blocked, so it holds"* / *"A worker walked in, so it pauses."*
 
-**Fallback if the video fails:** open https://rig.zeecloud.org (the live stream), or show HUD screenshots (**TBD**) and talk through the `runs/decisions.jsonl` trace.
+**Fallback if the video fails:** open the live HUD at https://rig.zeecloud.org. If the sim isn't streaming, use the mock replay at `/?mock=1`: press Space to start, U to make an unscripted change, and ? to show the controls card.
 
-## 5. Perception drives every action (2:20–2:55)
+## 5. Perception drives every action (2:10–2:40)
 
-**On screen:** the pixels-to-target pipeline: camera frame → 96 px patches → heatmap → mask → ray–cylinder projection → (θ, z) grid on the pipe → spray path / scrub targets / done check. Detector card: MobileNetV4-Small + LoRA, 0.26 M trainable parameters; **F1 0.977** on 881 real photos; **13/13** on held-out Isaac renders (the previous model got 10/13).
+**On screen:** two pipelines side by side.
+- **Rust**: frame → 96 px patches → MobileNetV4 + LoRA heatmap → (θ, z) grid on the pipe → spray path, scrub targets, done check. Numbers: **F1 0.977** on 881 real photos, **13/13** held-out Isaac renders.
+- **Leak**: frame → project the known bolt positions → read each red torque stripe (how far each bolt turned) → classical crack check → diagnosis. Numbers: **40/40 cracks found, 0/40 false alarms**; stripe angle error ≤ 0.019 rad (about 1°).
 
 **Say:**
-> "Nothing here is a fixed script. The classifier is a MobileNetV4 with LoRA adapters, 1.1 milliseconds per crop on a CPU. We slide it over the frame to get a heatmap and project that onto the pipe's surface. That grid decides where to spray, where to scrub, and when the job is done. Our first model worked on real photos but missed rendered rust, so we generated sim-style training data from the scene's own textures. On held-out renders it went from 10 out of 13 to 13 out of 13."
+> "Nothing is a fixed script. For rust, a 1-millisecond MobileNet heatmap is projected onto the pipe and becomes the work plan. For leaks we didn't need ML. Every bolt has a torque stripe. When the bolt turns, the stripe breaks, and we measure that to about a degree. A classical crack check found 40 of 40 cracks with no false alarms. Both checks have an 'unsure' answer, and unsure means take another look."
 
-## 6. The scrub policy and the force problem (2:55–3:30)
+## 6. The scrub policy and the force problem (2:40–3:10)
 
-**On screen:** a two-column v1 vs v2 table (rig geometry, a new rust patch injected every episode):
+**On screen:** a v1 vs v2 table (rig geometry, a new rust patch every episode):
 
 | | v1 | v2 |
 |---|---|---|
@@ -82,89 +99,100 @@ User: the asset-integrity and maintenance crews on the platform.
 | Mean / p95 max force | 49.9 / 70.1 N | 29.9 / 35.7 N |
 
 **Say:**
-> "Scrubbing is a PPO policy trained in Isaac Lab across 2,048 parallel environments, with a physical wear model: rust comes off in proportion to force times speed, four times faster once it has soaked. Version 1 cleaned every pipe, but it did that by pressing too hard. Three episodes in four went over our 40-newton limit. We retrained it with a quadratic over-force penalty and a 38-newton cap on the setpoint. Episodes over the limit fell from 77 % to 1 %, and success only dropped to 97.6 %. We would rather have a robot that is slightly slower and doesn't damage the pipe."
+> "Scrubbing is PPO in Isaac Lab across 2,048 parallel environments, with a wear model where rust comes off four times faster once it has soaked. Version 1 cleaned everything by pressing too hard: three episodes in four broke our 40-newton limit. We retrained it with a quadratic over-force penalty and a 38-newton cap. Episodes over the limit fell from 77 % to 1 %, and success only dropped to 97.6 %."
 
-## 7. When things go wrong (3:30–4:00)
+## 7. The gas-leak job: loose bolt or crack? (3:10–3:40)
 
-**On screen:** the failure-mode table (the critical row is highlighted):
+**On screen:** the crack-check figure (`docs/leak/crack_check.png`: clean / cracked / cracked through a dirty lens) and three outcomes from the mock:
+- loose bolts 1 and 5 → re-torque both → gas clears → **DONE**
+- cracked flange → back off 3 m → **ESCALATE** (critical)
+- dirty lens → 2 extra views → **ESCALATE** (unsure)
+
+**Say:**
+> "The gas sensor tells the robot that something is leaking. The camera tells it what. A loose bolt is something it may fix: it tightens the worst bolt, then checks that the stripe lines up and the gas falls. A crack it must never touch: it backs off and raises a critical alert. A dirty lens hides cracks before it hides the stripes, so a blurry 'no crack' isn't trusted. It becomes 'unsure', and a human gets the call."
+
+## 8. When things go wrong (3:40–4:05)
+
+**On screen:** the failure-mode table (the critical rows are highlighted) next to a HUD screenshot (`docs/img/hud_mock_backoff.png`, the mock replay at BACK_OFF):
 
 | Failure | Response |
 |---|---|
-| **Paints over rust** (critical) | VERIFY needs < 5 % rust, 80 % of the target visible, few uncertain cells; Gemini can veto; 3 failed cycles → **ESCALATE_TO_HUMAN** with evidence |
-| Over-force > 40 N | **BACK_OFF**: retract 5 cm, press × 0.7; 3× → escalate |
-| Ambiguous (p 0.35–0.65) | up to 2 **SECOND_VIEW**s → Gemini → human |
-| Camera blocked | **HOLD**; escalate after 5 s |
-| Person < 3 m | **PAUSE_PERSON**; resume when clear |
-| New rust mid-run | **RE-PLAN**: spray it, extend the soak |
+| **Paints over rust** | VERIFY: < 5 % rust, ≥ 80 % visible; Gemini veto; 3 failed cycles → ESCALATE |
+| **Tightens a cracked flange** | crack possible → never touch bolts; back off 3 m, critical alert |
+| Gas ≥ 0.20 LEL or sensor fault | GAS_RETREAT (fail-safe) |
+| Gas during rust work | pause, fix the leak, resume |
+| Force > 40 N | BACK_OFF: retract 5 cm, press × 0.7 |
+| Person < 3 m · camera blocked | PAUSE_PERSON · HOLD |
 
 **Say:**
-> "Here's the failure that matters: painting over rust. Before it paints, the robot has to see less than 5 % rust over most of the patch. Gemini Robotics-ER gets a veto, and if it still isn't clean after three tries, the robot stops and sends a human a work order with the evidence. Every one of these responses is on the HUD and in a decision log, with the confidence and force that caused it."
+> "Before every step, the checks run in a fixed order: is the gas sensor working, is gas below the limit, is anyone near. The most severe hazard wins. Every response is on the HUD and in a decision log, with the evidence behind it."
 
-## 8. Edge autonomy: where everything runs (4:00–4:25)
+## 9. Edge autonomy, and what's coming (4:05–4:35)
 
-**On screen:** a three-zone diagram.
-- **On the robot (CPU)**: detector 1.1 ms, scrub policy 0.012 ms (measured on a laptop CPU), orchestrator at 10 Hz.
-- **Cloud, optional**: Gemini second opinion, asynchronous, latency **TBD**.
-- **Training only**: Modal A10G (detector), Modal L40S and our GB10 (PPO, 2,048 envs).
-- The sim renders on an NVIDIA GB10 and streams to the browser.
-
-**Say:**
-> "Everything in the fast loop runs on the robot's CPU: perception, the policy and the state machine. Gemini is advice. If the network drops, the robot behaves exactly as it does without it, which matters on a platform with a satellite link."
-
-## 9. Limits, honestly (4:25–4:45)
-
-**On screen:** four bullets.
-- Simulation only. The robot is posed kinematically in the demo bridge, and the brush force is a spring model.
-- The scrub policy is trained on grid state that the localizer fills in deployment.
-- The sim-render check is small (13 crops).
-- Next steps: walking legs under arm load, a real force-torque sensor, and real painted-steel data.
+**On screen:**
+- **On the robot (CPU):** rust detector 1.1 ms; scrub policy 0.012 ms; leak check about 90 ms per frame (measured on a laptop CPU); state machine. TensorRT on the GB10: **TBD**.
+- **Cloud, optional:** the Gemini second opinion for rust, asynchronous.
+- **Training only:** Modal A10G / L40S and our GB10.
+- **Coming (TBD):** unit 2, a gas robot with methane %LEL and H₂S sensors, an OGI-style camera and an acoustic sensor, using cast-and-surge source localisation. Also a 3D plume with leak rate (orifice equation), a fleet planner with gas pre-emption, storm adaptation and Go2 walking.
 
 **Say:**
-> "To be clear about what this is: it's simulation. The brush force is a model, not a sensor, and our sim-render test is small. The next steps are real force sensing and real painted-steel data."
+> "The whole fast loop runs on the robot's CPU. Gemini is advice; if the satellite link drops, behaviour is unchanged. Next is a second robot built for gas: it smells its way to the source, and a fleet planner sends the nearest unit when gas appears."
 
-## 10. Close (4:45–5:00)
+*(Cut the "coming" sentence if you're over time.)*
 
-**On screen:** one line, *Find it. Fix it. Prove it. Ask when unsure.*, with the live stream URL and the repo.
+## 10. Limits and close (4:35–5:00)
+
+**On screen:** limits on the left, the tagline on the right.
+- Simulation only. The robot is posed kinematically, the brush force is a spring model, and bolt torque isn't simulated.
+- The gas model and thresholds are illustrative. The leak checks still need re-testing on Isaac stream frames. The rust render test is small (13 crops).
+
+Tagline: *Find it. Fix it. Prove it. Ask when unsure.*
 
 **Say:**
-> "A robot that finds rust, fixes it, proves it's fixed, and asks a human when it isn't sure. Thank you."
+> "To be clear: this is simulation, and our gas numbers are illustrative. But the logic is the point. One robot finds rust and leaks, fixes the routine ones, proves they're fixed, and asks a human about everything else. Thank you."
 
 ---
 
 ## Q&A cheat sheet (keep each answer to about 30 s)
 
 **Is this just a scripted animation?**
-No. Every transition comes from perception. The detector's mask becomes the target grid, and the state machine moves on only when the camera confirms it. The new rust in the video isn't announced to the robot; it finds it by re-detecting every 5 s during the soak. Each decision is logged with its evidence in `decisions.jsonl`.
+No. Every transition comes from perception. The rust mask becomes the target grid, the stripe reading picks which bolt to tighten, and the state machine moves on only when the camera or the gas sensor confirms the result. The unscripted changes, new rust or a bolt working loose, aren't announced to the robot. Each decision is logged with its evidence in `decisions.jsonl`.
 
-**How good is the detector, really?**
-On 881 real photos it scores F1 0.977, recall 0.983 and AUROC 0.998. On held-out Isaac renders it gets 13/13 crops right, against 10/13 for the model trained without sim-style data. The caveats: the render set is small, and one real source of weathered surfaces gives up to 13 % false positives. We set the threshold for recall, because a miss is the costly error.
+**Why no ML for the leak checks?**
+We didn't need it, and a classical check is easier to trust. A painted torque stripe is an industry convention: if it's broken, the bolt has turned. The crack check looks for long, thin, dark shapes on the flange face and measures their length in millimetres. It found 40/40 cracks with 0/40 false alarms on held-out renders; 6/40 clean flanges came back "unsure", which costs a second look, not a miss. An ONNX crack-model path exists (validation F1 0.98 after one epoch), but it is off by default.
 
-**Why MobileNetV4 and not a bigger model?**
-DINOv2-S is about 1.5 F1 points better on real photos, but it is 30× the compute and about 50× the CPU latency (68 ms against 1.1 ms on 4 threads). Before the sim-style data was added, MobileNetV4 also handled the sim look better than the ViT (synthetic F1 0.795 against 0.419). LoRA trains 0.26 M parameters and matched full fine-tuning (F1 0.977 against 0.972).
+**What if it tightens a bolt on a cracked flange?**
+That's the failure we designed against. A crack probability ≥ 0.5 is never a robot repair. While a crack is merely possible (unsure), no bolt is touched. And a dirty lens can't produce a "no crack", because view quality below 0.85 turns it into "unsure". The safety sweep in the tests checks that it never tightens a cracked flange, never tightens in gas at the limit, and never finishes "done" with a loose bolt left.
 
-**Why did success drop from 100 % to 97.6 %?**
-That was deliberate. v1 got 100 % by pressing too hard: 76.8 % of its episodes went over 40 N, with a peak of 87.5 N. v2 keeps 99 % of episodes under the limit, and its mean time to clean is 6.8 s against 5.2 s. The episodes it doesn't finish go back to VERIFY, which scrubs again or escalates. It never paints over them.
+**What do the gas numbers mean?**
+They are fractions of the lower explosive limit (LEL): above 0.05 means investigate, and 0.20 or more means stop and retreat. They are illustrative, not from a site standard; the gas model is a simple distance-decay field. A real plume model and a dedicated gas robot are in progress (TBD).
 
-**What stops the robot from damaging the pipe?**
-There are three layers: the policy is trained against over-force; its setpoint is clamped to 38 N outside the network; and the orchestrator has a hard 40 N gate that backs off (retract 5 cm, press × 0.7) and escalates after 3 back-offs.
+**How does it handle a leak in the middle of a scrub?**
+The gas check runs before every scrub step. Above 0.05 LEL it pauses the scrub, walks to the flange, re-torques the bolt (bolt 2 in the mock), checks that the stripe is aligned and the gas is falling, then resumes the scrub in the same state and finishes the rust job. In the mock that run ends DONE.
+
+**How good is the rust detector, really?**
+On 881 real photos it scores F1 0.977, recall 0.983 and AUROC 0.998. On held-out Isaac renders it gets 13/13, against 10/13 before we added sim-style data. The caveats: the render set is small, and one real source of weathered surfaces gives up to 13 % false positives. We set the threshold for recall, because a miss is the costly error.
+
+**Why did scrub success drop from 100 % to 97.6 %?**
+That was deliberate. v1 got 100 % by pressing too hard: 76.8 % of its episodes went over 40 N, with a peak of 87.5 N. v2 keeps 99 % of episodes under the limit. The episodes it doesn't finish go back to VERIFY, which scrubs again or escalates. It never paints over them.
+
+**What stops it damaging the pipe?**
+There are three layers: the policy is trained against over-force; the setpoint is clamped to 38 N outside the network; and the orchestrator's hard 40 N gate backs off (retract 5 cm, press × 0.7) and escalates after 3 back-offs.
 
 **What if Gemini is wrong or offline?**
-Gemini is only consulted at two moments: when detection is still ambiguous, and just before painting. It can veto a paint, at most twice, but it can't make the robot skip a check. With no key, no network or a bad reply, the orchestrator does exactly what it would do without Gemini.
+Gemini is only consulted for rust, at two moments: when detection is still ambiguous, and just before painting. It can veto a paint, at most twice, but it can't make the robot skip a check. With no key, no network or a bad reply, behaviour is unchanged. The leak job doesn't use Gemini at all.
 
 **What runs on the edge?**
-The detector (ONNX on CPU, 1.1 ms), the localizer, the scrub policy (an ONNX MLP, 0.012 ms measured on a laptop CPU) and the state machine. Training used Modal GPUs and the GB10; at run time nothing is remote except the optional Gemini call.
+Everything in the fast loop: the rust detector (ONNX on CPU, 1.1 ms), the leak check (numpy, about 90 ms per frame on a laptop CPU, 3 frames per view), the scrub policy (0.012 ms) and the state machine. GB10 TensorRT numbers are TBD. Training used Modal GPUs and the GB10.
 
-**How does it handle the mid-run change?**
-During the soak the robot re-detects every 5 s, and during the scrub every 30 control steps. A new connected rust region becomes a new tracked patch. The robot sprays it and restarts the 30 s soak clock, then scrubs all the patches. The PPO policy was also trained with a new patch injected mid-episode (30 % of training episodes, and every evaluation episode).
-
-**Why spray and soak? Why not just scrub?**
-In our wear model, rust comes off 4× faster once it has been sprayed and soaked for 30 s (1.5× while it is still soaking). The policy is penalised for scrubbing unsprayed areas, so the chemistry is part of what it learned, not decoration.
+**Why one robot for two jobs?**
+Both jobs need the same things: walk the rig, look closely at pipework, use an arm, and know when to stop. Sharing one state machine means one set of safety rules, and gas pre-emption works across jobs for free. A dedicated gas unit and a fleet planner are the next step (TBD).
 
 **How far is this from a real robot?**
-The perception and the decision logic carry over as they are, since they run on CPU from camera frames. The arm control is trained in sim with domain randomisation (stiffness 1.5–4 kN/m, abrasion ±50 %, pipe pose). The gaps are a real force-torque sensor in place of the spring model, legs that actually walk under arm load, and painted-steel training data.
+The perception and decision logic carry over as they are, since they run on CPU from camera frames. The gaps are a real force-torque sensor in place of the spring model, real bolt torque and thread friction, legs that actually walk under arm load (Go2 walking is TBD), a site-standard gas threshold, and real painted-steel and flange data.
 
 **What did you build in the hackathon versus reuse?**
-We built the dataset pipeline, the sim-style synthetic data, the detector fine-tune, the localizer, the orchestrator, the scrub environment and rust physics, both PPO policies, the lift-mast robot, the Isaac bridge, and the GB10 stream. We reused the Go2 and UR3 models, the Poly Haven CC0 textures, the CC BY 4.0 rig model, and Isaac Sim / Isaac Lab.
+We built the rust data pipeline and sim-style data, the detector fine-tune, the localizer, the scrub environment and wear model, both PPO policies, the lift-mast robot, the orchestrator and leak job, the stripe and crack checks, the flange scene, the Isaac bridge, the HUD, and the GB10 stream. We reused the Go2 and UR3 models, the Poly Haven CC0 textures, the CC BY 4.0 rig model, and Isaac Sim / Isaac Lab.
 
 **What's the cost argument?**
-Don't invent numbers. Say: "Every repair today needs people flown out and working at height. The robot does the routine patches and sends the hard ones to a human, so people go offshore for exceptions, not for routine work."
+Don't invent numbers. Say: "Today every one of these tasks means people flown offshore and working at height or next to a leak. The robot does the routine ones and sends the exceptions to a person."

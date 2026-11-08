@@ -16,6 +16,11 @@
   </div>
 
   <div id="hud">
+    <section class="mod captions" data-mod="captions" id="captions">
+      <div id="labels"></div>
+      <div class="subtitle hide" id="subtitle"><span class="sub"></span><span class="sub"></span></div>
+    </section>
+
     <section class="mod panel pill" data-mod="hud" id="status-pill">
       <span class="state chip-state" id="st-name"><span class="dot" id="st-dot"></span><span id="st-label">STANDBY</span></span>
       <span class="sep"></span>
@@ -82,6 +87,17 @@
       <header><i>Pipe map</i><span class="legend"><s class="l-rust"></s>rust<s class="l-spray"></s>sprayed<s class="l-paint"></s>painted</span></header>
       <canvas id="map-canvas" width="320" height="200"></canvas>
       <div class="axis"><span>0°</span><span>θ around pipe</span><span>360°</span></div>
+    </section>
+
+    <section class="mod panel control" data-mod="control" id="control">
+      <header><i>Control centre</i><span class="model" id="cc-model">Gemini 4 Argon</span></header>
+      <div class="cc-meta"><span class="badge" id="cc-mode">EDGE</span><span class="num" id="cc-lat">—</span><span class="num" id="cc-cost">$0.000 today</span></div>
+      <div class="cc-banner" id="cc-banner"></div>
+      <div class="cc-sit" id="cc-sit"><p>Waiting for the first fleet snapshot…</p></div>
+      <ol class="cc-acts" id="cc-acts"></ol>
+      <div class="cc-chips" id="cc-chips"></div>
+      <div class="cc-agent" id="cc-agent"></div>
+      <div class="cc-foot" id="cc-foot"></div>
     </section>
 
     <section class="panel unscripted" id="unscripted">
