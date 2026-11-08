@@ -26,6 +26,33 @@ REPLAY_EVENTS = 20
 FPS_WINDOW_S = 2.0
 STALE_AFTER_S = 2.0
 BLACK_MEAN = 3.0
+HEADER_FILES = ("headers.jsonl", "header.jsonl", "hud.jsonl", "frames.jsonl")
+TIMELINE_TYPES = ("finding", "argon_request", "argon_call", "command", "ticket", "vetoed")
+
+
+def fleet_session(p: Path) -> dict | None:
+    from rig.replay import load_timeline
+    d = p if p.is_dir() else p.parent
+    hp = p if p.is_file() else next((d / n for n in HEADER_FILES if (d / n).is_file()), None)
+    if hp is None:
+        return None
+    rows = load_timeline(hp)
+    heads = [h for h in rows if "event" not in h and h.get("type") in (None, "frame", "header")]
+    if not any("robots" in h or "argon" in h for h in heads):
+        return None
+    tl = d / "timeline.jsonl"
+    extra = load_timeline(tl) if tl.is_file() and tl != hp else []
+    marks = sorted((r for r in rows + extra if r.get("type") in TIMELINE_TYPES), key=lambda r: float(r["t"]))
+    heads.sort(key=lambda h: float(h["t"]))
+    t0, k = float(heads[0]["t"]), 0
+    for h in heads:
+        h.setdefault("pt", round(float(h["t"]) - t0, 3))
+        n = k
+        while k < len(marks) and float(marks[k]["t"]) <= float(h["t"]):
+            k += 1
+        if k > n:
+            h["argon_rows"] = marks[n:k]
+    return {"snapshots": heads, "duration": heads[-1]["pt"], "replay": True, "fleet_demo": True}
 
 
 class FrameHub:
@@ -192,8 +219,13 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
         p = (root / path).resolve()
         if not any(p.is_relative_to(root / d) for d in ("runs", "runs_sample")):
             raise HTTPException(403, "replay files must live under runs/ or runs_sample/")
-        if not p.is_file():
+        if not p.exists():
             raise HTTPException(404, f"no {path}")
+        fleet = await asyncio.to_thread(fleet_session, p)
+        if fleet is not None:
+            return fleet
+        if not p.is_file():
+            raise HTTPException(404, f"no replay in {path}")
         return await asyncio.to_thread(lambda: timeline_session(load_timeline(p)))
 
     @app.get("/api/bench")
