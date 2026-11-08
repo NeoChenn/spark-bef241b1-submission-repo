@@ -1,34 +1,47 @@
-from integration.film_overlays.capture import PAGES, film_data
+from pathlib import Path
+
+from integration.film_overlays.capture import HERE, PAGES, film_data
+
+RUN = "runs_sample/film"
 
 
-def test_board_decisions_come_from_the_run_with_their_source():
-    b = film_data("board", 12.0, "runs_sample/fleet_demo")["board"]
-    assert [(d["robot"], d["source"]) for d in b["decisions"]] == [("unit2", "argon"), ("unit1", "edge")]
+def test_board_follows_the_film_run_in_order_with_sources_and_sim_times():
+    b = film_data("board", 11.5, RUN, (0.0, 18.3, 1.83))["board"]
+    assert [(d["robot"], d["source"], d["t_run"]) for d in b["decisions"]] == [("unit1", "edge", 4.8), ("unit2", "argon", 18.3)]
+    assert abs(b["decisions"][0]["u"] - 4.8 / 1.83) < 0.01 and abs(b["decisions"][1]["u"] - 10.0) < 0.01
+    assert b["modelled"] and b["argon"]["calls"] == 3 and b["argon"]["cost_usd"] == 0.008
+    seg = next(s for s in b["segments"] if s["id"] == "F5–F6")
+    assert seg["index"][0][1] < 0.6 <= seg["index"][-1][1] and seg["coating"][-1][1] == "breached"
     leak = next(d for d in b["detectors"] if d["id"] == "G-F5")
-    assert leak["climb"][0][0] == 0.0 and leak["climb"][-1][0] == 1.0 and max(v for _, v in leak["climb"]) >= 10
-    assert {f["id"]: f["after"] for f in b["fleet"]} == {"unit1": 1, "unit2": 0}
+    assert [x for _, x in leak["led"]] == ["green", "amber", "red"]
+    assert {f["id"]: f["after"] for f in b["fleet"]} == {"unit1": 0, "unit2": 1}
 
 
-def test_conclusion_uses_run_numbers_and_vetted_lines_only():
-    cards = film_data("conclusion", 17.0, "runs_sample/fleet_demo")["cards"]
-    text = [c.get("text") or c.get("html") for c in cards]
-    assert text[0] == "Alarm to fixed: <b>49 seconds</b>."
-    assert "Argon's decisions cost about one cent." in text
-    assert "On 6 July 1988, a gas leak on Piper Alpha killed 167 people." in text
-    assert text[-1] == "It doesn't have to be that way."
+def test_board_omits_a_decision_outside_the_shot():
+    b = film_data("board", 10.0, RUN, (0.0, 10.0))["board"]
+    assert [d["source"] for d in b["decisions"]] == ["edge"]
 
 
-def test_readouts_map_sim_time_onto_the_shot():
-    g = film_data("readout", 15.0, "runs_sample/fleet_demo", (56.0, 72.0), "gas")["readout"]
-    ts = [t for t, _ in g["series"]]
-    assert ts == sorted(ts) and -0.5 <= ts[0] <= 0 and 15 <= ts[-1] <= 15.5
-    assert g["series"][-1][1] < 5 < g["series"][0][1]
-    r = film_data("readout", 15.0, "runs_sample/fleet_demo", (70.0, 92.0), "rust")["readout"]
-    assert r["force"] and r["series"]
+def test_conclusion_cards_short_and_long():
+    short = film_data("conclusion", 6.0, RUN, cards="short")["cards"]
+    long = film_data("conclusion", 12.0, RUN, cards="long")["cards"]
+    assert short[0]["html"] == "Alarm to fixed: <b>48 seconds</b>." and len(short) == 3 and len(long) == 5
+    assert long[-1]["lines"] == ["Today, a person walks up to the leak.", "It doesn't have to be that way."]
+    assert not any("Argon" in str(c) for c in long)
 
 
-def test_every_page_has_data_without_a_run(tmp_path):
+def test_readouts_and_the_dispatch_note():
+    g = film_data("readout", 10.5, RUN, (44.3, 55.0, 10.7 / 10.5), "gas")["readout"]
+    done = 10.5 * (50.2 - 44.3) / 10.7
+    assert all(v > 10 for t, v in g["series"] if t < done) and g["series"][-1][1] < 5
+    n = film_data("readout", 1.5, RUN, None, "note")["readout"]
+    assert n["source"] == "argon" and n["t_run"] == 63.2 and "dispatched" in n["html"]
+
+
+def test_every_page_has_data_without_a_run_and_fonts_are_local(tmp_path):
     for page in PAGES:
-        d = film_data(page, 10.0, tmp_path)
-        assert d["page"] == page and d["run"] is None
-    assert film_data("board", 10.0, tmp_path)["board"]["decisions"][0]["html"].startswith("Leak at F5")
+        assert film_data(page, 10.0, tmp_path)["run"] is None
+    for page in PAGES:
+        assert "googleapis" not in (HERE / f"{page}.html").read_text()
+    assert len(list((HERE / "fonts").glob("*.woff2"))) == 6 and len(list((HERE / "fonts").glob("*OFL.txt"))) == 2
+    assert Path(HERE / "film.css").read_text().count("@font-face") == 6
