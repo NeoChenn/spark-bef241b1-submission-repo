@@ -22,7 +22,7 @@ FRAMES = COLS * ROWS
 FPS = 18.0
 HEIGHT, WIDTH = 24.0, 11.0
 WIND = (2.6, 1.5)
-EMISSION = 22.0
+EMISSION = 9.0
 CARDS = (
     (0.0, 1.0, 1.0, 0.0, 1.0),
     (38.0, 0.8, 0.82, 0.37, 1.27),
@@ -99,8 +99,8 @@ def flame_frames(n: int = FRAMES, w: int = TILE_W, h: int = TILE_H, seed: int = 
         i = np.clip(i * env**0.5, 0.0, 1.0) * smoothstep(0.0, 0.03, v) * edge
         heat = np.clip(i * (1.0 - 0.8 * v) * body**0.4, 0.0, 1.0)
         glow = 0.03 + 0.97 * heat**3.0
-        out[k, ..., :3] = ramp(heat) * glow[..., None]
         out[k, ..., 3] = smoothstep(0.06, 0.3, i)
+        out[k, ..., :3] = ramp(heat) * (glow * out[k, ..., 3])[..., None]
     return out
 
 
@@ -136,7 +136,7 @@ def halo(size: int = 256) -> np.ndarray:
     r = np.hypot(x, y)
     a = np.exp(-(r / 0.28) ** 2) * 0.6 + np.exp(-(r / 0.55) ** 2) * 0.4
     a = a * smoothstep(1.0, 0.85, r)
-    img = np.dstack([np.ones_like(r), np.full_like(r, 0.45), np.full_like(r, 0.12), a])
+    img = np.dstack([a, a * 0.45, a * 0.12, a])
     return (np.clip(img, 0, 1) * 255 + 0.5).astype(np.uint8)
 
 
@@ -252,6 +252,7 @@ def _texture_material(stage, path: str, texture: str, emissive: bool, diffuse=(0
     gain = gain if emissive else 1.0
     tex.CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(gain, gain, gain, alpha))
     sh.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(tex.CreateOutput("a", Sdf.ValueTypeNames.Float))
+    sh.CreateInput("opacityThreshold", Sdf.ValueTypeNames.Float).Set(0.01)
     rgb = tex.CreateOutput("rgb", Sdf.ValueTypeNames.Float3)
     if emissive:
         sh.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(rgb)

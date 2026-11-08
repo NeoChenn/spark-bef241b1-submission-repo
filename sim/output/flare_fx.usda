@@ -50,6 +50,7 @@ over "World"
                     color3f inputs:diffuseColor = (0, 0, 0)
                     color3f inputs:emissiveColor.connect = </World/FlareFx/Looks/flame_0/tex.outputs:rgb>
                     float inputs:opacity.connect = </World/FlareFx/Looks/flame_0/tex.outputs:a>
+                    float inputs:opacityThreshold = 0.01
                     float inputs:roughness = 1
                     color3f inputs:specularColor = (0, 0, 0)
                     int inputs:useSpecularWorkflow = 1
@@ -76,7 +77,7 @@ over "World"
                 {
                     uniform token info:id = "UsdUVTexture"
                     asset inputs:file = @../assets/generated/flare_flame_atlas.png@
-                    float4 inputs:scale = (22, 22, 22, 1)
+                    float4 inputs:scale = (9, 9, 9, 1)
                     token inputs:sourceColorSpace = "sRGB"
                     float2 inputs:st.connect = </World/FlareFx/Looks/flame_0/tile.outputs:result>
                     token inputs:wrapS = "clamp"
@@ -96,6 +97,7 @@ over "World"
                     color3f inputs:diffuseColor = (0, 0, 0)
                     color3f inputs:emissiveColor.connect = </World/FlareFx/Looks/flame_1/tex.outputs:rgb>
                     float inputs:opacity.connect = </World/FlareFx/Looks/flame_1/tex.outputs:a>
+                    float inputs:opacityThreshold = 0.01
                     float inputs:roughness = 1
                     color3f inputs:specularColor = (0, 0, 0)
                     int inputs:useSpecularWorkflow = 1
@@ -122,7 +124,7 @@ over "World"
                 {
                     uniform token info:id = "UsdUVTexture"
                     asset inputs:file = @../assets/generated/flare_flame_atlas.png@
-                    float4 inputs:scale = (22, 22, 22, 1)
+                    float4 inputs:scale = (9, 9, 9, 1)
                     token inputs:sourceColorSpace = "sRGB"
                     float2 inputs:st.connect = </World/FlareFx/Looks/flame_1/tile.outputs:result>
                     token inputs:wrapS = "clamp"
@@ -142,6 +144,7 @@ over "World"
                     color3f inputs:diffuseColor = (0, 0, 0)
                     color3f inputs:emissiveColor.connect = </World/FlareFx/Looks/flame_2/tex.outputs:rgb>
                     float inputs:opacity.connect = </World/FlareFx/Looks/flame_2/tex.outputs:a>
+                    float inputs:opacityThreshold = 0.01
                     float inputs:roughness = 1
                     color3f inputs:specularColor = (0, 0, 0)
                     int inputs:useSpecularWorkflow = 1
@@ -168,7 +171,7 @@ over "World"
                 {
                     uniform token info:id = "UsdUVTexture"
                     asset inputs:file = @../assets/generated/flare_flame_atlas.png@
-                    float4 inputs:scale = (22, 22, 22, 1)
+                    float4 inputs:scale = (9, 9, 9, 1)
                     token inputs:sourceColorSpace = "sRGB"
                     float2 inputs:st.connect = </World/FlareFx/Looks/flame_2/tile.outputs:result>
                     token inputs:wrapS = "clamp"
@@ -188,6 +191,7 @@ over "World"
                     color3f inputs:diffuseColor = (0, 0, 0)
                     color3f inputs:emissiveColor.connect = </World/FlareFx/Looks/halo/tex.outputs:rgb>
                     float inputs:opacity.connect = </World/FlareFx/Looks/halo/tex.outputs:a>
+                    float inputs:opacityThreshold = 0.01
                     float inputs:roughness = 1
                     color3f inputs:specularColor = (0, 0, 0)
                     int inputs:useSpecularWorkflow = 1
@@ -224,6 +228,7 @@ over "World"
                     uniform token info:id = "UsdPreviewSurface"
                     color3f inputs:diffuseColor = (0.05, 0.045, 0.04)
                     float inputs:opacity.connect = </World/FlareFx/Looks/smoke_0/tex.outputs:a>
+                    float inputs:opacityThreshold = 0.01
                     float inputs:roughness = 1
                     color3f inputs:specularColor = (0, 0, 0)
                     int inputs:useSpecularWorkflow = 1
@@ -260,6 +265,7 @@ over "World"
                     uniform token info:id = "UsdPreviewSurface"
                     color3f inputs:diffuseColor = (0.05, 0.045, 0.04)
                     float inputs:opacity.connect = </World/FlareFx/Looks/smoke_1/tex.outputs:a>
+                    float inputs:opacityThreshold = 0.01
                     float inputs:roughness = 1
                     color3f inputs:specularColor = (0, 0, 0)
                     int inputs:useSpecularWorkflow = 1
@@ -296,6 +302,7 @@ over "World"
                     uniform token info:id = "UsdPreviewSurface"
                     color3f inputs:diffuseColor = (0.05, 0.045, 0.04)
                     float inputs:opacity.connect = </World/FlareFx/Looks/smoke_2/tex.outputs:a>
+                    float inputs:opacityThreshold = 0.01
                     float inputs:roughness = 1
                     color3f inputs:specularColor = (0, 0, 0)
                     int inputs:useSpecularWorkflow = 1
@@ -332,6 +339,7 @@ over "World"
                     uniform token info:id = "UsdPreviewSurface"
                     color3f inputs:diffuseColor = (0.05, 0.045, 0.04)
                     float inputs:opacity.connect = </World/FlareFx/Looks/smoke_3/tex.outputs:a>
+                    float inputs:opacityThreshold = 0.01
                     float inputs:roughness = 1
                     color3f inputs:specularColor = (0, 0, 0)
                     int inputs:useSpecularWorkflow = 1
@@ -368,6 +376,7 @@ over "World"
                     uniform token info:id = "UsdPreviewSurface"
                     color3f inputs:diffuseColor = (0.05, 0.045, 0.04)
                     float inputs:opacity.connect = </World/FlareFx/Looks/smoke_4/tex.outputs:a>
+                    float inputs:opacityThreshold = 0.01
                     float inputs:roughness = 1
                     color3f inputs:specularColor = (0, 0, 0)
                     int inputs:useSpecularWorkflow = 1
