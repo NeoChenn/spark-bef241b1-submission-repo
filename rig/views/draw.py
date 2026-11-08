@@ -72,3 +72,20 @@ def draw_boxes(im: Image.Image, bs, scale: float = 1.0, color=STOP) -> Image.Ima
         d.rectangle(r, outline=color, width=2)
         d.text((r[0] + 2, r[1] + 1), f"rust {s:.2f}", font=f, fill=color)
     return im
+
+
+def agc(rgb, target: float = 215.0, gamma: float = 0.8) -> np.ndarray:
+    p = np.asarray(rgb, np.float32)[..., :3]
+    hi = max(float(np.percentile(p.max(-1), 99)), 1.0)
+    return (np.clip(p / hi, 0, 1) ** gamma * target).astype(np.uint8)
+
+
+def draw_targets(im: Image.Image, pts, color=(255, 214, 10)) -> Image.Image:
+    d = ImageDraw.Draw(im)
+    f = font(9)
+    for u, v, r, text in pts:
+        d.ellipse([u - r, v - r, u + r, v + r], outline=color, width=2)
+        d.line([u - r - 4, v, u - r + 3, v], fill=color)
+        d.line([u + r - 3, v, u + r + 4, v], fill=color)
+        d.text((u + r + 3, v - r - 2), text, font=f, fill=color)
+    return im

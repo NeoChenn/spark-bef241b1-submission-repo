@@ -1,7 +1,10 @@
+import json
 import math
 import queue
 import threading
 import time
+
+from pathlib import Path
 
 import numpy as np
 
@@ -14,6 +17,19 @@ MOUNTS = {"rust": ((0.35, 0.0, 1.05), (1.6, 0.0, -0.75)), "gas": ((0.3, 0.0, 0.9
           "inspection": ((0.32, 0.0, 0.45), (6.0, 0.0, -0.5))}
 LIGHT = 15000.0
 PATIENCE = 12
+MERGED_META = Path(__file__).resolve().parents[2] / "sim" / "output" / "rig_merged_meta.json"
+
+
+def map_targets(leak=None) -> dict:
+    out = {"rust": [], "gas": [], "inspection": []}
+    try:
+        dmg = json.loads(MERGED_META.read_text())["world"]["damage"]["position_m"]
+        out["rust"].append((tuple(dmg), "rust target (job map)"))
+    except (OSError, KeyError, ValueError):
+        pass
+    if leak is not None:
+        out["gas"].append((tuple(float(c) for c in leak.plume.source), f"leak {leak.args.leak}"))
+    return out
 APERTURE = 20.955
 SETTLE = 1
 NEAR = 0.6
@@ -39,6 +55,7 @@ class SensorRig:
         self.read_ms = 0.0
         self.params = None
         self.stale = 0
+        self.targets = map_targets(leak)
         threading.Thread(target=self._work, daemon=True).start()
 
     def _mount(self, rid: str) -> dict:
@@ -184,7 +201,8 @@ class SensorRig:
                     self.captures += 1
                     try:
                         self.jobs.put_nowait((p["rid"], c["role"], rgb[..., :3].copy(), depth.copy(), p["cam"], p["pose"],
-                                              p["path"], field, list(self.force.get(p["rid"], [])) or None, self.seq))
+                                              p["path"], field, list(self.force.get(p["rid"], [])) or None, self.seq,
+                                              self.targets.get(c["role"])))
                     except queue.Full:
                         pass
         else:
@@ -198,11 +216,11 @@ class SensorRig:
 
     def _work(self) -> None:
         while True:
-            rid, role, rgb, depth, cam, pose, path, field, force, seq = self.jobs.get()
+            rid, role, rgb, depth, cam, pose, path, field, force, seq, targets = self.jobs.get()
             t0 = time.perf_counter()
             try:
                 v = robot_views(rid, role, rgb, depth, cam, pose, path=path, field=field,
-                                bev=self.bevs.setdefault(rid, Bev()), force=force, seq=seq)
+                                bev=self.bevs.setdefault(rid, Bev()), force=force, seq=seq, targets=targets)
             except Exception as exc:
                 print(f"rig sim: views {rid} failed: {exc!r}", flush=True)
                 continue

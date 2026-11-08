@@ -4,7 +4,8 @@ import numpy as np
 from PIL import Image
 
 from rig.views.bev import Bev
-from rig.views.draw import depth_rgb, draw_boxes, encode, label, sparkline
+from rig.camera import project
+from rig.views.draw import agc, depth_rgb, draw_boxes, draw_targets, encode, label, sparkline
 from rig.views.geom import backproject
 from rig.views.ogi import gas_column, ogi_image
 from rig.views.rust import boxes, rust_heat
@@ -45,8 +46,8 @@ def _depth(depth, info):
 
 
 def robot_views(rid: str, role: str, rgb, depth, cam: dict, pose, path=None, field=None, bev: Bev | None = None,
-                force=None, seq: int = 0, span: float = 12.0) -> dict:
-    rgb = np.ascontiguousarray(np.asarray(rgb)[..., :3], dtype=np.uint8)
+                force=None, seq: int = 0, span: float = 12.0, targets=None) -> dict:
+    rgb = agc(rgb)
     x, y, z, yaw = (float(v) for v in pose)
     h, w = rgb.shape[:2]
     pts = backproject(depth, cam, stride=2)
@@ -60,6 +61,14 @@ def robot_views(rid: str, role: str, rgb, depth, cam: dict, pose, path=None, fie
         pol, cap = _gas(rgb, depth, cam, field, info)
     else:
         pol, cap = _depth(depth, info)
+    seen = []
+    for xyz, name in targets or []:
+        u, v, zc = project(cam, xyz)
+        if zc > 0.3 and 0 <= u < w and 0 <= v < h:
+            seen.append((u, v, max(6.0, 0.25 * cam["K"][0][0] / zc), name))
+    if seen:
+        draw_targets(pol, seen)
+        info["targets"] = [s[3] for s in seen]
     if force is not None and len(force):
         f = list(force)[-60:]
         sparkline(pol, f, (4, h - 26, w // 2, h - 4), 0.0, 60.0, ref=40.0)

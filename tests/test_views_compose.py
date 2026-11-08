@@ -55,3 +55,20 @@ def test_schedule_round_robin_at_rate():
     assert s.due(ids, 0.51) == "R1"
     assert s.due(ids, 0.52) == "R2"
     assert s.due([], 5.0) is None
+
+
+def test_agc_brightens_dark_frames_and_keeps_ratios():
+    from rig.views.draw import agc
+    dark = np.zeros((48, 64, 3), np.uint8)
+    dark[..., 0], dark[..., 1], dark[..., 2] = 30, 15, 8
+    dark[0, 0] = (40, 20, 10)
+    out = agc(dark)
+    assert out.mean() > 2 * dark.mean()
+    assert out[5, 5, 0] > out[5, 5, 1] > out[5, 5, 2]
+
+
+def test_targets_projected_into_fpv():
+    rgb, depth, cam = frame()
+    v = robot_views("R1", "rust", rgb, depth, cam, (0.0, 0.0, 20.0, 0.0), bev=Bev(),
+                    targets=[((5.0, 0.0, 20.2), "damage"), ((-5.0, 0.0, 20.0), "behind")])
+    assert v["info"]["targets"] == ["damage"]
