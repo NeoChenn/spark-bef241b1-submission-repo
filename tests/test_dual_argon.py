@@ -115,3 +115,79 @@ def test_detector_state_matches_gas_detector_models():
     from integration.dual_argon import detector_state
     from integration.gas_detectors import STATES
     assert {detector_state(v) for v in (1.0, 6.0, 12.0)} | {detector_state(12.0, True)} == set(STATES)
+
+
+class SlowCaller:
+    live, available, name = True, True, "slow"
+
+    def __init__(self, reply, latency_ms=8000.0):
+        self.reply, self.latency_ms = reply, latency_ms
+
+    def __call__(self, text, key):
+        return {"text": json.dumps(self.reply), "latency_ms": self.latency_ms, "tokens_in": 10, "tokens_out": 5,
+                "tokens_thought": 0, "tokens_cached": 0}
+
+
+RESUME = {"verdict": "OK", "situation": "all clear",
+          "commands": [{"command": "resume_rust", "robot": "unit1", "target": "", "confidence": 0.9, "rationale": "x"}]}
+
+
+def test_stuck_head_above_stop_is_real_gas_not_a_fault():
+    fd = fuse(det(0.0, stuck=30.0), 0.8, 0.4, robot=FIXER)
+    assert (fd.kind, fd.hazard) == (LEAK_CONFIRMED, True)
+    assert kinds(edge_rule(fd)) == [(HOLD, SCRUBBER, "F2"), (RETREAT, FIXER, "F2")]
+    far = fuse(det(0.0, stuck=30.0), 0.8, 9.0, robot=FIXER)
+    assert kinds(edge_rule(far)) == [(HOLD, SCRUBBER, "F2"), (GO_CHECK, FIXER, "F2")]
+
+
+def test_robot_high_beyond_near_is_unseen_by_fixed():
+    assert fuse(det(0.01), 15.0, 3.0, robot=SCRUBBER).kind == LEAK_UNSEEN_BY_FIXED
+
+
+def test_hazard_acts_at_once_while_the_link_is_up():
+    link = ArgonLink("live", Timeline(None), SlowCaller(RESUME))
+    d = det(0.0, stuck=30.0)
+    out = link.tick(0.0, [fuse(d, 0.8, 0.4, robot=FIXER)], {}, [d], ids_for([d]))
+    assert kinds(out) == [(HOLD, SCRUBBER, "F2"), (RETREAT, FIXER, "F2")]
+    link.wait_idle()
+    assert link.tick(9.0, [fuse(d, 0.8, 0.4, robot=FIXER)], {}, [d], ids_for([d])) == []
+    assert link.calls[-1]["advisory"] and link.held
+
+
+def test_crack_set_triggers_retreat_for_that_flange_only():
+    link = ArgonLink("edge", Timeline(None))
+    d = det(0.15)
+    out = link.tick(0.0, [fuse(d, 9.0, 1.0, robot=FIXER)], {}, [d], ids_for([d]), crack={"F2"})
+    assert kinds(out) == [(HOLD, SCRUBBER, "F2"), (RETREAT, FIXER, "F2")]
+
+
+def test_cut_link_while_pending_falls_back_to_edge_now():
+    link = ArgonLink("live", Timeline(None), SlowCaller(RESUME, 20000.0))
+    d = det(0.15)
+    fd = fuse(d, 2.0, 4.0, robot=SCRUBBER)
+    assert link.tick(0.0, [fd], {}, [d], ids_for([d])) == []
+    link.cut(True, 1.0)
+    out = link.tick(1.0, [fd], {}, [d], ids_for([d]))
+    assert kinds(out) == [(HOLD, SCRUBBER, "F2"), (GO_CHECK, FIXER, "F2")] and {c.source for c in out} == {"edge"}
+
+
+def test_argon_resume_is_vetoed_while_a_detector_near_unit1_is_red():
+    link = ArgonLink("live", Timeline(None), SlowCaller(RESUME, 100.0))
+    d = det(0.15, pos=(3.0, 0.0, 1.0))
+    link.held = True
+    link.tick(0.0, [fuse(d, 2.0, 4.0, robot=SCRUBBER)], {}, [d], ids_for([d]), scrubber_pos=(0.0, 0.0), wait=True)
+    link.wait_idle()
+    link.tick(1.0, [fuse(d, 2.0, 4.0, robot=SCRUBBER)], {}, [d], ids_for([d]), scrubber_pos=(0.0, 0.0), wait=True)
+    assert RESUME_RUST not in [c.kind for c in link.commands] and link.held
+    assert any(r["type"] == "vetoed" for r in link.timeline.rows)
+
+
+def test_stale_reply_is_not_executed():
+    link = ArgonLink("live", Timeline(None), SlowCaller({"verdict": "UNVERIFIED", "situation": "s", "commands": [
+        {"command": "go_check", "robot": "unit2", "target": "F2", "confidence": 0.9, "rationale": "r"}]}, 3000.0))
+    d = det(0.15)
+    link.tick(0.0, [fuse(d, 2.0, 4.0)], {}, [d], ids_for([d]))
+    link.wait_idle()
+    d.read(lambda p: 0.01)
+    out = link.tick(4.0, [fuse(d, 2.0, 4.0)], {}, [d], ids_for([d]))
+    assert GO_CHECK not in [c.kind for c in out]

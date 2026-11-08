@@ -165,17 +165,9 @@ class CutLink:
         want = self.down(t)
         if want == self.link.link_cut:
             return None
-        self.link.cut(want)
+        dropped = self.link.cut(want, t)
         if self.agent is not None:
             self.agent.cut_link(want)
-        dropped = []
-        if want:
-            for r in ([self.link.pending] if self.link.pending else []) + list(self.link.queue):
-                if not isinstance(r.result, EdgeOnly):
-                    r.result, r.due = EdgeOnly(), t
-                    for c in r.fallback:
-                        c.reason = f"link cut -> {c.reason}"
-                    dropped.append(r.key)
         ev = {"t": round(float(t), 2), "event": "link_cut" if want else "link_restored", "banner": self.banner(),
               "dropped": dropped}
         self.events.append(ev)
