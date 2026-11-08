@@ -50,6 +50,7 @@ def main(argv):
     p.add_argument("--ckpt", default="")
     p.add_argument("--ddim", type=int, default=8)
     p.add_argument("--replan", type=int, default=4)
+    p.add_argument("--shadow", action="store_true")
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -179,7 +180,7 @@ def main(argv):
     writer = imageio.get_writer(os.path.join(args.out_dir, "pickcan.mp4"), fps=args.fps, quality=8, macro_block_size=8)
     n_steps = int(args.seconds * args.fps)
     det_best, log, keys, shown_fit = None, [], {}, None
-    learned, plan, k = None, None, 0
+    learned, plan, kp = None, None, 0
     if args.policy != "scripted":
         from policy.pickcan.diffusion import DiffusionPolicy, MLPPolicy, load_weights
 
@@ -200,12 +201,14 @@ def main(argv):
             else:
                 act = picker.act(tip, u.p_tgt, u.geom_grasp(), u.sealed, u._robot.data.joint_pos[:, u.lift_id])
                 if learned is not None:
-                    if plan is None or k >= args.replan:
-                        if plan is None:
-                            z = net.norm(u.geo_obs())[0]
-                            print("[video] obs z", [(i, round(float(v), 1)) for i, v in enumerate(z) if abs(v) > 3], flush=True)
-                        plan, k = learned(u.geo_obs()), 0
-                    act, k = plan[:, k], k + 1
+                    if plan is None or kp >= args.replan:
+                        plan, kp = learned(u.geo_obs()), 0
+                    if args.shadow:
+                        if step % 10 == 0:
+                            print(f"[video] shadow t {t:.1f} script {act[0].cpu().numpy().round(2).tolist()} learned {plan[0, kp].cpu().numpy().round(2).tolist()}", flush=True)
+                        kp += 1
+                    else:
+                        act, kp = plan[:, kp], kp + 1
             env.step(act)
         u.sim.render()
         rgb = np.asarray(cams[("wide", "rgb")].get_data())
