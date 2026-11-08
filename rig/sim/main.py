@@ -198,6 +198,13 @@ def main() -> None:
     if env is not None:
         tickers.append(lambda t: env.update(t, camera=cam_path))
 
+    leak = None
+    if args.leak:
+        from sim.plume.isaac import LeakStream
+
+        leak = LeakStream(stage, args)
+        tickers.append(leak.tick)
+
     rp = rep.create.render_product(cam_path, (args.width, args.height))
     ann = rep.AnnotatorRegistry.get_annotator("rgb")
     ann.attach(rp)
@@ -226,6 +233,10 @@ def main() -> None:
     while app.is_running():
         now = time.monotonic()
         t = now - start
+        while leak and not sender.inbox.empty():
+            ev = sender.inbox.get_nowait()
+            if ev["name"] == "gas_leak":
+                print(f"rig sim: gas_leak {ev['args']} -> {leak.event(ev['args'])}", flush=True)
         for tick in tickers:
             tick(t)
         rep.orchestrator.step(rt_subframes=args.subframes, pause_timeline=False, wait_for_render=args.wait_render)
@@ -241,8 +252,12 @@ def main() -> None:
             buf = io.BytesIO()
             Image.fromarray(rgb).save(buf, "JPEG", quality=args.quality)
             jpeg_kb = buf.tell() / 1024
-            sender.send({"type": "frame", "w": rgb.shape[1], "h": rgb.shape[0], "seq": seq, "t": t, "mean": round(mean, 1),
-                         "camera": camera_header()}, buf.getvalue())
+            head = {"type": "frame", "w": rgb.shape[1], "h": rgb.shape[0], "seq": seq, "t": t, "mean": round(mean, 1),
+                    "camera": camera_header()}
+            plume = leak.header(t) if leak else None
+            if plume:
+                head["plume"] = plume
+            sender.send(head, buf.getvalue())
             seq += 1
             if snap_at is not None and now >= snap_at and mean > 3:
                 path = args.snapshot if not args.snapshot_every else args.snapshot.replace(".png", f"_{int(t):04d}.png")
@@ -254,7 +269,8 @@ def main() -> None:
         if now >= stats_at:
             print(
                 f"t={t:.0f}s fps={stats_fresh / (now - stats_start):.1f} steps={stats_frames / (now - stats_start):.1f} sent={sender.sent} dropped={sender.dropped} "
-                f"connected={sender.connected.is_set()} mean={mean:.1f} jpeg={jpeg_kb:.0f}KB",
+                f"connected={sender.connected.is_set()} mean={mean:.1f} jpeg={jpeg_kb:.0f}KB"
+                + (f" plume_ms={leak.sim_ms:.1f} pts={leak.visual.count} vol10={leak.stats['vol_10lel_m3']:.2f}" if leak and leak.stats else ""),
                 flush=True,
             )
             stats_at = now + STATS_EVERY_S

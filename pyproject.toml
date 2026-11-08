@@ -37,6 +37,7 @@ dev = [
     "timm>=1.0.31",
     "torch>=2.15.0",
     "usd-core>=26.11",
+    "warp-lang>=1.19.0",
 ]
 train = [
     "huggingface-hub>=2.4.0",
