@@ -265,3 +265,20 @@ def test_a_ticketed_head_is_not_redispatched_when_the_robot_walks_away():
     for t, x in ((0.0, 9.0), (1.0, 1.0), (2.0, 1.0), (3.0, 9.0), (4.0, 12.0)):
         out += link.tick(t, [fuse_fleet(d, {FIXER: (0.8, (x, 0.0))})], {}, [d], ids_for([d]), scrubber_pos=(30.0, 0.0))
     assert [c.kind for c in out].count(GO_CHECK) == 1 and len(link.tickets) == 1
+
+
+def test_argon_holding_unit2_never_masks_the_spark_hold_of_unit1():
+    from integration.dual_argon import command
+    link = ArgonLink("edge", Timeline(None))
+    link._issue(0.0, [command(HOLD, "F5", "argon", "x", robot=FIXER)])
+    assert not link.held
+    d = det(0.07, pos=(3.0, 0.0, 1.0))
+    out = link.tick(1.0, [fuse(d, 1.0, 9.0)], {}, [d], ids_for([d]), scrubber_pos=(0.0, 0.0))
+    assert (HOLD, SCRUBBER, "F2") in kinds(out) and link.held
+
+
+def test_unverified_far_from_unit1_does_not_hold_it():
+    link = ArgonLink("edge", Timeline(None))
+    g6 = det(0.0, stuck=14.0, did="G-F6", flange="F6", pos=(14.0, 0.0, 1.0))
+    out = link.tick(0.0, [fuse(g6, None, None)], {}, [g6], ids_for([g6]), scrubber_pos=(0.0, 0.0))
+    assert kinds(out) == [(GO_CHECK, FIXER, "F6")] and not link.held
