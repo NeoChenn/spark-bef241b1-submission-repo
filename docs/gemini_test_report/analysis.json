@@ -1,0 +1,193 @@
+{
+  "stats": {
+    "runs": 120,
+    "labels": {
+      "success": 95,
+      "missed_rust": 19,
+      "painted_over_rust": 6
+    },
+    "unsafe": 25,
+    "unsafe_rate": 0.208,
+    "escalated": 0,
+    "success": 95,
+    "max_force_p95": 65.0,
+    "new_patch_detect_rate": 1.0,
+    "association": [
+      {
+        "param": "patch_level",
+        "unsafe_median": 0.5,
+        "safe_median": 0.85,
+        "effect": -2.54
+      },
+      {
+        "param": "patch_size",
+        "unsafe_median": 0.05,
+        "safe_median": 0.05,
+        "effect": 0.0
+      },
+      {
+        "param": "patch_theta_offset",
+        "unsafe_median": 0.0,
+        "safe_median": 0.0,
+        "effect": 0.0
+      },
+      {
+        "param": "glare_alpha",
+        "unsafe_median": 0.6,
+        "safe_median": 0.6,
+        "effect": 0.0
+      },
+      {
+        "param": "new_patch_delay_s",
+        "unsafe_median": 12.0,
+        "safe_median": 12.0,
+        "effect": 0.0
+      },
+      {
+        "param": "new_patch_theta_offset",
+        "unsafe_median": 0.75,
+        "safe_median": 0.75,
+        "effect": 0.0
+      },
+      {
+        "param": "new_patch_z",
+        "unsafe_median": 0.13,
+        "safe_median": 0.13,
+        "effect": 0.0
+      },
+      {
+        "param": "new_patch_size",
+        "unsafe_median": 0.04,
+        "safe_median": 0.04,
+        "effect": 0.0
+      }
+    ],
+    "unsafe_rate_by_bin": {
+      "patch_level": [
+        {
+          "range": [
+            0.3,
+            0.85
+          ],
+          "n": 118,
+          "unsafe_rate": 0.212
+        },
+        {
+          "range": [
+            0.85,
+            0.9
+          ],
+          "n": 100,
+          "unsafe_rate": 0.06
+        }
+      ],
+      "patch_size": [
+        {
+          "range": [
+            0.04,
+            0.05
+          ],
+          "n": 119,
+          "unsafe_rate": 0.21
+        },
+        {
+          "range": [
+            0.05,
+            0.06
+          ],
+          "n": 118,
+          "unsafe_rate": 0.195
+        }
+      ],
+      "patch_theta_offset": [
+        {
+          "range": [
+            0.0,
+            0.5
+          ],
+          "n": 120,
+          "unsafe_rate": 0.208
+        }
+      ],
+      "glare_alpha": [
+        {
+          "range": [
+            0.6,
+            0.95
+          ],
+          "n": 120,
+          "unsafe_rate": 0.208
+        }
+      ]
+    }
+  },
+  "analysis": {
+    "headline": "Out of 120 runs, 95 succeeded and safety mechanisms handled all force spikes, occlusions, and human proximity flawlessly, but 25 critical failures occurred due to colour perception missing faint rust under glare and faint residue from stubborn rust.",
+    "failure_modes": [
+      {
+        "name": "Missed Faint Rust on Patrol",
+        "severity": "critical",
+        "count": 19,
+        "trigger": "Low patch_level (e.g., 0.3 to 0.65) combined with specular glare on the nominal camera view.",
+        "likely_cause": "The colour classifier yields a low probability (e.g., max p=0.01 < thr 0.50) for faint rust under glare, causing DETECT to confidently predict no rust and skip SECOND_VIEW, ending the patrol prematurely.",
+        "suggested_fix": "Always trigger SECOND_VIEW (which has no glare) during patrol, or lower the uncertainty threshold to trigger SECOND_VIEW when glare is present.",
+        "evidence_run_ids": [
+          "g1-002",
+          "g1-020",
+          "g1-042",
+          "g1-052",
+          "g1-053",
+          "g1-058",
+          "g2-001",
+          "g2-002",
+          "g2-003",
+          "g2-004",
+          "g2-014",
+          "g2-015",
+          "g2-041",
+          "g2-042",
+          "g2-043",
+          "g2-044",
+          "g2-045",
+          "g2-057",
+          "g2-058"
+        ]
+      },
+      {
+        "name": "Painted Over Stubborn Rust Residue",
+        "severity": "critical",
+        "count": 6,
+        "trigger": "Low abrasion_coef (e.g., 0.04 to 0.25), representing stubborn rust that leaves faint residue after scrubbing.",
+        "likely_cause": "The colour-based perception cannot detect the faint residue left by stubborn rust, perceiving 0.0% rust while true rust remains > 5%, causing VERIFY to incorrectly pass and proceed to PAINT.",
+        "suggested_fix": "Enhance perception for VERIFY (e.g., active lighting, different threshold) or add a minimum scrub cycle requirement based on rust stubbornness.",
+        "evidence_run_ids": [
+          "g1-003",
+          "g1-015",
+          "g1-059",
+          "g1-060",
+          "g2-008",
+          "g2-052"
+        ]
+      }
+    ],
+    "next_tests": [
+      "Test DETECT with forced SECOND_VIEW on all patrol poses to evaluate faint rust detection under glare.",
+      "Test VERIFY with lowered perception thresholds or multi-view inspection to detect faint residue from stubborn rust.",
+      "Test longer camera occlusions (> 5 s) to verify the ESCALATE_TO_HUMAN transition from HOLD.",
+      "Test multiple force spikes (> 3) to verify the BACK_OFF escalation logic."
+    ],
+    "what_worked": [
+      "PAUSE_PERSON safety state successfully triggered and resumed for workers within 3 m (e.g., 2.4 m for 2.0 s).",
+      "HOLD safety state correctly paused operations during camera occlusions (e.g., 2 frames) and resumed without false escalations.",
+      "BACK_OFF policy effectively mitigated > 40 N force spikes (e.g., 65 N) by retracting and reducing pressure to x0.7, avoiding the 3 back-offs escalation limit.",
+      "New patch detection worked flawlessly with a 1.0 detection rate during the SOAK phase."
+    ]
+  },
+  "sources": {
+    "n": 60,
+    "rounds": 2,
+    "1": "60 by gemini",
+    "2": "60 by gemini",
+    "analysis": "gemini"
+  }
+}

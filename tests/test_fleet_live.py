@@ -71,10 +71,10 @@ class WeatherBridge:
 
 def test_apply_event_routes_fleet_events():
     fl, b = Fleet(), WeatherBridge()
-    apply_event(b, {"name": "drop_obstacle", "args": {"kind": "crate", "at": "R1"}}, fl)
-    apply_event(b, {"name": "set_weather", "args": {"level": "storm", "wind_dir": 90}}, fl)
-    apply_event(b, {"name": "person_at", "args": {"xy": [0, 4]}}, fl)
-    apply_event(b, {"name": "person_at", "args": {"distance": 2.4}}, fl)
+    apply_event(b, {"name": "drop_obstacle", "args": {"kind": "crate", "at": "R1"}}, fleet=fl)
+    apply_event(b, {"name": "set_weather", "args": {"level": "storm", "wind_dir": 90}}, fleet=fl)
+    apply_event(b, {"name": "person_at", "args": {"xy": [0, 4]}}, fleet=fl)
+    apply_event(b, {"name": "person_at", "args": {"distance": 2.4}}, fleet=fl)
     assert [c[0] for c in fl.calls] == ["drop_obstacle", "set_weather", "person_at"]
     assert b.calls == [("storm", 90, None), ("person", 2.4)]
     apply_event(object(), {"name": "close_stairs", "args": {"id": "stairs_west_upper"}})
@@ -117,7 +117,8 @@ def test_server_pushes_fleet_state_to_sim(client):
         assert {"robots", "hazards", "t"} <= set(ev["args"])
 
 
-def test_server_without_fleet_404s():
+def test_server_without_live_fleet_serves_files_and_forwards_events():
     with TestClient(create_app(sim_port=0)) as c:
-        assert c.get("/api/fleet").status_code == 404
-        assert c.post("/api/event", json={"name": "drop_obstacle", "args": {"at": "R1"}}).status_code == 200
+        assert c.get("/api/fleet").json()["schema"] == "fleet_state.v1"
+        r = c.post("/api/event", json={"name": "drop_obstacle", "args": {"at": "R1"}})
+        assert r.status_code == 200 and "fleet" not in r.json()

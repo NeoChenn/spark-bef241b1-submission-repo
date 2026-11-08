@@ -1,0 +1,321 @@
+{
+ "patches": [
+  {
+   "id": "ri0_0",
+   "file": "ri0_0.jpg",
+   "true_rust_pct": 0.0,
+   "true_ri": 0,
+   "base": "blue_metal_plate",
+   "fill": "rust_coarse_01",
+   "seed": 1000,
+   "classical": {
+    "rust_pct": 0.0,
+    "ri": 0
+   }
+  },
+  {
+   "id": "ri0_1",
+   "file": "ri0_1.jpg",
+   "true_rust_pct": 0.0,
+   "true_ri": 0,
+   "base": "white",
+   "fill": "Rust004",
+   "seed": 1001,
+   "classical": {
+    "rust_pct": 0.0,
+    "ri": 0
+   }
+  },
+  {
+   "id": "ri0_2",
+   "file": "ri0_2.jpg",
+   "true_rust_pct": 0.0,
+   "true_ri": 0,
+   "base": "yellow",
+   "fill": "rust_coarse_01",
+   "seed": 1002,
+   "classical": {
+    "rust_pct": 0.0,
+    "ri": 0
+   }
+  },
+  {
+   "id": "ri1_0",
+   "file": "ri1_0.jpg",
+   "true_rust_pct": 0.0502,
+   "true_ri": 1,
+   "base": "grey",
+   "fill": "Rust004",
+   "seed": 1003,
+   "classical": {
+    "rust_pct": 0.035,
+    "ri": 1
+   }
+  },
+  {
+   "id": "ri1_1",
+   "file": "ri1_1.jpg",
+   "true_rust_pct": 0.0502,
+   "true_ri": 1,
+   "base": "green",
+   "fill": "rust_coarse_01",
+   "seed": 1004,
+   "classical": {
+    "rust_pct": 0.022,
+    "ri": 1
+   }
+  },
+  {
+   "id": "ri1_2",
+   "file": "ri1_2.jpg",
+   "true_rust_pct": 0.0502,
+   "true_ri": 1,
+   "base": "blue_metal_plate",
+   "fill": "Rust004",
+   "seed": 1005,
+   "classical": {
+    "rust_pct": 0.029,
+    "ri": 1
+   }
+  },
+  {
+   "id": "ri2_0",
+   "file": "ri2_0.jpg",
+   "true_rust_pct": 0.4998,
+   "true_ri": 2,
+   "base": "white",
+   "fill": "rust_coarse_01",
+   "seed": 1006,
+   "classical": {
+    "rust_pct": 0.382,
+    "ri": 2
+   }
+  },
+  {
+   "id": "ri2_1",
+   "file": "ri2_1.jpg",
+   "true_rust_pct": 0.4998,
+   "true_ri": 2,
+   "base": "yellow",
+   "fill": "Rust004",
+   "seed": 1007,
+   "classical": {
+    "rust_pct": 0.454,
+    "ri": 2
+   }
+  },
+  {
+   "id": "ri2_2",
+   "file": "ri2_2.jpg",
+   "true_rust_pct": 0.4998,
+   "true_ri": 2,
+   "base": "grey",
+   "fill": "rust_coarse_01",
+   "seed": 1008,
+   "classical": {
+    "rust_pct": 0.37,
+    "ri": 2
+   }
+  },
+  {
+   "id": "ri3_0",
+   "file": "ri3_0.jpg",
+   "true_rust_pct": 1.0003,
+   "true_ri": 3,
+   "base": "green",
+   "fill": "Rust004",
+   "seed": 1009,
+   "classical": {
+    "rust_pct": 0.745,
+    "ri": 3
+   }
+  },
+  {
+   "id": "ri3_1",
+   "file": "ri3_1.jpg",
+   "true_rust_pct": 1.0003,
+   "true_ri": 3,
+   "base": "blue_metal_plate",
+   "fill": "rust_coarse_01",
+   "seed": 1010,
+   "classical": {
+    "rust_pct": 0.813,
+    "ri": 3
+   }
+  },
+  {
+   "id": "ri3_2",
+   "file": "ri3_2.jpg",
+   "true_rust_pct": 1.0003,
+   "true_ri": 3,
+   "base": "white",
+   "fill": "Rust004",
+   "seed": 1011,
+   "classical": {
+    "rust_pct": 0.859,
+    "ri": 3
+   }
+  },
+  {
+   "id": "ri4_0",
+   "file": "ri4_0.jpg",
+   "true_rust_pct": 7.9997,
+   "true_ri": 4,
+   "base": "yellow",
+   "fill": "rust_coarse_01",
+   "seed": 1012,
+   "classical": {
+    "rust_pct": 7.65,
+    "ri": 4
+   }
+  },
+  {
+   "id": "ri4_1",
+   "file": "ri4_1.jpg",
+   "true_rust_pct": 7.9997,
+   "true_ri": 4,
+   "base": "grey",
+   "fill": "Rust004",
+   "seed": 1013,
+   "classical": {
+    "rust_pct": 7.194,
+    "ri": 4
+   }
+  },
+  {
+   "id": "ri4_2",
+   "file": "ri4_2.jpg",
+   "true_rust_pct": 7.9997,
+   "true_ri": 4,
+   "base": "green",
+   "fill": "rust_coarse_01",
+   "seed": 1014,
+   "classical": {
+    "rust_pct": 6.856,
+    "ri": 4
+   }
+  },
+  {
+   "id": "ri5_0",
+   "file": "ri5_0.jpg",
+   "true_rust_pct": 39.9997,
+   "true_ri": 5,
+   "base": "blue_metal_plate",
+   "fill": "Rust004",
+   "seed": 1015,
+   "classical": {
+    "rust_pct": 38.281,
+    "ri": 5
+   }
+  },
+  {
+   "id": "ri5_1",
+   "file": "ri5_1.jpg",
+   "true_rust_pct": 39.9997,
+   "true_ri": 5,
+   "base": "white",
+   "fill": "rust_coarse_01",
+   "seed": 1016,
+   "classical": {
+    "rust_pct": 38.418,
+    "ri": 5
+   }
+  },
+  {
+   "id": "ri5_2",
+   "file": "ri5_2.jpg",
+   "true_rust_pct": 39.9997,
+   "true_ri": 5,
+   "base": "yellow",
+   "fill": "Rust004",
+   "seed": 1017,
+   "classical": {
+    "rust_pct": 39.243,
+    "ri": 5
+   }
+  }
+ ],
+ "repaired": [
+  {
+   "id": "ri3_0_repaired",
+   "file": "ri3_0_repaired.jpg",
+   "true_ri": 0,
+   "classical": {
+    "rust_pct": 0.0,
+    "ri": 0
+   }
+  },
+  {
+   "id": "ri3_1_repaired",
+   "file": "ri3_1_repaired.jpg",
+   "true_ri": 0,
+   "classical": {
+    "rust_pct": 0.0,
+    "ri": 0
+   }
+  },
+  {
+   "id": "ri3_2_repaired",
+   "file": "ri3_2_repaired.jpg",
+   "true_ri": 0,
+   "classical": {
+    "rust_pct": 0.0,
+    "ri": 0
+   }
+  },
+  {
+   "id": "ri4_0_repaired",
+   "file": "ri4_0_repaired.jpg",
+   "true_ri": 0,
+   "classical": {
+    "rust_pct": 0.0,
+    "ri": 0
+   }
+  },
+  {
+   "id": "ri4_1_repaired",
+   "file": "ri4_1_repaired.jpg",
+   "true_ri": 0,
+   "classical": {
+    "rust_pct": 0.0,
+    "ri": 0
+   }
+  },
+  {
+   "id": "ri4_2_repaired",
+   "file": "ri4_2_repaired.jpg",
+   "true_ri": 0,
+   "classical": {
+    "rust_pct": 0.0,
+    "ri": 0
+   }
+  },
+  {
+   "id": "ri5_0_repaired",
+   "file": "ri5_0_repaired.jpg",
+   "true_ri": 0,
+   "classical": {
+    "rust_pct": 0.0,
+    "ri": 0
+   }
+  },
+  {
+   "id": "ri5_1_repaired",
+   "file": "ri5_1_repaired.jpg",
+   "true_ri": 0,
+   "classical": {
+    "rust_pct": 0.0,
+    "ri": 0
+   }
+  },
+  {
+   "id": "ri5_2_repaired",
+   "file": "ri5_2_repaired.jpg",
+   "true_ri": 0,
+   "classical": {
+    "rust_pct": 0.0,
+    "ri": 0
+   }
+  }
+ ]
+}

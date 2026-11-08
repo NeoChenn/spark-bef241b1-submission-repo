@@ -1,0 +1,1182 @@
+{
+ "schema": "fleet_state.v1",
+ "t": 340.0,
+ "robots": [
+  {
+   "id": "Q1",
+   "kind": "Q",
+   "state": "TRANSIT",
+   "coordinator_state": "MOVING",
+   "job_state": null,
+   "job_reason": null,
+   "task": "rust_repair-027",
+   "job_kind": "rust_repair",
+   "pose": {
+    "x": -21.0,
+    "y": 10.41,
+    "z": 41.9,
+    "yaw": 1.571
+   },
+   "deck": "stairs",
+   "battery": {
+    "soc": 0.9025,
+    "wh": 389.88,
+    "used_wh": 20.52,
+    "charged_wh": 0.0
+   },
+   "path": [
+    [
+     -21.0,
+     10.41,
+     41.9
+    ],
+    [
+     -21.0,
+     11.0,
+     42.5
+    ],
+    [
+     -1.0,
+     11.0,
+     42.5
+    ],
+    [
+     -1.0,
+     3.25,
+     42.5
+    ],
+    [
+     0.44,
+     3.74,
+     42.5
+    ]
+   ],
+   "eta_s": 36.3,
+   "dist_m": 188.5,
+   "capabilities": [
+    "arm",
+    "camera",
+    "spray"
+   ]
+  },
+  {
+   "id": "Q2",
+   "kind": "Q",
+   "state": "TRANSIT",
+   "coordinator_state": "MOVING",
+   "job_state": null,
+   "job_reason": null,
+   "task": "gauge_read-007",
+   "job_kind": "gauge_read",
+   "pose": {
+    "x": 26.14,
+    "y": -9.48,
+    "z": 42.5,
+    "yaw": 2.919
+   },
+   "deck": "top_deck",
+   "battery": {
+    "soc": 0.8561,
+    "wh": 369.82,
+    "used_wh": 18.98,
+    "charged_wh": 0.0
+   },
+   "path": [
+    [
+     26.14,
+     -9.48,
+     42.5
+    ],
+    [
+     24.0,
+     -9.0,
+     42.5
+    ],
+    [
+     33.0,
+     -10.67,
+     42.5
+    ]
+   ],
+   "eta_s": 22.7,
+   "dist_m": 144.5,
+   "capabilities": [
+    "camera",
+    "gas_sensor",
+    "thermal"
+   ]
+  },
+  {
+   "id": "A1",
+   "kind": "A",
+   "state": "WORK",
+   "coordinator_state": "WORKING",
+   "job_state": null,
+   "job_reason": null,
+   "task": "gas_survey-028",
+   "job_kind": "gas_survey",
+   "pose": {
+    "x": 20.09,
+    "y": -8.15,
+    "z": 47.4,
+    "yaw": -1.934
+   },
+   "deck": "air",
+   "battery": {
+    "soc": 0.2562,
+    "wh": 30.74,
+    "used_wh": 23.26,
+    "charged_wh": 0.0
+   },
+   "path": [
+    [
+     20.09,
+     -8.15,
+     47.4
+    ]
+   ],
+   "eta_s": 0.0,
+   "dist_m": 275.2,
+   "capabilities": [
+    "camera",
+    "gas_sensor",
+    "thermal"
+   ]
+  },
+  {
+   "id": "C1",
+   "kind": "C",
+   "state": "IDLE",
+   "coordinator_state": "IDLE",
+   "job_state": null,
+   "job_reason": null,
+   "task": null,
+   "job_kind": null,
+   "pose": {
+    "x": 11.26,
+    "y": -4.5,
+    "z": 42.5,
+    "yaw": 0.0
+   },
+   "deck": "top_deck",
+   "battery": {
+    "soc": 0.7642,
+    "wh": 152.83,
+    "used_wh": 7.17,
+    "charged_wh": 0.0
+   },
+   "path": [
+    [
+     11.26,
+     -4.5,
+     42.5
+    ]
+   ],
+   "eta_s": 0.0,
+   "dist_m": 34.8,
+   "capabilities": [
+    "camera",
+    "ut_probe"
+   ]
+  }
+ ],
+ "tasks": [
+  {
+   "id": "gauge_read-001",
+   "kind": "gauge_read",
+   "poi": "gauge_01",
+   "xyz": [
+    -23.5,
+    23.37,
+    43.8
+   ],
+   "work_xyz": [
+    -23.5,
+    23.37,
+    43.8
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "done",
+   "coordinator_status": "DONE",
+   "level": "AUTO",
+   "robot": "Q1",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 20.0,
+   "duration": 20.0,
+   "outcome": "DONE",
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "gauge_read-002",
+   "kind": "gauge_read",
+   "poi": "gauge_02",
+   "xyz": [
+    -17.5,
+    23.37,
+    43.8
+   ],
+   "work_xyz": [
+    -17.5,
+    23.37,
+    43.8
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "done",
+   "coordinator_status": "DONE",
+   "level": "AUTO",
+   "robot": "Q1",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 20.0,
+   "duration": 20.0,
+   "outcome": "DONE",
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "gauge_read-003",
+   "kind": "gauge_read",
+   "poi": "gauge_03",
+   "xyz": [
+    -12.0,
+    23.37,
+    43.8
+   ],
+   "work_xyz": [
+    -12.0,
+    23.37,
+    43.8
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "done",
+   "coordinator_status": "DONE",
+   "level": "AUTO",
+   "robot": "Q2",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 20.0,
+   "duration": 20.0,
+   "outcome": "DONE",
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "gauge_read-004",
+   "kind": "gauge_read",
+   "poi": "gauge_04",
+   "xyz": [
+    -6.5,
+    23.37,
+    43.8
+   ],
+   "work_xyz": [
+    -6.5,
+    23.37,
+    43.8
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "done",
+   "coordinator_status": "DONE",
+   "level": "AUTO",
+   "robot": "Q2",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 20.0,
+   "duration": 20.0,
+   "outcome": "DONE",
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "gauge_read-005",
+   "kind": "gauge_read",
+   "poi": "gauge_05",
+   "xyz": [
+    17.8,
+    -10.67,
+    43.86
+   ],
+   "work_xyz": [
+    17.8,
+    -10.67,
+    43.86
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "pending",
+   "coordinator_status": "QUEUED",
+   "level": "AUTO",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 40.0,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "gauge_read-006",
+   "kind": "gauge_read",
+   "poi": "gauge_06",
+   "xyz": [
+    24.5,
+    -10.67,
+    43.86
+   ],
+   "work_xyz": [
+    24.5,
+    -10.67,
+    43.86
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "pending",
+   "coordinator_status": "QUEUED",
+   "level": "AUTO",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 40.0,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "gauge_read-007",
+   "kind": "gauge_read",
+   "poi": "gauge_07",
+   "xyz": [
+    33.0,
+    -10.67,
+    43.86
+   ],
+   "work_xyz": [
+    33.0,
+    -10.67,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 4,
+   "status": "assigned",
+   "coordinator_status": "ASSIGNED",
+   "level": "AUTO",
+   "robot": "Q2",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 40.0,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "valve_check-008",
+   "kind": "valve_check",
+   "poi": "valve_01",
+   "xyz": [
+    -20.5,
+    24.3,
+    43.6
+   ],
+   "work_xyz": [
+    -20.5,
+    24.3,
+    43.6
+   ],
+   "deck": "stairs",
+   "priority": 5,
+   "status": "pending",
+   "coordinator_status": "QUEUED",
+   "level": "AUTO",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 30.0,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "valve_check-009",
+   "kind": "valve_check",
+   "poi": "valve_02",
+   "xyz": [
+    -5.5,
+    24.3,
+    43.6
+   ],
+   "work_xyz": [
+    -5.5,
+    24.3,
+    43.6
+   ],
+   "deck": "stairs",
+   "priority": 5,
+   "status": "pending",
+   "coordinator_status": "QUEUED",
+   "level": "AUTO",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 30.0,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "valve_check-010",
+   "kind": "valve_check",
+   "poi": "valve_03",
+   "xyz": [
+    -15.5,
+    23.4,
+    43.35
+   ],
+   "work_xyz": [
+    -15.5,
+    23.4,
+    43.35
+   ],
+   "deck": "stairs",
+   "priority": 5,
+   "status": "pending",
+   "coordinator_status": "QUEUED",
+   "level": "AUTO",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 30.0,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "valve_check-011",
+   "kind": "valve_check",
+   "poi": "valve_04",
+   "xyz": [
+    -1.0,
+    23.4,
+    43.35
+   ],
+   "work_xyz": [
+    -1.0,
+    23.4,
+    43.35
+   ],
+   "deck": "stairs",
+   "priority": 5,
+   "status": "pending",
+   "coordinator_status": "QUEUED",
+   "level": "AUTO",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 30.0,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "valve_check-012",
+   "kind": "valve_check",
+   "poi": "valve_05",
+   "xyz": [
+    20.0,
+    -10.7,
+    43.4
+   ],
+   "work_xyz": [
+    20.0,
+    -10.7,
+    43.4
+   ],
+   "deck": "stairs",
+   "priority": 5,
+   "status": "pending",
+   "coordinator_status": "QUEUED",
+   "level": "AUTO",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 30.0,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "valve_check-013",
+   "kind": "valve_check",
+   "poi": "valve_06",
+   "xyz": [
+    31.5,
+    -10.7,
+    43.4
+   ],
+   "work_xyz": [
+    31.5,
+    -10.7,
+    43.4
+   ],
+   "deck": "stairs",
+   "priority": 5,
+   "status": "pending",
+   "coordinator_status": "QUEUED",
+   "level": "AUTO",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 30.0,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "aerial_survey-014",
+   "kind": "aerial_survey",
+   "poi": "flare_tip",
+   "xyz": [
+    30.0,
+    22.0,
+    70.0
+   ],
+   "work_xyz": [
+    30.0,
+    22.0,
+    70.0
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "done",
+   "coordinator_status": "DONE",
+   "level": "AUTO",
+   "robot": "A1",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 60.0,
+   "duration": 60.0,
+   "outcome": "DONE",
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "aerial_survey-015",
+   "kind": "aerial_survey",
+   "poi": "crane_boom",
+   "xyz": [
+    -28.0,
+    -12.0,
+    58.0
+   ],
+   "work_xyz": [
+    -28.0,
+    -12.0,
+    58.0
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "done",
+   "coordinator_status": "DONE",
+   "level": "AUTO",
+   "robot": "A1",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 60.0,
+   "duration": 60.0,
+   "outcome": "DONE",
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "aerial_survey-016",
+   "kind": "aerial_survey",
+   "poi": "leg_splash_zone_ne",
+   "xyz": [
+    34.0,
+    24.0,
+    6.0
+   ],
+   "work_xyz": [
+    34.0,
+    24.0,
+    6.0
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "done",
+   "coordinator_status": "DONE",
+   "level": "AUTO",
+   "robot": "A1",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 60.0,
+   "duration": 60.0,
+   "outcome": "DONE",
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "crawler_ut-017",
+   "kind": "crawler_ut",
+   "poi": "separator_V101",
+   "xyz": [
+    -8.0,
+    -2.0,
+    44.5
+   ],
+   "work_xyz": [
+    -8.0,
+    -2.0,
+    44.5
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "done",
+   "coordinator_status": "DONE",
+   "level": "AUTO",
+   "robot": "C1",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 90.0,
+   "duration": 90.0,
+   "outcome": "DONE",
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "crawler_ut-018",
+   "kind": "crawler_ut",
+   "poi": "riser_R2",
+   "xyz": [
+    18.0,
+    -6.5,
+    43.0
+   ],
+   "work_xyz": [
+    18.0,
+    -6.5,
+    43.0
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "pending",
+   "coordinator_status": "QUEUED",
+   "level": "AUTO",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 90.0,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "flange_leak_check-019",
+   "kind": "flange_leak_check",
+   "poi": "F1",
+   "xyz": [
+    -20.57,
+    23.8,
+    43.6
+   ],
+   "work_xyz": [
+    -20.57,
+    23.8,
+    43.6
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "done",
+   "coordinator_status": "DONE",
+   "level": "AUTO",
+   "robot": "Q2",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 18.0,
+   "duration": 18.0,
+   "outcome": "DONE",
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "flange_leak_check-020",
+   "kind": "flange_leak_check",
+   "poi": "F2",
+   "xyz": [
+    -5.88,
+    23.98,
+    43.6
+   ],
+   "work_xyz": [
+    -5.88,
+    23.98,
+    43.6
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "done",
+   "coordinator_status": "DONE",
+   "level": "AUTO",
+   "robot": "Q2",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 18.0,
+   "duration": 18.0,
+   "outcome": "DONE",
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "flange_leak_check-021",
+   "kind": "flange_leak_check",
+   "poi": "F3",
+   "xyz": [
+    -15.94,
+    23.17,
+    43.35
+   ],
+   "work_xyz": [
+    -15.94,
+    23.17,
+    43.35
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "done",
+   "coordinator_status": "FINDING",
+   "level": "AUTO",
+   "robot": "Q2",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 18.0,
+   "duration": 18.0,
+   "outcome": "FINDING",
+   "parent": null,
+   "findings": [
+    "flange_leak"
+   ]
+  },
+  {
+   "id": "flange_leak_check-022",
+   "kind": "flange_leak_check",
+   "poi": "F4",
+   "xyz": [
+    -1.48,
+    23.25,
+    43.35
+   ],
+   "work_xyz": [
+    -1.48,
+    23.25,
+    43.35
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "done",
+   "coordinator_status": "DONE",
+   "level": "AUTO",
+   "robot": "Q2",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 18.0,
+   "duration": 18.0,
+   "outcome": "DONE",
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "flange_leak_check-023",
+   "kind": "flange_leak_check",
+   "poi": "F5",
+   "xyz": [
+    20.46,
+    -10.5,
+    43.4
+   ],
+   "work_xyz": [
+    20.46,
+    -10.5,
+    43.4
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "pending",
+   "coordinator_status": "QUEUED",
+   "level": "AUTO",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 20.0,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "flange_leak_check-024",
+   "kind": "flange_leak_check",
+   "poi": "F6",
+   "xyz": [
+    31.01,
+    -10.59,
+    43.4
+   ],
+   "work_xyz": [
+    31.01,
+    -10.59,
+    43.4
+   ],
+   "deck": "stairs",
+   "priority": 4,
+   "status": "done",
+   "coordinator_status": "DONE",
+   "level": "AUTO",
+   "robot": "Q2",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 18.0,
+   "duration": 18.0,
+   "outcome": "DONE",
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "valve_check-025",
+   "kind": "valve_check",
+   "poi": "valve_lower_east",
+   "xyz": [
+    20.0,
+    6.0,
+    21.0
+   ],
+   "work_xyz": [
+    20.0,
+    6.0,
+    21.0
+   ],
+   "deck": "stairs",
+   "priority": 5,
+   "status": "pending",
+   "coordinator_status": "QUEUED",
+   "level": "AUTO",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 30.0,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "valve_check-026",
+   "kind": "valve_check",
+   "poi": "valve_middle_west",
+   "xyz": [
+    -21.0,
+    8.0,
+    32.25
+   ],
+   "work_xyz": [
+    -21.0,
+    8.0,
+    32.25
+   ],
+   "deck": "stairs",
+   "priority": 5,
+   "status": "pending",
+   "coordinator_status": "QUEUED",
+   "level": "AUTO",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 30.0,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "rust_repair-027",
+   "kind": "rust_repair",
+   "poi": "pipe_rack_A",
+   "xyz": [
+    1.2,
+    4.0,
+    43.3
+   ],
+   "work_xyz": [
+    0.44,
+    3.74,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 3,
+   "status": "assigned",
+   "coordinator_status": "ASSIGNED",
+   "level": "SUPV",
+   "robot": "Q1",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 180.0,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  },
+  {
+   "id": "flange_leak_check-021-torque",
+   "kind": "flange_retorque",
+   "poi": "F3",
+   "xyz": [
+    -15.94,
+    23.17,
+    43.35
+   ],
+   "work_xyz": [
+    -15.94,
+    23.17,
+    43.35
+   ],
+   "deck": "stairs",
+   "priority": 2,
+   "status": "done",
+   "coordinator_status": "DONE",
+   "level": "SUPV",
+   "robot": "Q1",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 23.0,
+   "duration": 23.0,
+   "outcome": "DONE",
+   "parent": "flange_leak_check-021",
+   "findings": [
+    "flange_retorqued"
+   ]
+  },
+  {
+   "id": "gas_survey-028",
+   "kind": "gas_survey",
+   "poi": "leak_01",
+   "xyz": [
+    21.0,
+    -10.2,
+    43.4
+   ],
+   "work_xyz": [
+    21.0,
+    -10.2,
+    47.4
+   ],
+   "deck": "stairs",
+   "priority": 1,
+   "status": "active",
+   "coordinator_status": "RUNNING",
+   "level": "AUTO",
+   "robot": "A1",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 51.0,
+   "duration": 55.8,
+   "outcome": null,
+   "parent": null,
+   "findings": []
+  }
+ ],
+ "zones": [
+  {
+   "kind": "gas",
+   "id": "leak_01",
+   "xyz": [
+    21.0,
+    -10.2,
+    43.4
+   ],
+   "radius": 8.0
+  }
+ ],
+ "alarms": [
+  {
+   "id": "leak_01",
+   "flange": "flange near valve_05",
+   "source": "flange near valve_05",
+   "t": 205.0,
+   "reported_t": 265.0,
+   "responder": "A1",
+   "response_s": 24.0,
+   "resolved_s": null,
+   "outcome": "reported"
+  }
+ ],
+ "events": [],
+ "recent_events": [
+  {
+   "t": 265.0,
+   "kind": "priority_change",
+   "message": "Gas at flange near valve_05: C1 stops crawler_ut at riser_R2 inside the 8 m gas zone; it waits until the leak is isolated.",
+   "robot": "C1",
+   "task": "leak_01"
+  },
+  {
+   "t": 265.0,
+   "kind": "assigned",
+   "message": "A1 gas_survey-028 assigned (cost_s=108.1, route_m=99.2)",
+   "robot": "A1",
+   "task": "gas_survey-028"
+  },
+  {
+   "t": 265.0,
+   "kind": "assigned",
+   "message": "Q1 rust_repair-027 assigned (cost_s=121.6, route_m=78.5)",
+   "robot": "Q1",
+   "task": "rust_repair-027"
+  },
+  {
+   "t": 265.0,
+   "kind": "assigned",
+   "message": "Q2 flange_leak_check-024 assigned (cost_s=62.2, route_m=37.8)",
+   "robot": "Q2",
+   "task": "flange_leak_check-024"
+  },
+  {
+   "t": 289.0,
+   "kind": "job_started",
+   "message": "A1 gas_survey-028 job started (kind=gas_survey, target=leak_01)",
+   "robot": "A1",
+   "task": "gas_survey-028"
+  },
+  {
+   "t": 311.0,
+   "kind": "job_started",
+   "message": "Q2 flange_leak_check-024 job started (kind=flange_leak_check, target=F6)",
+   "robot": "Q2",
+   "task": "flange_leak_check-024"
+  },
+  {
+   "t": 329.0,
+   "kind": "job_done",
+   "message": "Q2 flange_leak_check-024 job done (status=DONE, findings=0, log=view 0 read 2/3: 8 bolts read, crack p=0.00)",
+   "robot": "Q2",
+   "task": "flange_leak_check-024"
+  },
+  {
+   "t": 330.0,
+   "kind": "assigned",
+   "message": "Q2 gauge_read-007 assigned (cost_s=49.8, route_m=16.3)",
+   "robot": "Q2",
+   "task": "gauge_read-007"
+  }
+ ],
+ "assignments": [],
+ "metrics": {
+  "t": 340.0,
+  "jobs_done": 14,
+  "jobs_escalated": 0,
+  "open_tasks": 15,
+  "jobs_by_kind": {
+   "aerial_survey": {
+    "done": 3
+   },
+   "crawler_ut": {
+    "done": 1,
+    "pending": 1
+   },
+   "flange_leak_check": {
+    "done": 5,
+    "pending": 1
+   },
+   "flange_retorque": {
+    "done": 1
+   },
+   "gas_survey": {
+    "active": 1
+   },
+   "gauge_read": {
+    "done": 4,
+    "pending": 2,
+    "assigned": 1
+   },
+   "rust_repair": {
+    "assigned": 1
+   },
+   "valve_check": {
+    "pending": 8
+   }
+  },
+  "gas_alarms": 1,
+  "gas_alarms_escalated": 0,
+  "gas_response_mean_s": 24.0,
+  "gas_response_max_s": 24.0,
+  "gas_resolve_mean_s": null,
+  "idle_pct": 9.4,
+  "state_pct": {
+   "IDLE": 9.4,
+   "TRANSIT": 52.8,
+   "WORK": 37.8
+  },
+  "energy_used_wh": 69.9,
+  "energy_charged_wh": 0.0,
+  "energy_by_robot_wh": {
+   "Q1": 20.5,
+   "Q2": 19.0,
+   "A1": 23.3,
+   "C1": 7.2
+  },
+  "distance_m": 643.1,
+  "preemptions": 1,
+  "robot_failures": 0,
+  "replans": 0,
+  "reservation_wait_s": 0.0,
+  "corridor_conflicts": 0,
+  "late_tasks": [],
+  "approvals_pending": 0,
+  "crew_jobs": 0,
+  "used_gemini": false
+ },
+ "approvals": [],
+ "crew": []
+}

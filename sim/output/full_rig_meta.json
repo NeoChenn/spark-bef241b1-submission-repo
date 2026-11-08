@@ -284,18 +284,6 @@
     "helideck": {
       "triangles": 328
     },
-    "module_n76_0": {
-      "triangles": 12
-    },
-    "module_n75_n20": {
-      "triangles": 12
-    },
-    "module_n75_n60": {
-      "triangles": 12
-    },
-    "module_n75_n40": {
-      "triangles": 12
-    },
     "module_n83_40": {
       "triangles": 12
     },
@@ -309,13 +297,7 @@
       "triangles": 20
     },
     "upper_structure": {
-      "triangles": 15680
-    },
-    "module_n15_n33": {
-      "triangles": 12
-    },
-    "module_n15_n70": {
-      "triangles": 12
+      "triangles": 15668
     },
     "vessel_n3_52": {
       "triangles": 68
@@ -325,12 +307,6 @@
     },
     "tank_n28_32": {
       "triangles": 68
-    },
-    "module_4_n33": {
-      "triangles": 12
-    },
-    "module_4_n70": {
-      "triangles": 12
     },
     "vessel_11_52": {
       "triangles": 68
@@ -350,20 +326,8 @@
     "vessel_26_67": {
       "triangles": 68
     },
-    "module_24_n33": {
-      "triangles": 12
-    },
-    "module_24_n70": {
-      "triangles": 12
-    },
-    "module_44_n33": {
-      "triangles": 12
-    },
     "tank_6_n143": {
       "triangles": 68
-    },
-    "module_44_n70": {
-      "triangles": 12
     },
     "pipework_35": {
       "triangles": 900
@@ -384,7 +348,7 @@
       "triangles": 68
     },
     "legs_and_lower_deck": {
-      "triangles": 1318
+      "triangles": 1306
     }
   },
   "cameras": {
@@ -395,5 +359,20 @@
     "process_area": "/World/Cameras/process_area",
     "gauge_closeup": "/World/Cameras/gauge_closeup",
     "helideck": "/World/Cameras/helideck"
+  },
+  "topside": {
+    "instances": 3082,
+    "floors": 8,
+    "modules": [
+      "pump_skid",
+      "scrubbers",
+      "compression",
+      "west_lower",
+      "gas_annex",
+      "separation",
+      "process_core",
+      "west_middle",
+      "utilities"
+    ]
   }
 }
