@@ -25,6 +25,8 @@ WORK_LIGHT = {"offset": (0.3, 1.0, 1.3), "kelvin": 6500.0, "intensity": 8.0e7, "
               "softness": 0.7}
 TONEMAP = {
     "/rtx/post/tonemap/op": 6,
+    "/rtx/raytracing/fractionalCutoutOpacity": True,
+    "/rtx/pathtracing/fractionalCutoutOpacity": True,
     "/rtx/post/histogram/enabled": False,
 }
 def bloom(scale: float) -> dict:

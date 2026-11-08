@@ -236,6 +236,13 @@ def main() -> None:
 
         tickers.append(expose)
         grade = look.grade
+        import cinematic
+        from pxr import Usd, UsdGeom
+        from shafts_fx import Shafts
+
+        beams = Shafts(stage, args.look, cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS)
+        eye_of = UsdGeom.Xformable(stage.GetPrimAtPath(cam_path))
+        tickers.append(lambda t: beams.update(eye_of.ComputeLocalToWorldTransform(Usd.TimeCode.Default()).ExtractTranslation(), t))
     atm = None
     if args.atmos and args.cinematic:
         atm, atm_tick = load_atmosphere(stage, cam_path, args)

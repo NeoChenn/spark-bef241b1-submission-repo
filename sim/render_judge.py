@@ -89,11 +89,18 @@ if args.atmos != "none":
     atm = Atmosphere(stage, args.preset, args.atmos, None, cam_path=cam_path)
 overrides = dict(parse_setting(item) for item in args.set)
 looks = args.look.split(",")
+import cinematic
+from shafts_fx import Shafts
+
+tier = next((lk for lk in ("offline", "live") if lk in looks), "none")
+beams = Shafts(stage, tier, cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS)
+eye = (0.0, 0.0, 0.0)
 keys = {k for lk in looks for k in look.rtx_settings(lk)}
 neutral = {k: settings.get(k) if settings.get(k) is not None else (False if k.endswith("enabled") else None) for k in keys}
 
 
 def use_look(lk, ev, eye, target, fstop):
+    beams.show(lk != "none")
     for k, v in {**neutral, **look.rtx_settings(lk, ev), **overrides}.items():
         if v is not None:
             settings.set(k, v)
@@ -121,6 +128,7 @@ def header():
 
 def tick(t):
     cine_update(t)
+    beams.update(eye, t)
     if atm is not None:
         atm.update(t)
 
