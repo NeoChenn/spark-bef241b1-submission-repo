@@ -1,7 +1,7 @@
 (() => {
   const H = HUD, S = H.S, Q = new URLSearchParams(location.search);
   const LIVE = !(Q.has("mock") || Q.get("replay")) || Q.has("fleet");
-  const CORAL = "#D97757", RED = "rgba(248,81,73,.95)", DRAW_S = 0.9, GHOST_S = 9;
+  const CORAL = "#2EE6D6", RED = "rgba(255,77,79,.95)", DRAW_S = 0.9, GHOST_S = 9;
   const SHOW = new Set(["reroute", "needs_human", "drop_obstacle", "drop_can", "dispatch", "close_walkway", "close_stairs", "clear", "set_weather", "reopen", "blocked"]);
   const anim = {}, seen = new Set();
 
@@ -36,21 +36,21 @@
     (hz?.obstacles || []).forEach((ob) => {
       if (!onDeck(ob.xyz, o.deck)) return;
       const x = o.X(ob.xyz[0]), y = o.Y(ob.xyz[1]), r = Math.max(4, (ob.radius || 0.5) * o.k);
-      g.fillStyle = ob.effect === "slip" ? "rgba(90,160,255,.35)" : "rgba(255,159,67,.4)";
-      g.strokeStyle = ob.effect === "slip" ? "#5AA0FF" : "#FF9F43"; g.lineWidth = 1.5;
+      g.fillStyle = ob.effect === "slip" ? "rgba(90,160,255,.35)" : "rgba(255,176,32,.4)";
+      g.strokeStyle = ob.effect === "slip" ? "#5AA0FF" : "#FFB020"; g.lineWidth = 1.5;
       g.beginPath(); g.rect(x - r, y - r, 2 * r, 2 * r); g.fill(); g.stroke();
-      if (o.big) { g.fillStyle = "rgba(255,255,255,.85)"; g.font = "500 11px -apple-system, system-ui, sans-serif"; g.fillText(ob.kind, x + r + 4, y + 4); }
+      if (o.big) { g.fillStyle = "rgba(255,255,255,.85)"; g.font = "500 11px Inter, system-ui, sans-serif"; g.fillText(ob.kind, x + r + 4, y + 4); }
     });
     (f.robots || []).filter((r) => r?.id).forEach((r) => {
       const a = anim[r.id] || (anim[r.id] = {});
       if (r.prev_path && a.k !== r.reroute_t) { a.k = r.reroute_t; a.t0 = t; a.prev = r.prev_path; }
       const age = a.t0 ? t - a.t0 : Infinity;
       if (a.prev && r.prev_path) line(g, o, a.prev, o.deck, `rgba(220,224,230,${Math.max(0.22, 0.75 - (0.5 * age) / GHOST_S)})`, 2 * wide, [3, 4]);
-      line(g, o, r.path, o.deck, CORAL, (age < GHOST_S ? 3 : 2.2) * wide, null, Math.min(1, age / DRAW_S));
+      line(g, o, r.path, o.deck, H.rcol ? H.rcol(r) : CORAL, (age < GHOST_S ? 3 : 2.2) * wide, null, Math.min(1, age / DRAW_S));
     });
     const w = hz?.weather;
     if (o.big && w && w.level !== "calm") {
-      g.font = "600 12px -apple-system, system-ui, sans-serif"; g.fillStyle = w.closes_outer ? RED : "rgba(227,179,65,.95)";
+      g.font = "600 12px Inter, system-ui, sans-serif"; g.fillStyle = w.closes_outer ? RED : "rgba(255,176,32,.95)";
       g.fillText([String(w.level || "").toUpperCase(), w.wind != null ? `wind ${(+w.wind).toFixed(1)} → ${Math.round(w.wind_dir || 0)}°` : "", w.speed?.walk != null ? `walk ×${(+w.speed.walk).toFixed(2)}` : "", w.perception_range_m != null ? `sight ${Math.round(w.perception_range_m)} m` : ""].filter(Boolean).join(" · "), 12, 18);
     }
   };

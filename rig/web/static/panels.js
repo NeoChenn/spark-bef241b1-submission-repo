@@ -1,16 +1,32 @@
 (() => {
   const H = HUD, { q, num, set, esc, spark, fit, now } = H;
-  const fc = (f) => (f > 40 ? "#F85149" : f >= 36 ? "#E3B341" : f >= 18 ? "#3FB950" : "rgba(255,255,255,.72)");
-  const COL = { stop: "#F85149", warn: "#E3B341", ok: "#3FB950", act: "#D97757", idle: "rgba(235,235,245,.6)" };
+  // Spark brand colours come from the CSS tokens in hud.css (one source of truth); canvas code needs real values.
+  const tok = (n, d) => (getComputedStyle(document.documentElement).getPropertyValue(n).trim() || d);
+  const B = { bg: tok("--spark-color-bg", "#0B0D10"), surface: tok("--spark-color-surface", "#15181D"), line: tok("--spark-color-line", "#262A31"), text: tok("--spark-color-text", "#F3F5F8"), muted: tok("--spark-color-muted", "#9AA3AE"),
+    accent: tok("--spark-color-accent", "#2EE6D6"), accent2: tok("--spark-color-accent-2", "#0FA3A3"), warn: tok("--spark-color-warning", "#FFB020"), stop: tok("--spark-color-stop", "#FF4D4F"), ok: tok("--spark-color-success", "#3DDC84"),
+    dog1: tok("--spark-color-robot-dog-1", "#2EE6D6"), dog2: tok("--spark-color-robot-dog-2", "#FFB020"), drone: tok("--spark-color-robot-drone", "#F3F5F8"), crawler: tok("--spark-color-robot-crawler", "#A78BFA"), other: tok("--spark-color-robot-other", "#0FA3A3") };
+  // One colour per robot, the same on the map, the robot lists and the camera labels.
+  // Dog-1 = Q1 / R1 / unit-1 / go2-1, Dog-2 = Q2 / R2 / unit-2 / go2-2, Drone = A*, Crawler = C*, anything else = accent-2.
+  const rkind = (r) => {
+    const id = String((r && typeof r === "object" ? r.id : r) ?? "").toLowerCase();
+    if (r?.deck === "air" || r?.kind === "A" || /^a\d|drone|uav/.test(id)) return "drone";
+    if (r?.kind === "C" || /^c\d|crawler/.test(id)) return "crawler";
+    if (/^[qr]1$|-1$/.test(id)) return "dog1";
+    if (/^[qr]2$|-2$/.test(id)) return "dog2";
+    return "other";
+  };
+  const rcol = (r) => B[rkind(r)];
+  const fc = (f) => (f > 40 ? B.stop : f >= 36 ? B.warn : f >= 18 ? B.ok : "rgba(255,255,255,.72)");
+  const COL = { stop: B.stop, warn: B.warn, ok: B.ok, act: B.accent, idle: "rgba(243,245,248,.6)" };
   const tone = (st = "") => (/PAUSE|RETREAT|FAIL|ESCALATE/.test(st) ? "stop" : /WAIT|BACK|HOLD|DOCK|GAS|BLOCK/.test(st) ? "warn" : /DONE|CHARG/.test(st) ? "ok" : /IDLE/.test(st) ? "idle" : "act");
-  const NAMES = { R1: "Unit 1 · rust", R2: "Unit 2 · gas", R3: "Unit 3", Q1: "Unit 1 · rust", Q2: "Unit 2 · gas", Q3: "Unit 3", "unit-1": "Unit 1 · rust", "unit-2": "Unit 2 · gas", "unit-3": "Unit 3" };
+  const NAMES = { R1: "Unit 1 · rust", R2: "Unit 2 · gas", R3: "Unit 3", Q1: "Unit 1 · rust", Q2: "Unit 2 · gas", Q3: "Unit 3", "unit-1": "Unit 1 · rust", "unit-2": "Unit 2 · gas", "unit-3": "Unit 3", A1: "Drone A1", C1: "Crawler C1" };
   const rname = (r) => r.name || NAMES[r.id] || r.id;
   const pct = (v, d = 0) => (v == null ? "—" : (100 * v).toFixed(d) + " %");
   const STEPS = ["Patrol", "Detect", "Spray", "Soak", "Scrub", "Verify", "Paint", "Done"];
   const STEP_OF = { PATROL: 0, DETECT: 1, SECOND_VIEW: 1, APPROACH: 1, SPRAY: 2, SOAK: 3, SCRUB: 4, BACK_OFF: 4, VERIFY: 5, PAINT: 6, VERIFY_PAINT: 6, DONE: 7 };
   const KEEP_STEP = new Set(["WIPE_LENS", "WAIT_LULL", "PAUSE_PERSON", "HOLD"]);
   const SEE = ["DETECT", "SECOND_VIEW", "APPROACH", "VERIFY", "VERIFY_PAINT", "HOLD"];
-  Object.assign(H, { fc, COL, tone, rname });
+  Object.assign(H, { fc, COL, tone, rname, brand: B, rkind, rcol });
   const MISSION = `<div class="track">${STEPS.map(() => "<i></i>").join("")}</div><div class="m-row"><b data-k="step"></b><span data-k="of"></span></div><div class="soak" data-k="soak"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15"/><circle data-k="ring" cx="18" cy="18" r="15"/></svg><b class="tnum" data-k="left"></b><span>s of soak left</span></div>`;
   H.panel({ id: "mission", title: "Mission", icon: "flag", key: "h", phases: ["SOAK"], priority: 50, keys: "stepper soak progress steps timer",
     desc: "Where the repair is in its eight steps, with the soak timer.", hint: (S) => H.nice(S.state),
@@ -21,7 +37,7 @@
       x.soak.hidden = !S.soak;
       if (S.soak) { num(x.left, S.soak.left, 0); x.ring.style.strokeDashoffset = 94.25 * (1 - S.soak.left / S.soak.total); }
     } });
-  const VIT = [["force", "Brush force", "N", 1, { min: 0, max: 70, ramp: fc, refs: [[40, "rgba(248,81,73,.55)"]] }],
+  const VIT = [["force", "Brush force", "N", 1, { min: 0, max: 70, ramp: fc, refs: [[40, "rgba(255,77,79,.55)"]] }],
     ["rust", "Rust left", "%", 1, { min: 0, max: 100, color: "#D9825C" }], ["conf", "Detector", "", 2, { min: 0, max: 1, color: "rgba(255,255,255,.7)" }]];
   const VITALS = VIT.map(([k, l, u]) => `<div class="vit"><span>${l}</span><b class="tnum" data-k="${k}"></b><em>${u}</em><canvas data-k="${k}C"></canvas></div>`).join("");
   H.panel({ id: "vitals", title: "Vitals", icon: "wave", key: "v", edge: "left", keys: "sparkline rust confidence detector",
@@ -34,7 +50,7 @@
       const x = q(el, FORCE);
       num(x.now, S.force, 1); x.now.style.color = fc(S.force); set(x.max, `peak ${S.peak.toFixed(1)} · limit 40`);
       x.g.style.width = Math.min(100, S.force * 2) + "%"; x.g.style.background = fc(S.force);
-      spark(x.c, S.series.force, { win: 20, min: 0, max: Math.max(50, S.peak * 1.15), ramp: fc, w: 1.6, refs: [[40, "rgba(248,81,73,.8)"]] });
+      spark(x.c, S.series.force, { win: 20, min: 0, max: Math.max(50, S.peak * 1.15), ramp: fc, w: 1.6, refs: [[40, "rgba(255,77,79,.8)"]] });
     } });
   function drawPipe(c, S) {
     const [g, w, h] = fit(c), G = S.rust_grid;
@@ -53,7 +69,7 @@
     desc: "Rust across the unrolled pipe surface, with sprayed and painted cells.", hint: (S) => (S.rust == null ? "" : S.rust.toFixed(0) + " %"),
     render(el, S) { drawPipe(q(el, PIPE).c, S); } });
   const PIP = `<div class="pip"><img data-k="img" alt=""><span class="pip-none">Waiting for the first look</span></div>`;
-  H.panel({ id: "inspect", title: "Inspection camera", icon: "eye", key: "i", phases: (S) => !!S.inspection && SEE.includes(S.state), priority: 40, keys: "pip picture camera detector mask",
+  H.panel({ id: "inspect", title: "ROBOT VIEW · inspection", icon: "eye", key: "i", phases: (S) => !!S.inspection && SEE.includes(S.state), priority: 40, keys: "pip picture camera detector mask",
     desc: "What the on-board detector sees, with the rust mask outlined.", hint: (S) => (S.inspection ? "Live" : ""),
     render(el, S) {
       const x = q(el, PIP), j = S.inspection?.jpg;
@@ -100,7 +116,7 @@
       const x = q(el, `<div data-k="rows"></div><p class="why" data-k="more"></p><canvas class="gas-chart" data-k="c"></canvas>`), rows = gasRows(S) || `<p class="none">No gas sensors reporting</p>`;
       if (x.rows._h !== rows) { x.rows._h = rows; x.rows.innerHTML = rows; }
       set(x.more, gasMore(S.gas));
-      spark(x.c, S.series.gas, { min: 0, max: 30, color: S.gasAlarm ? "#F85149" : "rgba(255,255,255,.7)", refs: [[10, "rgba(227,179,65,.5)"], [20, "rgba(248,81,73,.5)"]] });
+      spark(x.c, S.series.gas, { min: 0, max: 30, color: S.gasAlarm ? "#FF4D4F" : "rgba(255,255,255,.7)", refs: [[10, "rgba(255,176,32,.5)"], [20, "rgba(255,77,79,.5)"]] });
     } });
   function drawPlume(c, S) {
     const [g, w, h] = fit(c);
@@ -110,11 +126,11 @@
     for (let k = 0; L > 0.02 && k < 7; k++) {
       const d = k / 6, px = sx + Math.sin(a) * d * w * 0.45 + Math.sin(t + k) * 3, py = sy - Math.cos(a) * d * h * 0.6 + Math.cos(t * 0.7 + k) * 3, r = (10 + d * 46) * (0.4 + L * 0.6);
       const gr = g.createRadialGradient(px, py, 0, px, py, r);
-      gr.addColorStop(0, `rgba(248,81,73,${(0.7 * (1 - d * 0.6) * L).toFixed(3)})`); gr.addColorStop(1, "rgba(248,81,73,0)");
+      gr.addColorStop(0, `rgba(255,77,79,${(0.7 * (1 - d * 0.6) * L).toFixed(3)})`); gr.addColorStop(1, "rgba(255,77,79,0)");
       g.fillStyle = gr; g.beginPath(); g.arc(px, py, r, 0, 7); g.fill();
     }
-    g.fillStyle = L > 0.5 ? "#F85149" : "rgba(255,255,255,.6)"; g.beginPath(); g.arc(sx, sy, 3, 0, 7); g.fill();
-    g.font = "500 11px -apple-system, system-ui, sans-serif"; g.fillStyle = "rgba(235,235,245,.5)";
+    g.fillStyle = L > 0.5 ? "#FF4D4F" : "rgba(255,255,255,.6)"; g.beginPath(); g.arc(sx, sy, 3, 0, 7); g.fill();
+    g.font = "500 11px Inter, system-ui, sans-serif"; g.fillStyle = "rgba(243,245,248,.5)";
     g.fillText(S.gas?.sensors?.[0]?.at || "Source", sx + 7, sy + 4);
   }
   H.panel({ id: "plume", title: "Gas plume", icon: "cloud", key: "u", suggest: (S) => (S.gasAlarm ? 0.8 : 0), keys: "leak dispersion wind pip camera",
@@ -196,20 +212,20 @@
     const deck = o.deck && o.deck !== "auto" ? o.deck : Object.keys(count).sort((a, z) => count[z] - count[a])[0] || "top_deck";
     (m?.walkways || []).forEach((s) => {
       const on = deck === "all" || s.deck === deck;
-      g.strokeStyle = on ? (s.kind === "stairs" ? "rgba(227,179,65,.4)" : "rgba(235,235,245,.28)") : "rgba(235,235,245,.06)";
+      g.strokeStyle = on ? (s.kind === "stairs" ? "rgba(255,176,32,.4)" : "rgba(243,245,248,.28)") : "rgba(243,245,248,.06)";
       g.lineWidth = on ? (big ? 2.5 : 1.6) : 1;
       g.beginPath(); g.moveTo(X(s.a[0]), Y(s.a[1])); g.lineTo(X(s.b[0]), Y(s.b[1])); g.stroke();
     });
-    if (m?.dock?.xyz) { const [dx, dy] = m.dock.xyz; g.strokeStyle = COL.act; g.lineWidth = 1.2; g.strokeRect(X(dx) - 5, Y(dy) - 5, 10, 10); if (big) { g.fillStyle = "rgba(235,235,245,.5)"; g.font = "500 11px -apple-system, system-ui, sans-serif"; g.fillText("Dock", X(dx) + 9, Y(dy) + 4); } }
+    if (m?.dock?.xyz) { const [dx, dy] = m.dock.xyz; g.strokeStyle = COL.act; g.lineWidth = 1.2; g.strokeRect(X(dx) - 5, Y(dy) - 5, 10, 10); if (big) { g.fillStyle = "rgba(243,245,248,.5)"; g.font = "500 11px Inter, system-ui, sans-serif"; g.fillText("Dock", X(dx) + 9, Y(dy) + 4); } }
     if (big) (f?.tasks || []).filter((t) => t && t.status !== "done" && t.xyz).forEach((t) => {
-      g.fillStyle = t.kind === "gas" ? COL.stop : t.kind === "rust" ? COL.act : "rgba(235,235,245,.35)";
+      g.fillStyle = t.kind === "gas" ? COL.stop : t.kind === "rust" ? COL.act : "rgba(243,245,248,.35)";
       const x = X(t.xyz[0]), y = Y(t.xyz[1]);
       g.beginPath(); g.moveTo(x, y - 4); g.lineTo(x + 4, y); g.lineTo(x, y + 4); g.lineTo(x - 4, y); g.fill();
     });
     (f?.zones || []).filter((z) => z?.xyz).forEach((z) => {
       const x = X(z.xyz[0]), y = Y(z.xyz[1]), r = Math.max(6, (z.radius || 3) * k);
-      if (z.kind === "gas") { const gr = g.createRadialGradient(x, y, 0, x, y, r * 1.4); gr.addColorStop(0, "rgba(248,81,73,.55)"); gr.addColorStop(1, "rgba(248,81,73,0)"); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r * 1.4, 0, 7); g.fill(); }
-      else { g.strokeStyle = z.kind === "person" ? COL.warn : "rgba(235,235,245,.4)"; g.setLineDash(z.kind === "no_fly" ? [4, 4] : []); g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, r, 0, 7); g.stroke(); g.setLineDash([]); }
+      if (z.kind === "gas") { const gr = g.createRadialGradient(x, y, 0, x, y, r * 1.4); gr.addColorStop(0, "rgba(255,77,79,.55)"); gr.addColorStop(1, "rgba(255,77,79,0)"); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r * 1.4, 0, 7); g.fill(); }
+      else { g.strokeStyle = z.kind === "person" ? COL.warn : "rgba(243,245,248,.4)"; g.setLineDash(z.kind === "no_fly" ? [4, 4] : []); g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, r, 0, 7); g.stroke(); g.setLineDash([]); }
       if (z.kind === "person") { g.fillStyle = COL.warn; g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill(); }
     });
     if (H.drawRoutes) H.drawRoutes(g, { X, Y, k, deck, big, w, h }, S);
@@ -217,20 +233,21 @@
     rs.forEach((r) => {
       const off = deck !== "all" && r.deck && r.deck !== deck && r.deck !== "air";
       g.globalAlpha = off ? 0.38 : 1;
-      const x = X(r.pose.x), y = Y(r.pose.y), col = COL[tone(r.job_state || r.state)], rr = big ? 6 : 4, a = -(r.pose.yaw || 0);
+      const x = X(r.pose.x), y = Y(r.pose.y), st = tone(r.job_state || r.state), col = rcol(r), rr = big ? 6 : 4, a = -(r.pose.yaw || 0);
       if (S.focus === r.id) { g.strokeStyle = "rgba(255,255,255,.85)"; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, rr + 5, 0, 7); g.stroke(); }
+      if (st === "stop" || st === "warn") { g.strokeStyle = COL[st]; g.lineWidth = 2; g.beginPath(); g.arc(x, y, rr + 2.5, 0, 7); g.stroke(); }
       g.fillStyle = col; g.beginPath();
       if (r.deck === "air" || r.kind === "A") { g.moveTo(x, y - rr - 1); g.lineTo(x + rr, y + rr); g.lineTo(x - rr, y + rr); } else g.arc(x, y, rr, 0, 7);
       g.fill();
       g.strokeStyle = col; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); g.lineTo(x + Math.cos(a) * (rr + (big ? 9 : 6)), y + Math.sin(a) * (rr + (big ? 9 : 6))); g.stroke();
-      g.fillStyle = "rgba(255,255,255,.85)"; g.font = `${big ? 600 : 500} ${big ? 12 : 10}px -apple-system, system-ui, sans-serif`;
+      g.fillStyle = "rgba(255,255,255,.85)"; g.font = `${big ? 600 : 500} ${big ? 12 : 10}px Inter, system-ui, sans-serif`;
       g.fillText((big ? rname(r) : rname(r).split(" ·")[0].replace("Unit ", "U")) + (off && big ? "  · " + String(r.deck).replace("_deck", " deck") : ""), x + rr + 4, y - rr);
       g.globalAlpha = 1;
       hits.push({ id: r.id, x, y });
     });
     return Object.assign(hits, { deck });
   };
-  const fleetRows = (S) => (S.fleet?.robots || []).map((r) => `<div class="bot"><b>${esc(rname(r).split(" ·")[0])}</b><span class="dim">${esc(H.nice(r.job_state || r.state))}</span><i><s style="width:${pct(r.battery?.soc).replace(" ", "")};background:${(r.battery?.soc ?? 1) < 0.25 ? COL.warn : ""}"></s></i><em class="tnum">${r.battery?.soc == null ? "" : Math.round(r.battery.soc * 100)}</em></div>`).join("");
+  const fleetRows = (S) => (S.fleet?.robots || []).map((r) => `<div class="bot"><b><i class="sw" style="background:${rcol(r)}"></i>${esc(rname(r).split(" ·")[0])}</b><span class="dim">${esc(H.nice(r.job_state || r.state))}</span><i><s style="width:${pct(r.battery?.soc).replace(" ", "")};background:${(r.battery?.soc ?? 1) < 0.25 ? COL.warn : ""}"></s></i><em class="tnum">${r.battery?.soc == null ? "" : Math.round(r.battery.soc * 100)}</em></div>`).join("");
   H.panel({ id: "fleet", title: "Fleet", icon: "robot", key: "b", edge: "left", keys: "robots map battery deck units", suggest: (S) => ((S.fleet?.robots?.length || 0) > 1 ? 0.2 : 0),
     desc: "Every robot on the rig: where it is on its deck, what it is doing and its battery. ⇧M opens the full mission map.", hint: (S) => (S.fleet?.robots ? S.fleet.robots.length + " robots" : ""),
     render(el, S) {
@@ -268,11 +285,11 @@
       const src = H.viewSrc?.(id), key = [id, st, r.caption?.text, JSON.stringify(kv), others.map((o) => o.id + (o.job_state || o.state)).join(), src].join("|");
       if (el._k === key) return;
       el._k = key;
-      el.innerHTML = `<div class="rb-top"><i style="background:${COL[tn] || COL.act}"></i><b>${esc(rname(r))}</b><span class="chip">${esc(H.nice(st) || "Idle")}</span></div>`
+      el.innerHTML = `<div class="rb-top"><i style="background:${rcol(r)}"></i><b>${esc(rname(r))}</b><span class="chip">${esc(H.nice(st) || "Idle")}</span></div>`
         + (r.caption?.text ? `<p class="rb-cap">${esc(r.caption.text)}</p>` : "")
         + (src ? `<div class="pip on rb-pip"><img src="${src}" alt=""></div>` : "")
         + (kv.length ? `<div class="rb-kv">${kv.map(([k, v]) => `<span><em>${k}</em><b class="tnum">${esc(v)}</b></span>`).join("")}</div>` : "")
-        + (others.length ? `<div class="rb-oth">${others.map((o) => `<button data-id="${esc(o.id)}"><i style="background:${COL[o.caption?.tone || tone(o.job_state || o.state)] || COL.act}"></i>${esc(rname(o).split(" ·")[0])}<em>${esc(H.nice(o.job_state || o.state))}</em></button>`).join("")}</div>` : "");
+        + (others.length ? `<div class="rb-oth">${others.map((o) => `<button data-id="${esc(o.id)}"><i style="background:${rcol(o)}"></i>${esc(rname(o).split(" ·")[0])}<em>${esc(H.nice(o.job_state || o.state))}</em></button>`).join("")}</div>` : "");
       el.onclick = (e) => { const b = e.target.closest("[data-id]"); if (b) H.focus(b.dataset.id); };
     } });
 })();

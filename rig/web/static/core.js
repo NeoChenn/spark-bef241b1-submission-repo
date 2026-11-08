@@ -152,7 +152,7 @@
     let p = "";
     for (const el of dock.children) {
       if (el.tagName !== "SECTION" || el.classList.contains("flying") || el.offsetHeight < 1) continue;
-      const x = el.offsetLeft, y = el.offsetTop, w = el.offsetWidth, h = el.offsetHeight, k = Math.min(16, h / 2);
+      const x = el.offsetLeft, y = el.offsetTop, w = el.offsetWidth, h = el.offsetHeight, k = Math.min(10, h / 2);
       p += `M${x + k} ${y}H${x + w - k}A${k} ${k} 0 0 1 ${x + w} ${y + k}V${y + h - k}A${k} ${k} 0 0 1 ${x + w - k} ${y + h}H${x + k}A${k} ${k} 0 0 1 ${x} ${y + h - k}V${y + k}A${k} ${k} 0 0 1 ${x + k} ${y}Z`;
     }
     if (dock._p === p) return;
@@ -279,6 +279,7 @@
   const isl = $("island");
   let banT = 0;
   function fitIsland() { const l = isl.querySelector(isl.classList.contains("big") ? ".ban" : ".cmp"); isl.style.width = l.offsetWidth + "px"; isl.style.height = l.offsetHeight + "px"; }
+  document.fonts?.ready.then(() => fitIsland());
   const ro = new ResizeObserver(fitIsland);
   isl.querySelectorAll(":scope > div").forEach((d) => ro.observe(d));
   function banner(tone, title, sub, ic = "warn", ms = 4000) {
@@ -348,6 +349,7 @@
       if (!mode && (x < M || x > innerWidth - M || y < M + 90 || y > innerHeight - M)) mode = "behind";
       el.className = `lbl ${rb.caption?.tone || ""} ${mode} ${S.ping === rb.id ? "ping" : ""} ${S.focus === rb.id ? "focus" : ""}`;
       el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
+      if (HUD.rcol && !el.dataset.c) { el.dataset.c = "1"; el.style.setProperty("--bot", HUD.rcol(rb)); }
       set(el.querySelector("span"), rb.name || rb.id); set(el.querySelector("small"), rb.caption?.text);
       const cw = el.firstChild.offsetWidth, ch = el.firstChild.offsetHeight, dx = Math.min(Math.max(x - cw / 2, lo), hi - cw) - (x - cw / 2);
       el.firstChild.style.marginLeft = dx.toFixed(0) + "px";
@@ -402,7 +404,7 @@
   }
   function robotCommands(rs) {
     [...C.keys()].filter((id) => id.startsWith("robot.")).forEach(uncommand);
-    rs.forEach((r) => command({ id: "robot." + r.id, group: "Robots", label: r.name || r.id, icon: "robot", keys: "unit robot focus " + r.id, desc: "Focus this robot: its label pings, and First person and Sensors follow it.",
+    rs.forEach((r) => command({ id: "robot." + r.id, group: "Robots", label: r.name || r.id, icon: "robot", keys: "unit robot focus " + r.id, desc: "Focus this robot: its label pings, and ROBOT VIEW and Sensors follow it.",
       hint: () => S.robots.find((x) => x.id === r.id)?.caption?.lead, active: () => S.focus === r.id, run: () => focus(r.id) }));
   }
   function focus(id) { S.focus = id; S.ping = id; clearTimeout(S.pingT); S.pingT = setTimeout(() => (S.ping = null), 1200); }
