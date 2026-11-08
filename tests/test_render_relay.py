@@ -128,6 +128,19 @@ def test_ws_state_keeps_flowing_without_render(client):
         assert ws.receive_json()["fleet"] == {"robots": [{"id": "b"}]}
 
 
+def test_local_sim_frames_win_over_render_frames(client):
+    with local(client) as sim, lan(client) as r:
+        r.sendall(hello())
+        sim.sendall(encode({"type": "frame", "w": 1280, "h": 720, "seq": 0, "t": 0.0}, b"\xff\xd8local"))
+        assert wait_until(lambda: client.get("/api/health").json()["frames"] == 1)
+        r.sendall(render_frame(1, time.time()))
+        sim.sendall(encode({"type": "frame", "w": 1280, "h": 720, "seq": 1, "t": 0.1}, b"\xff\xd8local2"))
+        assert wait_until(lambda: client.get("/api/health").json()["frames"] == 2)
+        time.sleep(0.1)
+        assert client.get("/api/frame.jpg").content == b"\xff\xd8local2"
+        assert client.get("/api/health").json()["source"] == "sim"
+
+
 def test_render_does_not_steal_event_channel(client):
     with local(client) as sim, lan(client) as r:
         r.sendall(hello())

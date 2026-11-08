@@ -122,6 +122,7 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
     pending: deque = deque()
     renders: set[RenderClient] = set()
     scene_log = StateLog()
+    sim_frame_at = [-1e9]
 
     def push_state(scene: dict) -> None:
         scene_log.merge(scene)
@@ -137,6 +138,7 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
     def on_sim_message(header: dict, payload: bytes) -> None:
         kind = header.get("type")
         if kind == "frame":
+            sim_frame_at[0] = time.monotonic()
             hub.publish(payload, header)
         elif kind == "state":
             scene, meta = split(header)
@@ -185,7 +187,7 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
         try:
             while True:
                 header, payload = await read_message_async(reader)
-                if header.get("type") == "frame":
+                if header.get("type") == "frame" and time.monotonic() - sim_frame_at[0] > STALE_AFTER_S:
                     hub.publish(payload, {**header, "source": "render"})
         except (ConnectionError, OSError, ValueError):
             pass
