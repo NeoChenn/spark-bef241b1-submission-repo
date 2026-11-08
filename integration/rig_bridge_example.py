@@ -1,11 +1,12 @@
-"""How the team's Isaac bridge can take on our two jobs (gas leak + deck sweep): an example, not their bridge.
+"""How an Isaac bridge takes on the deck sweep (debris pickup, camera person check): an example, not the team's
+bridge.
 
-The team's bridge (SimBridge + Perception + ArmController inside the Isaac process, see INTERFACE.md) does not
-exist yet. When it does, it mixes in our two halves:
+The team's bridge is integration/isaac_bridge.py (IsaacRigBridge, rust repair) and, for the gas-leak job,
+integration/gas_bot_bridge.py; the leak job uses those, not this file. The deck sweep mixes in the same way:
 
-    class RigIsaacBridge(LeakBridgeMixin, DeckBridgeMixin, TeamIsaacBridge): ...
+    class RigIsaacBridge(DeckBridgeMixin, IsaacRigBridge): ...
 
-and provides the few base methods below. This file shows that composition with the simplest possible base: the
+and needs the few base methods below. This file shows that composition with the simplest possible base: the
 robot is teleported along the deck by writing its USD transform, and ``step_fn`` advances the simulator. Every
 method marked INTEGRATION SEAM is one the team replaces with the real thing (articulation pose, locomotion
 policy, arm IK, their simulation loop). Everything else is ours and is tested on CPU (tests/test_deck_bridge.py).
@@ -21,11 +22,10 @@ from typing import Any, Callable, Optional
 import numpy as np
 
 from integration.deck_bridge import DeckBridgeMixin
-from integration.leak_bridge import LeakBridgeMixin, apply_leak_state
 
 
-class RigBridgeExample(LeakBridgeMixin, DeckBridgeMixin):
-    """Leak + deck halves over a minimal base.
+class RigBridgeExample(DeckBridgeMixin):
+    """The deck-sweep half over a minimal base.
 
     What the host must provide (the integration seam):
       stage                       the open Usd.Stage (Isaac: omni.usd.get_context().get_stage())
@@ -35,19 +35,18 @@ class RigBridgeExample(LeakBridgeMixin, DeckBridgeMixin):
       robot_position() / robot_yaw()        base pose in the world
       move_base_to(xyz, facing) -> bool     one control step toward a deck position; True when there
       set_camera_pose(eye, target)          point the wrist camera (Isaac: arm IK; here: move a free camera)
-      advance(dt)                           step physics + render; must call leak_advance(dt)
+      advance(dt)                           step physics + render
       work_position(), arm (ArmController with move_to), pick_skill(target_xy_base, yaw) -> bool
     """
 
     walk_step: float = 0.1          # m per move_base_to call (0.1 s control step at 1 m/s)
     arrive_tol: float = 0.05
 
-    def __init__(self, stage, robot_path: str, step_fn: Callable[[float], None], *, leak_world=None, leak_prims=None,
-                 arm: Any = None, deck_z: float = 0.0, deck_camera_path: Optional[str] = None,
+    def __init__(self, stage, robot_path: str, step_fn: Callable[[float], None], *, arm: Any = None, deck_z: float = 0.0, deck_camera_path: Optional[str] = None,
                  body_camera_path: Optional[str] = None, wrist_camera_path: Optional[str] = None,
                  pick_skill: Optional[Callable] = None):
         self.stage, self.robot_path, self.step_fn = stage, robot_path, step_fn
-        self.leak_world, self.leak_prims, self.arm = leak_world, leak_prims or {}, arm
+        self.arm = arm
         self.deck_z = float(deck_z)
         if deck_camera_path:
             self.deck_camera_path = deck_camera_path
@@ -59,8 +58,6 @@ class RigBridgeExample(LeakBridgeMixin, DeckBridgeMixin):
         self.t = 0.0
         self.patrol_stop = 0
         self._work = self.robot_position().copy()
-        if leak_world is not None:
-            apply_leak_state(stage, leak_world, self.leak_prims)
 
     # ---------------------------------------------------------------- INTEGRATION SEAM: base pose
     def _base_op(self):
@@ -123,8 +120,6 @@ class RigBridgeExample(LeakBridgeMixin, DeckBridgeMixin):
         """Isaac: step_fn runs the simulation loop for dt (physics + render, as rig/sim/main.py does)."""
         self.step_fn(dt)
         self.t += dt
-        if self.leak_world is not None:
-            self.leak_advance(dt)
 
     def sim_time(self) -> float:
         return self.t

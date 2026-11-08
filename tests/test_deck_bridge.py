@@ -1,4 +1,4 @@
-"""Isaac-side pieces of the deck sweep and the leak bridge, tested on CPU with plain USD (usd-core). No Isaac Sim."""
+"""Isaac-side pieces of the deck sweep, tested on CPU with plain USD (usd-core). No Isaac Sim."""
 import math
 from pathlib import Path
 
@@ -11,7 +11,6 @@ from pxr import Gf, Usd, UsdGeom  # noqa: E402
 from detection.rig_vision import floor_range  # noqa: E402
 from integration.deck_bridge import (DeckBridgeMixin, deck_z_from_meta, depth_to_ground_range,  # noqa: E402
                                      pixel_to_deck, spawn_debris_can, usd_camera_model, world_to_base)
-from integration.leak_bridge import LeakBridgeMixin, load_leak_world  # noqa: E402
 from integration.rig_bridge_example import RigBridgeExample  # noqa: E402
 from policy.deck.scene import camera_model as mock_deck_camera  # noqa: E402
 from policy.leak.geometry import look_at, project  # noqa: E402
@@ -218,67 +217,3 @@ def test_deck_views_move_the_body_and_references_are_per_stop_and_view(tmp_path)
     c.patrol_stop = 3
     c.deck_frame()
     assert not np.array_equal(c.deck_reference(), ref0)
-
-
-# ---------------------------------------------------------------- leak methods over the example bridge
-@pytest.fixture(scope="module")
-def leak_scene(tmp_path_factory):
-    import sys
-    sys.path.insert(0, str(ROOT / "sim"))
-    from build_leak_flanges import main
-    out = tmp_path_factory.mktemp("leak")
-    main(["--out", str(out), "--meta", str(ROOT / "sim" / "output" / "full_rig_meta.json")])
-    return out
-
-
-def leak_rig(leak_scene, start_offset=3.0):
-    stage = Usd.Stage.Open(str(leak_scene / "leak_flanges.usda"))
-    UsdGeom.Xform.Define(stage, "/World/Robot")
-    UsdGeom.Camera.Define(stage, "/World/wrist_cam")
-    world, prims = load_leak_world(str(leak_scene / "leak_flanges_meta.json"))
-    g = world.flanges["F1"].geom
-    steps = []
-    b = RigBridgeExample(stage, "/World/Robot", step_fn=steps.append, leak_world=world, leak_prims=prims,
-                         arm=FakeArm(), deck_z=42.5, wrist_camera_path="/World/wrist_cam")
-    start = g.center + start_offset * g.normal
-    b.set_base_pose([start[0], start[1], 42.5], 0.0)
-    b._work = b.robot_position().copy()
-    return b, world, g, steps
-
-
-def test_leak_methods_over_the_example_bridge(leak_scene):
-    b, world, g, steps = leak_rig(leak_scene)
-    assert isinstance(b, LeakBridgeMixin) and isinstance(b, DeckBridgeMixin)
-    assert b.nearest_flange() == "F1" and len(b.flanges()) == 6 and b.flange("F1") is g
-    clean = b.gas_reading()
-    world.loosen("F1", 2, 0.3)
-    b.advance(5.0)                                       # gas builds up in sim time, and the stage follows
-    assert b.gas_reading() > clean and steps == [5.0]
-    attr = b.stage.GetPrimAtPath(b.leak_prims["F1"]["bolt_prims"][2]).GetAttribute("xformOp:rotateX:loosen")
-    assert attr.Get() == pytest.approx(math.degrees(0.3))
-    assert b.approach_flange("F1")
-    d = b.robot_position()[:2] - g.center[:2]
-    assert abs(np.linalg.norm(d) - b.approach_distance) < 0.15
-    wrist = usd_camera_model(b.stage, "/World/wrist_cam", W, H)
-    uv, z = project(wrist, np.array([g.center]))
-    assert np.allclose(uv[0], [W / 2, H / 2], atol=1e-3) and z[0] == pytest.approx(b.approach_distance, abs=1e-6)
-    assert b.torque_bolt("F1", 2) and world.flanges["F1"].angles[2] == 0.0 and attr.Get() == pytest.approx(0.0)
-    near = np.linalg.norm(b.robot_position()[:2] - g.center[:2])
-    b.retreat(3.0)
-    assert np.linalg.norm(b.robot_position()[:2] - g.center[:2]) == pytest.approx(near + 3.0, abs=0.15)
-    b.return_to_work()
-    assert np.allclose(b.robot_position(), b.work_position(), atol=0.06)
-
-
-def test_gas_override_and_failed_sensor(leak_scene):
-    b, world, g, _ = leak_rig(leak_scene)
-    b.gas_override = float("nan")
-    assert math.isnan(b.gas_reading())                  # the job reads NaN as a failed sensor -> retreat
-    b.gas_override = 0.5
-    assert b.gas_reading() == 0.5
-    b.gas_override = None
-    world.crack("F1", 1.0)
-    world.settle()
-    low = b.gas_reading()
-    b.gas_sensor_offset = tuple(-2.0 * g.normal)        # sensor 2 m nearer the flange
-    assert b.gas_reading() > low

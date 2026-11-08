@@ -144,13 +144,9 @@ stops early at the limit), `request_flange_view(i)`, `retreat(m)`, `return_to_wo
 `apply_leak_state(stage, world, prims)`). The host provides `robot_position()`, `move_base_to(xyz, facing)`,
 `set_camera_pose(eye, target)`, `advance(dt)`, `work_position()`, `stage`, `leak_world`, `leak_prims`.
 
-Isaac implementation notes (CPU-tested with usd-core in `tests/test_leak_isaac.py` and `tests/test_deck_bridge.py`;
-not yet run in Isaac Sim): `load_leak_world(meta)` gives the `LeakWorld` and prim index. `gas_reading()` samples the
-`LeakWorld` gas field at `gas_sensor_position()` (robot position + `gas_sensor_offset`); set `gas_override` to a
-number for a fixed reading or to `float("nan")` for a failed sensor (the job then retreats). The host's `advance(dt)`
-should call `leak_advance(dt)`, which steps the gas model and pushes bolt angles and cracks to the stage.
-`retreat(m)` and `return_to_work()` walk with `move_base_to` (the mock jumps). `integration/rig_bridge_example.py`
-shows the whole composition.
+**In Isaac** the team's gas bridge (`integration/gas_bot_bridge.py`, with the gas robot in `policy/gasbot`) provides
+the gas reading and the leak scene updates, using `apply_leak_state` and `bolt_waypoint` from
+`integration/leak_bridge.py`. Use that one; there is no second leak bridge.
 
 **Wrist camera:** 640x360 works from **1.1 m** (the whole flange fits; every bolt read; angle error at most 0.019 rad).
 From 1.0 m the flange clips the frame.
@@ -197,7 +193,7 @@ plus sim-domain crops, MobileNetV4 + LoRA through the team's `detection/train.py
 Try it on CPU: `python -m policy.leak.mock --leak none --debris litter --person-at 2` (also `--debris can`, `--no-deck`).
 
 **Isaac implementation** (`integration/deck_bridge.py` `DeckBridgeMixin`; CPU-tested in `tests/test_deck_bridge.py`;
-not yet run in Isaac Sim). Composition example with the leak half: `integration/rig_bridge_example.py`.
+not yet run in Isaac Sim). Composition example: `integration/rig_bridge_example.py` (mix into `IsaacRigBridge`).
 
 * Cameras: `deck_camera_path` and `body_camera_path` (default `/World/Robots/scrubber_dog/base_link/body_camera`, a
   guess: set them to the real prims). `CameraModel` comes from the prim's world transform, focal length and
@@ -221,5 +217,5 @@ not yet run in Isaac Sim). Composition example with the leak half: `integration/
 
 Still needed from the team's bridge: `stage`, the real camera prim paths (and the wrist camera for flanges),
 `robot_position()` / `robot_yaw()` from the articulation, `move_base_to(xyz, facing)` (locomotion step),
-`set_camera_pose(eye, target)` (arm IK), `advance(dt)` (physics + render; call `leak_advance`), `work_position()`,
+`set_camera_pose(eye, target)` (arm IK), `advance(dt)` (physics + render), `work_position()`,
 `patrol_stop` set in `go_to_patrol_pose`, `arm.move_to`, and the pick skill.
