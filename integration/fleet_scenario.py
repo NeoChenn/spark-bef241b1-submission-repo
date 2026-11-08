@@ -43,7 +43,7 @@ def work_point(geom: FlangeGeometry, standoff: float = WORK_STANDOFF_M) -> np.nd
 
 class Scenario:
     def __init__(self, t_leak: float = 6.0, t_fixed: float = 34.0, t_stuck: Optional[float] = 46.0,
-                 leak_flange: str = "F2", bolt: int = 3, loosen_rad: float = 0.27, stuck_flange: str = "F1",
+                 leak_flange: str = "F5", bolt: int = 3, loosen_rad: float = 0.27, stuck_flange: str = "F6",
                  stuck_lel: float = 14.0, rise_tau_s: float = 3.0, decay_tau_s: float = 4.0,
                  wind=(0.0, -1.0, 0.0), wind_stretch: float = 0.3, flanges=FLANGES, meta_path=LEAK_META,
                  duration_s: float = 60.0):
