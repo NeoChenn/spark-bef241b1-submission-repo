@@ -155,3 +155,36 @@ def test_camera_shots_edl_shape():
     k0 = af.compose(by["rig"], [], [], 0, (160, 90), im)
     k1 = af.compose(by["rig"], [], [], 30, (160, 90), im)
     assert np.asarray(k0).mean() < 5 and np.asarray(k1).mean() > 190
+
+
+def test_film_edl_capture_plan_chime_and_frames(tmp_path):
+    shots, meta = af.load_edl(None, None, 60.0)
+    long, _ = af.load_edl(None, None, None)
+    assert max(s.end for s in shots) == 60.0 and max(s.end for s in long) == 66.0
+    by = {s.name: s for s in shots}
+    t = af.inject_time(shots, dict(meta, summary={"beats": {"alarm": 6.6}}))
+    assert abs(t - (by["board"].start + 6.6 / by["board"].rate)) < 0.01
+    specs = {(p, s): e for p, s, e in af.capture_specs(shots, "short")}
+    board = specs[("board", "board")]
+    assert board[-2:] == [f"{by['board'].start:g}", f"{by['board_hold'].end:g}"] and "--sim" in board
+    ff = {s for p, s in specs if p == "ff"}
+    assert ff == {s.name for s in shots if s.ff} and "walk_back" in ff
+    assert specs[("conclusion", "conclusion")][:2] == ["--cards", "short"]
+    (tmp_path / "board" / "frames").mkdir(parents=True)
+    Image.new("RGB", (8, 8)).save(tmp_path / "board" / "frames" / "00000.jpg")
+    names = [s.name for s in shots]
+    assert len(af.shot_frames(tmp_path, by["board_hold"], names)) == 1
+    assert af.shot_frames(tmp_path, by["unit1_soak"], names) == []
+    d = tmp_path / "ovl" / "ff_walk_back"
+    d.mkdir(parents=True)
+    Image.new("RGBA", (8, 8)).save(d / "001520.png")
+    o = af.load_overlays(tmp_path / "ovl")[0]
+    assert o.at(1520) is not None and o.at(1521) is None
+
+
+def test_two_d_drift_moves_slowly_and_continuously():
+    a = np.zeros((90, 160, 3), np.uint8)
+    a[40:50, 70:90] = 255
+    im = Image.fromarray(a)
+    f0, f1, f9 = (np.asarray(af.drift(im, t), float) for t in (0.0, 1 / 30, 9.0))
+    assert np.abs(f1 - f0).mean() < 2.0 and np.abs(f9 - f0).mean() > np.abs(f1 - f0).mean()
