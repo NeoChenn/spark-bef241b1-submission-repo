@@ -177,7 +177,8 @@ def test_contract_adapter_wraps_the_real_fleet_coordinator():
     assert not Envelope().call(a, "approve_request", {"job_id": s, "why": "ok"})["ok"]
     c.submit(Job("op-1", "paint", "P-2", (3.0, 0, 0), Level.SUPV, params={"requested_by": "coordinator"}), allow_auto=False)
     out = Envelope().call(a, "approve_request", {"job_id": "op-1", "why": "repair verified clean, paint is safe"})
-    assert out["ok"] and c.jobs["op-1"].params["approved"] is True
+    assert out["ok"] and "approved" not in c.jobs["op-1"].params and "operator" in out["note"]
+    assert a.approve_request("op-1", "operator", "verified") and c.jobs["op-1"].params["approved"] is True
     assert a.approve_request(s, "operator", "ok")
     for _ in range(60):
         c.tick()
