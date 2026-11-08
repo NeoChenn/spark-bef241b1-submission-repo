@@ -119,8 +119,10 @@ class LeakStream:
         self.rp = rep.create.render_product(self.cam, tuple(args.pip_size))
         self.ann = rep.AnnotatorRegistry.get_annotator("rgb")
         self.ann.attach(self.rp)
+        self.texture = getattr(self.rp, "hydra_texture", None)
         self.last = None
         self.stats = None
+        self.acc = 0.0
         self.pip_at = self.field_at = 0.0
         self.sim_ms = 0.0
         self.ticks = 0
@@ -130,18 +132,20 @@ class LeakStream:
     def tick(self, t: float) -> None:
         import time
 
-        dt = 0.0 if self.last is None else min(max(t - self.last, 0.0), 0.1)
+        self.acc += 0.0 if self.last is None else max(t - self.last, 0.0)
         self.last = t
-        if dt <= 0:
+        self.render_pip(t + 1.0 / self.args.fps >= self.pip_at)
+        if self.acc < self.args.leak_dt:
             return
         t0 = time.perf_counter()
-        self.ticks += 1
-        due = self.ticks % self.args.leak_vis_every == 0
-        st = self.plume.step(dt, stats=due)
-        if due:
-            self.stats = st
-            self.visual.update()
+        self.stats = self.plume.step(min(self.acc, 0.1))
+        self.acc = 0.0
+        self.visual.update()
         self.sim_ms = 0.9 * self.sim_ms + 0.1 * (time.perf_counter() - t0) * 1e3
+
+    def render_pip(self, on: bool) -> None:
+        if self.texture is not None and hasattr(self.texture, "set_updates_enabled"):
+            self.texture.set_updates_enabled(bool(on))
 
     def event(self, args: dict) -> dict:
         a = {k: float(args[k]) for k in ("hole_mm", "bar") if k in args}

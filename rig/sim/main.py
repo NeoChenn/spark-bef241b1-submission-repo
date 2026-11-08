@@ -254,7 +254,7 @@ def main() -> None:
             jpeg_kb = buf.tell() / 1024
             head = {"type": "frame", "w": rgb.shape[1], "h": rgb.shape[0], "seq": seq, "t": t, "mean": round(mean, 1),
                     "camera": camera_header()}
-            plume = leak.header(now) if leak else None
+            plume = leak.header(t) if leak else None
             if plume:
                 head["plume"] = plume
             sender.send(head, buf.getvalue())

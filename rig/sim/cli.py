@@ -42,7 +42,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--leak-heading", type=float, default=90.0)
     p.add_argument("--leak-storm", type=float, default=0.0)
     p.add_argument("--leak-side", type=float, default=-1.0)
-    p.add_argument("--leak-vis-every", type=int, default=2)
+    p.add_argument("--leak-dt", type=float, default=1 / 12, help="seconds of wall time between plume steps")
     p.add_argument("--pip-every", type=float, default=0.25)
     p.add_argument("--pip-size", type=size, default=(480, 270), metavar="WxH")
     return p.parse_args(argv)
