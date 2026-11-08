@@ -25,7 +25,7 @@ def worker(argv):
     p.add_argument("--abrasion", type=float, default=1.0)
     p.add_argument("--max_steps", type=int, default=400)
     p.add_argument("--start_x", type=float, default=-2.6)
-    p.add_argument("--bead_height", type=float, default=0.010)
+    p.add_argument("--bead_height", type=float, default=0.012)
     p.add_argument("--no_events", action="store_true")
     p.add_argument("--no-gemini", dest="no_gemini", action="store_true")
     p.add_argument("--still", action="store_true")
@@ -78,6 +78,7 @@ def worker(argv):
     cfg.episode_length_s = 1.0e6
     cfg.viz = False
     cfg.spawn_pipe_visual = False
+    cfg.weld_bead_radius = 0.014
     cfg.backdrop_usd = os.path.abspath(args.scene)
     cfg.backdrop_translation = tuple(rig_translation(meta))
     cfg.sim.render = RenderCfg(rendering_mode="quality", antialiasing_mode="DLAA", carb_settings={

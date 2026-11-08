@@ -255,7 +255,7 @@ class LabRepairBridge:
     def _unpark(self):
         if not self.parked:
             return
-        clear = self._interp_joints(self.q_work, stop_force=8.0)
+        clear = self._interp_joints(self.q_work, steps=36, stop_force=5.0)
         b = self.base
         if not clear:
             self.joint_target = b._robot.data.joint_pos[:1, self.arm_ids].clone()
@@ -411,8 +411,8 @@ class LabRepairBridge:
             if spraying:
                 rs.set_spray(self.spray_cone, self.spray_op, self._brush(), np.asarray(wp.approach, float),
                              wp.standoff + 0.02, True)
-            err = self._goto(centre, 24 if k == 0 else 2)
-            reached.append(err < 0.02)
+            err = self._goto(centre, 24 if k == 0 else 3)
+            reached.append(err < 0.03)
         rs.set_spray(self.spray_cone, self.spray_op, np.zeros(3), np.array([1.0, 0, 0]), 0.1, False)
         return reached
 
@@ -447,7 +447,7 @@ class LabRepairBridge:
         img.MakeVisible() if on else img.MakeInvisible()
 
     def force_spike(self, height: float = 0.010) -> None:
-        if self.parked or self.press is None and self.force_now < 3.0:
+        if self.parked or self.press is None:
             self.schedule(self.t + 0.2, "", lambda: self.force_spike(height))
             return
         self.log(f"   weld bead placed under the brush at t={self.t:.1f}s")
