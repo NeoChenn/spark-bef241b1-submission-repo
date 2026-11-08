@@ -28,16 +28,16 @@ export material flare_card(
     float alpha_gain = 1.0
 ) = let {
     float4 t = tile(atlas, frame, cols, rows);
-    color e = color(math::pow(math::max(float3(t.x, t.y, t.z), float3(0.0)), float3(2.2))) * gain;
+    float a = math::clamp(t.w * alpha_gain, 0.0, 1.0);
+    color e = color(math::pow(math::max(float3(t.x, t.y, t.z), float3(0.0)), float3(2.2))) * (gain * a * math::PI);
+    material_emission glow = material_emission(emission: df::diffuse_edf(), intensity: e, mode: intensity_radiant_exitance);
+    bsdf clear = df::specular_bsdf(tint: color(1.0), mode: df::scatter_transmit);
 } in material(
     thin_walled: true,
-    surface: material_surface(
-        emission: material_emission(emission: df::diffuse_edf(), intensity: e * math::PI, mode: intensity_radiant_exitance)
-    ),
-    backface: material_surface(
-        emission: material_emission(emission: df::diffuse_edf(), intensity: e * math::PI, mode: intensity_radiant_exitance)
-    ),
-    geometry: material_geometry(cutout_opacity: math::clamp(t.w * alpha_gain, 0.0, 1.0))
+    ior: color(1.0),
+    surface: material_surface(scattering: clear, emission: glow),
+    backface: material_surface(scattering: clear, emission: glow),
+    geometry: material_geometry(cutout_opacity: a > 0.004 ? 1.0 : 0.0)
 );
 
 export material smoke_card(

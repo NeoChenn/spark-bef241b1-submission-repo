@@ -124,12 +124,12 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "flare_card"
-                    float inputs:alpha_gain = 0.35
+                    float inputs:alpha_gain = 0.5
                     asset inputs:atlas = @../assets/generated/flare_halo.png@ (
                         colorSpace = "raw"
                     )
                     float inputs:cols = 1
-                    float inputs:gain = 600
+                    float inputs:gain = 1200
                     float inputs:rows = 1
                     token outputs:out
                 }

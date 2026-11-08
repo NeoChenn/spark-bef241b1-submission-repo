@@ -33,7 +33,8 @@ CARDS = (
 )
 SEGMENTS = 12
 SMOKE_N, SMOKE_LIFE, SMOKE_LEVELS = 40, 10.0, 5
-HALO_SIZE, HALO_GAIN, HALO_ALPHA = 80.0, EMISSION * 0.1, 0.35
+HALO_SIZE, HALO_GAIN, HALO_ALPHA = 80.0, EMISSION * 0.2, 0.5
+SIDE_GAIN = 0.45
 STOPS = (
     (0.0, (0.7, 0.1, 0.01)),
     (0.3, (1.0, 0.38, 0.05)),
@@ -374,7 +375,7 @@ def update(stage, t: float, wind=WIND) -> None:
         frame = int(math.floor((t + phase * 7.0) * FPS * rate))
         sh = UsdShade.Shader.Get(stage, f"{ROOT}/Looks/flame_{k}/shader")
         sh.GetInput("frame").Set(float(frame % FRAMES))
-        sh.GetInput("gain").Set(EMISSION * flicker(t, k + 1.0))
+        sh.GetInput("gain").Set(EMISSION * flicker(t, k + 1.0) * (1.0 if yaw == 0 else SIDE_GAIN))
     pos, scale, alpha = smoke_state(t, wind)
     inst = UsdGeom.PointInstancer(stage.GetPrimAtPath(f"{ROOT}/smoke"))
     inst.GetPositionsAttr().Set(Vt.Vec3fArray.FromNumpy(pos.astype(np.float32)))
