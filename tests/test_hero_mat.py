@@ -161,3 +161,22 @@ def test_apply_turns_detail_off_for_the_live_tier(monkeypatch):
     deck = UsdShade.Shader.Get(stage, f"/World/Looks/deck/{hm.SHADER}")
     assert live["detail"] is False and deck.GetInput("detail").Get() is False
     assert hm.apply(stage, "night", "offline")["detail"] is True and deck.GetInput("detail").Get() is True
+
+
+def test_live_tier_hands_heavy_looks_back_to_photoreal(monkeypatch):
+    from pxr import Sdf, Usd, UsdShade
+
+    stage = Usd.Stage.Open(str(hm.LAYER))
+    for path in ("/World/Looks/deck", "/World/Looks/frame"):
+        UsdShade.Shader.Define(stage, f"{path}/{hm.FALLBACK}").CreateOutput("out", Sdf.ValueTypeNames.Token)
+    monkeypatch.setattr(hm, "attach", lambda s: True)
+
+    def source(path):
+        return UsdShade.Material(stage.GetPrimAtPath(path)).GetSurfaceOutput("mdl").GetConnectedSources()[0][0].source.GetPath().name
+
+    hm.apply(stage, "night", "live")
+    assert source("/World/Looks/deck") == hm.FALLBACK and source("/World/Looks/frame") == hm.FALLBACK
+    assert source("/World/RepairZone/Looks/green_metal_rust") == hm.SHADER
+    assert source("/World/Looks/rail") == hm.SHADER
+    hm.apply(stage, "night", "offline")
+    assert source("/World/Looks/deck") == hm.SHADER

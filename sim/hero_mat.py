@@ -36,6 +36,8 @@ TARGETS = {
 }
 WET_PUDDLES = ("deck", "frame", "zone_steel", "rail", "zone_pipe_grey", "zone_pipe_orange")
 DETAIL = WET_PUDDLES
+LIVE_KINDS = ("pipe", "rust", "line")
+FALLBACK = "rig_mdl"
 PATCH_GEOM = "/World/Pipes/damage_patch/geom"
 
 
@@ -151,6 +153,13 @@ def apply(stage, preset: str, quality: str | None = None) -> dict:
         shader = UsdShade.Shader.Get(stage, f"{path}/{SHADER}")
         if not shader:
             continue
+        use = shader
+        if not detail and kind not in LIVE_KINDS:
+            use = UsdShade.Shader.Get(stage, f"{path}/{FALLBACK}") or shader
+        material = UsdShade.Material(stage.GetPrimAtPath(path))
+        out = use.GetOutput("out") or use.CreateOutput("out", Sdf.ValueTypeNames.Token)
+        material.CreateSurfaceOutput("mdl").ConnectToSource(out)
+        material.CreateSurfaceOutput().ConnectToSource(out)
         shader.CreateInput("wetness", Sdf.ValueTypeNames.Float).Set(w["wetness"])
         if kind in WET_PUDDLES:
             shader.CreateInput("puddles", Sdf.ValueTypeNames.Float).Set(w["puddles"])
