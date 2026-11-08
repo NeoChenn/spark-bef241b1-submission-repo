@@ -457,7 +457,7 @@ hero_sample paint_sample(
         float3 c1 = f3(noise, q / 0.09 + float2(0.29, 0.83));
         float3 c2 = f3(noise, q / 0.025 + float2(0.67, 0.13));
         float chip = c1.y * 0.65 + c2.z * 0.35 + 0.25 * (m1.x - 0.5);
-        float lim = 0.88 - 0.08 * chip_amount;
+        float lim = 0.86 - 0.08 * chip_amount;
         primer = ss(lim - 0.03, lim, chip);
         bare = math::max(spot, ss(lim + 0.025, lim + 0.06, chip));
     }
