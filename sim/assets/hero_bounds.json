@@ -424,5 +424,73 @@
     "Joints"
    ]
   }
+ },
+ "nv_eyewash_shower": {
+  "min": [
+   0.0,
+   -0.135,
+   0.0003
+  ],
+  "max": [
+   1.1328,
+   0.2442,
+   2.3195
+  ],
+  "mpu": 1.0,
+  "up": "Z",
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/Safety_EyewashStation_Combo_Shower_A01/sm_safety_eyewashStation_combo_shower_a01_01.usd",
+  "physics": {
+   "apis": {
+    "Geometry/handle_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/handleBig_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/body_01_obj_00": [
+     "PhysicsRigidBodyAPI",
+     "PhysicsMassAPI"
+    ],
+    "Geometry/lid_02_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/handleSmall_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/lid_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__rough_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__plastic__eyewashStation_combo_shower_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__plastic__yellow_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__chrome_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__plastic__green_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__painted_green_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "Joints/joint_handleSmall_01_joint_00": [
+     "PhysicsDriveAPI:angular"
+    ],
+    "Joints/joint_handleBig_01_joint_00": [
+     "PhysicsDriveAPI:angular"
+    ],
+    "Joints/joint_handle_01_joint_00": [
+     "PhysicsDriveAPI:angular"
+    ]
+   },
+   "joints": [
+    "Joints"
+   ]
+  }
  }
 }

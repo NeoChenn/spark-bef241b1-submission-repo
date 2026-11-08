@@ -1,0 +1,18 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/fuel_steel_drum/fuel_steel_drum.usdc@
+    )
+    {
+        double3 xformOp:translate = (-1.4901161193847656e-8, 2.9802322387695312e-8, -0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}
+

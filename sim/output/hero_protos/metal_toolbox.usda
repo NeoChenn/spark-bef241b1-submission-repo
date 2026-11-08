@@ -1,0 +1,67 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/metal_toolbox/metal_toolbox_1k.usdc@
+    )
+    {
+        double3 xformOp:translate = (0.000004872679710388184, -0.03236038881732933, -0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        over "_materials"
+        {
+            over "metal_toolbox"
+            {
+                over "Image_Texture"
+                {
+                    asset inputs:file = @../../assets/third_party/models/metal_toolbox/textures/metal_toolbox_diff_1k.jpg@
+                }
+
+                over "Image_Texture_001"
+                {
+                    asset inputs:file = @../../assets/third_party/models/metal_toolbox/textures/metal_toolbox_metal_1k.exr@
+                }
+
+                over "Image_Texture_002"
+                {
+                    asset inputs:file = @../../assets/third_party/models/metal_toolbox/textures/metal_toolbox_rough_1k.exr@
+                }
+
+                over "Image_Texture_003"
+                {
+                    asset inputs:file = @../../assets/third_party/models/metal_toolbox/textures/metal_toolbox_nor_gl_1k.exr@
+                }
+
+                over "NodeGraphs"
+                {
+                    over "bnode__Image_Texture_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/metal_toolbox/textures/metal_toolbox_diff_1k.jpg@
+                    }
+
+                    over "bnode__Image_Texture_001_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/metal_toolbox/textures/metal_toolbox_metal_1k.exr@
+                    }
+
+                    over "bnode__Image_Texture_002_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/metal_toolbox/textures/metal_toolbox_rough_1k.exr@
+                    }
+
+                    over "bnode__Image_Texture_003_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/metal_toolbox/textures/metal_toolbox_nor_gl_1k.exr@
+                    }
+                }
+            }
+        }
+    }
+}
+

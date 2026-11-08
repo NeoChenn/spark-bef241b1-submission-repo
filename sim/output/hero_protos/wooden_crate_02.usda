@@ -1,0 +1,18 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/wooden_crate_02/wooden_crate_02_2k.usdc@
+    )
+    {
+        double3 xformOp:translate = (-0.0001803450213628821, -0.0001804642615563512, 0.009823650121688843)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}
+

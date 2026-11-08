@@ -99,9 +99,13 @@ Generated from `sim/assets/manifest.json` by `sim/tools/fetch_assets.py --licenc
 | fire_alarm | model | polyhaven | CC0-1.0 | https://polyhaven.com/a/fire_alarm |
 | fire_hydrant | model | polyhaven | CC0-1.0 | https://polyhaven.com/a/fire_hydrant |
 | fuel_cable_spool | model | gazebo-fuel | CC-BY-4.0 (OpenRobotics, Gazebo Fuel) | https://app.gazebosim.org/OpenRobotics/fuel/models/Cable_Spool |
+| fuel_euro_pallet | model | gazebo-fuel | CC-BY-4.0 (jfrascon, Gazebo Fuel) | https://app.gazebosim.org/jfrascon/fuel/models/Euro%20pallet |
+| fuel_extinguisher_cabinet | model | gazebo-fuel | CC-BY-4.0 (OpenRobotics, Gazebo Fuel) | https://app.gazebosim.org/OpenRobotics/fuel/models/Extinguisher%20cabinet |
+| fuel_fire_hydrant | model | gazebo-fuel | CC0-1.0 (OpenRobotics, Gazebo Fuel) | https://app.gazebosim.org/OpenRobotics/fuel/models/Fire%20hydrant |
 | fuel_gate_valve | model | gazebo-fuel | CC0-1.0 (OpenRobotics, Gazebo Fuel) | https://app.gazebosim.org/OpenRobotics/fuel/models/Valve |
 | fuel_junction_box | model | gazebo-fuel | CC0-1.0 (OpenRobotics, Gazebo Fuel) | https://app.gazebosim.org/OpenRobotics/fuel/models/Electrical%20Box |
 | fuel_pump_skid | model | gazebo-fuel | CC-BY-4.0 (OpenRobotics, Gazebo Fuel) | https://app.gazebosim.org/OpenRobotics/fuel/models/Pump |
+| fuel_steel_drum | model | gazebo-fuel | CC-BY-4.0 (OpenRobotics, Gazebo Fuel) | https://app.gazebosim.org/OpenRobotics/fuel/models/55gal_Drum |
 | garden_hose_wall_mounted_01 | model | polyhaven | CC0-1.0 | https://polyhaven.com/a/garden_hose_wall_mounted_01 |
 | hand_truck | model | polyhaven | CC0-1.0 | https://polyhaven.com/a/hand_truck |
 | industrial_caged_sconce | model | polyhaven | CC0-1.0 | https://polyhaven.com/a/industrial_caged_sconce |

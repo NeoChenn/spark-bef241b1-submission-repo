@@ -38,6 +38,48 @@ REPAIR_BG = [
     ("metal_jerrycan", 16.85, -7.62, 75.0, 1.0),
     ("metal_toolbox", 17.45, -7.6, 15.0, 1.0),
 ]
+DENSE = [
+    ("small_lpg_tank", 24.2, 0.7, 0.0, 0.0),
+    ("small_lpg_tank", 24.65, 0.72, 35.0, 0.0),
+    ("small_lpg_tank", 25.1, 0.68, 80.0, 0.0),
+    ("small_lpg_tank", 24.25, 1.15, 120.0, 0.0),
+    ("small_lpg_tank", 24.7, 1.17, 160.0, 0.0),
+    ("small_lpg_tank", 25.15, 1.13, 200.0, 0.0),
+    ("worn_metal_rack", 24.7, 1.85, 0.0, 0.0),
+    ("metal_tool_chest", 27.0, 1.2, 180.0, 0.0),
+    ("metal_toolbox", 27.1, 1.2, 170.0, 0.83),
+    ("hand_truck", 28.0, 1.35, 200.0, 0.0),
+    ("fuel_cable_spool", 28.95, 1.0, 10.0, 0.0),
+    ("fuel_steel_drum", 30.4, 0.7, 0.0, 0.0),
+    ("fuel_steel_drum", 31.0, 0.75, 50.0, 0.0),
+    ("fuel_steel_drum", 30.7, 1.28, 100.0, 0.0),
+    ("fuel_steel_drum", 31.3, 1.32, 150.0, 0.0),
+    ("fuel_euro_pallet", 32.45, 1.0, 0.0, 0.0),
+    ("Barrel_02", 32.15, 1.0, 0.0, 0.144),
+    ("Barrel_02", 32.72, 1.02, 60.0, 0.144),
+    ("Barrel_01", 33.5, 0.65, 20.0, 0.0),
+    ("fuel_euro_pallet", 35.6, 1.0, 90.0, 0.0),
+    ("wooden_crate_02", 35.6, 1.0, 90.0, 0.144),
+    ("plastic_crate_01", 35.55, 0.75, 0.0, 0.6),
+    ("plastic_crate_01", 35.6, 1.25, 10.0, 0.6),
+    ("fuel_fire_hydrant", 35.6, -3.4, 200.0, 0.0),
+    ("korean_fire_extinguisher_01", 35.4, -4.3, 190.0, 0.0),
+    ("korean_fire_extinguisher_01", 35.8, -4.4, 170.0, 0.0),
+    ("fuel_extinguisher_cabinet", 35.7, -5.2, 180.0, 0.0),
+    ("fuel_gate_valve", 28.0, -9.5, 180.0, 0.0),
+    ("fuel_gate_valve", 30.5, -9.5, 180.0, 0.0),
+    ("fuel_gate_valve", 33.0, -9.5, 180.0, 0.0),
+    ("fuel_pump_skid", 29.2, -11.25, 90.0, 0.0),
+    ("fuel_pump_skid", 32.2, -11.25, 90.0, 0.0),
+    ("fuel_steel_drum", 34.6, -11.2, 0.0, 0.0),
+    ("fuel_steel_drum", 35.2, -11.25, 40.0, 0.0),
+    ("industrial_pastic_container", 35.9, -11.2, 90.0, 0.0),
+]
+DENSE_SCALE = {"fuel_pump_skid": 1.5}
+DENSE_OFFLINE = [
+    ("nv_ibc_steel_a01", 34.4, 1.1, 0.0, 0.0),
+    ("nv_eyewash_shower", 35.9, -6.6, 90.0, 0.0),
+]
 WALL = [
     ("fuel_junction_box", 11.75, -10.15, "+y", 1.25),
     ("fuel_junction_box", 25.75, -10.15, "+y", 1.25),
@@ -49,6 +91,7 @@ HUNG = [
     ("lifebuoy", 2.0, -27.35, 0.0, 1.05),
     ("lifebuoy", 37.35, -6.0, 90.0, 1.05),
     ("lifebuoy", 37.35, 4.0, 90.0, 1.05),
+    ("lifebuoy", 37.35, -1.0, 90.0, 1.05),
     ("exterior_aircon_unit", 5.0, -27.2, 0.0, 0.35),
 ]
 COLUMN_HALF = 0.125
@@ -57,7 +100,7 @@ HIDE = []
 
 
 def footprints() -> list:
-    return [(x, y) for _, x, y, *_ in PLACE + WALL + HUNG + REPAIR_BG]
+    return [(x, y) for _, x, y, *_ in PLACE + WALL + HUNG + REPAIR_BG + DENSE + DENSE_OFFLINE]
 
 
 def inside(point, rect, margin=0.0) -> bool:
@@ -69,7 +112,7 @@ def layout_issues(radius: float = 1.0) -> list:
     from dressing_geometry import blocked
 
     issues = [p for p in footprints() if inside(p, WORK, margin=radius) and not inside(p, BEHIND_PIPE)]
-    issues += [(x, y) for _, x, y, *_ in PLACE if blocked((x, y), ROUTE, [], EYES, corridor=1.3, eye_radius=1.2)]
+    issues += [(x, y) for _, x, y, *_ in PLACE + DENSE + DENSE_OFFLINE if blocked((x, y), ROUTE, [], EYES, corridor=1.3, eye_radius=1.2)]
     return issues
 
 

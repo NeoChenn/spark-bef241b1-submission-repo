@@ -1,0 +1,18 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/fuel_extinguisher_cabinet/fuel_extinguisher_cabinet.usdc@
+    )
+    {
+        double3 xformOp:translate = (-0.007189501076936722, -0.004999995231628418, -9.999999974752427e-7)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}
+
