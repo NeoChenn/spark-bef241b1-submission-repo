@@ -13,7 +13,7 @@ def test_defaults_are_720p30_without_overlays():
     a = R.parse_args([])
     assert (a.width, a.height, a.fps) == (1280, 720, 30)
     assert a.scene.endswith("rig_merged.usda") and a.renderer == "RaytracedLighting" and a.spp == 16
-    assert a.nav == "lidar" and a.look == "night"
+    assert a.nav == "timeline" and a.look == "night"
 
 
 def test_pick_timeline_falls_back_to_demo(tmp_path):
@@ -102,3 +102,18 @@ def test_wide_shot_frames_the_robots():
     fwd = -m[2, :3]
     d = np.asarray(target) - np.asarray(eye)
     assert np.allclose(fwd, d / np.linalg.norm(d))
+
+
+def test_rust_job_masks_progress_and_timeline_masks():
+    pipe = R.pipe_from_meta(META)
+    m0 = R.rust_masks((32, 64), pipe, 1.0, 0.0, {})
+    assert m0["rust_grid"].sum() > 0 and not m0["sprayed"].any() and not m0["painted"].any()
+    m1 = R.rust_masks((32, 64), pipe, 1.0, 0.0, {"spray": 3, "scrub": 14, "paint": 4})
+    assert m1["sprayed"].any() and m1["rust_grid"].sum() == 0 and m1["painted"].sum() >= (m0["rust_grid"] > 0).sum()
+    assert R.activity("unit1", "VERIFY_PAINT") == "stow" and R.activity("unit1", "SPRAY") == "spray"
+    assert R.activity("unit1", "SOAK") == "stow" and R.activity("unit2", "TO_DOCK") == "stow"
+    rows = [{"type": "tick", "t": 1, "robots": {"unit1": {"pose": [0, 0, 42.5, 0], "state": "SCRUB",
+                                                           "sprayed": [[1, 0], [0, 1]]}}}]
+    s = R.parse_rows(rows)
+    assert s.pose("unit1", 1) == (0.0, 0.0, 0.0)
+    assert s.masks_at(0.5) is None and R.resample(s.masks_at(1)["sprayed"], (4, 4))[3, 3] == 1

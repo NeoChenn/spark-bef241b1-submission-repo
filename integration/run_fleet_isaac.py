@@ -23,6 +23,7 @@ POS_KEYS = ("pos", "position", "xy", "pose")
 ROBOT_KEYS = ("robot", "unit", "rid")
 STATE_KEYS = ("state", "mode", "status", "activity", "phase")
 NAV_DT = 0.1
+MASK_KEYS = ("rust_grid", "sprayed", "painted")
 LIDAR_RANGE = 4.0
 STAND_HEIGHT = 0.32
 UNIT1_USD = REPO / "sim/output/robot/go2_ur3_lift/go2_ur3_lift.usda"
@@ -57,7 +58,7 @@ def parse_args(argv=None):
     p.add_argument("--moon", type=float, default=25.0)
     p.add_argument("--lamp-gain", type=float, default=1.0)
     p.add_argument("--rig-gain", type=float, default=0.1)
-    p.add_argument("--nav", default="lidar", choices=["lidar", "timeline"])
+    p.add_argument("--nav", default="timeline", choices=["timeline", "lidar"])
     p.add_argument("--nav-policy", default=str(NAV_POLICY), help="ONNX policy, or 'pure_pursuit'")
     p.add_argument("--lidar-beams", type=int, default=360)
     p.add_argument("--lidar-height", type=float, default=0.28)
@@ -127,6 +128,7 @@ class Scenario:
     states: dict = field(default_factory=dict)
     leds: list = field(default_factory=list)
     events: list = field(default_factory=list)
+    masks: list = field(default_factory=list)
     end: float = 0.0
 
     def add_pose(self, rid, t, x, y, yaw, state):
@@ -151,6 +153,7 @@ class Scenario:
         for rid in self.states:
             self.states[rid].sort(key=lambda s: s[0])
         self.leds.sort(key=lambda e: e[0])
+        self.masks.sort(key=lambda e: e[0])
         self.events.sort(key=lambda e: e["t"])
         return self
 
@@ -182,6 +185,10 @@ class Scenario:
                 break
             out[did] = st
         return out
+
+    def masks_at(self, t):
+        i = bisect_right([m[0] for m in self.masks], t) - 1
+        return self.masks[i][1] if i >= 0 else None
 
     def events_between(self, t0, t1) -> list:
         return [e for e in self.events if t0 < e["t"] <= t1]
@@ -223,6 +230,12 @@ def parse_rows(rows) -> Scenario:
             p = _xyyaw(r)
             if p:
                 scn.add_pose(rid, t, *p, _first(r, STATE_KEYS))
+        src = r.get("rust") if isinstance(r.get("rust"), dict) else (robots or {}).get("unit1", {}) \
+            if isinstance(robots, dict) else r
+        m = {k: src.get(k, r.get(k)) for k in MASK_KEYS if isinstance(src, dict)}
+        m = {k: np.asarray(v, float) for k, v in m.items() if isinstance(v, list) and v and isinstance(v[0], list)}
+        if m:
+            scn.masks.append((t, m))
         dets = r.get("detectors")
         if isinstance(dets, dict):
             for did, v in dets.items():
@@ -319,15 +332,38 @@ def demo_rows(meta: dict | None = None, flanges: dict | None = None, fid: str = 
 def activity(rid: str, state: str) -> str:
     s = state.upper()
     if rid == "unit1":
-        for key, act in (("PAINT", "paint"), ("SPRAY", "spray"), ("SCRUB", "scrub"), ("RUST", "scrub")):
+        for key, act in (("VERIFY", "stow"), ("SOAK", "stow"), ("PAINT", "paint"), ("SPRAY", "spray"),
+                         ("SCRUB", "scrub"), ("RUST", "scrub")):
             if key in s:
                 return act
         return "stow"
-    for key, act in (("TORQUE", "retorque"), ("FIX", "retorque"), ("REPAIR", "retorque"), ("CLOSE", "retorque"),
+    for key, act in (("DOCK", "stow"), ("TORQUE", "retorque"), ("FIX", "retorque"), ("REPAIR", "retorque"), ("CLOSE", "retorque"),
                      ("SNIFF", "inspect"), ("INSPECT", "inspect"), ("VERIFY", "inspect"), ("CONFIRM", "inspect")):
         if key in s:
             return act
     return "stow"
+
+
+def rust_masks(shape, pipe: dict, side: float, z0: float, prog: dict, radius: float = 0.13, length: float = 0.8):
+    n_z, n_t = shape
+    z = -length / 2 + (np.arange(n_z) + 0.5) * length / n_z
+    th = (np.arange(n_t) + 0.5) * 2 * math.pi / n_t
+    c = pipe["theta"] if side > 0 else math.pi - pipe["theta"]
+    dth = np.abs((th - c + math.pi) % (2 * math.pi) - math.pi) * pipe["radius"]
+    d = np.hypot((z - z0)[:, None], dth[None, :]) / radius
+    sprayed = d < 1.15 * min(1.0, prog.get("spray", 0.0) / 3.0)
+    rust = np.where(d < 1.0, np.clip(1.0 - d, 0.2, 1.0), 0.0) * (d >= min(1.0, prog.get("scrub", 0.0) / 14.0))
+    painted = d < 1.15 * min(1.0, prog.get("paint", 0.0) / 4.0)
+    return {"rust_grid": rust, "sprayed": sprayed.astype(float), "painted": painted.astype(float)}
+
+
+def resample(a: np.ndarray, shape) -> np.ndarray:
+    a = np.asarray(a, float)
+    if a.shape == tuple(shape):
+        return a
+    i = np.minimum((np.arange(shape[0]) + 0.5) * a.shape[0] / shape[0], a.shape[0] - 1).astype(int)
+    j = np.minimum((np.arange(shape[1]) + 0.5) * a.shape[1] / shape[1], a.shape[1] - 1).astype(int)
+    return a[i][:, j]
 
 
 def gait(stand: dict, phase: float, amp: float) -> dict:
@@ -516,10 +552,30 @@ def wide_shot(scn: Scenario, meta: dict, focal: float = 24.0):
     deck = float(((meta or {}).get("world") or {}).get("deck_z_m", 42.5))
     c = np.concatenate(pts).mean(0) if pts else np.array([18.75, -5.75])
     span = float(np.ptp(np.concatenate(pts), axis=0).max()) if pts else 8.0
-    dist = max(7.0, 0.9 * span + 4.0)
-    eye = np.array([c[0] - 0.35 * dist, c[1] + 0.85 * dist, deck + 0.45 * dist + 1.5])
+    dist = max(6.0, 0.6 * span + 3.0)
+    eye = np.array([c[0] - 0.3 * dist, c[1] + 0.75 * dist, deck + 0.28 * dist + 1.0])
     target = np.array([c[0], c[1], deck + 0.6])
     return eye.tolist(), target.tolist(), focal
+
+
+def beat_times(scn: Scenario, start: float = 0.0) -> dict:
+    def first(seq, pred, after=None):
+        return next((t for t, v in seq if pred(v) and (after is None or t >= after)), None)
+
+    leds = [(t, st) for t, _, st in scn.leds if t >= start]
+    s1 = [(t, st) for t, st in scn.states.get("unit1", []) if t >= start]
+    s2 = [(t, st) for t, st in scn.states.get("unit2", []) if t >= start]
+    b = {"start": start, "amber": first(leds, lambda v: v == "warn")}
+    b["red"] = first(leds, lambda v: v == "alarm", b["amber"])
+    b["step_back"] = first(s1, lambda v: activity("unit1", v) == "stow" and "DONE" not in v.upper(), b["amber"])
+    b["arrive"] = first(s2, lambda v: activity("unit2", v) != "stow", b["red"])
+    rt = first(s2, lambda v: activity("unit2", v) == "retorque", b["arrive"])
+    b["fixed"] = first(s2, lambda v: activity("unit2", v) != "retorque", rt)
+    red_id = next((d for t, d, st in scn.leds if st == "alarm" and t == b["red"]), None)
+    b["green"] = first([(t, st) for t, d, st in scn.leds if d == red_id], lambda v: v == "ok", b["red"])
+    b["resume"] = first(s1, lambda v: activity("unit1", v) != "stow", b["step_back"])
+    b["end"] = start + min(60.0, max(1.0, scn.end - start))
+    return {k: v for k, v in b.items() if v is not None}
 
 
 def camera_source(args, scn: Scenario, meta: dict):
@@ -535,6 +591,14 @@ def camera_source(args, scn: Scenario, meta: dict):
                 if callable(getattr(fc, name, None)):
                     fn = getattr(fc, name)
                     break
+            if fn is not None and hasattr(fc, "Beats"):
+                try:
+                    beats = fc.Beats.from_events(beat_times(scn, args.start))
+                    base_fn = fn
+                    fn = lambda t: base_fn(t, beats)
+                    print(f"[fleet] camera beats {beats}", flush=True)
+                except Exception as exc:
+                    print(f"[fleet] camera beats default ({exc})", flush=True)
         if fn is not None:
             def cam(t):
                 try:
@@ -691,6 +755,50 @@ def main(argv=None):
 
     pipe = pipe_from_meta(meta)
     spawn = meta["world"]["robot_spawn"]["position_m"]
+    from integration.repair_scene import RustOverlay, add_spray_cone, set_spray
+    from policy.interfaces import PipeGeometry
+
+    seg_len = float(meta["world"].get("segment_length_m", 0.8))
+    first = next((tt for tt, st in scn.states.get("unit1", []) if activity("unit1", st) != "stow"), args.start)
+    sx0, sy0, _ = scrub_stance(pipe, scn.pose("unit1", first)[:2] if "unit1" in scn.poses else spawn[:2])
+    rel0 = np.array([sx0, sy0, pipe["origin"][2]]) - np.asarray(pipe["origin"])
+    side0 = 1.0 if rel0 @ np.asarray(pipe["ref"]) >= 0 else -1.0
+    z_rust = float(np.clip(rel0 @ np.asarray(pipe["axis"]), -seg_len / 2 + 0.15, seg_len / 2 - 0.15))
+    pipe_c = dict(pipe)
+    pipe_c["origin"] = (np.asarray(pipe["origin"]) + z_rust * np.asarray(pipe["axis"])).tolist()
+    pipe_c["z"] = 0.0
+    geom = PipeGeometry(pipe_c["origin"], pipe["axis"], pipe["ref"], pipe["radius"], seg_len, 32, 64)
+    overlay = RustOverlay(stage, geom)
+    cone, cone_op = add_spray_cone(stage)
+    brush = None
+    try:
+        from policy import night_look as nl
+        from policy.brush_squish import BrushPad, UsdBrush
+
+        root = stage.GetPrimAtPath("/World/Fleet/unit1")
+        while True:
+            inst = [p_ for p_ in Usd.PrimRange(root) if p_.IsInstanceable()]
+            if not inst:
+                break
+            for p_ in inst:
+                p_.SetInstanceable(False)
+        for p_ in Usd.PrimRange(root):
+            if "scrubber_link" in str(p_.GetPath()) and p_.IsA(UsdGeom.Gprim):
+                UsdGeom.Imageable(p_).MakeInvisible()
+        sponge = nl._material(stage, "/World/Looks/brush_sponge", nl.CORAL_LIN, 0.85, 0.0, 0.0,
+                              emissive=tuple(c_ * 0.015 for c_ in nl.CORAL_LIN))
+        hubm = nl._material(stage, "/World/Looks/brush_hub", (0.05, 0.05, 0.055), 0.4, 0.6, 0.3)
+        UsdGeom.Scope.Define(stage, "/World/Fleet/brush")
+        brush = UsdBrush(stage, "/World/Fleet/brush", BrushPad(4000.0), sponge, hubm)
+    except Exception as exc:
+        print(f"[fleet] brush squish unavailable: {exc}", flush=True)
+    try:
+        from integration.fleet_nav import trot_q
+    except Exception:
+        trot_q = None
+    print(f"[fleet] rust at z={z_rust:.2f} side={side0:+.0f} squish={brush is not None} trot={trot_q is not None}",
+          flush=True)
+    prog = {"spray": 0.0, "scrub": 0.0, "paint": 0.0}
     brush_log = load_brush_log(args.scrub_log, (pipe["origin"][0], spawn[1], meta["world"]["deck_z_m"]))
     print(f"[fleet] scrub {'recorded ' + args.scrub_log if brush_log is not None else 'scripted sweep'}", flush=True)
     deck = float(meta["world"]["deck_z_m"])
@@ -746,6 +854,8 @@ def main(argv=None):
         acts = {rid: activity(rid, scn.state(rid, t)) for rid in UNITS}
         if acts["unit1"] in ("scrub", "spray", "paint"):
             scrub_t += t - t_prev
+            if work_w >= 1.0:
+                prog[acts["unit1"]] += t - t_prev
         t_prev = t
         working = acts["unit1"] in ("scrub", "spray", "paint")
         work_w = min(1.0, work_w + 1.0 / args.fps) if working else max(0.0, work_w - 1.0 / args.fps)
@@ -761,7 +871,11 @@ def main(argv=None):
             base = pose(bx, by, deck + STAND_HEIGHT + (0.008 * abs(math.sin(u.dist / 0.18 * math.pi)) if moving else 0.0),
                         byaw)
             target_q = dict(q[rid])
-            target_q.update(gait(STANDING, u.dist / 0.18 * math.pi, 1.0 if moving else 0.0))
+            if trot_q is not None:
+                legs = trot_q(u.dist, abs(u.v) + 0.25 * abs(u.w) if moving else 0.0)
+                target_q.update({j: v for j, v in legs.items() if "thigh" in j or "calf" in j})
+            else:
+                target_q.update(gait(STANDING, u.dist / 0.18 * math.pi, 1.0 if moving else 0.0))
             goal = arm_target(rid, acts[rid], u, t) if not moving else None
             if goal is None:
                 target_q.update(ARM_STOWED)
@@ -787,6 +901,22 @@ def main(argv=None):
                 else:
                     q[rid][j] = q[rid].get(j, v) + blend * (v - q[rid].get(j, v))
             posers[rid].set(base, q[rid])
+            if rid == "unit1":
+                tip = model.tool_pose(base, q[rid], "brush_tip")
+                act = acts["unit1"]
+                on = act in ("spray", "paint") and goal is not None and work_w >= 1.0
+                set_spray(cone, cone_op, tip[:3, 3], tip[:3, 0], 0.22 if act == "spray" else 0.14, on)
+                if brush is not None:
+                    force = 25.0 if act == "scrub" and goal is not None and work_w >= 1.0 else 0.0
+                    o_, a_ = np.asarray(pipe["origin"]), np.asarray(pipe["axis"])
+                    brush._set("sponge", brush.pad.sponge(tip[:3, 3], tip[:3, :3], o_, a_, pipe["radius"], force))
+                    brush._set("hub", brush.pad.hub(tip[:3, 3], tip[:3, :3], o_, a_, pipe["radius"]))
+        masks = scn.masks_at(t) or rust_masks(geom.shape, pipe_c, side0, 0.0, prog, length=seg_len)
+        painted = resample(masks.get("painted", np.zeros(geom.shape)), geom.shape) > 0.5
+        overlay.wet.update((resample(masks.get("sprayed", np.zeros(geom.shape)), geom.shape) > 0.5) & ~painted)
+        overlay.rust.update(np.clip(resample(masks.get("rust_grid", np.zeros(geom.shape)), geom.shape) / 0.1, 0, 1)
+                            * ~painted)
+        overlay.primer.update(painted.astype(np.float32))
         dets = {}
         for did, st in scn.detectors(t).items():
             dets[did] = st
@@ -809,7 +939,10 @@ def main(argv=None):
         if writer is not None:
             writer.append_data(rgb)
         evs = scn.events_between(t - max(1, args.every) / args.fps, t)
-        head.write(json.dumps(header_row(rendered, t, c, args, units, dets, evs, acts)) + "\n")
+        row = header_row(rendered, t, c, args, units, dets, evs, acts)
+        row["rust"] = {"progress": {k: round(v, 2) for k, v in prog.items()}, "source": "timeline" if
+                       scn.masks_at(t) is not None else "synthetic"}
+        head.write(json.dumps(row) + "\n")
         rendered += 1
         if rendered % 30 == 1:
             print(f"[fleet] frame {rendered}/{n_frames // max(1, args.every)} t={t:.2f} mean={rgb.mean():.1f} "
