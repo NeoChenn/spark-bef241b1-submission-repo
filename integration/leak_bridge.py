@@ -32,6 +32,12 @@ def load_flanges(meta_path: str) -> tuple[list[FlangeGeometry], dict]:
     return geoms, prims
 
 
+def load_leak_world(meta_path: str) -> tuple[LeakWorld, dict]:
+    """LeakWorld (all bolts tight, no cracks) and the prim index, from leak_flanges_meta.json."""
+    geoms, prims = load_flanges(meta_path)
+    return LeakWorld(geoms), prims
+
+
 def apply_leak_state(stage: Usd.Stage, world: LeakWorld, prims: dict) -> None:
     """Push LeakWorld truth into the scene: turn loose bolts, show cracks. Call after any change, or each frame."""
     for fid, s in world.flanges.items():
@@ -61,14 +67,29 @@ class LeakBridgeMixin:
         robot_position() -> (3,), move_base_to(xyz, facing) -> bool (one control step toward it; True when there),
         set_camera_pose(eye, target) (wrist camera), advance(dt), work_position() -> (3,),
         arm.move_to(waypoints) -> list[bool]   (the existing ArmController)
+    The host's advance(dt) should call leak_advance(dt), so gas builds up and clears in sim time.
     """
 
     gas_stop: float = 0.20
     approach_distance: float = 1.1     # fits the whole flange in the 640x360 wrist camera (measured; 1.0 m clips)
+    gas_override: Optional[float] = None   # video hook / test: a fixed reading; float("nan") = failed sensor
+    gas_sensor_offset: tuple = (0.0, 0.0, 0.0)   # sensor position relative to robot_position(), world frame
 
     # -- sensing ---------------------------------------------------------------
+    def gas_sensor_position(self) -> np.ndarray:
+        return np.asarray(self.robot_position(), float) + np.asarray(self.gas_sensor_offset, float)
+
     def gas_reading(self) -> Optional[float]:
-        return float(self.leak_world.gas_at(self.robot_position()))
+        """LeakWorld gas field at the sensor (fraction of LEL). None or NaN means a failed sensor: the job then
+        retreats (fail safe), as in the mock."""
+        if self.gas_override is not None:
+            return self.gas_override
+        return float(self.leak_world.gas_at(self.gas_sensor_position()))
+
+    def leak_advance(self, dt: float) -> None:
+        """Step the gas model by dt and push bolt angles / cracks to the stage. Call from the host's advance()."""
+        self.leak_world.step(dt)
+        apply_leak_state(self.stage, self.leak_world, self.leak_prims)
 
     def flanges(self) -> list[FlangeGeometry]:
         return [s.geom for s in self.leak_world.flanges.values()]
@@ -77,6 +98,7 @@ class LeakBridgeMixin:
         return self.leak_world.flanges[fid].geom
 
     def nearest_flange(self) -> Optional[str]:
+        """Id of the flange nearest the robot, or None if there are none."""
         p = np.asarray(self.robot_position(), float)
         return min(self.leak_world.flanges, key=lambda f: float(np.linalg.norm(self.flange(f).center - p)),
                    default=None)
@@ -107,6 +129,7 @@ class LeakBridgeMixin:
         return True
 
     def retreat(self, distance: float = 3.0) -> None:
+        """Walk ``distance`` m straight away from the nearest flange (horizontal), as the mock jumps there."""
         fid = self.nearest_flange()
         p = np.asarray(self.robot_position(), float)
         d = p - self.flange(fid).center if fid else np.array([-1.0, 0.0, 0.0])
@@ -118,6 +141,7 @@ class LeakBridgeMixin:
             self.advance(0.1)
 
     def return_to_work(self) -> None:
+        """Walk back to work_position() (the rust work pose or the current patrol stop)."""
         target = np.asarray(self.work_position(), float)
         for _ in range(400):
             if self.move_base_to(target, None):

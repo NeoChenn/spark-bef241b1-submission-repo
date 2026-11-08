@@ -143,6 +143,14 @@ stops early at the limit), `request_flange_view(i)`, `retreat(m)`, `return_to_wo
 `apply_leak_state(stage, world, prims)`). The host provides `robot_position()`, `move_base_to(xyz, facing)`,
 `set_camera_pose(eye, target)`, `advance(dt)`, `work_position()`, `stage`, `leak_world`, `leak_prims`.
 
+Isaac implementation notes (CPU-tested with usd-core in `tests/test_leak_isaac.py` and `tests/test_deck_bridge.py`;
+not yet run in Isaac Sim): `load_leak_world(meta)` gives the `LeakWorld` and prim index. `gas_reading()` samples the
+`LeakWorld` gas field at `gas_sensor_position()` (robot position + `gas_sensor_offset`); set `gas_override` to a
+number for a fixed reading or to `float("nan")` for a failed sensor (the job then retreats). The host's `advance(dt)`
+should call `leak_advance(dt)`, which steps the gas model and pushes bolt angles and cracks to the stage.
+`retreat(m)` and `return_to_work()` walk with `move_base_to` (the mock jumps). `integration/rig_bridge_example.py`
+shows the whole composition.
+
 **Wrist camera:** 640x360 works from **1.1 m** (the whole flange fits; every bolt read; angle error at most 0.019 rad).
 From 1.0 m the flange clips the frame.
 
@@ -186,3 +194,31 @@ plus sim-domain crops, MobileNetV4 + LoRA through the team's `detection/train.py
 | `body_range()` (optional) | `(H, W) float` metres | depth image as ground distance per pixel; without it the distance comes from the box and is cruder |
 
 Try it on CPU: `python -m policy.leak.mock --leak none --debris litter --person-at 2` (also `--debris can`, `--no-deck`).
+
+**Isaac implementation** (`integration/deck_bridge.py` `DeckBridgeMixin`; CPU-tested in `tests/test_deck_bridge.py`;
+not yet run in Isaac Sim). Composition example with the leak half: `integration/rig_bridge_example.py`.
+
+* Cameras: `deck_camera_path` and `body_camera_path` (default `/World/Robots/scrubber_dog/base_link/body_camera`, a
+  guess: set them to the real prims). `CameraModel` comes from the prim's world transform, focal length and
+  horizontal aperture (`usd_camera_model`, via `camera_from_usd`). Frames come from a replicator render product per
+  camera with the `rgb` and `distance_to_image_plane` annotators (`grab_camera`, the only Isaac call), at
+  `deck_resolution` (640x360).
+* `body_range()`: `depth_to_ground_range(depth, camera)`, the horizontal distance to each pixel's 3D point
+  (inf where there is no hit). It uses the measured depth, so it works at any deck height (the full rig's top deck
+  is at z = 42.5, not 0).
+* `deck_reference()`: references are kept per (patrol stop, view). The host sets `patrol_stop` in
+  `go_to_patrol_pose`. If a stop has no reference yet, the current frame is stored and used: the first visit is
+  taken as clean. For the demo, do a clean patrol first (or `capture_deck_reference()` at each stop) before
+  spawning debris, or `load_references(dir)` from a run saved with `save_references(dir)` (PNG + `index.json`).
+* `request_deck_view(i)`: walks to the view-0 pose plus `deck_view_offsets[i]` (forward, left) in metres, same heading.
+* `pick_debris(u, v)`: pixel -> deck point (ray meets z = `deck_z`; use `deck_z_from_meta`) -> walks so the point is
+  `pick_standoff` (0.26 m, with the Go2 crouched) ahead if it is out of reach -> robot base frame -> `pick_skill(target_xy_base, yaw)`.
+  **`pick_skill` must be plugged in** (the RL pick policy); without it the call raises `NotImplementedError`. Yaw
+  is 0 unless `pick_yaw()` is overridden. On success, the nearest registered debris prim (within 0.15 m) is hidden.
+* Demo debris: `spawn_debris(name, (x, y))` / `spawn_debris_can(stage, path, (x, y, z))` adds a red can lying on the
+  deck under `/World/Debris/` (`physics=True` adds a rigid body and collider).
+
+Still needed from the team's bridge: `stage`, the real camera prim paths (and the wrist camera for flanges),
+`robot_position()` / `robot_yaw()` from the articulation, `move_base_to(xyz, facing)` (locomotion step),
+`set_camera_pose(eye, target)` (arm IK), `advance(dt)` (physics + render; call `leak_advance`), `work_position()`,
+`patrol_stop` set in `go_to_patrol_pose`, `arm.move_to`, and the pick skill.
