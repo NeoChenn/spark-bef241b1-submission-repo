@@ -17,7 +17,7 @@ STAND_Z = 0.33
 SPEED_TAU = 0.35
 YAW_TAU = 0.2
 TELEPORT_M = 3.0
-RATE_RANGE = (0.6, 1.4)
+RATE_RANGE = (0.6, 2.0)
 
 
 def wrap(a: float) -> float:

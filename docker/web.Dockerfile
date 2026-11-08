@@ -11,7 +11,8 @@ COPY policy/control ./policy/control
 COPY policy/weld ./policy/weld
 COPY fleet/__init__.py fleet/contract.py ./fleet/
 COPY fleet/jobs/__init__.py fleet/jobs/pick_can.py ./fleet/jobs/
-COPY policy/gasbot/__init__.py policy/gasbot/locate.py policy/gasbot/plume.py policy/gasbot/sensors.py ./policy/gasbot/
+COPY policy/gasbot/__init__.py policy/gasbot/locate.py policy/gasbot/plume.py policy/gasbot/sensors.py policy/gasbot/infotaxis.py policy/gasbot/deck.py ./policy/gasbot/
+COPY policy/leak/__init__.py policy/leak/geometry.py ./policy/leak/
 COPY sim/output/full_rig_meta.json sim/output/leak_flanges_meta.json ./sim/output/
 COPY runs_sample/fleet/fleet_state.json runs_sample/fleet/fleet_map.json ./runs_sample/fleet/
 COPY runs_sample/bench/*.json ./runs_sample/bench/

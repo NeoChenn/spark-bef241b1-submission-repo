@@ -340,6 +340,7 @@ def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, l
     seq = steps = 0
     connects = -1
     nattrs = 0
+    busy = 0.0
     print(f"rig sim: remote render mode, publishing scene state at {args.fps:.0f} Hz -> {args.sim}", flush=True)
     while app.is_running():
         now = time.monotonic()
@@ -374,14 +375,16 @@ def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, l
         seq += 1
         steps += 1
         nattrs += len(delta["attrs"])
+        busy += time.monotonic() - now
         if now >= stats_at:
             nbytes = len(json.dumps(msg, separators=(",", ":")))
             span = now - stats_at + STATS_EVERY_S
             print(f"t={t:.0f}s state_hz={steps / span:.1f} attrs/msg={nattrs / max(steps, 1):.0f} msg={nbytes / 1024:.1f}KB "
                   f"sent={sender.sent} dropped={sender.dropped} connected={sender.connected.is_set()} skipped={capture.dropped}"
-                  + (f" {sensors.summary()}" if sensors is not None else ""),
+                  + (f" {sensors.summary()}" if sensors is not None else "")
+                  + (f" anim_ms={obstacles.anim_ms:.2f} loop_ms={busy / max(steps, 1) * 1000:.1f}" if hasattr(obstacles, "anim_ms") else ""),
                   flush=True)
-            stats_at, steps, nattrs = now + STATS_EVERY_S, 0, 0
+            stats_at, steps, nattrs, busy = now + STATS_EVERY_S, 0, 0, 0.0
         if args.duration and t >= args.duration:
             break
         next_tick += period
