@@ -282,14 +282,18 @@ def render(args, meta, full):
 
     UsdGeom.Imageable(stage.GetPrimAtPath("/World/ground")).MakeInvisible()
     gx, gy, gyaw = stance_from_meta(meta)
-    work = (gx, gy - 0.42, 1.2)
+    work = (float(meta["damage"]["position_m"][0]), float(meta["main_pipe"]["y_m"]) + 0.08, 1.2)
     look_info = None
     try:
+        from pxr import Usd
+
         from policy import night_look
 
-        zone = "/World/Backdrop/RepairZone"
-        look_info = night_look.apply(stage, zone, work, full=True, robot_root="/World/envs/env_0/Robot",
-                                     robot_color=args.robot_color)
+        look_info = night_look.apply(stage, "/World/Backdrop/RepairZone", work, full=True)
+        for prim in Usd.PrimRange(stage.GetPrimAtPath("/World/envs/env_0/Robot")):
+            if prim.GetName() == "visuals":
+                for k, v in night_look.paint_robot(stage, str(prim.GetPath()), args.robot_color).items():
+                    look_info[k] = look_info.get(k, 0) + v
     except ImportError:
         pass
     print("[walk] colliders off", n_off, "look", look_info, "origin", base.scene.env_origins[0].tolist(), flush=True)
