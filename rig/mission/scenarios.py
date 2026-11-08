@@ -5,12 +5,13 @@ import time
 
 import numpy as np
 
+from policy.fleet.fleet import walk_along
 from policy.fleet.jobs import SETUP_S
 from policy.fleet.reservations import Reservations
 from policy.fleet.scenario import JUDGES_ROBOTS, JUDGES_RUST, JUDGES_WELD, CHECK_DEADLINE_S, nearest_node
 from rig.mission.gas import ALARM_LEL, FLOW_GS, INFOTAXIS, METHODS, GasLeak
 
-IDS = ("gas", "patrol", "repair", "flyby")
+IDS = ("gas", "patrol", "repair", "flyby", "nav")
 NAMES = {"gas": "Gas leak", "patrol": "Deck patrol", "repair": "Pipe repair", "flyby": "Fly-by"}
 WEATHER = {"level": "rain", "time": "dusk", "rain": 0.8, "fog": 0.6, "wind_dir": 240.0}
 ALERTS_KEEP = 10
@@ -423,6 +424,51 @@ class Repair(Script):
         return did, ""
 
 
+class Nav(Script):
+    id, name, main = "nav", "Navigation", "R3"
+    steps = ("Unit 3 walking the deck loop", "Crate ahead — re-routing the other way")
+    robots = (("R1", [-12.0, 9.4, 42.5], 0.9), ("R2", [-21.0, 4.0, 31.25], 0.9), ("R3", [9.0, -4.5, 42.5], 0.98))
+    route = ("hero_bay_mouth", "gauge_06", "gauge_05", "nav_west")
+    west, center = [9.0, -6.75, 42.5], [16.5, -6.75, 42.5]
+
+    def setup(self) -> None:
+        self.run.hazard("clear", id="all")
+        if "nav_west" not in self.f.rm.poi_node:
+            self.f.rm.add_poi("nav_west", self.west, "top_deck", standoff=0.0)
+        self.k = 0
+        self.leg = self.go()
+        self.run.cam_at = list(self.center)
+        self.m.sim_out.append({"name": "camera", "args": {"mode": "deck", "at": list(self.center), "view": None}})
+
+    def go(self):
+        t = self.task("inspect", self.route[self.k % len(self.route)], only="R3")
+        t.duration = 1.0
+        return t
+
+    def tick(self) -> None:
+        if self.leg.status not in OPEN:
+            self.k += 1
+            self.leg = self.go()
+        self.i = int(any(o.get("effect") == "block" for o in self.f.hz.obstacles.values()))
+
+    def done(self) -> bool:
+        return False
+
+    def ahead(self, d: float) -> list:
+        rm, r = self.f.rm, self.robot("R3")
+        pts, node = [r.pos] + [rm.pos[lg.v] for lg in r.legs], r.legs[-1].v if r.legs else r.node
+        for j in range(len(self.route) + 1):
+            path = rm.route(node, rm.poi_node[self.route[(self.k + j) % len(self.route)]])[1]
+            pts += [rm.pos[v] for v in path[1:]]
+            node = path[-1] if path else node
+        stops = [rm.pos[rm.poi_node[p]][:2] for p in self.route]
+        for s in np.arange(d, d + 12.0, 0.5):
+            q = walk_along(pts, float(s))
+            if min(float(np.linalg.norm(q[:2] - w)) for w in stops) > 1.8:
+                return [round(float(v), 3) for v in q[:3]]
+        return [round(float(v), 3) for v in walk_along(pts, d)[:3]]
+
+
 class Flyby(Script):
     id, name, main = "flyby", "Fly-by", ""
     robots = tuple(JUDGES_ROBOTS)
@@ -437,7 +483,7 @@ class Flyby(Script):
         return False
 
 
-SCRIPTS = {"gas": Gas, "patrol": Patrol, "repair": Repair, "flyby": Flyby}
+SCRIPTS = {"gas": Gas, "patrol": Patrol, "repair": Repair, "flyby": Flyby, "nav": Nav}
 
 
 class Scenarios:
@@ -594,6 +640,11 @@ class Scenarios:
                 out["can"] = list(cans[-1]["xyz"])
             elif r is not None:
                 out["can"] = [float(v) for v in r.pos[:3]]
+        elif s.id == "nav":
+            r = s.robot("R3")
+            out["deck"] = list(s.center)
+            if r is not None:
+                out["can"] = [float(v) for v in r.pos[:3]]
         elif s.id == "repair":
             rust = (self.pos(s.poi) or [18.75, -5.75, 42.5])[:2] + [43.1]
             out["rust"], out["weld"], out["deck"] = rust, list(s.seam[1]), rust
@@ -672,6 +723,12 @@ class Scenarios:
                            "disturbances": [{"id": d, "name": n, "fired": d in s.fired} for d, n in s.disturbances],
                            "next": nxt, "main": s.main, "focus": s.focus}
         return out
+
+    def ahead(self, d: float = 3.0):
+        s = self.cur
+        if isinstance(s, Nav):
+            return s.ahead(d)
+        return {"robot": self.focus() or self.selected or "R3", "ahead_m": d}
 
     def focus(self) -> str | None:
         s = self.cur
