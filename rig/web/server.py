@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from rig.frames import encode, read_message_async
-from rig.hud import check_event
+from rig.hud import check_event, is_fleet_event
 from rig.plume import Field
 
 STATIC = Path(__file__).parent / "static"
@@ -29,6 +29,8 @@ REPLAY_EVENTS = 20
 FPS_WINDOW_S = 2.0
 STALE_AFTER_S = 2.0
 BLACK_MEAN = 3.0
+FLEET_TICK_S = 0.25
+FLEET_SIM_EVERY = 2
 
 
 def plume_caption(p: dict) -> str:
@@ -112,9 +114,10 @@ class FrameHub:
 
 
 def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Path = MOCK_PATH,
-               fleet_dirs=FLEET_DIRS, root: Path = REPO) -> FastAPI:
+               fleet_dirs=FLEET_DIRS, root: Path = REPO, fleet=None) -> FastAPI:
     root = Path(root).resolve()
     hub = FrameHub()
+    fleet_seq = {"n": 0, "event": asyncio.Event()}
     current: dict[str, asyncio.StreamWriter | None] = {"writer": None}
     pending: deque = deque()
 
@@ -143,13 +146,33 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
                 hub.sim_connected = False
             writer.close()
 
+    def fleet_changed() -> None:
+        fleet_seq["n"] += 1
+        event, fleet_seq["event"] = fleet_seq["event"], asyncio.Event()
+        event.set()
+
+    async def fleet_loop() -> None:
+        last = time.monotonic()
+        while True:
+            await asyncio.sleep(FLEET_TICK_S)
+            now = time.monotonic()
+            await asyncio.to_thread(fleet.advance, now - last)
+            last = now
+            fleet_changed()
+            writer = current["writer"]
+            if writer is not None and fleet_seq["n"] % FLEET_SIM_EVERY == 0:
+                writer.write(encode({"type": "event", "name": "fleet", "args": fleet.for_sim()}))
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         server = await asyncio.start_server(handle_sim, sim_host, sim_port)
         app.state.sim_port = server.sockets[0].getsockname()[1]
+        loop = asyncio.create_task(fleet_loop()) if fleet is not None else None
         try:
             yield
         finally:
+            if loop is not None:
+                loop.cancel()
             server.close()
             if current["writer"] is not None:
                 current["writer"].close()
@@ -191,14 +214,22 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
     @app.post("/api/event")
     async def post_event(body: dict) -> dict:
         try:
-            pending.append(check_event(body))
+            ev = check_event(body)
         except ValueError as e:
             raise HTTPException(400, str(e))
+        out = {}
+        if fleet is not None and is_fleet_event(ev["name"], ev["args"]):
+            try:
+                out["fleet"] = fleet.event(ev["name"], ev["args"])
+            except (ValueError, TypeError) as e:
+                raise HTTPException(400, str(e))
+            fleet_changed()
+        pending.append(ev)
         queued = len(pending)
         flush()
         if current["writer"] is not None:
             await current["writer"].drain()
-        return {"queued": queued, "delivered": not pending}
+        return {"queued": queued, "delivered": not pending, **out}
 
     def fleet_file(name: str) -> Path:
         for d in fleet_dirs:
@@ -207,7 +238,9 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
         raise HTTPException(404, f"no {name}")
 
     @app.get("/api/fleet")
-    async def fleet() -> Response:
+    async def fleet_state() -> Response:
+        if fleet is not None:
+            return JSONResponse(fleet.state())
         if hub.fleet is not None:
             return JSONResponse(hub.fleet)
         return FileResponse(fleet_file("fleet_state.json"), media_type="application/json")
@@ -220,8 +253,21 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
         return {"t": body.get("t")}
 
     @app.get("/api/fleet/map")
-    async def fleet_map() -> FileResponse:
+    async def fleet_map() -> Response:
+        if fleet is not None:
+            return JSONResponse(fleet.map)
         return FileResponse(fleet_file("fleet_map.json"), media_type="application/json")
+
+    @app.websocket("/ws/fleet")
+    async def ws_fleet(ws: WebSocket) -> None:
+        await ws.accept()
+        try:
+            while fleet is not None:
+                await ws.send_json(fleet.state())
+                await fleet_seq["event"].wait()
+            await ws.close()
+        except (WebSocketDisconnect, RuntimeError):
+            pass
 
     @app.get("/api/replay")
     async def replay(path: str) -> dict:
@@ -331,4 +377,16 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
     return app
 
 
-app = create_app(os.environ.get("SIM_HOST", "127.0.0.1"), int(os.environ.get("SIM_PORT", "9000")))
+def default_fleet():
+    name = os.environ.get("RIG_FLEET", "judges")
+    if name in ("", "0", "off"):
+        return None
+    try:
+        from policy.fleet.live import FleetLive
+        return FleetLive(name, float(os.environ.get("RIG_FLEET_SPEED", "4")))
+    except (ImportError, OSError) as e:
+        print(f"rig web: fleet planner off ({e})", flush=True)
+        return None
+
+
+app = create_app(os.environ.get("SIM_HOST", "127.0.0.1"), int(os.environ.get("SIM_PORT", "9000")), fleet=default_fleet())

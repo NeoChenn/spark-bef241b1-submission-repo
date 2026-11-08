@@ -202,6 +202,7 @@
       else { g.strokeStyle = z.kind === "person" ? COL.warn : "rgba(235,235,245,.4)"; g.setLineDash(z.kind === "no_fly" ? [4, 4] : []); g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, r, 0, 7); g.stroke(); g.setLineDash([]); }
       if (z.kind === "person") { g.fillStyle = COL.warn; g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill(); }
     });
+    if (H.drawRoutes) H.drawRoutes(g, { X, Y, k, deck, big, w, h }, S);
     const hits = [];
     rs.forEach((r) => {
       if (deck !== "all" && r.deck !== deck && r.deck !== "air") return;
