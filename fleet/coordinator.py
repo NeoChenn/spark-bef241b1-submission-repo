@@ -185,6 +185,7 @@ class Coordinator:
             return False
         self.approvals.remove(job_id)
         self.status[job_id] = JobStatus.QUEUED
+        self.jobs[job_id].params["approved"] = True      # executors check this themselves too
         self.emit("approved", job_id, None, by=by)
         return True
 

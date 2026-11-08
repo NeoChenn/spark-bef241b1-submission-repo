@@ -53,9 +53,9 @@ class RefusedButton(RuntimeError):
 
 
 def is_approved(job: Job) -> bool:
-    """False only when approval is explicitly withheld; the coordinator gates SUPV jobs before `run`."""
+    """True only when the operator approved: the coordinator sets params["approved"] in approve()."""
     a = job.params.get("approval")
-    return job.params.get("approved") is not False and not (isinstance(a, dict) and a.get("approved") is False)
+    return job.params.get("approved") is True or (isinstance(a, dict) and a.get("approved") is True)
 
 
 def _rng(job: Job, world: World) -> np.random.Generator:
