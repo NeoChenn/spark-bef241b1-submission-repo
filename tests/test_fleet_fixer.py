@@ -102,3 +102,30 @@ def test_hud_fields():
     assert fx.caption and 0.0 <= fx.progress <= 1.0 and isinstance(fx.onboard_lel, float)
     assert {"state", "job", "flange", "onboard_lel", "xy", "alert"} <= set(ev)
     assert fx.command(command(GO_CHECK, "M2", "argon", "x", robot="unit1")) is False
+
+
+def test_scenario_f5_bolt_3_is_retorqued_with_the_arm_skill():
+    from integration.fleet_scenario import Scenario
+    from policy.fleet_units import from_scenario
+
+    sc = Scenario(t_stuck=None)
+    g = sc.flanges["F5"]
+    fx = from_scenario(sc, g.center[:2] + 6.0 * g.normal[:2])
+    fx.t = 10.0
+    fx.command(command(FIX_LEAK, "F5", "argon", "both agree"))
+    phases, seen = set(), []
+    while fx.t < 120.0 and not (fx.state == DOCKED and len(seen) > 1):
+        sc.detector_readings(fx.t)
+        fx.step(0.1)
+        if fx.arm_phase:
+            phases.add(fx.arm_phase)
+            assert fx.arm_q and "ur3_elbow_joint" in fx.arm_q
+        if not seen or seen[-1] != fx.state:
+            seen.append(fx.state)
+    assert seen == [TRANSIT, SNIFF, INSPECT, RETORQUE, VERIFY, RETURN, DOCKED]
+    assert fx.arm.started == [("F5", 3)] and fx.alert["kind"] == "repaired"
+    assert {"approach", "engage", "torque", "retract"} <= phases
+    assert fx.peak_lel < 20.0
+    if hasattr(sc, "fix"):
+        t_verify = next(r["t"] for r in fx.log if r["to"] == VERIFY)
+        assert sc.t_fixed is not None and sc.t_fixed < t_verify - 2.0
