@@ -106,7 +106,6 @@ def shoot(tag, name):
     start = clock.monotonic()
     for _ in range(4):
         if args.renderer == "PathTracing":
-            rep.orchestrator.step(rt_subframes=2, pause_timeline=False)
             rep.orchestrator.step(rt_subframes=max(args.spp // 16, 1) + 2, pause_timeline=False)
         else:
             for _ in range(40):
@@ -154,10 +153,6 @@ for mode in modes:
     cinematic.animate_effects(stage, 3.0)
     tag = f"{args.prefix}_{mode}"
     print(f"MODE {tag} preset={args.preset} quality={args.quality} apply_s={clock.monotonic() - t0:.1f}", flush=True)
-    for _ in range(12):
-        rep.orchestrator.step(rt_subframes=2, pause_timeline=False)
-        if np.asarray(annotator.get_data()).ndim == 3:
-            break
     for name in (v for v in args.views.split(",") if v):
         look(*VIEWS[name])
         shoot(tag, name)
