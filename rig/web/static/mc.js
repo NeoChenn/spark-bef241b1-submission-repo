@@ -16,8 +16,8 @@
   const KNAME = { fpv: "Head camera", boxes: "Detections", lidar: "Lidar", bev: "Lidar", depth: "Depth", obs: "Policy input", belief: "Gas belief", policy: "Policy input" };
   const KIND = { rust: "rust repair", leak_check: "leak check", gas_survey: "gas survey", survey: "gas survey", leak_locate: "leak search", pick_can: "can pick-up", patrol: "patrol", weld: "weld repair",
     weld_repair: "weld repair", valve: "valve isolate", valve_isolate: "valve isolate", isolate: "valve isolate", retorque: "re-torque", paint: "paint", inspect: "inspection", inspection: "inspection", dock: "to dock" };
-  const MET = { force_n: ["Force", "N", 1], gas_lel: ["Gas", "%LEL", 100], thermal_c: ["Temp", "°C", 1], battery: ["Battery", "%", 100], reach: ["Reach", "m", 1], wind_ms: ["Wind", "m/s", 1],
-    rust: ["Rust", "%", 100], rust_fraction: ["Rust", "%", 100], cans: ["Cans", "", 1], speed: ["Speed", "m/s", 1], conf: ["Detector", "", 1], tote: ["Tote", "", 1] };
+  const MET = { force_n: ["Force", "N", 1, 1], gas_lel: ["Gas", "%LEL", 100, 1], thermal_c: ["Temp", "°C", 1, 0], battery: ["Battery", "%", 100, 0], reach: ["Reach", "m", 1, 2], wind_ms: ["Wind", "m/s", 1, 1],
+    rust: ["Rust", "%", 100, 0], rust_fraction: ["Rust", "%", 100, 0], cans: ["Cans", "", 1, 0], speed: ["Speed", "m/s", 1, 1], conf: ["Detector", "", 1, 2], tote: ["Tote", "cans", 1, 0] };
 
   const S = { h: {}, views: {}, series: {}, sel: null, selAt: -99, mc: false, card: null, g: false, strip: false, spot: false, help: false, sheet: null, seen: null, decided: new Set() };
   const hooks = [], subs = {}, sheets = [];
@@ -263,7 +263,7 @@
     if (C.svg._k !== bk) {
       C.svg._k = bk;
       C.svg.setAttribute("viewBox", `0 0 ${e?.w || 1} ${e?.h || 1}`);
-      C.svg.innerHTML = bx.map((b) => { const [x, y, w, h] = b.xywh || [b.x, b.y, b.w, b.h]; return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2"/>${b.label ? `<text x="${x + 3}" y="${Math.max(11, y - 4)}">${esc(b.label)}${b.score != null ? " " + (+b.score).toFixed(2) : ""}</text>` : ""}`; }).join("");
+      C.svg.innerHTML = bx.map((b) => { const [x, y, w, h] = b.xywh || [b.x, b.y, b.w, b.h]; return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2"/>${b.label ? `<text x="${x + 2}" y="${Math.max(e.w / 28, y - e.w / 120)}" font-size="${(e.w / 30).toFixed(1)}">${esc(b.label)}${b.score != null ? " " + (+b.score).toFixed(2) : ""}</text>` : ""}`; }).join("");
     }
     txt(C.cap, e?.caption ? String(e.caption).replace(new RegExp("^" + rid + "\\s*·\\s*"), "") : "");
   }
@@ -284,8 +284,8 @@
       }).join("") || `<p class="none">No readings from ${esc(rid)} yet</p>`);
     }
     el.querySelectorAll(".cell").forEach((c) => {
-      const m = c.dataset.m, mul = MET[m]?.[2] || 1, x = s[m];
-      txt(c.querySelector("i"), x == null ? "—" : Math.abs(x * mul) >= 100 ? Math.round(x * mul) : (x * mul).toFixed(1));
+      const m = c.dataset.m, mul = MET[m]?.[2] || 1, dg = MET[m]?.[3] ?? 1, x = s[m];
+      txt(c.querySelector("i"), x == null ? "—" : (x * mul).toFixed(Math.abs(x * mul) >= 100 ? 0 : dg));
       spark(c.querySelector("canvas"), S.series[rid + "." + m] || [], c.classList.contains("hl") ? "#D97757" : "rgba(235,235,245,.45)");
     });
   }
@@ -335,7 +335,7 @@
     const q = inp.value.trim().toLowerCase(), all = rows();
     items = !q ? all : all.map((r) => ({ ...r, m: fuzzy(q, r.label) || ((r.sub + " " + r.g + " " + r.key).toLowerCase().split(/\s+/).some((w) => w && w.startsWith(q)) ? { sc: 0.5, idx: [] } : null) }))
       .filter((r) => r.m).sort((a, b) => GROUPS.indexOf(a.g) - GROUPS.indexOf(b.g) || b.m.sc - a.m.sc);
-    if (q && items.length) { const best = items.reduce((a, b) => (b.m.sc > a.m.sc ? b : a)); cur = items.indexOf(best); } else cur = Math.max(0, items.findIndex((r) => !r.dis && r.g === (scen() ? "Views" : "Scenarios")));
+    if (q && items.length) { const best = items.reduce((a, b) => (b.m.sc > a.m.sc ? b : a)); cur = items.indexOf(best); } else cur = Math.max(0, items.findIndex((r) => (scen() ? r.tag : r.g === "Scenarios")));
     draw();
   }
   const hl = (t, m) => (m?.idx.length ? [...t].map((ch, i) => (m.idx.includes(i) ? `<mark>${esc(ch)}</mark>` : esc(ch))).join("") : esc(t));
