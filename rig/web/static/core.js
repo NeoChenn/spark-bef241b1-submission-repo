@@ -484,7 +484,7 @@
   isl.onclick = () => (palOpen ? closePal() : openPal());
   $("p-keep").textContent = MAC ? "⌘↵" : "Ctrl ↵";
   B.classList.toggle("presenter", presenter);
-  window.HUD = { S, ask, panel, command, uncommand, view, on: (f) => hooks.push(f), apply, event, post, judge, banner, addLog, setState, focus, shot, openView, num, set, esc, q, fit, spark, push, icon, nice, now, json };
+  window.HUD = { S, commands: () => [...C.values()], ask, panel, command, uncommand, view, on: (f) => hooks.push(f), apply, event, post, judge, banner, addLog, setState, focus, shot, openView, num, set, esc, q, fit, spark, push, icon, nice, now, json };
   addEventListener("DOMContentLoaded", () => {
     booted = true;
     pins.forEach((id) => show(id));

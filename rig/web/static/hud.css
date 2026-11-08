@@ -404,3 +404,20 @@ li.on .st { background: var(--accent); }
 .cc-health .ev { color: var(--label3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cc-health .hf.stop .ev { color: var(--stop); }
 .cc-health .jb { color: var(--label3); font-size: 10.5px; }
+#help { position: fixed; inset: 0; z-index: 12; display: grid; place-items: center; background: rgba(6, 8, 10, 0.45); opacity: 0; visibility: hidden; transition: opacity 160ms ease, visibility 0s 160ms; }
+#help.open { opacity: 1; visibility: visible; transition: opacity 160ms ease; }
+#help .hp { position: relative; width: min(980px, calc(100vw - 2 * var(--edge))); max-height: calc(100vh - 2 * var(--edge) - 40px); display: flex; flex-direction: column; border-radius: 22px; --tint: rgba(18, 20, 22, 0.78); font-family: "Inter", var(--sans); transform: translateY(8px) scale(.985); transition: transform 200ms var(--ease); }
+#help.open .hp { transform: none; }
+#help header { display: flex; align-items: baseline; gap: 12px; padding: 18px 22px 12px; border-bottom: 1px solid var(--hair); }
+#help header b { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+#help header span { color: var(--label3); font-size: 13px; }
+#help header kbd { margin-left: auto; }
+#help .hp-b { padding: 14px 22px 20px; overflow: auto; columns: 3 250px; column-gap: 28px; scrollbar-width: none; }
+#help section { break-inside: avoid; margin: 0 0 16px; }
+#help h3 { margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+#help ul { list-style: none; margin: 0; padding: 0; }
+#help li { display: grid; grid-template-columns: minmax(64px, auto) 1fr; gap: 10px; align-items: baseline; padding: 2px 0; font-size: 13px; color: var(--label2); }
+#help kbd, #help-tip kbd { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11.5px; color: var(--label); background: rgba(46,196,182,.12); box-shadow: inset 0 0 0 1px rgba(46,196,182,.35); justify-self: start; white-space: nowrap; }
+#help-tip { position: fixed; right: var(--edge); bottom: var(--edge); z-index: 4; padding: 6px 11px; border-radius: 10px; font-size: 12px; color: var(--label2); background: rgba(18, 20, 22, 0.55); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); cursor: pointer; transition: opacity 600ms ease; }
+#help-tip.gone { opacity: 0; pointer-events: none; }
+body.presenter #help-tip { opacity: 0; pointer-events: none; }

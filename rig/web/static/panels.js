@@ -11,7 +11,7 @@
   const SEE = ["DETECT", "SECOND_VIEW", "APPROACH", "VERIFY", "VERIFY_PAINT", "HOLD"];
   Object.assign(H, { fc, COL, tone, rname });
   const MISSION = `<div class="track">${STEPS.map(() => "<i></i>").join("")}</div><div class="m-row"><b data-k="step"></b><span data-k="of"></span></div><div class="soak" data-k="soak"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15"/><circle data-k="ring" cx="18" cy="18" r="15"/></svg><b class="tnum" data-k="left"></b><span>s of soak left</span></div>`;
-  H.panel({ id: "mission", title: "Mission", icon: "flag", key: "h", phases: ["SOAK"], priority: 50, keys: "stepper soak progress steps timer",
+  H.panel({ id: "mission", title: "Mission", icon: "flag", key: "n", phases: ["SOAK"], priority: 50, keys: "stepper soak progress steps timer",
     desc: "Where the repair is in its eight steps, with the soak timer.", hint: (S) => H.nice(S.state),
     render(el, S) {
       const x = q(el, MISSION), k = STEP_OF[S.state] ?? -1;
