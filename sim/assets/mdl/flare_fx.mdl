@@ -32,10 +32,10 @@ export material flare_card(
 } in material(
     thin_walled: true,
     surface: material_surface(
-        emission: material_emission(emission: df::diffuse_edf(), intensity: e, mode: intensity_radiance)
+        emission: material_emission(emission: df::diffuse_edf(), intensity: e * math::PI, mode: intensity_radiant_exitance)
     ),
     backface: material_surface(
-        emission: material_emission(emission: df::diffuse_edf(), intensity: e, mode: intensity_radiance)
+        emission: material_emission(emission: df::diffuse_edf(), intensity: e * math::PI, mode: intensity_radiant_exitance)
     ),
     geometry: material_geometry(cutout_opacity: math::clamp(t.w * alpha_gain, 0.0, 1.0))
 );

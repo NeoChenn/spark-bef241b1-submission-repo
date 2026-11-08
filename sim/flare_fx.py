@@ -21,7 +21,7 @@ JET = (-0.75, 0.0, 0.66)
 COLS, ROWS, TILE_W, TILE_H = 8, 4, 256, 512
 FRAMES = COLS * ROWS
 FPS = 18.0
-HEIGHT, WIDTH = 24.0, 11.0
+HEIGHT, WIDTH = 24.0, 14.0
 WIND = (2.6, 1.5)
 EMISSION = 9.0
 CARDS = (
@@ -151,7 +151,7 @@ def lean_vector(wind) -> np.ndarray:
     speed = math.hypot(*wind)
     if speed < 1e-6:
         return np.zeros(3)
-    k = 0.28 + 0.6 * min(1.0, speed / 15.0)
+    k = 0.2 + 0.5 * min(1.0, speed / 15.0)
     return np.array([wind[0] / speed * k, wind[1] / speed * k, 0.0])
 
 
@@ -160,7 +160,7 @@ def centerline(v: np.ndarray, t: float, wind=WIND, tip=TIP, height: float = HEIG
     jet = np.asarray(JET, float)
     jet = jet / np.linalg.norm(jet)
     lean = lean_vector(wind)
-    a = 0.42 * (1 - np.exp(-4.0 * v)) / (1 - math.exp(-4.0))
+    a = 0.25 * (1 - np.exp(-4.0 * v)) / (1 - math.exp(-4.0))
     sway = 0.09 * math.sin(t * 1.3) + 0.05 * math.sin(t * 2.9 + 1.0)
     side = np.array([-lean[1], lean[0], 0.0])
     return (np.asarray(tip, float) + height * (jet * a + np.array([0, 0, 0.82]) * v + lean * v**1.7)
