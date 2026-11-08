@@ -205,7 +205,9 @@ def gas_belief(rid, pose, est, track, lels, wind_unit, wind_ms, flanges, walkway
     P = _blur(p.reshape(est.shape))
     v = np.zeros(X.shape)
     v[ok] = P[iy[ok], ix[ok]]
-    v = np.sqrt(v / max(P.max(), 200.0 / P.size)) ** 0.7
+    lo, hi = float(P.min()), float(P.max())
+    gain = float(np.clip((hi / max(float(np.median(P)), 1e-12) - 1.0) / 4.0, 0.0, 1.0))
+    v = np.sqrt(np.clip((v - lo) / max(hi - lo, 1e-12), 0, 1)) ** 0.7 * gain * ok
     base = np.zeros((H, W, 3), np.float32) + BG
     for w in walkways:
         if _on_deck(w, z):
