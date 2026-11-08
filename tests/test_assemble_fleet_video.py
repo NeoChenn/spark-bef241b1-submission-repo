@@ -253,3 +253,27 @@ def test_a_stuck_head_does_not_hide_the_leak_clear_time():
     headers, rows = scenario()
     rows.insert(0, {"type": "finding", "kind": "PIPE_SENSOR_FAULT", "sensor": "G-F6", "t": 5.0})
     assert av.key_numbers(rows, headers)[0] == ("42 s", "alarm to G-F2 green")
+
+
+def test_only_commands_tickets_vetoes_states_and_leds_are_beats():
+    rows = [{"type": t, "t": float(i)} for i, t in enumerate(("finding", "argon_call", "link", "command", "ticket",
+                                                                "vetoed", "tick"))]
+    assert av.beats_from_timeline(rows) == [3.0, 4.0, 5.0]
+    a = {"t": 0, "caption": "x", "argon": {"status": "pending", "verdicts": {"G-F5": "OK"}},
+         "robots": [{"id": "unit1", "state": "SCRUB", "caption": "a"}], "detectors": [{"id": "G-F5", "led": "green"}]}
+    b = {**a, "caption": "y", "argon": {"status": "ok", "verdicts": {"G-F5": "UNVERIFIED"}, "latency_ms": 4000},
+         "robots": [{"id": "unit1", "state": "SCRUB", "caption": "b"}]}
+    c = {**b, "detectors": [{"id": "G-F5", "led": "red"}]}
+    d = {**c, "robots": [{"id": "unit1", "state": "HOLD"}]}
+    e = {**d, "argon": {"last_command": {"kind": "go_check", "robot": "unit2", "target": "F5", "t": 5.0}}}
+    assert av.beats_from_headers([a, b, c, d, e]) == [2, 3, 4]
+    assert av.PAD_S == 0.5
+
+
+def test_off_frame_robots_get_no_label():
+    from rig.camera import look_at
+    cam = look_at((10.0, -20.0, 50.0), (18.0, -5.0, 43.67), 24.0, 20.955, 1280, 720)
+    h = {"t": 0.0, "camera": cam,
+         "isaac": {"robots": {"unit1": {"pos": [18.0, -5.0]}, "unit2": {"pos": [60.0, 30.0]},
+                              "unit3": {"pos": [0.0, -40.0]}}}}
+    assert set(av.camera_labels()(h, (1280, 720))) <= {"unit1", "G-F5"}
