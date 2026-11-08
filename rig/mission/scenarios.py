@@ -787,7 +787,7 @@ class DemoDeck(Demo):
     weather = DEMO_WEATHER
     park3, stop3, park1, speed = (12.4, -4.5), (14.9, -4.5), (20.9, -4.4), 0.7
     lead_s, hold_s, deploy_s, scrub_s, arm_s = 1.0, 0.5, 1.0, 11.5, 1.0
-    cam = {"mode": "deck", "at": [16.65, -4.8, 42.5], "lens": {"eye": [16.65, 4.73, 48.5], "focal": 22.0}}
+    cam = {"mode": "deck", "at": [16.65, -4.8, 42.5], "lens": {"eye": [23.64, 3.53, 48.07], "focal": 24.0}}
 
     def setup(self) -> None:
         from rig.sim.gait import GaitLoop
