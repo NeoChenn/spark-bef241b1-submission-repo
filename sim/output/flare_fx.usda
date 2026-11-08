@@ -48,6 +48,18 @@ over "World"
         }
     }
 
+    over "Atmos"
+    {
+        over "Flow"
+        {
+            over "flowEmitterSphere"
+            {
+                custom float allocationScale = 0
+                custom bool enabled = 0
+            }
+        }
+    }
+
     def Xform "FlareFx"
     {
         def Scope "Looks"
