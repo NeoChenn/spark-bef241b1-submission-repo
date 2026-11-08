@@ -49,7 +49,7 @@
     const s = gas ? R.series : (R.series || []).map(([a, b]) => [a, b * 100]);
     $("sp").setAttribute("d", spark(s, 0, L, t, 352, 46, 0, hi));
     $("sp").style.stroke = gas ? c : "rgba(255,255,255,.7)";
-    if (!gas) { const f = at(R.force, t); $("sub").innerHTML = `<span>Brush force</span><span><b>${f == null ? "—" : f.toFixed(0)}</b><small>N · limit 40</small></span>`; }
+    if (!gas) { const f = at(R.force, t); $("sub").innerHTML = `<span>Brush force</span><span><b>${f == null ? "—" : f.toFixed(0)}</b><small>N avg · limit 40</small></span>`; }
     const st = (R.states || []).filter(([a]) => a <= t).pop();
     $("state").textContent = st ? st[1] : "";
     $("card").style.opacity = fade(t, 0, 0.4) * (1 - fade(t, L - 0.4, L));

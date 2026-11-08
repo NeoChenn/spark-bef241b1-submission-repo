@@ -65,3 +65,11 @@ def test_rust_readout_matches_scrub_motion():
         a = job.at(88.0 + u * 19.9 / 8.0)
         assert abs(pts[u] - a["rust_fraction"]) < 1e-3
     assert any(v > 0.04 for u, v in r["series"] if 88.0 + u * 19.9 / 8.0 > 100.5)
+    assert r["force_avg_s"] == 0.5
+    u, f = r["force"][150]
+    sim_t = 88.0 + u * 19.9 / 8.0
+    want = sum(job.at(sim_t - k / 50)["brush_contact"]["force_N"] for k in range(25)) / 25
+    assert abs(f - want) < 0.01
+    raw = [job.at(88.0 + x * 19.9 / 8.0)["brush_contact"]["force_N"] for x, _ in r["force"]]
+    jump = lambda xs: max(abs(a - b) for a, b in zip(xs, xs[1:]))
+    assert jump([v for _, v in r["force"]]) < jump(raw)
