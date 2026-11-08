@@ -20,6 +20,7 @@ ap.add_argument("--views", default="wide,deck_mid,repair,waterline,flare")
 ap.add_argument("--out", default="/rig/runs/judge")
 ap.add_argument("--tag", default="judge")
 ap.add_argument("--t", type=float, default=6.0)
+ap.add_argument("--times", default="")
 ap.add_argument("--warm", type=int, default=24)
 ap.add_argument("--lens", action="store_true")
 ap.add_argument("--set", action="append", default=[])
@@ -125,29 +126,32 @@ def tick(t):
         atm.update(t)
 
 
-for name in filter(None, args.views.split(",")):
-    start = time.monotonic()
-    eye, target, focal = VIEWS[name]
-    vl = look.view_look(name, float(np.linalg.norm(np.subtract(target, eye))))
-    use_look(looks[0], vl["ev"], eye, target, vl["fstop"])
-    aim(*VIEWS[name])
-    for i in range(args.warm):
-        tick(args.t - args.warm / 24.0 + i / 24.0)
+times = [float(x) for x in args.times.split(",") if x] or [args.t]
+for t0 in times:
+    tsuf = f"_t{t0:g}" if len(times) > 1 else ""
+    for name in filter(None, args.views.split(",")):
+        start = time.monotonic()
+        eye, target, focal = VIEWS[name]
+        vl = look.view_look(name, float(np.linalg.norm(np.subtract(target, eye))))
+        use_look(looks[0], vl["ev"], eye, target, vl["fstop"])
         aim(*VIEWS[name])
-        rep.orchestrator.step(rt_subframes=1, delta_time=1.0 / 24.0, pause_timeline=False)
-    tick(args.t)
-    aim(*VIEWS[name])
-    for n, lk in enumerate(looks):
-        use_look(lk, vl["ev"], eye, target, vl["fstop"])
-        rep.orchestrator.step(rt_subframes=args.subframes, delta_time=0.0 if n else 1.0 / 24.0, pause_timeline=False)
-        rgb = np.asarray(ann.get_data())[..., :3].astype(np.uint8)
-        if atm is not None:
-            rgb = atm.post(rgb, header(), args.t, args.lens)
-        rgb = look.grade(rgb, lk, args.t)
-        suffix = f"_{lk}" if len(looks) > 1 else ""
-        Image.fromarray(np.ascontiguousarray(rgb)).save(out / f"{args.tag}_{name}{suffix}.png")
-        lum = rgb.mean(-1)
-        print(f"VIEW {name}{suffix} mean={rgb.mean():.1f} clip={(lum > 250).mean():.4f} dark={(lum < 10).mean():.3f} "
-              f"s={time.monotonic() - start:.1f}", flush=True)
+        for i in range(args.warm):
+            tick(t0 - args.warm / 24.0 + i / 24.0)
+            aim(*VIEWS[name])
+            rep.orchestrator.step(rt_subframes=1, delta_time=1.0 / 24.0, pause_timeline=False)
+        tick(t0)
+        aim(*VIEWS[name])
+        for n, lk in enumerate(looks):
+            use_look(lk, vl["ev"], eye, target, vl["fstop"])
+            rep.orchestrator.step(rt_subframes=args.subframes, delta_time=0.0 if n else 1.0 / 24.0, pause_timeline=False)
+            rgb = np.asarray(ann.get_data())[..., :3].astype(np.uint8)
+            if atm is not None:
+                rgb = atm.post(rgb, header(), t0, args.lens)
+            rgb = look.grade(rgb, lk, t0)
+            suffix = f"_{lk}" if len(looks) > 1 else ""
+            Image.fromarray(np.ascontiguousarray(rgb)).save(out / f"{args.tag}{tsuf}_{name}{suffix}.png")
+            lum = rgb.mean(-1)
+            print(f"VIEW {name}{suffix} mean={rgb.mean():.1f} clip={(lum > 250).mean():.4f} dark={(lum < 10).mean():.3f} "
+                  f"s={time.monotonic() - start:.1f}", flush=True)
 print("DONE", flush=True)
 os._exit(0)

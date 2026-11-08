@@ -6,6 +6,7 @@ import carb.settings
 import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
+import flare_fx
 import greebles
 import look
 import ocean
@@ -496,6 +497,7 @@ def apply_preset(stage, name: str) -> None:
     structure.apply(stage, name)
     hero_mat.apply(stage, name)
     ocean_fx.apply(stage, name, preset["wave_height"])
+    flare_fx.attach(stage)
     relight(stage)
     add_work_light(stage)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
@@ -579,6 +581,7 @@ def animate_effects(stage, time: float) -> None:
         wave = math.sin(time * (7.0 + index * 1.7) + index * 2.1) * 0.5 + math.sin(time * 13.0 + index) * 0.5
         stretch = 2.2 + 0.32 * wave
         prim.GetAttribute("xformOp:scale").Set(Gf.Vec3f(1.0 + 0.12 * wave, 1.0 + 0.12 * wave, stretch))
+    flare_fx.update(stage, time)
     pulse = 0.55 + 0.45 * max(math.sin(time * 2.2), 0.0)
     strobe = 1.0 if (time % 1.6) < 0.12 else 0.02
     for index, level in [(b[0], pulse) for b in RED_BEACONS] + [(i, strobe) for i, _ in STROBES]:
