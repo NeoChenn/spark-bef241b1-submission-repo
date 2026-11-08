@@ -91,8 +91,8 @@ def leg_sources(stage):
         leg = legs[rng.integers(0, len(legs), k)]
         a = rng.uniform(0, math.tau, k)
         d = np.column_stack([np.cos(a), np.sin(a)])
-        pos = np.column_stack([leg[:, :2] + d * (leg[:, 2:3] + 0.3), rng.uniform(0.0, 1.0, k)])
-        up = rng.uniform(3.0, 11.0, k)
+        pos = np.column_stack([leg[:, :2] + d * (leg[:, 2:3] + 0.3), rng.uniform(0.5, 2.5, k)])
+        up = rng.uniform(4.0, 14.0, k)
         vel = np.column_stack([d * rng.uniform(1.0, 4.0, (k, 1)), up])
         return pos, vel
 
@@ -287,7 +287,7 @@ class Atmosphere:
         self.spray.step(dt, wind)
         k = int(len(self.spray.pos) * min(1.0, 0.15 + self.w["spray"]))
         self.spray_pts.GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(self.spray.pos[:k].astype(np.float32)))
-        size = 0.12 + 0.5 * np.clip(self.spray.age[:k] / 2.0, 0, 1)
+        size = 0.25 + 1.1 * np.clip(self.spray.age[:k] / 2.0, 0, 1)
         self.spray_pts.GetWidthsAttr().Set(Vt.FloatArray.FromNumpy(size.astype(np.float32)))
         layout = atmos.fog_cards(len(self.cards), 320.0, (1.0, 10.0), seed=7, t=t, wind=wind)
         for (tr, rz, sc, fade), c, s in zip(self.cards, layout["centre"], layout["size"]):
@@ -329,6 +329,8 @@ class Atmosphere:
         if lens:
             if not hasattr(self, "lens"):
                 self.lens, self.lens_t = LensDrops(seed=4), t
+                for _ in range(40):
+                    self.lens.step(0.1, self.w["rain"])
             self.lens.step(max(0.0, t - self.lens_t), self.w["rain"])
             self.lens_t = t
             rgb = self.lens.apply(rgb)
