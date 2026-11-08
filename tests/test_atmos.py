@@ -7,7 +7,6 @@ from sim.atmos import (
     KINDS,
     TIERS,
     Particles,
-    fog_cards,
     parse_schedule,
     schedule_at,
     streak_points,
@@ -63,7 +62,6 @@ def test_schedule_parse_and_lookup():
 def test_tiers_live_is_cheaper_than_offline():
     live, off = TIERS["live"], TIERS["offline"]
     assert live["rain"] < off["rain"] and live["embers"] < off["embers"]
-    assert live["fog_cards"] <= off["fog_cards"]
     assert off["width"] == 1920 and live["width"] == 1280
 
 
@@ -136,15 +134,6 @@ def test_streak_points_two_per_particle_along_velocity():
     np.testing.assert_allclose(pts[0], [0.0, 0.0, 10.5])
     np.testing.assert_allclose(pts[1], pos[0])
     np.testing.assert_allclose(pts[2], [0.9, 1.0, 5.0])
-
-
-def test_fog_cards_low_and_wrap_while_drifting():
-    cards = fog_cards(12, radius=400.0, z=(2.0, 14.0), seed=5)
-    assert cards["centre"].shape == (12, 3)
-    assert (cards["centre"][:, 2] >= 2.0).all() and (cards["centre"][:, 2] <= 14.0).all()
-    moved = fog_cards(12, radius=400.0, z=(2.0, 14.0), seed=5, t=1e4, wind=(6.0, 0.0))
-    assert (np.hypot(moved["centre"][:, 0], moved["centre"][:, 1]) <= 400.0 * math.sqrt(2) + 1e-6).all()
-    assert not np.allclose(moved["centre"], cards["centre"])
 
 
 def test_soft_texture_fades_to_clear_edges():

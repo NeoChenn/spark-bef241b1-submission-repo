@@ -13,10 +13,10 @@ KINDS = {
 }
 DEFAULT_KIND = {"night": "calm", "golden": "calm", "storm": "storm"}
 TIERS = {
-    "live": {"width": 1280, "height": 720, "rain": 1500, "embers": 160, "spray": 300, "smoke": 48, "steam": 40, "fog_cards": 10, "flow": True,
+    "live": {"width": 1280, "height": 720, "rain": 1500, "embers": 160, "spray": 300, "smoke": 48, "steam": 40, "flow": True,
              "flow_cell": 0.35, "slices": 96, "pixel_ratio": 8, "accum": 32, "renderer": "RealTimePathTracing",
              "subframes": 1, "spp": 1},
-    "offline": {"width": 1920, "height": 1080, "rain": 6000, "embers": 600, "spray": 1200, "smoke": 140, "steam": 120, "fog_cards": 18, "flow": True,
+    "offline": {"width": 1920, "height": 1080, "rain": 6000, "embers": 600, "spray": 1200, "smoke": 140, "steam": 120, "flow": True,
                 "flow_cell": 0.18, "slices": 256, "pixel_ratio": 4, "accum": 128, "renderer": "RealTimePathTracing",
                 "subframes": 16, "spp": 2},
 }
@@ -62,6 +62,11 @@ def volumetric_settings(preset: str, tier: str, weather: dict) -> dict:
     return {
         "/rtx/raytracing/globalVolumetricEffects/enabled": True,
         "/rtx/raytracing/fractionalCutoutOpacity": True,
+        "/rtx/pathtracing/fractionalCutoutOpacity": True,
+        "/rtx/shadows/fractionalCutoutOpacity": True,
+        "/rtx/raytracing/inscattering/detailNoiseScale": 0.012,
+        "/rtx/raytracing/inscattering/noiseScaleRangeMin": 0.15,
+        "/rtx/raytracing/inscattering/noiseScaleRangeMax": 1.0,
         "/rtx/raytracing/inscattering/densityMult": 1.0,
         "/rtx/raytracing/inscattering/singleScatteringAlbedo": list(m["albedo"]),
         "/rtx/raytracing/inscattering/transmittanceColor": list(m["transmit"]),
@@ -72,8 +77,8 @@ def volumetric_settings(preset: str, tier: str, weather: dict) -> dict:
         "/rtx/raytracing/inscattering/pixelRatio": q["pixel_ratio"],
         "/rtx/raytracing/inscattering/maxAccumulationFrames": q["accum"],
         "/rtx/raytracing/inscattering/useDetailNoise": 1,
-        "/rtx/raytracing/inscattering/noiseAnimationSpeedX": weather["wind"][0] * 0.02,
-        "/rtx/raytracing/inscattering/noiseAnimationSpeedY": weather["wind"][1] * 0.02,
+        "/rtx/raytracing/inscattering/noiseAnimationSpeedX": weather["wind"][0] * 0.05,
+        "/rtx/raytracing/inscattering/noiseAnimationSpeedY": weather["wind"][1] * 0.05,
         "/rtx/raytracing/inscattering/maxDistance": 3000.0,
     }
 
@@ -145,14 +150,6 @@ def streak_points(pos, vel, shutter: float) -> np.ndarray:
     return out
 
 
-def fog_cards(n: int, radius: float, z=(2.0, 14.0), seed: int = 0, t: float = 0.0, wind=(0.0, 0.0)) -> dict:
-    rng = np.random.default_rng(seed)
-    xy = rng.uniform(-radius, radius, (n, 2)) + np.asarray(wind) * 0.35 * t
-    xy = (xy + radius) % (2 * radius) - radius
-    return {"centre": np.column_stack([xy, rng.uniform(*z, n)]), "size": rng.uniform(0.35, 0.7, n) * radius,
-            "yaw": rng.uniform(0.0, 360.0, n)}
-
-
 def soft_texture(size: int, seed: int = 0, octaves: int = 5) -> np.ndarray:
     rng = np.random.default_rng(seed)
     acc = np.zeros((size, size))
@@ -171,9 +168,9 @@ def soft_texture(size: int, seed: int = 0, octaves: int = 5) -> np.ndarray:
     return (np.clip(acc * 1.3 - 0.05, 0, 1) * edge * 255).astype(np.uint8)
 
 
-FIRE_MAP = ([(0.0154, 0.0177, 0.0154, 0.0049), (0.036, 0.034, 0.032, 0.5), (0.04, 0.038, 0.035, 0.5), (1.0, 0.16, 0.013, 0.8),
+FIRE_MAP = ([(0.01, 0.01, 0.01, 0.0), (0.02, 0.019, 0.018, 0.35), (0.03, 0.028, 0.026, 0.4), (1.0, 0.16, 0.013, 0.8),
              (13.5, 3.0, 0.126, 0.8), (78.0, 39.0, 6.1, 0.7)], [0, 0.05, 0.15, 0.6, 0.85, 1])
-STEAM_MAP = ([(0.6, 0.62, 0.65, 0.0), (0.75, 0.77, 0.8, 0.22), (0.85, 0.86, 0.88, 0.4), (0.9, 0.9, 0.92, 0.45)], [0, 0.2, 0.6, 1])
+STEAM_MAP = ([(0.3, 0.31, 0.33, 0.0), (0.4, 0.41, 0.43, 0.06), (0.45, 0.46, 0.48, 0.12), (0.5, 0.5, 0.52, 0.16)], [0, 0.2, 0.6, 1])
 
 
 def _usd(v) -> str:
@@ -224,13 +221,13 @@ def _channel(name, damping, fade) -> str:
                                                        "secondOrderBlendThreshold": 0.001}, pad="            ")
 
 
-def _layer(layer, cell, colormap, combustion, smoke_fade, scale) -> str:
+def _layer(layer, cell, colormap, combustion, smoke_fade, scale, cooling=1.5, colour_scale=2.5) -> str:
     channels = (_channel("smoke", 0.3 if combustion else 0.1, smoke_fade) + _channel("velocity", 0.01, 1.0)
                 + _channel("divergence", 0.01, 1.0) + _channel("temperature", 0.0, 0.0) + _channel("fuel", 0.0, 0.0)
                 + _channel("burn", 0.0, 0.0))
     advection = _prim("FlowAdvectionCombustionParams", "advection", {
         "buoyancyMaxSmoke": 1.0, "buoyancyPerSmoke": 0.0 if combustion else 4.0 * scale, "buoyancyPerTemp": 6.0,
-        "burnPerTemp": 4.0, "combustionEnabled": combustion, "coolingRate": 1.5, "divergencePerBurn": 0.0,
+        "burnPerTemp": 4.0, "combustionEnabled": combustion, "coolingRate": cooling, "divergencePerBurn": 0.0,
         "downsampleEnabled": True, "enabled": True, "forceFadeEnabled": False, "fuelPerBurn": 0.25, "globalFetch": False,
         "gravity": (0.0, 0.0, -100.0 * scale), "ignitionTemp": 0.05, "smokePerBurn": 3.0, "tempPerBurn": 5.0},
         channels, pad="        ")
@@ -252,7 +249,7 @@ def _layer(layer, cell, colormap, combustion, smoke_fade, scale) -> str:
     rgba, xs = colormap
     off = _prim("FlowOffscreen", f"offscreen_{layer}", {"layer": layer},
                 _prim("FlowRayMarchColormapParams", "colormap", {
-                    "colorScale": 2.5, "colorScalePoints": [1.0] * len(xs), "resolution": 32, "rgbaPoints": list(rgba),
+                    "colorScale": colour_scale, "colorScalePoints": [1.0] * len(xs), "resolution": 32, "rgbaPoints": list(rgba),
                     "xPoints": [float(x) for x in xs]}, pad="        ")
                 + _prim("FlowShadowParams", "shadow", {
                     "attenuation": 0.045, "coarsePropagate": True, "enabled": True, "isPointLight": False,
@@ -268,16 +265,16 @@ def _layer(layer, cell, colormap, combustion, smoke_fade, scale) -> str:
     return sim + off + ren
 
 
-def flow_usda(flare, vents, wind, cell: float, flame_radius: float = 1.2) -> str:
+def flow_usda(flare, vents, wind, cell: float, flame_radius: float = 0.9) -> str:
     s = flame_radius / 10.0
     lean = (wind[0] * 0.3, wind[1] * 0.3)
-    body = _emitter("flare", 0, flare, flame_radius, (lean[0], lean[1], 0.0), fuel=0.8, temp=2.0)
-    body += "".join(_emitter(f"vent_{i}", 1, p, 0.5, (lean[0], lean[1], 3.0), smoke=1.0, temp=0.0, couple=4.0)
+    body = _emitter("flare", 0, flare, flame_radius, (lean[0], lean[1], 0.0), fuel=0.6, temp=2.0)
+    body += "".join(_emitter(f"vent_{i}", 1, p, 0.5, (lean[0], lean[1], 3.0), smoke=0.4, temp=0.0, couple=2.0)
                     for i, p in enumerate(vents))
     v = np.asarray(vents, float).reshape(-1, 3)
     body += _wind(0, wind, np.asarray(flare, float) + [0.0, 0.0, 14.0], (18.0, 18.0, 22.0))
     body += _wind(1, wind, (v.min(0) + v.max(0)) / 2 + [0.0, 0.0, 6.0], np.ptp(v, 0) / 2 + [10.0, 10.0, 8.0])
-    body += _layer(0, cell, FIRE_MAP, True, 0.6, s) + _layer(1, cell, STEAM_MAP, False, 1.0, s)
+    body += _layer(0, cell, FIRE_MAP, True, 0.3, s, cooling=4.0) + _layer(1, cell, STEAM_MAP, False, 1.2, s, colour_scale=1.0)
     return f'#usda 1.0\n(\n    defaultPrim = "Flow"\n    metersPerUnit = 1\n    upAxis = "Z"\n)\ndef Xform "Flow"\n{{\n{body}}}\n'
 
 
