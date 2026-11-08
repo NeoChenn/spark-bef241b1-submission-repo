@@ -7,7 +7,7 @@ from typing import Optional
 
 import numpy as np
 
-from policy.control.snapshot import SensorHealth, SensorSnapshot
+from policy.control.snapshot import FixedSensor, GasSensor, SensorHealth, SensorSnapshot
 
 OK, DEAD, STUCK, DRIFT, OUT_OF_RANGE, NOISY = "OK", "DEAD", "STUCK", "DRIFT", "OUT_OF_RANGE", "NOISY"
 STATUSES = (OK, DEAD, STUCK, DRIFT, OUT_OF_RANGE, NOISY)
@@ -189,6 +189,18 @@ class HealthMonitor:
         snap.health = out
         return out
 
+    def observe(self, t: float, values: dict, kind: str = "gas", group: str = "") -> dict[str, SensorHealth]:
+        snap = SensorSnapshot(t=float(t))
+        for sid, v in values.items():
+            if kind == "gas":
+                if v is not None:
+                    snap.gas.append(GasSensor(sid, zone=group, lel=float(v), group=group))
+                else:
+                    self.register(sid, kind, group, group)
+            else:
+                snap.fixed.append(FixedSensor(sid, kind, v, group, group))
+        return {h.id: h for h in self.update(snap)}
+
     def attach(self, sid: str, job: Optional[str]) -> None:
         if sid in self.tracks:
             self.tracks[sid].job = job
@@ -208,3 +220,4 @@ class HealthMonitor:
 
     def faults(self) -> dict[str, Track]:
         return {k: v for k, v in self.tracks.items() if v.status != OK}
+

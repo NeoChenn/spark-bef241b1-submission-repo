@@ -105,3 +105,21 @@ def test_confirmed_fault_stays_latched_and_clear_resets():
 def test_new_fault_raises_an_alarm():
     _, _, snap = feed(("G1", lambda t, v, r: 0.0 if t >= 10 else v))
     assert "health:G1:STUCK" in alarms(snap, [])
+
+
+def test_observe_flags_a_stuck_high_head_among_moving_peers():
+    mon = HealthMonitor()
+    h = {}
+    for t in range(40):
+        vals = {f"G-F{k}": wave(t, k) for k in range(2, 5)}
+        vals["G-F1"] = 31.0 if t >= 10 else wave(t, 1)
+        h = mon.observe(float(t), vals, group="top")
+    assert h["G-F1"].status == "STUCK" and h["G-F1"].evidence["value"] == 31.0
+    assert {h[k].status for k in ("G-F2", "G-F3", "G-F4")} == {"OK"}
+
+
+def test_observe_knows_a_head_that_never_reported():
+    mon = HealthMonitor()
+    for t in range(12):
+        h = mon.observe(float(t), {"G-F1": wave(t), "G-F9": None}, group="top")
+    assert h["G-F9"].status == "DEAD"
