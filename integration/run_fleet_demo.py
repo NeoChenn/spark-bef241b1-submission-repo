@@ -12,7 +12,7 @@ import numpy as np
 
 from integration.dual_argon import (FIX_LEAK, FIXER, GO_CHECK, HOLD, LEAK_UNSEEN_BY_FIXED, NEAR_M, OK,
                                     PIPE_SENSOR_FAULT, RESUME_RUST, SCRUBBER, SPARK_RADIUS_M, ArgonLink, Finding, LiveCaller,
-                                    ReplayCaller, Timeline, fuse_fleet, ids_for, led)
+                                    ReplayCaller, Timeline, UNVERIFIED, fuse_fleet, ids_for, led)
 from integration.fleet_beats import banner, cut_link, stuck_sensor
 from integration.fleet_scenario import SNIFF_Z, Scenario
 from policy.fleet_units.fixer import Fixer, FixerConfig
@@ -254,62 +254,240 @@ class Lockstep:
                 self.cv.wait(0.5)
 
 
-class Unit1:
-    def __init__(self, scn: Scenario, deck: DeckMap, soak_s: float = 3.0, others=lambda: ()):
-        self.s, parts = build_scrubber()
-        self.bridge = parts["bridge"]
-        self.s.orch.cfg.soak_s = soak_s
-        self.work = np.asarray(self.bridge.work_pos, float)[:2].copy()
-        ey = unit(scn.flanges[LEAK].center[:2] - U1_SPAWN)
-        self.M = np.stack([np.array([ey[1], -ey[0]]), ey], 1)
-        self.face = math.atan2(ey[1], ey[0])
-        deck.circles.append((U1_SPAWN + 0.75 * ey, 0.2))
-        self.nav = Nav(SCRUBBER, U1_SPAWN, self.face, deck, speed=0.6, others=others)
-        self.lock = Lockstep(self.s)
-        self.target = U1_SPAWN.copy()
+class Body:
+    def __init__(self, unit_id: str, xy, yaw: float, deck, fallback_deck: DeckMap, speed: float, others=lambda: ()):
+        self.unit = unit_id
+        fn = _mod("integration.fleet_nav")
+        self.fleet = fn is not None and deck is not None
+        if self.fleet:
+            if speed > 0.8 and hasattr(fn, "with_profile"):
+                fn.with_profile(unit_id, v_max=speed)
+            self.w = fn.NavWalker(unit_id, xy, yaw, deck)
+            self.deck = deck
+        else:
+            self.nav = Nav(unit_id, xy, yaw, fallback_deck, speed=speed, others=others)
+            self.deck = fallback_deck
+        self.goal = np.asarray(xy, float)[:2].copy()
+        self.start = self.goal.copy()
+        self.arrived = True
+        self.hop, self.hop_yaw = False, None
+        self.lidar_min = LIDAR_RANGE
+        self.seen = 0
+        self.log: list[dict] = []
 
     @property
-    def hot_xy(self) -> np.ndarray:
-        b = self.s.work_base if self.s.held and self.s.work_base is not None else self.s.pos
-        return U1_SPAWN if b is None else U1_SPAWN + self.M @ (np.asarray(b, float)[:2] - self.work)
+    def backend(self) -> str:
+        return f"fleet_nav.NavWalker ({self.w.nav.policy.split('/')[-1]})" if self.fleet else self.nav.backend
 
-    def world(self) -> np.ndarray:
-        p = self.s.pos
-        return U1_SPAWN if p is None else U1_SPAWN + self.M @ (np.asarray(p, float)[:2] - self.work)
+    @property
+    def pose(self) -> tuple:
+        return tuple(float(v) for v in (self.w.base.pose if self.fleet else self.nav.pose))
 
-    def step(self, t: float, gas_frac: float) -> None:
-        self.bridge.gas_override = gas_frac
-        self.lock.advance(t)
-        tgt = self.world()
-        if float(np.linalg.norm(tgt - self.target)) > 0.05:
-            self.target = tgt
-            self.nav.go(tgt, self.face)
-        self.nav.step(DT)
+    @property
+    def xy(self) -> np.ndarray:
+        return np.array(self.pose[:2])
+
+    @property
+    def yaw(self) -> float:
+        return self.pose[2]
+
+    @property
+    def v(self) -> float:
+        return float(self.w.base.v if self.fleet else self.nav.v)
+
+    @property
+    def wz(self) -> float:
+        return float(self.w.base.w if self.fleet else self.nav.w)
 
     @property
     def state(self) -> str:
-        return self.s.state
+        return self.w.state if self.fleet else self.nav.state
+
+    @property
+    def progress(self) -> float:
+        total = float(np.linalg.norm(self.goal - self.start))
+        return 1.0 if total < 1e-6 else float(np.clip(1 - np.linalg.norm(self.goal - self.xy) / total, 0, 1))
+
+    def go(self, goal_xy, yaw: Optional[float] = None) -> None:
+        g = np.asarray(goal_xy, float)[:2].copy()
+        if not self.arrived and float(np.linalg.norm(g - self.goal)) < 1e-3:
+            return
+        self.goal, self.start, self.arrived = g, self.xy, False
+        self.hop = self.fleet and float(np.linalg.norm(g - self.xy)) < HOP_M
+        self.hop_yaw = yaw
+        if self.hop:
+            return
+        if self.fleet:
+            self.w.go(g, yaw)
+        else:
+            self.nav.go(g, yaw)
+
+    def step(self, dt: float) -> bool:
+        if dt <= 0.0:
+            return self.arrived
+        if self.fleet:
+            if self.hop and not self.arrived:
+                self._hop(dt)
+            elif not self.arrived:
+                self.arrived = self.w.step(dt)
+            else:
+                self.w.base.v = self.w.base.w = 0.0
+            p = self.w.nav.profile
+            b = self.w.base
+            r = self.deck.raycast(b.x, b.y, b.yaw, self.w.angles, p.lidar_z, p.lidar_range)
+            for h in p.map_heights:
+                r = np.fmin(r, self.deck.raycast(b.x, b.y, b.yaw, self.w.angles, h, p.lidar_range))
+            self.lidar_min = round(float(np.min(r)) if np.isfinite(r).any() else LIDAR_RANGE, 3)
+        else:
+            a = self.nav.step(dt)
+            self.arrived = self.arrived or a
+            self.lidar_min = self.nav.lidar_min
+        return self.arrived
+
+    def _hop(self, dt: float) -> None:
+        b = self.w.base
+        d = self.goal - self.xy
+        n = float(np.linalg.norm(d))
+        if n < 0.02:
+            b.x, b.y = float(self.goal[0]), float(self.goal[1])
+            if self.hop_yaw is not None:
+                b.yaw = float(self.hop_yaw)
+            b.v = b.w = 0.0
+            self.arrived = True
+            return
+        step = min(n, 0.5 * dt)
+        b.w = float(np.clip(wrap(math.atan2(d[1], d[0]) - b.yaw) / dt, -W_MAX, W_MAX)) if n > 0.1 else 0.0
+        b.yaw = wrap(b.yaw + b.w * dt)
+        b.x += d[0] / n * step
+        b.y += d[1] / n * step
+        b.v = step / dt
+
+    @property
+    def nav_state(self) -> str:
+        return "HOP" if self.fleet and self.hop and not self.arrived else self.state
+
+    def push(self, t: float) -> None:
+        if self.fleet:
+            self.w.base.push(0.0, 2.0)
+        else:
+            self.nav.push(t)
+
+    @property
+    def events(self) -> list[dict]:
+        if self.fleet:
+            return self.w.events
+        self.log += [{"type": "object_on_walkway", **r} for r in self.nav.reports]
+        self.nav.reports.clear()
+        return self.log
+
+    def drain(self) -> list[dict]:
+        ev = self.events[self.seen:]
+        self.seen = len(self.events)
+        return [dict(e) for e in ev if e["type"] in ("object_on_walkway", "blocked", "off_path", "recovered",
+                                                       "cleared")]
+
+    def status(self) -> dict:
+        return {"vx": round(self.v, 3), "wz": round(self.wz, 3), "lidar_min": self.lidar_min, "state": self.nav_state}
+
+
+DWELL = {"DETECT": 0.5, "APPROACH": 1.0, "SPRAY": 2.0, "VERIFY": 1.0, "PAINT": 3.0, "VERIFY_PAINT": 0.5}
+HOP_M = 1.2
+
+
+class Unit1:
+    def __init__(self, scn: Scenario, deck, fallback: DeckMap, soak_s: float = 3.0, scrub_steps: int = 120,
+                 others=lambda: ()):
+        from policy.fleet_units.scrubber import stub_safe_pose
+
+        self.s, parts = build_scrubber()
+        self.s.safe_pose = stub_safe_pose(parts["bridge"])
+        self.bridge, self.pipe, self.world_rust = parts["bridge"], parts["pipe"], parts["world"]
+        self.s.orch.cfg.soak_s = soak_s
+        self.s.orch.cfg.scrub_steps = scrub_steps
+        self.paths = _mod("integration.fleet_paths")
+        if self.paths is not None:
+            self.spot = np.asarray(self.paths.SCRUB[:2], float)
+            self.face = -math.pi / 2
+        else:
+            ey = unit(scn.flanges[LEAK].center[:2] - U1_SPAWN)
+            self.spot, self.face = U1_SPAWN.copy(), math.atan2(ey[1], ey[0])
+            fallback.circles.append((U1_SPAWN + 0.75 * ey, 0.2))
+        self.body = Body(SCRUBBER, self.spot, self.face, deck, fallback, 0.6, others)
+        self.lock = Lockstep(self.s)
+        self.target = self.spot.copy()
+        self.entered, self.last = 0.0, None
+
+    @property
+    def hot_xy(self) -> np.ndarray:
+        return self.spot
+
+    def goal(self):
+        if not self.s.held:
+            return self.spot, self.face
+        kind = "retreat" if self.s.hold_kind == "retreat" else "hold"
+        if self.paths is not None:
+            x, y, yaw = self.paths.SAFE[SCRUBBER][kind]
+            return np.array([x, y]), yaw
+        away = -unit(self.paths_away())
+        return self.spot + (3.0 if kind == "retreat" else 1.5) * away, self.face
+
+    def paths_away(self):
+        return np.array([math.cos(self.face), math.sin(self.face)])
+
+    def step(self, t: float, gas_frac: float) -> None:
+        self.bridge.gas_override = gas_frac
+        st = self.s.state
+        if st != self.last:
+            self.last, self.entered = st, t
+        idle = self.lock.th is None or not self.lock.th.is_alive()
+        if idle and st in DWELL and t - self.entered < DWELL[st] and not self.s.held:
+            self.bridge.advance(DT)
+        else:
+            self.lock.advance(t)
+        g, yaw = self.goal()
+        if float(np.linalg.norm(g - self.target)) > 0.05:
+            self.target = g
+            self.body.go(g, yaw)
+        self.body.step(DT)
+
+    @property
+    def state(self) -> str:
+        return "HOLD" if self.s.held else self.s.state
+
+    def surface(self) -> dict:
+        o, w = self.s.orch, self.world_rust
+        theta, z = o.arm.ee_theta_z()
+        i, j = self.pipe.theta_z_to_cell(theta, z)
+        return {"rust_grid": np.round(np.clip(_np(w.rust[0]), 0, 1), 2).tolist(), "sprayed": _bits(_np(w.sprayed[0])),
+                "painted": _bits(_np(w.painted[0])), "target": _bits(o.target), "brush": [int(i), int(j)],
+                "ee_theta_z": [round(float(theta), 4), round(float(z), 4)],
+                "nozzle_on": self.s.state == "SPRAY" or self.s.state == "PAINT"}
 
     def entry(self, lel: float) -> dict:
         h = self.s.hud()
-        st = "HOLD" if self.s.held else self.state
         ev = {"force": h["force_n"], "force_limit": 40.0, "rust_fraction": h["rust_fraction"], "gas": lel / 100.0,
               "soak_left": h["soak_left_s"], "job": "rust"}
-        return {"state": st, "caption": self.s.caption, "held": self.s.held, "paused_state": h["paused_state"],
-                "force_n": h["force_n"], "rust": h["rust_fraction"], "ev": ev}
+        return {"state": self.state, "caption": self.s.caption, "held": self.s.held,
+                "paused_state": h["paused_state"], "force_n": h["force_n"], "rust": h["rust_fraction"],
+                "soak_left_s": h["soak_left_s"], "ev": ev}
 
 
 class Unit2:
-    def __init__(self, scn: Scenario, deck: DeckMap, clock, others=lambda: (), sniff_s: float = 3.0):
+    def __init__(self, scn: Scenario, deck, fallback: DeckMap, clock, others=lambda: (), sniff_s: float = 3.0):
         self.scn, self.clock = scn, clock
         self.lw = LeakWorld([scn.flanges[f] for f in scn.flanges])
-        self.dock = fixer_dock(scn)
+        paths = _mod("integration.fleet_paths")
+        dock = getattr(paths, "DOCK", {}).get(FIXER) if paths else None
         g = scn.flanges[LEAK]
-        self.nav = Nav(FIXER, self.dock, math.atan2(*(g.center[:2] - self.dock)[::-1]), deck, speed=1.0,
-                       others=others)
-        self.walker = NavWalker(self.nav)
-        self.f = Fixer(self.lw, self.dock, scn.detectors, walker=self.walker, gas_at=self.gas, tighten=self.tighten,
-                       config=FixerConfig(sniff_s=sniff_s))
+        if dock is not None:
+            self.dock, yaw = np.asarray(dock[:2], float), float(dock[2])
+            stands = {LEAK: np.asarray(paths.F5_WORK[:2], float)}
+        else:
+            self.dock = g.center[:2] + 3.0 * unit(g.normal[:2])
+            yaw, stands = math.atan2(*(g.center[:2] - self.dock)[::-1]), {}
+        self.body = Body(FIXER, self.dock, yaw, deck, fallback, 1.0, others)
+        self.f = Fixer(self.lw, self.dock, scn.detectors, walker=self.body, gas_at=self.gas, tighten=self.tighten,
+                       stands=stands, config=FixerConfig(sniff_s=sniff_s))
         self.fixed_at: Optional[float] = None
         self.loose = False
 
@@ -326,6 +504,7 @@ class Unit2:
                 fix(self.fixed_at)
             else:
                 self.scn.t_fixed = self.fixed_at
+                self.scn.script = self.scn._script()
         return before
 
     def step(self, t: float) -> None:
@@ -343,52 +522,24 @@ class Unit2:
         ev = self.f.evidence
         return {"state": self.f.state, "caption": self.f.caption, "job": self.f.job, "target": self.f.target,
                 "bolt": ev.get("bolt"), "seek_mode": ev.get("seek_mode"), "diagnosis": ev.get("diagnosis"),
-                "force_n": round(12.0 * float(getattr(self.f.arm, "progress", 0.0)), 2)
-                if self.f.torquing else 0.0,
+                "force_n": round(12.0 * float(getattr(self.f.arm, "progress", 0.0)), 2) if self.f.torquing else 0.0,
                 "ev": {"gas": lel / 100.0, "gas_stop": 0.20, "flange": self.f.target, "bolt": ev.get("bolt"),
                        "job": "gas"}}
 
 
-class NavWalker:
-    def __init__(self, nav: Nav):
-        self.nav = nav
-        self.goal = nav.xy
-        self.start = nav.xy
-        self.arrived = True
+def _np(x):
+    return x.detach().cpu().numpy() if hasattr(x, "detach") else np.asarray(x)
 
-    @property
-    def xy(self) -> np.ndarray:
-        return self.nav.xy
 
-    @property
-    def yaw(self) -> float:
-        return self.nav.yaw
-
-    @property
-    def progress(self) -> float:
-        total = float(np.linalg.norm(self.goal - self.start))
-        return 1.0 if total < 1e-6 else float(np.clip(1 - np.linalg.norm(self.goal - self.xy) / total, 0, 1))
-
-    def go(self, goal_xy, yaw: Optional[float] = None) -> None:
-        self.goal, self.start = np.asarray(goal_xy, float)[:2].copy(), self.nav.xy
-        self.arrived = False
-        self.nav.go(self.goal, yaw)
-
-    def step(self, dt: float) -> bool:
-        if dt <= 0.0:
-            return self.arrived
-        if self.arrived:
-            self.nav.step(dt)
-            return True
-        self.arrived = self.nav.step(dt)
-        return self.arrived
+def _bits(mask) -> list[str]:
+    return ["".join("1" if v else "0" for v in row) for row in np.asarray(_np(mask), bool)]
 
 
 class FleetDemo:
     def __init__(self, control: str = "edge", out: Optional[Path] = None, cut_link_at: Optional[float] = None,
-                 replay_from: Optional[str] = None, stuck_at=None,
+                 replay_from: Optional[str] = None, stuck_at=2.0,
                  drop_at: Optional[float] = None, push_at: Optional[float] = None, log_hz: float = 5.0,
-                 max_t: float = 150.0, t_leak: float = 6.0):
+                 max_t: float = 150.0, t_leak: float = 7.5):
         self.out = Path(out) if out else None
         self.timeline = Timeline(self.out / "timeline.jsonl" if self.out else None)
         self.hud_path = self.out / "hud.jsonl" if self.out else None
@@ -409,12 +560,16 @@ class FleetDemo:
         self.max_t, self.drop_at, self.push_at = max_t, drop_at, push_at
         self.t, self.k, self.seen = 0.0, 0, 0
         self.scn = Scenario(t_leak=t_leak, t_stuck=None, decay_tau_s=2.5)
-        self.deck = DeckMap([(d.pos, 0.08) for d in self.scn.detectors])
-        self.u1 = Unit1(self.scn, self.deck, others=lambda: [self.u2.nav.xy])
-        self.u2 = Unit2(self.scn, self.deck, lambda: self.t, others=lambda: [self.u1.nav.xy])
+        if not hasattr(self.scn, "fix"):
+            self.scn.t_fixed = 1e9
+            self.scn.script = self.scn._script()
+        self.fallback = DeckMap([(d.pos, 0.08) for d in self.scn.detectors])
+        paths = _mod("integration.fleet_paths")
+        self.deck = paths.DeckMap.rig_merged() if paths is not None and _mod("integration.fleet_nav") else None
+        self.u1 = Unit1(self.scn, self.deck, self.fallback, others=lambda: [self.u2.body.xy])
+        self.u2 = Unit2(self.scn, self.deck, self.fallback, lambda: self.t, others=lambda: [self.u1.body.xy])
         self.units = {SCRUBBER: self.u1, FIXER: self.u2}
         self.stuck_enabled = stuck_at is not False
-        self.stuck_auto = stuck_at is None
         self.stuck = stuck_sensor(self.scn, math.inf if stuck_at in (None, False) else stuck_at, STUCK, 14.0)
         self.backlog: list = []
         self.battery = {SCRUBBER: 0.86, FIXER: 0.97}
@@ -422,21 +577,28 @@ class FleetDemo:
         self.events_seen: set = set()
         self.last_states: dict = {}
         self.dropped = self.pushed = False
+        self.clear_at: Optional[float] = None
+        self.resume_at: dict = {}
+        self.surface_key = ""
 
     def lel(self, rid: str) -> float:
-        return self.scn.sniff(self.units[rid].nav.xy, self.t)
+        return self.scn.sniff(self.units[rid].body.xy, self.t)
 
     def sniffers(self) -> dict:
-        return {rid: (self.lel(rid), u.nav.xy) for rid, u in self.units.items()}
+        return {rid: (self.lel(rid), u.body.xy) for rid, u in self.units.items()}
 
     def far(self, target: str) -> float:
-        d = next((d for d in self.scn.detectors if target in (d.id, d.flange)), None)
-        r = 0.0 if d is None else d.dist(self.u1.hot_xy)
+        hot = self.u1.hot_xy
+        ds = [d for d in self.scn.detectors if target in (d.id, d.flange)] or \
+             [d for d in self.scn.detectors if led(d.last, d.id in self.link.faulted) in ("amber", "red")]
+        if not ds:
+            return math.inf
+        r = min(d.dist(hot) for d in ds)
         return r if r > SPARK_RADIUS_M else 0.0
 
     def drain(self) -> None:
         for rid, u in self.units.items():
-            moving = abs(u.nav.v) > 0.02 or abs(u.nav.w) > 0.02
+            moving = abs(u.body.v) > 0.02 or abs(u.body.wz) > 0.02
             work = u.state in ("SCRUB", "SPRAY", "PAINT", "RETORQUE", "SNIFF", "INSPECT", "VERIFY")
             rate = 0.0012 if moving else 0.0009 if work else 0.0002
             if u.state == "DOCKED":
@@ -449,7 +611,10 @@ class FleetDemo:
             [fuse_fleet(d, sn) for d in self.scn.detectors]
         out = []
         for fd in fds:
-            if fd.kind == LEAK_UNSEEN_BY_FIXED and (fd.robot_dist or 0.0) > NEAR_M:
+            if fd.sensor in self.link.faulted and fd.kind == UNVERIFIED and not fd.hazard:
+                fd = Finding(PIPE_SENSOR_FAULT, fd.sensor, fd.flange, fd.fixed_lel, fd.robot_lel, fd.robot_dist,
+                             f"{fd.sensor} ticketed as faulty; {fd.reason}", fd.robot, fd.hazard)
+            elif fd.kind == LEAK_UNSEEN_BY_FIXED and (fd.robot_dist or 0.0) > NEAR_M:
                 fd = Finding(OK, fd.sensor, fd.flange, fd.fixed_lel, fd.robot_lel, fd.robot_dist,
                              f"{fd.robot} {fd.robot_lel:.1f}%LEL at {fd.robot_dist:.1f} m is not at {fd.sensor}",
                              fd.robot, fd.hazard)
@@ -459,11 +624,11 @@ class FleetDemo:
     def robots(self) -> dict:
         out = {}
         for rid, u in self.units.items():
-            x, y, yaw = u.nav.pose
+            x, y, yaw = u.body.pose
             e = u.entry(self.lel(rid))
             e.pop("ev")
             out[rid] = {**e, "pose": [round(float(x), 3), round(float(y), 3), DECK_Z, round(float(yaw), 3)],
-                        "lel": self.lel(rid), "nav": u.nav.status(), "battery": round(self.battery[rid], 4)}
+                        "lel": self.lel(rid), "nav": u.body.status(), "battery": round(self.battery[rid], 4)}
         return out
 
     def _script_events(self) -> None:
@@ -473,26 +638,60 @@ class FleetDemo:
                 self.timeline.log("scenario", self.t, **e.to_dict())
 
     def _disturb(self) -> None:
-        nav = self.u2.nav
-        if self.drop_at is not None and not self.dropped and self.t >= self.drop_at and nav.path is not None \
-                and float(np.linalg.norm(nav.path[-1] - nav.xy)) > 3.0:
+        body = self.u2.body
+        moving = not body.arrived and float(np.linalg.norm(body.goal - body.xy)) > 3.0
+        if self.drop_at is not None and not self.dropped and self.t >= self.drop_at and moving:
             self.dropped = True
-            h = unit(nav.path[min(int(np.linalg.norm(nav.path - nav.xy, axis=1).argmin()) + 18,
-                                  len(nav.path) - 1)] - nav.xy)
-            self.deck.drop("box", nav.xy + 1.6 * h)
+            h = unit(body.goal - body.xy)
+            c = body.xy + 1.8 * h
+            if body.fleet:
+                self.deck.add_box("box", c[0] - 0.2, c[0] + 0.2, c[1] - 0.2, c[1] + 0.2, 0.0, 0.5)
+            else:
+                body.nav.deck.drop("box", c)
             self.timeline.log("scenario", self.t, name="object_dropped", object="box",
-                              xy=[round(float(v), 2) for v in self.deck.objects["box"][0]], robot=FIXER)
-        if self.push_at is not None and not self.pushed and self.t >= self.push_at and nav.path is not None:
+                              xy=[round(float(v), 2) for v in c], robot=FIXER)
+        if self.push_at is not None and not self.pushed and self.t >= self.push_at and moving:
             self.pushed = True
-            nav.push(self.t)
+            body.push(self.t)
             self.timeline.log("scenario", self.t, name="push", robot=FIXER)
-        while nav.reports:
-            rep = nav.reports.pop(0)
-            self.timeline.log("object_report", self.t, **rep)
-            self.timeline.log("command", self.t, kind="reroute", robot=FIXER, target=rep["object"], source="edge",
-                              reason=f"{rep['object']} on the walkway {rep['dist_m']:.1f} m ahead: logged for the "
-                                     f"crew, detour around it", confidence=1.0, finding="OBJECT_ON_WALKWAY")
-            nav.detour(rep["xy"])
+        if self.clear_at is not None and self.t >= self.clear_at:
+            self.clear_at = None
+            if self.deck is not None:
+                self.deck.remove("box")
+            self.fallback.objects.pop("box", None)
+            self.timeline.log("scenario", self.t, name="object_cleared", object="box", robot=FIXER)
+        for u in self.units.values():
+            body, rid = u.body, u.body.unit
+            for ev in body.drain():
+                kind = ev.pop("type")
+                self.timeline.log("nav_event", self.t, robot=rid, event=kind,
+                                  **{k: v for k, v in ev.items() if k not in ("t", "unit")})
+                if kind not in ("object_on_walkway", "blocked"):
+                    continue
+                real = self.dropped and "box" in self.objects()
+                xy = ev.get("xy")
+                self.timeline.log("object_report", self.t, robot=rid, object="box" if real else "unknown", xy=xy,
+                                  dist_m=ev.get("ahead_m", ev.get("dist_m")), nav_event=kind)
+                if not body.fleet:
+                    body.nav.detour(xy)
+                    why, cmd = "object on the walkway: logged for the crew, detour around it", "reroute"
+                elif real:
+                    self.clear_at = self.t + 3.0
+                    why, cmd = "object on the walkway: logged for the crew, hold until it is cleared", "log_object"
+                else:
+                    why, cmd = "walkway report with nothing dropped there: logged, resume the leg", "resume_nav"
+                self.resume_at[rid] = self.t + (1.0 if cmd == "resume_nav" else 4.0)
+                self.timeline.log("command", self.t, kind=cmd, robot=rid, target="box" if real else "walkway",
+                                  source="edge", reason=why, confidence=1.0, finding="OBJECT_ON_WALKWAY")
+            due = self.resume_at.get(rid)
+            if due is not None and self.t >= due and body.fleet:
+                self.resume_at.pop(rid)
+                if body.state in ("REPORT", "BLOCKED"):
+                    self.timeline.log("nav_event", self.t, robot=rid, event="resume", was=body.state)
+                    body.w.resume()
+
+    def objects(self) -> list:
+        return [] if self.deck is None else [n for n in self.deck.names if n == "box"]
 
     def step(self) -> None:
         t = self.t
@@ -500,7 +699,7 @@ class FleetDemo:
             self.cut.tick(t)
         self._script_events()
         self.scn.detector_readings(t)
-        self.u1.step(t + DT, self.scn.gas_frac((*self.u1.nav.xy, SNIFF_Z), t))
+        self.u1.step(t + DT, self.scn.gas_frac((*self.u1.body.xy, SNIFF_Z), t))
         self.u2.step(t)
         self.drain()
         self._disturb()
@@ -522,9 +721,6 @@ class FleetDemo:
         if self.backlog and self.u2.state in ("DOCKED", "RETURN") and self.u2.f.command(self.backlog[0]):
             c = self.backlog.pop(0)
             self.timeline.log("dispatch", t, kind=c.kind, robot=c.robot, target=c.target, queued_at=c.t)
-        if self.stuck_auto and math.isinf(self.stuck.at) and self.u2.fixed_at is not None \
-                and self.u2.state in ("RETURN", "DOCKED") and not self.u1.s.held and self.link.verdict.get(f"G-{LEAK}") == OK:
-            self.stuck.at = t + DT
         for rec in self.stuck.sync(self.link):
             self.timeline.log("inbox", t, **{k: v for k, v in rec.items() if k != "envelope"})
         states = {rid: (r["state"], r["nav"]["state"]) for rid, r in robots.items()}
@@ -544,11 +740,16 @@ class FleetDemo:
     def log_tick(self, fds, robots) -> None:
         dets = [{"id": d.id, "flange": d.flange, "lel": d.last, "led": led(d.last, d.id in self.link.faulted),
                  "pos": [round(float(v), 3) for v in d.pos]} for d in self.scn.detectors]
+        surf = self.u1.surface()
+        key = json.dumps(surf, sort_keys=True)
+        if key != self.surface_key:
+            robots[SCRUBBER]["surface"] = surf
+        self.surface_key = key
         row = self.timeline.log("tick", self.t, robots=robots, detectors=dets, fusion=[f.to_dict() for f in fds],
                                 argon=self.link.header(), banner=banner(self.link), stuck=self.stuck.hud())
-        self.write_header(row)
+        self.write_header(row, surf)
 
-    def write_header(self, row: dict) -> None:
+    def write_header(self, row: dict, surf: dict) -> None:
         if self.hud_path is None:
             return
         rows = self.timeline.rows[self.seen:]
@@ -582,6 +783,7 @@ class FleetDemo:
         hdr = {"t": row["t"], "state": u1["state"], "caption": ents[0]["caption"],
                "hud": [e["caption"]["text"] for e in ents], "events": events, "robots": ents,
                "force_n": u1.get("force_n"), "force_limit": 40.0, "rust_fraction": u1.get("rust"),
+               **surf,
                "gas": {"sensors": sensors, "max": round(mx, 4), "alarm": any(d["led"] == "red" for d in row["detectors"])},
                "detectors": row["detectors"], "fusion": row["fusion"], "argon": row["argon"], "banner": row["banner"],
                "stuck": row["stuck"], "source": "EDGE" if self.link.link_cut or self.control == "edge" else "CLOUD",
@@ -601,7 +803,7 @@ class FleetDemo:
         self.link.wait_idle()
         self.log_tick(self.findings(self.t), self.robots())
         s = {"control": self.control, "t_end": self.t, "beats": beats(self.timeline.rows),
-             "argon": self.link.summary(), "nav": self.u2.nav.backend,
+             "argon": self.link.summary(), "nav": self.u2.body.backend,
              "inbox": list(self.stuck.inbox.filed.values()), "dock_unit2": [round(float(v), 3) for v in self.u2.dock]}
         if self.out:
             (self.out / "summary.json").write_text(json.dumps(s, indent=1, default=str))
@@ -679,7 +881,7 @@ def main(argv=None):
     ap.add_argument("--cut-link-at", type=float, default=None)
     ap.add_argument("--replay-from", default="runs/fleet_demo/live_timeline.jsonl")
     ap.add_argument("--out", default="runs/fleet_demo")
-    ap.add_argument("--stuck-at", type=float, default=None, help="default: when Unit 2 heads home after the fix")
+    ap.add_argument("--stuck-at", type=float, default=2.0, help="G-F6 sticks while Unit 2 waits at its dock beside it")
     ap.add_argument("--no-stuck", action="store_true")
     ap.add_argument("--drop-object-at", type=float, default=None)
     ap.add_argument("--push-at", type=float, default=None)

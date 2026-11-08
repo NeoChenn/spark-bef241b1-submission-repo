@@ -6,10 +6,12 @@ import pytest
 from integration.dual_argon import ALARM_LEL, FIX_LEAK, FIXER, RESUME_RUST, SCRUBBER, SPARK_RADIUS_M
 from integration.run_fleet_demo import FleetDemo, beats
 
-ORDER = ["1_unit1_scrubbing", "2_leak_start", "2_gf5_amber", "3_spark_hold", "2_gf5_red", "3_unverified",
-         "3_dispatch_unit2", "4_unit2_walks", "4_leak_confirmed", "4_fix_leak", "4_unit2_sniffs", "4_retorque",
-         "4_gf5_green", "5_resume_rust", "5_unit1_scrubs_again", "6_gf6_stuck", "6_gf6_fault", "6_ticket",
+ORDER = ["6_gf6_stuck", "6_gf6_fault", "6_ticket", "1_unit1_scrubbing", "2_leak_start", "2_gf5_amber",
+         "3_spark_hold", "2_gf5_red", "3_unverified", "3_dispatch_unit2", "4_unit2_walks", "4_leak_confirmed",
+         "4_fix_leak", "4_unit2_sniffs", "4_retorque", "4_gf5_green", "5_resume_rust", "5_unit1_scrubs_again",
          "5_unit1_done", "5_unit2_docked"]
+BUDGET_S = 75.0
+RUST = ["SPRAY", "SOAK", "SCRUB", "HOLD", "SCRUB", "VERIFY", "PAINT", "DONE"]
 SAMPLE = Path(__file__).resolve().parent.parent / "runs_sample/fleet_demo/live_timeline.jsonl"
 
 
@@ -34,9 +36,9 @@ def test_every_beat_happens_in_order(edge):
     assert ts == sorted(ts), list(zip(ORDER, ts))
 
 
-def test_run_finishes_inside_sixty_seconds_with_only_the_stuck_head_grey(edge):
+def test_full_edge_run_finishes_inside_the_budget_with_only_the_stuck_head_grey(edge):
     demo, s, rows, _ = edge
-    assert s["t_end"] < 60.0
+    assert s["t_end"] < BUDGET_S and s["beats"]["4_gf5_green"] is not None
     last = ticks(rows)[-1]
     assert last["robots"][SCRUBBER]["state"] == "DONE" and last["robots"][FIXER]["state"] == "DOCKED"
     assert {d["id"]: d["led"] for d in last["detectors"]} == {**{f"G-F{i}": "green" for i in range(1, 6)},
@@ -52,6 +54,26 @@ def test_spark_hold_lands_on_the_tick_g_f5_turns_amber_and_the_job_is_paused_not
                         for r in held)
     assert len({r["robots"][SCRUBBER]["rust"] for r in held}) == 1
     assert held[0]["robots"][SCRUBBER]["paused_state"] == "SCRUB"
+
+
+def test_unit1_runs_the_full_rust_sequence_with_visible_spray_and_paint(edge):
+    _, _, rows, _ = edge
+    seq = []
+    surf = {}
+    for r in ticks(rows):
+        st = r["robots"][SCRUBBER]["state"]
+        if not seq or seq[-1] != st:
+            seq.append(st)
+        surf.update(r["robots"][SCRUBBER].get("surface") or {})
+        if st == "SPRAY":
+            sprayed = surf
+    keep = [x for x in seq if x in RUST]
+    dedup = [x for i, x in enumerate(keep) if i == 0 or keep[i - 1] != x]
+    assert dedup[:len(RUST)] == RUST
+    spray_t = [r["t"] for r in ticks(rows) if r["robots"][SCRUBBER]["state"] == "SPRAY"]
+    paint_t = [r["t"] for r in ticks(rows) if r["robots"][SCRUBBER]["state"] == "PAINT"]
+    assert max(spray_t) - min(spray_t) >= 1.0 and max(paint_t) - min(paint_t) >= 1.0
+    assert any("1" in row for row in surf["painted"]) and any("1" in row for row in sprayed["sprayed"])
 
 
 def test_unverified_comes_from_unit1_far_from_g_f5(edge):
@@ -110,13 +132,16 @@ def test_cut_link_edge_rule_makes_the_same_calls(tmp_path):
     assert b["6_link_cut"] is not None and b["3_dispatch_unit2"] and b["5_resume_rust"] and b["6_ticket"]
 
 
-def test_object_on_the_walkway_is_reported_and_bypassed():
-    demo = FleetDemo("edge", None, drop_at=27.0)
+def test_object_on_the_walkway_is_stopped_for_reported_and_cleared():
+    demo = FleetDemo("edge", None, drop_at=14.0)
     s = demo.run()
     rows = demo.timeline.rows
     rep = [r for r in rows if r["type"] == "object_report"]
-    assert rep and rep[0]["robot"] == FIXER
-    assert any(r["type"] == "command" and r["kind"] == "reroute" for r in rows)
+    assert rep and rep[0]["robot"] == FIXER and rep[0]["object"] == "box"
+    assert any(r["type"] == "command" and r["kind"] in ("log_object", "reroute") for r in rows)
+    stopped = [r for r in ticks(rows) if r["robots"][FIXER]["nav"]["state"] in ("REPORT", "STOP_OBJECT")]
+    xy = [r["robots"][FIXER]["pose"][:2] for r in stopped]
+    assert stopped and max(abs(p[0] - xy[0][0]) + abs(p[1] - xy[0][1]) for p in xy) < 0.4
     assert s["beats"]["6_ticket"] is not None and s["beats"]["5_unit2_docked"] is not None
 
 
