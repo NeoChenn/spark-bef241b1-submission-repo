@@ -13,7 +13,7 @@ PICKS = (
     ("sea", 1, SEA_Z, 24.0, 1.0, False),
 )
 KELVIN = {2000.0: 2100.0, 4000.0: 4500.0, 6000.0: 7000.0}
-TIERS = {"none": 0, "live": 2, "offline": len(PICKS)}
+TIERS = {"none": 0, "live": 0, "offline": len(PICKS)}
 DOWN = (0.0, 0.0, -1.0)
 
 

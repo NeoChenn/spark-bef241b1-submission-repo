@@ -492,6 +492,26 @@ def add_work_light(stage) -> None:
         base.Set(k["intensity"])
 
 
+DECK_FLOODS = (
+    ((12.0, -2.0, 46.8), (16.0, -4.0, 42.5), SODIUM, 3.0e6, 40.0),
+    ((26.5, -11.0, 46.8), (21.0, -7.0, 42.5), SODIUM, 3.0e6, 40.0),
+    ((12.0, -11.5, 46.8), (16.0, -8.0, 42.5), SODIUM, 2.0e6, 40.0),
+    ((27.0, -1.5, 46.8), (21.0, -3.5, 42.5), SODIUM, 2.4e6, 40.0),
+)
+
+
+def add_deck_floods(stage, gain: float = 1.0) -> None:
+    b = SceneBuilder(stage)
+    steel = b.plain("lamp_pole", (0.3, 0.32, 0.33), 0.5, 0.6)
+    for k, (pos, target, kelvin, intensity, cone) in enumerate(DECK_FLOODS):
+        path = f"/World/Cinematic/Lamps/area_{600 + k:03d}"
+        if not stage.GetPrimAtPath(path):
+            add_fixture(stage, 600 + k, "spot", pos, kelvin, intensity, tuple(np.subtract(target, pos)), cone)
+            b.tube("/World/Cinematic/Lamps", f"deck_pole_{k}", (pos[0], pos[1], 42.5), (pos[0], pos[1], pos[2] + 0.3), 0.08,
+                   steel, segments=12)
+        _relight(stage.GetPrimAtPath(path), look.fixture("spot", kelvin, intensity * gain, cone))
+
+
 def apply_preset(stage, name: str) -> None:
     preset = PRESETS[name]
     assets_hero.attach(stage)
@@ -503,6 +523,7 @@ def apply_preset(stage, name: str) -> None:
     ocean_fx.apply(stage, name, preset["wave_height"])
     flare_fx.attach(stage)
     relight(stage)
+    add_deck_floods(stage)
     add_work_light(stage)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))
