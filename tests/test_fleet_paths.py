@@ -108,3 +108,26 @@ def test_trot_is_still_at_rest_and_swings_when_walking():
     qs = [trot_q(g, 0.7) for g in np.linspace(0, 0.36, 12)]
     assert np.ptp([q["FL_thigh_joint"] for q in qs]) > 0.3
     assert qs[3]["FL_thigh_joint"] - 0.8 == pytest.approx(-(qs[3]["FR_thigh_joint"] - 0.8), abs=1e-9)
+
+
+def test_nav_walker_drives_a_walker_goal_on_the_deck_map():
+    from integration.fleet_nav import NavWalker
+    w = NavWalker("unit2", DOCK["unit2"][:2], DOCK["unit2"][2])
+    w.go(F5_WORK[:2], F5_WORK[2])
+    steps = 0
+    while not w.step(0.25) and steps < 200:
+        steps += 1
+    assert w.state == ARRIVED and math.dist(w.xy, F5_WORK[:2]) < 0.06
+    assert abs((w.yaw - F5_WORK[2] + math.pi) % (2 * math.pi) - math.pi) < 0.12
+    assert not any(e["type"] == "collision" for e in w.events)
+    w.go(DOCK["unit2"][:2])
+    while not w.step(0.25) and steps < 400:
+        steps += 1
+    assert math.dist(w.xy, DOCK["unit2"][:2]) < 0.06
+
+
+def test_f5_goal_is_the_retorque_work_pose():
+    from integration.fleet_paths import F5, F5_NORMAL
+    x = F5[0] + 0.6 * F5_NORMAL[0]
+    y = F5[1] + 0.6 * F5_NORMAL[1]
+    assert np.allclose(F5_WORK, (x, y, math.atan2(-F5_NORMAL[1], -F5_NORMAL[0])))

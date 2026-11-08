@@ -7,7 +7,7 @@ from typing import Callable, Optional
 
 import numpy as np
 
-from integration.fleet_paths import DECK_Z, DeckMap, Leg, leg as get_leg
+from integration.fleet_paths import DECK_Z, LANE_Y, DeckMap, Leg, leg as get_leg, polyline
 from patrol.controller import PatrolController
 from patrol.detect import DetectCfg, Tracker, detect_frame
 
@@ -366,3 +366,83 @@ def run_route(unit: str, legs, deck: Optional[DeckMap] = None, t0: float = 0.0, 
 def with_profile(unit: str, **changes) -> NavProfile:
     PROFILES[unit] = replace(PROFILES.get(unit, NavProfile(unit)), **changes)
     return PROFILES[unit]
+
+
+def plan(start_xy, goal_xy, deck: Optional[DeckMap] = None, lane_y: float = LANE_Y) -> np.ndarray:
+    deck = deck or DeckMap.rig_merged()
+    s, g = np.asarray(start_xy, float)[:2], np.asarray(goal_xy, float)[:2]
+    if _line_clear(deck, s, g):
+        return polyline(s, g)
+    sign = 1.0 if g[0] >= s[0] else -1.0
+    k = min(1.4, abs(g[0] - s[0]) / 3)
+    pts = [s]
+    if abs(s[1] - lane_y) > 0.05:
+        pts.append((s[0] + sign * k, lane_y))
+    if abs(g[1] - lane_y) > 0.05:
+        pts.append((g[0] - sign * k, lane_y))
+    pts.append(g)
+    return polyline(*pts)
+
+
+def _line_clear(deck: DeckMap, a, b, margin: float = 0.05) -> bool:
+    h = math.atan2(b[1] - a[1], b[0] - a[0])
+    return all(deck.clearance(x, y, h) > margin for x, y in polyline(a, b))
+
+
+class NavWalker:
+    def __init__(self, unit: str, xy, yaw: float = 0.0, deck: Optional[DeckMap] = None,
+                 profile: Optional[NavProfile] = None, on_event: Optional[Callable] = None, policy=None,
+                 lag: float = 0.5):
+        self.deck = deck or DeckMap.rig_merged()
+        self.nav = FleetNav(unit, profile, on_event, policy, self.deck)
+        self.base = BaseSim(float(xy[0]), float(xy[1]), float(yaw), lag)
+        self.angles = self.nav.profile.angles()
+        self.t, self.acc, self.goal = 0.0, 0.0, None
+
+    @property
+    def xy(self) -> np.ndarray:
+        return np.array([self.base.x, self.base.y])
+
+    @property
+    def yaw(self) -> float:
+        return self.base.yaw
+
+    @property
+    def state(self) -> str:
+        return self.nav.state
+
+    @property
+    def events(self) -> list:
+        return self.nav.events
+
+    def go(self, goal_xy, yaw: Optional[float] = None) -> None:
+        g = np.asarray(goal_xy, float)[:2]
+        key = (round(float(g[0]), 3), round(float(g[1]), 3), None if yaw is None else round(float(yaw), 3))
+        if key == self.goal:
+            return
+        self.goal = key
+        path = plan(self.xy, g, self.deck)
+        if len(path) < 2 or np.linalg.norm(path[-1] - path[0]) < 0.05:
+            path = np.array([self.xy, self.xy + 0.05 * np.array([math.cos(self.yaw), math.sin(self.yaw)])])
+        h = math.atan2(path[-1, 1] - path[-2, 1], path[-1, 0] - path[-2, 0])
+        self.nav.start(Leg(self.nav.unit, "go", path, h if yaw is None else float(yaw)))
+
+    def resume(self) -> None:
+        self.nav.resume()
+
+    def tick(self) -> NavCmd:
+        b, p = self.base, self.nav.profile
+        ranges = self.deck.raycast(b.x, b.y, b.yaw, self.angles, p.lidar_z, p.lidar_range)
+        cmd = self.nav.step(self.t, ranges, self.angles, b.pose, b.v, b.w)
+        b.step(cmd.vx, cmd.wz, 0.1)
+        self.t = round(self.t + 0.1, 6)
+        return cmd
+
+    def step(self, dt: float) -> bool:
+        self.acc += dt
+        while self.acc >= 0.1 - 1e-9 and self.nav.state != ARRIVED:
+            self.acc -= 0.1
+            self.tick()
+        if self.nav.state == ARRIVED:
+            self.acc = 0.0
+        return self.nav.state == ARRIVED
