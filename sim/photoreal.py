@@ -116,6 +116,7 @@ COMMON = {
     "triplanar": False,
     "paint_reference": 0.77,
 }
+CHIP_SCALE = 0.55
 OVERRIDES = ("grime_amount", "porosity", "normal_strength", "macro_scale", "streak_amount", "salt_amount")
 STREAK_RUST = (0.15, 0.075, 0.035)
 STREAK_DARK = (0.06, 0.05, 0.04)
@@ -139,7 +140,7 @@ def shader_inputs(recipe: dict) -> tuple[str, dict]:
               "porosity": 0.35, "grime_amount": 0.35}
     if kind == "paint":
         values.update(_set(PAINT, "paint"), tint_paint=True, paint_color=recipe["paint_color"],
-                      chip_amount=recipe.get("chip_amount", 0.6), paint_scale=recipe.get("scale", 1.1))
+                      chip_amount=round(CHIP_SCALE * recipe.get("chip_amount", 0.6), 3), paint_scale=recipe.get("scale", 1.1))
         values.update({k: recipe[k] for k in OVERRIDES if k in recipe})
         return "rig_weathered", values
     texture = recipe["texture"]

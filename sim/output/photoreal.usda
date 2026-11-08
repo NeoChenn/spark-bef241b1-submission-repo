@@ -75,7 +75,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.25
+                float inputs:chip_amount = 0.138
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -246,7 +246,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.7
+                float inputs:chip_amount = 0.385
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -303,7 +303,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.7
+                float inputs:chip_amount = 0.385
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -360,7 +360,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.8
+                float inputs:chip_amount = 0.44
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -417,7 +417,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.65
+                float inputs:chip_amount = 0.358
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -474,7 +474,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.55
+                float inputs:chip_amount = 0.303
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -531,7 +531,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 1
+                float inputs:chip_amount = 0.55
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -588,7 +588,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.3
+                float inputs:chip_amount = 0.165
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -645,7 +645,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.75
+                float inputs:chip_amount = 0.413
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -702,7 +702,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.6
+                float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -759,7 +759,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.7
+                float inputs:chip_amount = 0.385
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -816,7 +816,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.7
+                float inputs:chip_amount = 0.385
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -873,7 +873,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.9
+                float inputs:chip_amount = 0.495
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -930,7 +930,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.6
+                float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -987,7 +987,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.45
+                float inputs:chip_amount = 0.248
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1044,7 +1044,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.45
+                float inputs:chip_amount = 0.248
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1101,7 +1101,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.45
+                float inputs:chip_amount = 0.248
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1158,7 +1158,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.5
+                float inputs:chip_amount = 0.275
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1215,7 +1215,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.5
+                float inputs:chip_amount = 0.275
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1272,7 +1272,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.5
+                float inputs:chip_amount = 0.275
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1329,7 +1329,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.6
+                float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1386,7 +1386,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.5
+                float inputs:chip_amount = 0.275
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1443,7 +1443,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.6
+                float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1500,7 +1500,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.6
+                float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1557,7 +1557,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.6
+                float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1614,7 +1614,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.6
+                float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1671,7 +1671,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.3
+                float inputs:chip_amount = 0.165
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1728,7 +1728,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.6
+                float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1785,7 +1785,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.6
+                float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1842,7 +1842,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.6
+                float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1899,7 +1899,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.5
+                float inputs:chip_amount = 0.275
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -1956,7 +1956,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.5
+                float inputs:chip_amount = 0.275
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -2013,7 +2013,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.6
+                float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -2070,7 +2070,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.5
+                float inputs:chip_amount = 0.275
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -2127,7 +2127,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                float inputs:chip_amount = 0.6
+                float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -2703,7 +2703,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.25
+                    float inputs:chip_amount = 0.138
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -2874,7 +2874,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.7
+                    float inputs:chip_amount = 0.385
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -2931,7 +2931,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.7
+                    float inputs:chip_amount = 0.385
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -2988,7 +2988,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.8
+                    float inputs:chip_amount = 0.44
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3045,7 +3045,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.65
+                    float inputs:chip_amount = 0.358
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3102,7 +3102,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.55
+                    float inputs:chip_amount = 0.303
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3159,7 +3159,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 1
+                    float inputs:chip_amount = 0.55
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3216,7 +3216,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.3
+                    float inputs:chip_amount = 0.165
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3273,7 +3273,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.75
+                    float inputs:chip_amount = 0.413
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3330,7 +3330,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.6
+                    float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3387,7 +3387,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.7
+                    float inputs:chip_amount = 0.385
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3444,7 +3444,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.7
+                    float inputs:chip_amount = 0.385
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3501,7 +3501,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.9
+                    float inputs:chip_amount = 0.495
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3558,7 +3558,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.6
+                    float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3615,7 +3615,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.45
+                    float inputs:chip_amount = 0.248
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3672,7 +3672,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.45
+                    float inputs:chip_amount = 0.248
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3729,7 +3729,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.45
+                    float inputs:chip_amount = 0.248
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3786,7 +3786,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.5
+                    float inputs:chip_amount = 0.275
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3843,7 +3843,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.5
+                    float inputs:chip_amount = 0.275
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3900,7 +3900,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.5
+                    float inputs:chip_amount = 0.275
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -3957,7 +3957,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.6
+                    float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -4014,7 +4014,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.5
+                    float inputs:chip_amount = 0.275
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -4071,7 +4071,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.6
+                    float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -4128,7 +4128,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.6
+                    float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -4185,7 +4185,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.6
+                    float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -4242,7 +4242,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.6
+                    float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -4299,7 +4299,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.3
+                    float inputs:chip_amount = 0.165
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -4356,7 +4356,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.6
+                    float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -4413,7 +4413,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.6
+                    float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -4470,7 +4470,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.6
+                    float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -4527,7 +4527,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.5
+                    float inputs:chip_amount = 0.275
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -4584,7 +4584,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.5
+                    float inputs:chip_amount = 0.275
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -4641,7 +4641,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.6
+                    float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -4698,7 +4698,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.5
+                    float inputs:chip_amount = 0.275
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -4755,7 +4755,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.6
+                    float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -5311,7 +5311,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.05
+                    float inputs:chip_amount = 0.028
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -5368,7 +5368,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.05
+                    float inputs:chip_amount = 0.028
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -5425,7 +5425,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.05
+                    float inputs:chip_amount = 0.028
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -5482,7 +5482,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.05
+                    float inputs:chip_amount = 0.028
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -5607,7 +5607,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.05
+                    float inputs:chip_amount = 0.028
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
