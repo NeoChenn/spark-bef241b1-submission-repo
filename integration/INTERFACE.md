@@ -161,3 +161,28 @@ From 1.0 m the flange clips the frame.
 show gas, diagnosis and bolt readings, and `GAS_RETREAT` shows in the alert colour.
 
 Try it on CPU: `python -m policy.leak.mock --leak loose` (also `crack`, `big`, `none`, `dust`, `--gas-during-scrub`).
+
+## 7. Deck sweep: debris pickup and a camera person check (same robot, same plan engine)
+
+Two more trained detectors (`detection/rig_vision.py`), made the same way as the rust and crack models: real photos
+plus sim-domain crops, MobileNetV4 + LoRA through the team's `detection/train.py`, calibrated, ONNX in
+`detection/checkpoints/{debris_v1,person_v1}`. Results and limits: `detection/RIG_VISION_RESULTS.md`.
+
+* **Debris** (`DEBRIS_CHECK -> DEBRIS_PICKUP -> DEBRIS_VERIFY`, `DEBRIS_SECOND_VIEW` when unsure): after the gas check
+  says normal at a patrol stop, the robot looks down the deck, picks up loose objects one at a time and checks they
+  are gone, then goes on to the rust check. If it cannot pick something up or cannot tell, it reports it (`warning`)
+  and carries on: debris is not an emergency.
+* **People:** the team's 3 m pause rule still uses `person_distance()`. The body camera now also counts: a person the
+  model sees, at a distance under 3 m from the depth camera, pauses the robot, and it resumes only when both say
+  clear. The camera can add pauses; it never removes one.
+
+| Bridge method | Returns | Isaac notes |
+|---|---|---|
+| `deck_frame()` | `(rgb HxWx3 uint8, CameraModel)` | body or wrist camera looking down the deck ahead; posed `T_world_cam` (world z up) |
+| `deck_reference()` | `rgb` | a clean picture of the same stop and view, stored when the deck was known clean (first patrol or commissioning). Only changes against it are classified, so fixed equipment is never picked up |
+| `request_deck_view(i)` | `bool` | move sideways / closer for another look |
+| `pick_debris(u, v)` | `bool` | project pixel (u, v) onto the deck with the camera model, grasp there, drop in a bin |
+| `body_frame()` | `(rgb, CameraModel)` | the forward body camera |
+| `body_range()` (optional) | `(H, W) float` metres | depth image as ground distance per pixel; without it the distance comes from the box and is cruder |
+
+Try it on CPU: `python -m policy.leak.mock --leak none --debris litter --person-at 2` (also `--debris can`, `--no-deck`).

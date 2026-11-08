@@ -55,6 +55,11 @@ class S(str, Enum):
     RETORQUE = "RETORQUE"
     LEAK_VERIFY = "LEAK_VERIFY"
     GAS_RETREAT = "GAS_RETREAT"
+    # deck sweep (policy/deck/job.py): loose debris on the deck
+    DEBRIS_CHECK = "DEBRIS_CHECK"
+    DEBRIS_SECOND_VIEW = "DEBRIS_SECOND_VIEW"
+    DEBRIS_PICKUP = "DEBRIS_PICKUP"
+    DEBRIS_VERIFY = "DEBRIS_VERIFY"
 
 
 TERMINAL = {S.DONE, S.ESCALATE_TO_HUMAN}
