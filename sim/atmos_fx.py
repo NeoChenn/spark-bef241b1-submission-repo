@@ -219,10 +219,10 @@ class Atmosphere:
             else:
                 _assign(self.stage.GetPrimAtPath(f"{ROOT}/Flow/{rel}"), values)
         for i, centre in enumerate((FLARE_TIP, np.mean(vents, 0))):
-            _assign(self.stage.DefinePrim(f"{ROOT}/Flow/wind_{i}", "FlowEmitterBox"), {"allocationScale": 0.0, "coupleRateVelocity": 0.6, "coupleRateTemperature": 0.0,
-                         "coupleRateFuel": 0.0, "coupleRateSmoke": 0.0, "fuel": 0.0, "temperature": 0.0,
-                         "velocityIsWorldSpace": True, "position": Gf.Vec3f(*(np.asarray(centre) + [0.0, 0.0, 12.0])),
-                         "halfSize": Gf.Vec3f(24.0, 24.0, 18.0)})
+            _assign(self.stage.DefinePrim(f"{ROOT}/Flow/wind_{i}", "FlowEmitterBox"), {
+                "allocationScale": 0.0, "coupleRateVelocity": 0.6, "coupleRateTemperature": 0.0, "coupleRateFuel": 0.0,
+                "coupleRateSmoke": 0.0, "fuel": 0.0, "temperature": 0.0, "velocityIsWorldSpace": True,
+                "position": Gf.Vec3f(*(np.asarray(centre) + [0.0, 0.0, 12.0])), "halfSize": Gf.Vec3f(24.0, 24.0, 18.0)})
         self._settings({"/rtx/flow/enabled": True, "/rtx/flow/pathTracingEnabled": True,
                         "/rtx/flow/rayTracedReflectionsEnabled": True, "/rtx/flow/rayTracedTranslucencyEnabled": True,
                         "/rtx/flow/rayTracedShadowsEnabled": True})
