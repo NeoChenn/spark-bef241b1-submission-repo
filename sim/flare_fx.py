@@ -23,7 +23,7 @@ FRAMES = COLS * ROWS
 FPS = 18.0
 HEIGHT, WIDTH = 24.0, 14.0
 WIND = (2.6, 1.5)
-EMISSION = float(os.environ.get("RIG_FLARE_GAIN", "1500"))
+EMISSION = float(os.environ.get("RIG_FLARE_GAIN", "6000"))
 CARDS = (
     (0.0, 1.0, 1.0, 0.0, 1.0),
     (38.0, 0.8, 0.82, 0.37, 1.27),
@@ -31,12 +31,12 @@ CARDS = (
 )
 SEGMENTS = 12
 SMOKE_N, SMOKE_LIFE, SMOKE_LEVELS = 40, 10.0, 5
-HALO_SIZE, HALO_GAIN, HALO_ALPHA = 70.0, EMISSION * 0.12, 0.5
+HALO_SIZE, HALO_GAIN, HALO_ALPHA = 80.0, EMISSION * 0.1, 0.35
 STOPS = (
-    (0.0, (0.35, 0.03, 0.0)),
-    (0.3, (1.0, 0.18, 0.01)),
-    (0.55, (1.0, 0.45, 0.07)),
-    (0.75, (1.0, 0.72, 0.3)),
+    (0.0, (0.85, 0.2, 0.02)),
+    (0.3, (1.0, 0.38, 0.05)),
+    (0.55, (1.0, 0.6, 0.16)),
+    (0.75, (1.0, 0.8, 0.42)),
     (0.9, (1.0, 0.9, 0.7)),
     (1.0, (1.0, 0.97, 0.92)),
 )
@@ -99,9 +99,9 @@ def flame_frames(n: int = FRAMES, w: int = TILE_W, h: int = TILE_H, seed: int = 
         i = body**0.8 * (1.1 - 0.85 * v) + (turb - 0.55) * (0.6 + 1.6 * v) * env - 0.25 * v
         i = np.clip(i * env**0.5, 0.0, 1.0) * smoothstep(0.0, 0.03, v) * edge
         heat = np.clip(i * (1.0 - 0.8 * v) * body**0.4, 0.0, 1.0)
-        glow = 0.03 + 0.97 * heat**3.0
+        glow = 0.1 + 0.9 * heat**2.6
         out[k, ..., 3] = smoothstep(0.06, 0.3, i)
-        out[k, ..., :3] = ramp(heat) * (glow * out[k, ..., 3])[..., None]
+        out[k, ..., :3] = ramp(heat) * glow[..., None]
     return out
 
 
@@ -135,8 +135,7 @@ def smoke_puff(size: int = 256, seed: int = 3) -> np.ndarray:
 def halo(size: int = 256) -> np.ndarray:
     y, x = np.mgrid[-1:1:size * 1j, -1:1:size * 1j]
     r = np.hypot(x, y)
-    a = np.exp(-(r / 0.28) ** 2) * 0.6 + np.exp(-(r / 0.55) ** 2) * 0.4
-    a = a * smoothstep(1.0, 0.85, r)
+    a = (np.exp(-(r / 0.22) ** 2) * 0.5 + np.exp(-(r / 0.45) ** 2) * 0.5) * smoothstep(1.0, 0.55, r)
     img = np.dstack([a, a * 0.45, a * 0.12, a])
     return (np.clip(img, 0, 1) * 255 + 0.5).astype(np.uint8)
 

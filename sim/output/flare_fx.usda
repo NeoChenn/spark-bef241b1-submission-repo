@@ -55,7 +55,7 @@ over "World"
                     )
                     float inputs:cols = 8
                     float inputs:frame = 0
-                    float inputs:gain = 1500
+                    float inputs:gain = 6000
                     float inputs:rows = 4
                     token outputs:out
                 }
@@ -76,7 +76,7 @@ over "World"
                     )
                     float inputs:cols = 8
                     float inputs:frame = 0
-                    float inputs:gain = 1500
+                    float inputs:gain = 6000
                     float inputs:rows = 4
                     token outputs:out
                 }
@@ -97,7 +97,7 @@ over "World"
                     )
                     float inputs:cols = 8
                     float inputs:frame = 0
-                    float inputs:gain = 1500
+                    float inputs:gain = 6000
                     float inputs:rows = 4
                     token outputs:out
                 }
@@ -113,12 +113,12 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "flare_card"
-                    float inputs:alpha_gain = 0.5
+                    float inputs:alpha_gain = 0.35
                     asset inputs:atlas = @../assets/generated/flare_halo.png@ (
                         colorSpace = "raw"
                     )
                     float inputs:cols = 1
-                    float inputs:gain = 180
+                    float inputs:gain = 600
                     float inputs:rows = 1
                     token outputs:out
                 }
