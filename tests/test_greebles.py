@@ -93,3 +93,21 @@ def test_scuppers_sit_between_edge_ribs():
             k = (f - g.RIB_START) / g.RIB_SPACING
             assert abs(k - round(k)) > 0.3
             assert 0.5 < f < math.dist(p, q) - 0.5
+
+
+def test_route_distance_matches_patrol_corridors():
+    assert g.route_distance(0.0, 1.25) < 1e-9
+    assert g.route_distance(0.0, -3.25) < 1e-9
+    assert g.route_distance(7.5, 3.0) > 2.0
+
+
+def test_cables_cross_walkways_only_at_protectors():
+    from dressing_geometry import spline
+
+    import numpy as np
+
+    for _, _, ctrl in g.CABLES:
+        pts = spline(np.array([(x, y, 0.0) for x, y in ctrl]), 10)
+        for x, y, _ in pts:
+            if g.route_distance(x, y) < 0.3:
+                assert min(math.dist((x, y), c) for c, _ in g.PROTECTORS) < 0.6

@@ -36,7 +36,7 @@ GAUGES = (
 )
 HANDWHEELS = (("orange", 1.75, 0.34), ("rusty", -2.0, 0.42), ("grey", -3.3, 0.36), ("rusty", 5.6, 0.4))
 TRANSMITTERS = ((3.85, 0.62, "main", 3.65), (-3.95, -0.62, "main", -3.7))
-TUBING_Y = (-2.62, -2.67, -2.72)
+TUBING_Y = (-2.42, -2.47, -2.52)
 TUBING_X = (-6.8, 6.8)
 COLUMNS = ((-7.0, -4.4), (7.0, -4.4), (-7.0, 4.4), (0.0, 4.4), (7.0, 4.4))
 TRAYS = ((-4.4, -6.75, 6.75), (4.4, -6.75, -0.3), (4.4, 0.3, 6.75))
@@ -56,11 +56,32 @@ SIGNS = (
 DRAINS = ((-1.0, -2.9), (-4.6, 2.55), (5.2, -2.55), (-1.6, 2.6))
 DEBRIS = (
     ("rag", (-1.75, -2.88), 30.0), ("rag", (4.3, 2.55), 110.0), ("bucket", (2.05, -2.55), 0.0),
-    ("cable_coil", (-2.4, 2.75), 0.0), ("puddle", (-0.3, -2.95), 15.0), ("nuts", (-0.6, -2.84), 0.0), ("spanner", (-1.38, -2.82), 65.0), ("puddle", (3.9, -1.0), 70.0),
+    ("cable_coil", (-2.4, 2.75), 0.0), ("puddle", (-0.3, -2.95), 15.0), ("nuts", (-0.6, -2.63), 0.0), ("spanner", (-1.38, -2.64), 65.0), ("puddle", (3.9, -1.0), 70.0),
     ("hose_coil", (-5.4, -2.45), 0.0), ("chain", (4.8, 2.9), 20.0), ("gloves", (2.6, -2.35), 140.0),
 )
 STRIPES = tuple(c for c in COLUMNS)
 ALLOWED_IN_WORK = ("weld", "label")
+FLAT = ("puddle", "drain", "rag", "grit", "tray")
+ROUTE_CLEAR = 0.6
+CABLES = (
+    ("cable_black", 0.016, ((5.4, 1.75), (4.7, 1.95), (4.3, 1.25), (4.4, 0.25), (3.9, -0.6), (3.6, -1.5), (3.4, -1.85))),
+    ("hose_yellow", 0.02, ((-3.0, 4.15), (-3.25, 2.6), (-3.3, 1.25), (-3.7, 0.45), (-4.4, -0.55), (-5.5, -1.2), (-6.4, -0.7),
+                           (-6.9, -1.4))),
+    ("cable_orange", 0.014, ((3.3, -2.25), (3.0, -2.7), (2.8, -3.25), (2.6, -3.8), (2.1, -4.05))),
+)
+PROTECTORS = (((4.3, 1.25), 90.0), ((-3.3, 1.25), 92.0), ((2.8, -3.25), 70.0))
+DRIP_TRAYS = (((0.0, 3.2), 0.0), ((-2.0, 3.2), 0.0), ((5.6, 3.2), 0.0), ((-5.0, 0.0), 0.0))
+GAS_RACK = (-1.2, -4.5)
+PALLET = (1.8, -4.45)
+SCAFFOLD = (-4.2, -4.5)
+BARRIER = ((3.0, -3.95), (4.4, -4.85))
+ROPES = ((1.25, 2.75), (-6.2, 2.4))
+CHOCKS = ((2.75, -4.0, 20.0), (0.9, -4.1, 75.0), (6.35, 1.45, 10.0), (6.25, 2.3, 140.0))
+SCATTER = (((2.4, 2.8), 0.5, 1), ((-4.0, 2.4), 0.6, 2), ((3.7, -0.4), 0.5, 3), ((-5.6, -1.8), 0.5, 4), ((-0.3, -4.0), 0.5, 5))
+TINS = ((3.95, 0.15), (-2.6, 3.9))
+GLOVE_SPOTS = ((-1.4, 3.75, 200.0),)
+VENT_BASES = {(-16.0, 15.0, 41.6): 41.2, (-0.5, -13.0, 37.6): 37.2, (-2.0, 0.0, 39.2): 31.25, (-7.0, 22.0, 31.6): 31.25}
+GRIT_SUPPORTS = ((-6.0, 0.0), (-3.4, 0.0), (3.4, 0.0), (6.0, 0.0), (-1.5, 0.0))
 MAIN_SUPPORTS = (-1.5,)
 BRUSH_CLEAR = 0.5
 HALF_LENGTH = {"flange": 0.11, "weld": 0.01, "label": 0.28, "support": 0.21, "gauge": 0.05}
@@ -74,7 +95,7 @@ ATLAS_GRID = 4
 ATLAS_PAD = 3 / 2048
 ATLAS = {
     "no_smoking": (0, 0, 1, 1), "ppe": (1, 0, 1, 1), "hazard_flammable": (2, 0, 1, 1), "muster": (3, 0, 1, 1),
-    "h2s": (0, 1, 1, 1), "dial_a": (1, 1, 1, 1), "dial_b": (2, 1, 1, 1), "label_crude_f": (0, 2, 2, 1),
+    "h2s": (0, 1, 1, 1), "dial_a": (1, 1, 1, 1), "dial_b": (2, 1, 1, 1), "tag": (3, 1, 1, 1), "label_crude_f": (0, 2, 2, 1),
     "label_water_r": (2, 2, 2, 1), "label_gas_f": (0, 3, 2, 1), "label_foam_r": (2, 3, 2, 1),
 }
 
@@ -161,10 +182,31 @@ def footprints() -> list[tuple]:
         items.append(("handwheel", x, y, z + r, line))
     items += [("support", x, MAIN["y"], 0.0, "main") for x in MAIN_SUPPORTS]
     items += [("transmitter", x, y, 0.0, None) for x, y, _, _ in TRANSMITTERS]
+    items += [("cable", x, y, 0.0, None) for _, _, pts in CABLES for x, y in pts[:2] + pts[-2:]]
+    items += [("tray", x, y, 0.0, None) for (x, y), _ in DRIP_TRAYS]
+    items += [(kind, x, y, 0.0, None) for kind, (x, y) in (("gas_rack", GAS_RACK), ("pallet", PALLET), ("scaffold", SCAFFOLD))]
+    items += [("barrier", x, y, 0.0, None) for x, y in BARRIER]
+    items += [("rope", x, y, 0.0, None) for x, y in ROPES]
+    items += [("chock", x, y, 0.0, None) for x, y, _ in CHOCKS]
+    items += [("scatter", x, y, 0.0, None) for (x, y), _, _ in SCATTER]
+    items += [("tin", x, y, 0.0, None) for x, y in TINS]
     items += [("tubing", x, y, 0.1, None) for x in TUBING_X for y in TUBING_Y]
     items += [("drain", x, y, 0.0, None) for x, y in DRAINS]
     items += [(kind, x, y, 0.0, None) for kind, (x, y), _ in DEBRIS]
     return items
+
+
+def route_local() -> list[tuple[float, float]]:
+    import dressing
+
+    return [(x - ZONE_T[0], y - ZONE_T[1]) for x, y in dressing.ROUTE]
+
+
+def route_distance(x: float, y: float) -> float:
+    from dressing_geometry import _segment_distance
+
+    route = route_local()
+    return min(_segment_distance((x, y), a, b) for a, b in zip(route, route[1:]))
 
 
 def brush_clear(kind: str, x: float) -> bool:
@@ -177,6 +219,8 @@ def layout_issues() -> list:
         if line == "main":
             if not brush_clear(kind, x):
                 issues.append((kind, x, y, z))
+        elif z < 0.3 and kind not in FLAT and kind != "cable" and route_distance(x, y) < ROUTE_CLEAR:
+            issues.append((kind, x, y, z))
         elif kind not in ALLOWED_IN_WORK and in_work_zone(x, y, 0.1):
             issues.append((kind, x, y, z))
         elif near_damage(x, y, z):
