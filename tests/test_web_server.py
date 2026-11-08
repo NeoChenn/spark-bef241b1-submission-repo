@@ -19,3 +19,16 @@ def test_live_haze_skips_empty_depth():
     cam = {"T": np.eye(4), "fov": 1.0}
     out = look.inscatter(rgb, lambda: np.zeros(()), cam, "dusk", np.array([0.0, 0.0, 1.0]), tier="live")
     assert out is rgb
+
+
+def test_camera_works_without_a_scenario():
+    from fastapi.testclient import TestClient
+    from rig.web.server import create_app
+    from rig.web.server import default_fleet
+    import time as _t
+    with TestClient(create_app(sim_port=0, fleet=default_fleet())) as c:
+        r = c.post("/api/event", json={"name": "camera", "args": {"mode": "deck"}})
+        assert r.status_code == 200, r.text
+        _t.sleep(1.05)
+        r = c.post("/api/event", json={"name": "camera", "args": {"mode": "zoom", "view": "rust"}})
+        assert r.status_code == 200, r.text

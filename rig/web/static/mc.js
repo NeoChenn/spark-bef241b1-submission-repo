@@ -356,27 +356,27 @@
     for (let j = 0; j < s.length && i < q.length; j++) if (s[j] === q[i]) { sc += 1 + (j === prev + 1 ? 2 : 0) + (j === 0 || s[j - 1] === " " ? 3 : 0); prev = j; idx.push(j); i++; }
     return i === q.length ? { sc: sc - s.length * 0.02, idx } : null;
   }
-  function filter() {
+  function filter(scroll = true) {
     const q = inp.value.trim().toLowerCase(), all = rows();
     items = !q ? all : all.map((r) => ({ ...r, m: fuzzy(q, r.label) || ((r.sub + " " + r.g + " " + r.key).toLowerCase().split(/\s+/).some((w) => w && w.startsWith(q)) ? { sc: 0.5, idx: [] } : null) }))
       .filter((r) => r.m).sort((a, b) => GROUPS.indexOf(a.g) - GROUPS.indexOf(b.g) || b.m.sc - a.m.sc);
     if (q && items.length) { const best = items.reduce((a, b) => (b.m.sc > a.m.sc ? b : a)); cur = items.indexOf(best); } else cur = Math.max(0, items.findIndex((r) => (scen() ? r.tag : r.g === "Scenarios")));
-    draw();
+    draw(scroll);
   }
   const hl = (t, m) => (m?.idx.length ? [...t].map((ch, i) => (m.idx.includes(i) ? `<mark>${esc(ch)}</mark>` : esc(ch))).join("") : esc(t));
-  function draw() {
+  function draw(scroll = true) {
     let g0 = "";
     list.innerHTML = items.map((r, i) => (r.g !== g0 ? `<li class="gh">${esc((g0 = r.g))}</li>` : "") +
       `<li role="option" data-i="${i}" class="${r.on ? "on" : ""} ${r.dis ? "dis" : ""} ${r.tag ? "next" : ""}"><i class="st"></i><span class="lb">${hl(r.label, r.m)}</span><span class="sb">${esc(r.sub || "")}</span>${r.key ? `<kbd>${esc(r.key)}</kbd>` : ""}</li>`).join("") || `<li class="empty">No results</li>`;
-    mark(cur);
+    mark(cur, scroll);
   }
-  function mark(i) {
+  function mark(i, scroll = true) {
     if (!items.length) return;
     cur = (i + items.length) % items.length;
     list.querySelector("li.sel")?.classList.remove("sel");
     const li = list.querySelector(`li[data-i="${cur}"]`);
     li?.classList.add("sel");
-    li?.scrollIntoView({ block: "nearest" });
+    if (scroll) li?.scrollIntoView({ block: "nearest" });
   }
   function openSpot(text = "") { S.spot = true; spot.classList.add("on"); B.classList.add("spotting"); inp.value = text; filter(); inp.focus(); }
   function closeSpot() { S.spot = false; spot.classList.remove("on"); B.classList.remove("spotting"); inp.blur(); }
@@ -457,7 +457,7 @@
     if (S.dirty || now() - frameT > 0.12) {
       S.dirty = false; frameT = now();
       capsule(); caption(); left(); card(); strip(); help(); sheet();
-      if (S.spot && now() - (spot._t || 0) > 1) { spot._t = now(); const k = cur, q = inp.value; filter(); if (!q) mark(k); }
+      if (S.spot && now() - (spot._t || 0) > 1) { spot._t = now(); const k = cur, q = inp.value, st = list.scrollTop; filter(false); if (!q) mark(k, false); list.scrollTop = st; }
     }
     if (FULL) backdrop(m);
     requestAnimationFrame(loop);

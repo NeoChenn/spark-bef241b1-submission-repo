@@ -151,8 +151,7 @@ def test_header_shapes_and_select():
     out = m.event("camera", {"mode": "zoom", "view": "rust"})
     assert out["camera"] == {"mode": "zoom", "robot": None, "view": "rust"}
     assert m.take_sim()[-1] == {"name": "camera", "args": {"mode": "zoom", "at": m.scen.targets()["rust"], "view": "rust"}}
-    with pytest.raises(ValueError):
-        m.event("camera", {"mode": "zoom", "view": "flange"})
+    assert m.event("camera", {"mode": "zoom", "view": "flange"})["camera"]["view"] == "flange"
     with pytest.raises(ValueError):
         m.event("select", {"robot": "R9"})
     m.event("scenario", {"id": "flyby"})

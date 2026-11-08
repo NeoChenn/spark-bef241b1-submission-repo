@@ -29,6 +29,9 @@ def unit(rid) -> str:
     return f"Unit {d}" if d else str(rid)
 
 
+CAM_DEFAULTS = {"deck": [18.75, -5.75, 42.5], "rust": [18.75, -5.75, 43.1], "flange": [17.0, -9.0, 42.5], "weld": [10.0, -8.0, 42.5]}
+
+
 class Script:
     id = name = main = ""
     steps: tuple = ()
@@ -576,8 +579,10 @@ class Scenarios:
         if obs:
             out["obstacle"] = list(obs[-1]["xyz"])
         cans = [o for o in obs if o.get("kind") == "can" or o.get("task")]
+        if cans:
+            out["can"] = list(cans[-1]["xyz"])
         if s is None or s.id == "flyby":
-            return out
+            return {**CAM_DEFAULTS, **out}
         if s.id == "gas":
             fl = self.m.valves.get(s.flange, s.valve_xyz)
             out["flange"], out["weld"] = list(fl), list(s.seam[1])
@@ -592,7 +597,7 @@ class Scenarios:
         elif s.id == "repair":
             rust = (self.pos(s.poi) or [18.75, -5.75, 42.5])[:2] + [43.1]
             out["rust"], out["weld"], out["deck"] = rust, list(s.seam[1]), rust
-        return out
+        return {**CAM_DEFAULTS, **out}
 
     def set_camera(self, args: dict) -> dict:
         mode, view = args.get("mode"), args.get("view")
