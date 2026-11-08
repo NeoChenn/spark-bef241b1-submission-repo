@@ -375,8 +375,19 @@ class LabRepairBridge:
             return None
         return np.ascontiguousarray(data[..., :3]).astype(np.uint8)
 
+    def _lift_off(self, distance: float = 0.06) -> None:
+        b = self.base
+        th = b.theta[:1]
+        n = torch.cos(th)[:, None] * b.pipe_e[:1] + torch.sin(th)[:, None] * b.pipe_b[:1]
+        b.p_tgt[0] = b.brush_w[0]
+        self._goto(self._brush() + distance * n[0].cpu().numpy(), 8)
+
     def observe(self) -> Optional[np.ndarray]:
-        self._park()
+        if self.state_fn() == "SCRUB" and not self.parked:
+            self.press = None
+            self._lift_off()
+        else:
+            self._park()
         rgb = self._render_inspection()
         if rgb is None or float(rgb.mean()) < 1.0:
             return None
@@ -435,7 +446,7 @@ class LabRepairBridge:
         return float(self.base.theta[0]) % TWO_PI, float(self.base.axial[0])
 
     def current_force(self) -> float:
-        return float(max(self.chunk_peak, self.force_now)) if not self.parked else 0.0
+        return float(max(self.chunk_peak, self.force_now))
 
     def back_off(self, distance: float = 0.05) -> None:
         b = self.base
