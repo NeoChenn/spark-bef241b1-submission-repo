@@ -82,6 +82,7 @@ def nv_prop(parent: str, asset: str, x, y, z, rot, index: int):
     model = d_stage().DefinePrim(f"{holder.GetPath()}/model", "Xform")
     model.GetReferences().AddReference(MANIFEST[asset]["url"])
     model.GetVariantSets().AddVariantSet("PhysX").SetVariantSelection("Disabled")
+    d_stage().OverridePrim(f"{model.GetPath()}/Joints").SetActive(False)
     for body in NV_BOUNDS[asset].get("bodies", []):
         d_stage().OverridePrim(f"{model.GetPath()}/{body}").CreateAttribute(
             "physics:rigidBodyEnabled", Sdf.ValueTypeNames.Bool).Set(False)

@@ -104,7 +104,7 @@ last_shot = [None]
 
 def shoot(tag, name):
     start = clock.monotonic()
-    for _ in range(3):
+    for _ in range(4):
         if args.renderer == "PathTracing":
             rep.orchestrator.step(rt_subframes=2, pause_timeline=False)
             rep.orchestrator.step(rt_subframes=max(args.spp // 16, 1) + 2, pause_timeline=False)
@@ -112,9 +112,12 @@ def shoot(tag, name):
             for _ in range(40):
                 rep.orchestrator.step(rt_subframes=1, pause_timeline=False)
         data = np.asarray(annotator.get_data())
-        sample = data[::16, ::16, :3].tobytes()
-        if sample != last_shot[0]:
+        sample = data[::16, ::16, :3].tobytes() if data.ndim == 3 else b""
+        if sample and sample != last_shot[0]:
             break
+    if data.ndim != 3:
+        print(f"VIEW {tag} {name} missing", flush=True)
+        return
     last_shot[0] = sample
     out = f"{args.out}/{tag}_{name}.png"
     Image.fromarray(np.ascontiguousarray(data[:, :, :3], dtype=np.uint8)).save(out)
