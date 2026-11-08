@@ -336,7 +336,7 @@ def floods(stage, b):
         d /= np.linalg.norm(d)
         root = UsdGeom.Xform.Define(stage, f"{facade.ROOT}/Lights/flood_{i:02d}")
         ops = UsdGeom.Xformable(root)
-        ops.AddTranslateOp().Set(Gf.Vec3d(*pos))
+        ops.AddTranslateOp().Set(Gf.Vec3d(*(np.array(pos) + d * 0.45)))
         w, x, y, z = tf.aim_from_down(d)
         ops.AddOrientOp().Set(Gf.Quatf(float(w), float(x), float(y), float(z)))
         light = UsdLux.SphereLight.Define(stage, f"{root.GetPath()}/light")
@@ -348,7 +348,7 @@ def floods(stage, b):
         shaping.CreateShapingConeSoftnessAttr().Set(0.5)
         p = np.array(pos)
         b.box("frame", tuple(p - (0.25, 0.25, -0.05)), tuple(p + (0.25, 0.25, 0.25)))
-        b.box("lamp", tuple(p - (0.2, 0.2, 0.02)), tuple(p + (0.2, 0.2, 0.05)))
+        b.box("lamp", tuple(p - (0.2, 0.2, 0.0)), tuple(p + (0.2, 0.2, 0.05)))
 
 
 def offline_lights(stage, lamps):
