@@ -30,6 +30,7 @@ def build() -> Path:
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     count = override_materials(stage)
     dressing = build_dressing.build(stage)
+    bind_mdl(stage, pr.FLOOR_LOOK, *pr.shader_inputs(pr.RECIPES["deck"]), define=True)
     as_overs(stage.GetRootLayer(), keep=(build_dressing.ROOT,))
     stage.GetRootLayer().Save()
     print(f"PHOTOREAL_WRITTEN {pr.LAYER} materials={count} dressing={dressing}")

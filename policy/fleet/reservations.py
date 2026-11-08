@@ -14,6 +14,7 @@ class Leg:
     t1: float
     kind: str
     corridor: Optional[str] = None
+    back: bool = False
 
 
 class Reservations:
@@ -35,6 +36,11 @@ class Reservations:
 
     def reserve(self, corridor: str, t0: float, t1: float, robot: str) -> None:
         self.table[corridor].append((t0, t1, robot))
+
+    def claim(self, corridor: str, t0: float, t1: float, robot: str) -> set[str]:
+        hit = {r for a, b, r in self.table[corridor] if r != robot and a < t1 + self.clearance and t0 < b + self.clearance}
+        self.table[corridor] = [x for x in self.table[corridor] if x[2] not in hit] + [(t0, t1, robot)]
+        return hit
 
     def release(self, robot: str, after: float = -math.inf) -> None:
         for c in self.table:

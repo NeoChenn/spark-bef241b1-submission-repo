@@ -12,6 +12,7 @@ from policy.fleet.assign import INF, assign as hungarian
 from policy.fleet.battery import POWER_W
 
 PERSON_RADIUS_M = 3.0
+PERSON_CLEAR_M = PERSON_RADIUS_M + 1.0
 RESERVE = 0.15
 IDLE_DOCK_BATTERY = 0.3
 RESUME_BATTERY = 0.9
@@ -465,7 +466,7 @@ class Coordinator:
         self.assigned_to[job.id] = rt.robot.id
         self.status[job.id] = JobStatus.ASSIGNED
         self._set_route(rt, self.planner.route(rt.robot, job.position, job.params.get("standoff", 1.0)))
-        rt.state = "MOVING"
+        self._go(rt, "MOVING")
         self.emit("assigned", job.id, rt.robot.id, cost_s=round(cost, 1),
                   bids={rid: round(c, 1) for c, rid in bids}, route_m=round(rt.route.length, 1))
 
@@ -481,7 +482,13 @@ class Coordinator:
                 self.emit("preempted" if "preempt" in why else "requeued", jid, rt.robot.id, reason=why)
         rt.job, rt.result, rt.route, rt.work_left = None, None, None, 0.0
         rt.robot.busy_with = None
-        rt.state = "IDLE"
+        self._go(rt, "IDLE")
+
+    def _go(self, rt: RobotRT, state: str):
+        if rt.state == "PAUSED_PERSON":
+            rt.paused_from = state
+        else:
+            rt.state = state
 
     def report(self, job: Job, robot: Optional[str] = None, event: str = "alarm", **detail) -> JobStatus:
         self.emit(event, job.id, robot, **detail)
@@ -545,12 +552,10 @@ class Coordinator:
         for rt in self.rt.values():
             if rt.state == "FAILED":
                 continue
-            near = [p for p in self.world.people if dist(p, rt.robot.position) < PERSON_RADIUS_M]
+            r_m = PERSON_CLEAR_M if rt.state == "PAUSED_PERSON" else PERSON_RADIUS_M
+            near = self._near(rt.robot.position, r_m)
             if near and rt.state != "PAUSED_PERSON":
-                rt.paused_from = rt.state
-                rt.state = "PAUSED_PERSON"
-                self.emit("person_pause", rt.job, rt.robot.id, distance_m=round(min(
-                    dist(p, rt.robot.position) for p in near), 2))
+                self._pause(rt, near)
             elif not near and rt.state == "PAUSED_PERSON":
                 rt.state = rt.paused_from or "IDLE"
                 self.emit("person_clear", rt.job, rt.robot.id, resume=rt.state)
@@ -565,6 +570,14 @@ class Coordinator:
                           reason="reserve needed to reach the dock" if low else "idle and low: charge while there is time")
                 self._release(rt, requeue=True, why="low battery: robot returns to dock")
                 self._go_dock(rt)
+
+    def _near(self, pos, r_m: float = PERSON_RADIUS_M) -> list:
+        return [p for p in self.world.people if dist(p, pos) < r_m]
+
+    def _pause(self, rt: RobotRT, near: list):
+        rt.paused_from = rt.state
+        rt.state = "PAUSED_PERSON"
+        self.emit("person_pause", rt.job, rt.robot.id, distance_m=round(min(dist(p, rt.robot.position) for p in near), 2))
 
     def _gas_zone(self):
         if not self.leaks():
@@ -583,7 +596,7 @@ class Coordinator:
 
     def _go_dock(self, rt: RobotRT):
         self._set_route(rt, self.planner.route(rt.robot, rt.dock, 0.0))
-        rt.state = "DOCKING"
+        self._go(rt, "DOCKING")
 
     def may_enter(self, rt: RobotRT, segment: str) -> bool:
         if rt.robot.kind != RobotKind.QUADRUPED:
@@ -611,7 +624,14 @@ class Coordinator:
             self._drain(rt, p.idle_w * dt / 3600.0)
             return
         if rt.state in ("MOVING", "WAITING_SEGMENT", "DOCKING"):
+            saved = (r.position, rt.yaw, rt.leg_i, rt.leg_s, rt.holding)
             arrived, wh, moved = self._move(rt, dt)
+            near = self._near(r.position) if moved else []
+            if near:
+                r.position, rt.yaw, rt.leg_i, rt.leg_s, rt.holding = saved
+                self._pause(rt, near)
+                self._drain(rt, p.idle_w * dt / 3600.0)
+                return
             self._drain(rt, wh)
             rt.dist_m += moved
             if rt.state == "WAITING_SEGMENT":

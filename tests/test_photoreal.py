@@ -58,7 +58,9 @@ def test_presets_map_to_rain():
 
 
 def test_quality_switch():
-    assert pr.quality_settings("live")["triplanar"] is False
+    assert pr.quality_settings("live")["triplanar"] is False and pr.quality_settings("live")["lite"] is True
+    assert pr.quality_settings("offline")["lite"] is False
+    assert pr.quality_settings("live")["wet_coat"] is False and pr.quality_settings("offline")["wet_coat"] is True
     assert pr.quality_settings("offline")["triplanar"] is True
     assert pr.quality_settings("offline")["offline_props"] is True
     assert pr.quality_settings("anything")["offline_props"] is False
@@ -100,3 +102,12 @@ def test_all_recipe_textures_exist():
         for value in values.values():
             if isinstance(value, Path):
                 assert value.exists(), value
+
+
+def test_floor_faces_pick_up_facing_triangles_at_deck_height():
+    import numpy as np
+
+    points = np.array([(0, 0, 42.5), (1, 0, 42.5), (0, 1, 42.5), (0, 0, 40.0), (1, 0, 41.0), (0, 1, 40.0),
+                       (0, 0, 42.5), (0, 0, 43.5), (1, 0, 42.5)], float)
+    tris = np.array([(0, 1, 2), (2, 1, 0), (3, 4, 5), (6, 8, 7)])
+    assert pr.floor_faces(points, tris, (20.0, 42.5)).tolist() == [0]
