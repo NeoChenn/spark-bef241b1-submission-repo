@@ -49,3 +49,19 @@ def test_new_flanges_avoid_existing_supports_and_flanges():
 
 def test_world_offsets_by_zone_translation():
     assert g.world((0.0, 0.0, 0.0)) == g.ZONE_T
+
+
+def test_every_textured_item_has_an_atlas_cell():
+    names = {s[3] for s in g.SIGNS} | {d[2] for d in g.GAUGES} | {g.label_key(n, d) for _, _, n, d in g.LABELS}
+    assert names <= set(g.ATLAS)
+
+
+def test_atlas_cells_do_not_overlap_and_uvs_stay_inside():
+    used = set()
+    for name, (col, row, w, h) in g.ATLAS.items():
+        cells = {(col + i, row + j) for i in range(w) for j in range(h)}
+        assert not cells & used and all(c < g.ATLAS_GRID and r < g.ATLAS_GRID for c, r in cells)
+        used |= cells
+        for u, v in ((0, 0), (1, 1)):
+            a, b = g.atlas_uv(name, u, v)
+            assert 0 < a < 1 and 0 < b < 1

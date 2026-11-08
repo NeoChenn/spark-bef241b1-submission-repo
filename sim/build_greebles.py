@@ -213,15 +213,18 @@ def decal_look(name, color_tex, mask, roughness=0.5, oil=0.0, tint=(1.0, 1.0, 1.
     return bind_mdl(S(), f"{LOOKS}/{name}", "rig_decal", values, define=True)
 
 
-_sign_looks = {}
+_atlas = []
 
 
-def sign_look(name):
-    if name not in _sign_looks:
-        mask = g.TEXTURES / f"{name}_mask.png"
-        _sign_looks[name] = decal_look(f"sign_{name}", g.TEXTURES / f"{name}.jpg",
-                                       mask if mask.exists() else g.TEXTURES / "solid_mask.png", roughness=0.42)
-    return _sign_looks[name]
+def atlas_look():
+    if not _atlas:
+        _atlas.append(decal_look("signs_atlas", g.TEXTURES / "atlas.jpg", g.TEXTURES / "atlas_mask.png", roughness=0.42))
+    return _atlas[0]
+
+
+def atlased(m, name):
+    m["uvs"] = np.array([g.atlas_uv(name, u, v) for u, v in m["uvs"]])
+    return m
 
 
 def quad_mesh(centre, u, v, hu, hv, uv=((0, 0), (1, 1))):
@@ -343,14 +346,11 @@ def supports(kit):
 def labels():
     root = f"{g.ZONE_ROOT}/Labels"
     UsdGeom.Scope.Define(S(), root)
-    looks = {}
     for k, (line, x, name, direction) in enumerate(g.LABELS):
         y, z, r, _ = g.LINES[line]
-        key = f"label_{name}_{'f' if direction > 0 else 'r'}"
-        if key not in looks:
-            looks[key] = decal_look(key, g.TEXTURES / f"{key}.jpg", g.TEXTURES / "solid_mask.png", roughness=0.38)
+        key = g.label_key(name, direction)
         length = 0.22 + 2.2 * r
-        write_mesh(f"{root}/label_{k:02d}", sleeve_mesh(x - length / 2, x + length / 2, y, z, r + 0.0025), looks[key])
+        write_mesh(f"{root}/label_{k:02d}", atlased(sleeve_mesh(x - length / 2, x + length / 2, y, z, r + 0.0025), key), atlas_look())
 
 
 def gauges(kit):
@@ -367,7 +367,7 @@ def gauges(kit):
         c = (x, y, top + 0.205)
         kit.seg(MAT["black"], "cyl", (x, y - 0.02 * side, c[2]), (x, y + 0.02 * side, c[2]), 0.13)
         kit.add(MAT["galv"], "torus", (x, y + 0.021 * side, c[2]), X_TO_Y, (0.06, 0.06, 0.06))
-        write_mesh(f"{root}/dial_{k:02d}", disc_mesh((x, y + 0.0215 * side, c[2]), (0, side, 0), 0.056), sign_look(dial))
+        write_mesh(f"{root}/dial_{k:02d}", atlased(disc_mesh((x, y + 0.0215 * side, c[2]), (0, side, 0), 0.056), dial), atlas_look())
 
 
 def handwheels(kit):
@@ -467,7 +467,7 @@ def column_kit(kit):
         n = np.array((nx, ny, 0.0))
         u = np.cross((0, 0, 1), n)
         cx, cy = g.on_column(col, face, 0.125 + 0.016)
-        write_mesh(f"{root}/sign_{k:02d}", quad_mesh((cx, cy, z), -u, (0, 0, 1), w / 2, h / 2), sign_look(name))
+        write_mesh(f"{root}/sign_{k:02d}", atlased(quad_mesh((cx, cy, z), u, (0, 0, 1), w / 2, h / 2), name), atlas_look())
         bx, by = g.on_column(col, face, 0.125 + 0.008)
         if not name.startswith("hazard"):
             kit.box(MAT["galv"], (bx, by, z), (0.012 if nx else w + 0.02, 0.012 if ny else w + 0.02, h + 0.02))
@@ -484,7 +484,7 @@ def stripes(stripe_look):
             n = np.array((nx, ny, 0.0))
             u = np.cross((0, 0, 1), n)
             c = (cx + nx * 0.1265, cy + ny * 0.1265, 0.3)
-            write_mesh(f"{root}/col_{k}_{j}", quad_mesh(c, -u, (0, 0, 1), 0.1265, 0.3, ((0, 0), (0.42, 1.0))), stripe_look)
+            write_mesh(f"{root}/col_{k}_{j}", quad_mesh(c, u, (0, 0, 1), 0.1265, 0.3, ((0, 0), (0.42, 1.0))), stripe_look)
 
 
 def tray(kit, root):

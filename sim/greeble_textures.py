@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from greebles import TEXTURES
+from greebles import ATLAS, ATLAS_GRID, TEXTURES
 
 RED = (196, 30, 28)
 WHITE = (238, 236, 228)
@@ -209,6 +209,17 @@ def build() -> dict:
         if mask is not None:
             mask.save(TEXTURES / f"{name}_mask.png")
     Image.new("L", (8, 8), 255).save(TEXTURES / "solid_mask.png")
+    cell = 512
+    atlas = Image.new("RGB", (cell * ATLAS_GRID, cell * ATLAS_GRID), (128, 128, 128))
+    amask = Image.new("L", atlas.size, 255)
+    for name, (col, row, w, h) in ATLAS.items():
+        box = (col * cell, row * cell)
+        atlas.paste(Image.open(out[name]).convert("RGB").resize((w * cell, h * cell), Image.LANCZOS), box)
+        mask = TEXTURES / f"{name}_mask.png"
+        if mask.exists():
+            amask.paste(Image.open(mask).convert("L").resize((w * cell, h * cell), Image.LANCZOS), box)
+    atlas.save(TEXTURES / "atlas.jpg", quality=92)
+    amask.save(TEXTURES / "atlas_mask.png")
     return out
 
 

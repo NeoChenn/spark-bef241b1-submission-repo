@@ -61,6 +61,24 @@ DEBRIS = (
 )
 STRIPES = tuple(c for c in COLUMNS)
 ALLOWED_IN_WORK = ("weld", "label")
+ATLAS_GRID = 4
+ATLAS_PAD = 3 / 2048
+ATLAS = {
+    "no_smoking": (0, 0, 1, 1), "ppe": (1, 0, 1, 1), "hazard_flammable": (2, 0, 1, 1), "muster": (3, 0, 1, 1),
+    "h2s": (0, 1, 1, 1), "dial_a": (1, 1, 1, 1), "dial_b": (2, 1, 1, 1), "label_crude_f": (0, 2, 2, 1),
+    "label_water_r": (2, 2, 2, 1), "label_gas_f": (0, 3, 2, 1), "label_foam_r": (2, 3, 2, 1),
+}
+
+
+def label_key(name: str, direction: int) -> str:
+    return f"label_{name}_{'f' if direction > 0 else 'r'}"
+
+
+def atlas_uv(name: str, u: float, v: float) -> tuple[float, float]:
+    col, row, w, h = ATLAS[name]
+    u0, u1 = col / ATLAS_GRID + ATLAS_PAD, (col + w) / ATLAS_GRID - ATLAS_PAD
+    v0, v1 = 1 - (row + h) / ATLAS_GRID + ATLAS_PAD, 1 - row / ATLAS_GRID - ATLAS_PAD
+    return u0 + (u1 - u0) * u, v0 + (v1 - v0) * v
 
 
 def world(p):
