@@ -60,6 +60,7 @@ def test_presets_map_to_rain():
 def test_quality_switch():
     assert pr.quality_settings("live")["triplanar"] is False and pr.quality_settings("live")["lite"] is True
     assert pr.quality_settings("offline")["lite"] is False
+    assert pr.quality_settings("live")["wet_coat"] is False and pr.quality_settings("offline")["wet_coat"] is True
     assert pr.quality_settings("offline")["triplanar"] is True
     assert pr.quality_settings("offline")["offline_props"] is True
     assert pr.quality_settings("anything")["offline_props"] is False

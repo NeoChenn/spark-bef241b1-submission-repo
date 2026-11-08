@@ -20,6 +20,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -60,6 +61,7 @@ over "World"
                 bool inputs:tint_paint = 0
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -77,6 +79,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.138
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -117,6 +120,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -134,6 +138,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0
                 float inputs:grime_amount = 0.5
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -174,6 +179,7 @@ over "World"
                 bool inputs:tint_paint = 0
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -191,6 +197,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0
                 float inputs:grime_amount = 0.5
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -231,6 +238,7 @@ over "World"
                 bool inputs:tint_paint = 0
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -248,6 +256,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.385
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -288,6 +297,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -305,6 +315,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.385
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -345,6 +356,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -362,6 +374,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.44
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -402,6 +415,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -419,6 +433,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.358
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -459,6 +474,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -476,6 +492,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.303
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -516,6 +533,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -533,6 +551,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.55
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -573,6 +592,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -590,6 +610,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.165
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -630,6 +651,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -647,6 +669,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.413
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -687,6 +710,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -704,6 +728,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -744,6 +769,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -761,6 +787,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.385
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -801,6 +828,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -818,6 +846,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.385
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -858,6 +887,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -875,6 +905,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.495
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -915,6 +946,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -932,6 +964,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -972,6 +1005,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -989,6 +1023,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.248
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1029,6 +1064,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1046,6 +1082,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.248
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1086,6 +1123,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1103,6 +1141,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.248
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1143,6 +1182,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1160,6 +1200,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.275
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1200,6 +1241,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1217,6 +1259,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.275
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1257,6 +1300,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1274,6 +1318,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.275
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1314,6 +1359,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1331,6 +1377,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1371,6 +1418,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1388,6 +1436,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.275
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1428,6 +1477,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1445,6 +1495,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1485,6 +1536,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1502,6 +1554,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1542,6 +1595,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1559,6 +1613,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1599,6 +1654,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1616,6 +1672,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1656,6 +1713,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1673,6 +1731,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.165
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1713,6 +1772,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1730,6 +1790,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1770,6 +1831,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1787,6 +1849,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1827,6 +1890,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1844,6 +1908,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1884,6 +1949,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1901,6 +1967,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.275
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1941,6 +2008,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -1958,6 +2026,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.275
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -1998,6 +2067,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -2015,6 +2085,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -2055,6 +2126,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -2072,6 +2144,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.275
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -2112,6 +2185,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -2129,6 +2203,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0.33
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -2169,6 +2244,7 @@ over "World"
                 bool inputs:tint_paint = 1
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -2236,6 +2312,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -2280,6 +2357,7 @@ over "World"
                 bool inputs:tint_paint = 0
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 1
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -2297,6 +2375,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -2341,6 +2420,7 @@ over "World"
                 bool inputs:tint_paint = 0
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 1
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -2358,6 +2438,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -2398,6 +2479,7 @@ over "World"
                 bool inputs:tint_paint = 0
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -2415,6 +2497,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -2455,6 +2538,7 @@ over "World"
                 bool inputs:tint_paint = 0
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -2472,6 +2556,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -2512,6 +2597,7 @@ over "World"
                 bool inputs:tint_paint = 0
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -2529,6 +2615,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -2569,6 +2656,7 @@ over "World"
                 bool inputs:tint_paint = 0
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -2586,6 +2674,7 @@ over "World"
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                 float inputs:chip_amount = 0
                 float inputs:grime_amount = 0.35
+                bool inputs:lite = 1
                 float inputs:macro_scale = 23
                 asset inputs:masks = @../assets/generated/rig_masks.png@ (
                     colorSpace = "raw"
@@ -2626,6 +2715,7 @@ over "World"
                 bool inputs:tint_paint = 0
                 bool inputs:triplanar = 0
                 bool inputs:use_opacity = 0
+                bool inputs:wet_coat = 0
                 float inputs:wetness = 0
                 token outputs:out
             }
@@ -2648,6 +2738,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -2688,6 +2779,7 @@ over "World"
                     bool inputs:tint_paint = 0
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -2705,6 +2797,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.138
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -2745,6 +2838,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -2762,6 +2856,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.5
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -2802,6 +2897,7 @@ over "World"
                     bool inputs:tint_paint = 0
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -2819,6 +2915,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.5
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -2859,6 +2956,7 @@ over "World"
                     bool inputs:tint_paint = 0
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -2876,6 +2974,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.385
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -2916,6 +3015,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -2933,6 +3033,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.385
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -2973,6 +3074,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -2990,6 +3092,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.44
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3030,6 +3133,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3047,6 +3151,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.358
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3087,6 +3192,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3104,6 +3210,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.303
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3144,6 +3251,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3161,6 +3269,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.55
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3201,6 +3310,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3218,6 +3328,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.165
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3258,6 +3369,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3275,6 +3387,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.413
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3315,6 +3428,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3332,6 +3446,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3372,6 +3487,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3389,6 +3505,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.385
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3429,6 +3546,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3446,6 +3564,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.385
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3486,6 +3605,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3503,6 +3623,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.495
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3543,6 +3664,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3560,6 +3682,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3600,6 +3723,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3617,6 +3741,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.248
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3657,6 +3782,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3674,6 +3800,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.248
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3714,6 +3841,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3731,6 +3859,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.248
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3771,6 +3900,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3788,6 +3918,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.275
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3828,6 +3959,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3845,6 +3977,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.275
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3885,6 +4018,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3902,6 +4036,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.275
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3942,6 +4077,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -3959,6 +4095,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -3999,6 +4136,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4016,6 +4154,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.275
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4056,6 +4195,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4073,6 +4213,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4113,6 +4254,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4130,6 +4272,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4170,6 +4313,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4187,6 +4331,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4227,6 +4372,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4244,6 +4390,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4284,6 +4431,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4301,6 +4449,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.165
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4341,6 +4490,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4358,6 +4508,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4398,6 +4549,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4415,6 +4567,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4455,6 +4608,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4472,6 +4626,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4512,6 +4667,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4529,6 +4685,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.275
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4569,6 +4726,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4586,6 +4744,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.275
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4626,6 +4785,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4643,6 +4803,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4683,6 +4844,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4700,6 +4862,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.275
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4740,6 +4903,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4757,6 +4921,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.33
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4797,6 +4962,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4864,6 +5030,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4908,6 +5075,7 @@ over "World"
                     bool inputs:tint_paint = 0
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 1
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4925,6 +5093,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -4969,6 +5138,7 @@ over "World"
                     bool inputs:tint_paint = 0
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 1
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -4986,6 +5156,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -5026,6 +5197,7 @@ over "World"
                     bool inputs:tint_paint = 0
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -5043,6 +5215,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -5083,6 +5256,7 @@ over "World"
                     bool inputs:tint_paint = 0
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -5100,6 +5274,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -5140,6 +5315,7 @@ over "World"
                     bool inputs:tint_paint = 0
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -5157,6 +5333,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -5197,6 +5374,7 @@ over "World"
                     bool inputs:tint_paint = 0
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -5214,6 +5392,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -5254,6 +5433,7 @@ over "World"
                     bool inputs:tint_paint = 0
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -5313,6 +5493,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.028
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -5353,6 +5534,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -5370,6 +5552,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.028
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -5410,6 +5593,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -5427,6 +5611,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.028
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -5467,6 +5652,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -5484,6 +5670,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.028
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -5524,6 +5711,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -5609,6 +5797,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0.028
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -5649,6 +5838,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -5666,6 +5856,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -5706,6 +5897,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -5723,6 +5915,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -5763,6 +5956,7 @@ over "World"
                     bool inputs:tint_paint = 0
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -5780,6 +5974,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.55
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -5820,6 +6015,7 @@ over "World"
                     bool inputs:tint_paint = 1
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }
@@ -6032,6 +6228,7 @@ over "World"
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
                     float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.35
+                    bool inputs:lite = 1
                     float inputs:macro_scale = 23
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
@@ -6072,6 +6269,7 @@ over "World"
                     bool inputs:tint_paint = 0
                     bool inputs:triplanar = 0
                     bool inputs:use_opacity = 0
+                    bool inputs:wet_coat = 0
                     float inputs:wetness = 0
                     token outputs:out
                 }

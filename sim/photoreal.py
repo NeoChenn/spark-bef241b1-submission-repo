@@ -114,6 +114,8 @@ COMMON = {
     "wetness": 0.0,
     "puddles": 0.0,
     "triplanar": False,
+    "lite": True,
+    "wet_coat": False,
     "paint_reference": 0.77,
 }
 CHIP_SCALE = 0.55
@@ -217,7 +219,7 @@ def rain_for(preset: str) -> float:
 
 def quality_settings(quality: str) -> dict:
     offline = quality == "offline"
-    return {"triplanar": offline, "lite": not offline, "offline_props": offline}
+    return {"triplanar": offline, "lite": not offline, "wet_coat": offline, "offline_props": offline}
 
 
 def current_quality() -> str:
@@ -261,6 +263,7 @@ def apply(stage, preset: str, quality: str | None = None) -> dict:
             shader.CreateInput("puddles", Sdf.ValueTypeNames.Float).Set(w["puddles"])
             shader.CreateInput("triplanar", Sdf.ValueTypeNames.Bool).Set(q["triplanar"])
             shader.CreateInput("lite", Sdf.ValueTypeNames.Bool).Set(q["lite"])
+            shader.CreateInput("wet_coat", Sdf.ValueTypeNames.Bool).Set(q["wet_coat"])
     offline = stage.GetPrimAtPath(OFFLINE_SCOPE)
     if offline.IsValid():
         offline.SetActive(q["offline_props"])
