@@ -10,8 +10,9 @@ from rig.views.compose import robot_views, role_of
 from rig.views.schedule import Schedule
 
 ROBOTS = "/World/Obstacles/Robots"
-EYE = (0.32, 0.0, 0.45)
-LOOK = (6.0, 0.0, -0.5)
+MOUNTS = {"rust": ((0.35, 0.0, 1.05), (1.6, 0.0, -0.75)), "gas": ((0.3, 0.0, 0.95), (6.0, 0.0, 0.4)),
+          "inspection": ((0.32, 0.0, 0.45), (6.0, 0.0, -0.5))}
+LIGHT = 40000.0
 APERTURE = 20.955
 SETTLE = 3
 NEAR = 0.6
@@ -38,7 +39,7 @@ class SensorRig:
         threading.Thread(target=self._work, daemon=True).start()
 
     def _mount(self, rid: str) -> dict:
-        from pxr import Gf, UsdGeom
+        from pxr import Gf, UsdGeom, UsdLux
 
         from rig.sim.orbit import look_at_rows
 
@@ -48,10 +49,18 @@ class SensorRig:
         cam.CreateHorizontalApertureAttr(APERTURE)
         cam.CreateVerticalApertureAttr(APERTURE * self.size[1] / self.size[0])
         cam.CreateClippingRangeAttr(Gf.Vec2f(NEAR, 400.0))
-        cam.AddTransformOp().Set(Gf.Matrix4d(look_at_rows(EYE, LOOK)))
+        role = role_of(len(self.cams))
+        cam.AddTransformOp().Set(Gf.Matrix4d(look_at_rows(*MOUNTS[role])))
+        lamp = UsdLux.SphereLight.Define(self.stage, f"{path}/work_light")
+        lamp.CreateRadiusAttr(0.04)
+        lamp.CreateIntensityAttr(LIGHT)
+        lamp.CreateColorAttr(Gf.Vec3f(1.0, 0.95, 0.86))
+        shaping = UsdLux.ShapingAPI.Apply(lamp.GetPrim())
+        shaping.CreateShapingConeAngleAttr(38.0)
+        shaping.CreateShapingConeSoftnessAttr(0.4)
         if self.rp is None and self.on:
             self._product(path)
-        c = {"path": path, "cam": cam, "role": role_of(len(self.cams))}
+        c = {"path": path, "cam": cam, "role": role}
         print(f"rig sim: sensor cam {path} {self.size[0]}x{self.size[1]} role={c['role']}", flush=True)
         return c
 
