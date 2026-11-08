@@ -1,0 +1,140 @@
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+
+import numpy as np
+
+from integration.fleet_camera import APERTURE, CLIP, H, W, _body, _fit, usd_matrix
+from integration.fleet_paths import DOCK
+from rig.camera import look_at, project
+from rig.sim.zoom import ease, spherical
+
+Vec3 = tuple[float, float, float]
+TRUNK_Z = 42.82
+RIG_CENTER = (5.0, 0.0, 44.0)
+CONTROL_ROOM = {"prim": "/World/Rig/module_n83_40_module_white", "windows": "/World/Details/windows_module_n83_40",
+                "box": ((-21.0, 10.1, 31.2), (-11.4, 21.1, 41.2)), "floor_z": 38.2, "window_y": 21.1,
+                "interior_eye": (-16.2, 12.6, 39.7), "window_target": (-16.2, 21.1, 39.5)}
+
+
+@dataclass(frozen=True)
+class FilmScene:
+    unit1_dock: Vec3 = (12.2, -7.5, TRUNK_Z)
+    unit1_work: Vec3 = (18.225, -5.262, TRUNK_Z)
+    patch: Vec3 = (18.2567, -5.655, 43.7199)
+    patch_normal: Vec3 = (0.0, 0.6212, 0.7836)
+    unit2_dock: Vec3 = (*DOCK["unit2"][:2], TRUNK_Z)
+    unit2_work: Vec3 = (21.012, -10.27, TRUNK_Z)
+    bolt: Vec3 = (20.5072, -10.5843, 43.3081)
+    flange: Vec3 = (20.4602, -10.5044, 43.4)
+
+
+DEFAULT_FILM_SCENE = FilmScene()
+
+
+def _lerp(a, b, s: float) -> Vec3:
+    return tuple(float(x + (y - x) * s) for x, y in zip(a, b))
+
+
+def _up(p, dz: float) -> Vec3:
+    return (float(p[0]), float(p[1]), float(p[2] + dz))
+
+
+RIG_CORNERS = [(x, y, z) for x in (-37.0, 37.5) for y in (-39.0, 27.4) for z in (18.0, 42.5)] + [(20.0, 20.0, 81.3)]
+ORBIT = (-62.0, 18.0, 23.0, 26.0)
+
+
+def frames(eye, target, focal: float, pts, margin: float = 30.0) -> bool:
+    cam = look_at(eye, target, focal, APERTURE, W, H)
+    return all(z > 0 and margin <= u <= W - margin and margin <= v <= H - margin
+               for u, v, z in (project(cam, p) for p in pts))
+
+
+def rig_radius(az0: float, sweep: float, el: float, focal: float) -> float:
+    lo, hi = 20.0, 600.0
+    for _ in range(40):
+        d = (lo + hi) / 2
+        ok = all(frames(spherical(RIG_CENTER, d, az0 + sweep * k / 16, el), RIG_CENTER, focal, RIG_CORNERS)
+                 for k in range(17))
+        lo, hi = (lo, d) if ok else (d, hi)
+    return hi
+
+
+RIG_RADIUS = rig_radius(*ORBIT)
+
+
+def rig_orbit(u: float) -> tuple[Vec3, Vec3, float]:
+    az0, sweep, el, focal = ORBIT
+    return spherical(RIG_CENTER, RIG_RADIUS, az0 + sweep * ease(u), el), RIG_CENTER, focal
+
+
+def control_push(u: float) -> tuple[Vec3, Vec3, float]:
+    room = CONTROL_ROOM["window_target"]
+    s = ease(u)
+    eye = _lerp((-13.5, 45.0, 43.5), (-15.6, 25.0, 40.0), s)
+    return eye, _lerp((-15.0, 18.0, 38.0), room, s), 28.0 + 7.0 * s
+
+
+def control_room(u: float) -> tuple[Vec3, Vec3, float]:
+    eye = CONTROL_ROOM["interior_eye"]
+    return _lerp(eye, (eye[0] + 0.6, eye[1] + 0.3, eye[2]), u), CONTROL_ROOM["window_target"], 22.0
+
+
+def follow(robot: Vec3, eye_offset: Vec3, focal: float) -> tuple[Vec3, Vec3, float]:
+    target = _up(robot, 0.25)
+    return tuple(float(t + o) for t, o in zip(target, eye_offset)), target, focal
+
+
+def unit2_job(scene: FilmScene = DEFAULT_FILM_SCENE) -> tuple[Vec3, Vec3, float]:
+    s = scene
+    pts = [s.bolt, s.flange, _up(s.unit2_work, 0.3), _up(s.unit2_work, 1.1)]
+    return _fit(pts, 40.0, 18.0, 40.0, margin=70.0, target=_lerp(s.bolt, _up(s.unit2_work, 0.6), 0.3))
+
+
+def unit1_job(scene: FilmScene = DEFAULT_FILM_SCENE) -> tuple[Vec3, Vec3, float]:
+    s = scene
+    n = np.asarray(s.patch_normal)
+    pts = [s.patch, tuple(np.asarray(s.patch) + 0.35 * n), _up(s.unit1_work, 0.3), _up(s.unit1_work, 0.8)]
+    return _fit(pts, 60.0, 22.0, 40.0, margin=40.0, target=_lerp(s.patch, _up(s.unit1_work, 0.5), 0.3))
+
+
+def birdseye(scene: FilmScene = DEFAULT_FILM_SCENE) -> tuple[Vec3, Vec3, float]:
+    s = scene
+    return _fit(bodies(s.unit1_dock, s.unit1_work, s.unit2_dock, s.unit2_work), 100.0, 75.0, 24.0, margin=60.0)
+
+
+def conclusion(u: float) -> tuple[Vec3, Vec3, float]:
+    return spherical(RIG_CENTER, RIG_RADIUS * 1.15, 120.0 + 6.0 * u, 14.0), RIG_CENTER, 24.0
+
+
+def view(eye, target, focal, w: int = W, h: int = H) -> dict:
+    return look_at(eye, target, focal, APERTURE, w, h)
+
+
+def apply_usd_pose(stage, path: str, eye, target, focal: float, time=None):
+    from pxr import Gf, Usd, UsdGeom
+
+    cam = UsdGeom.Camera.Get(stage, path)
+    if not cam:
+        cam = UsdGeom.Camera.Define(stage, path)
+        cam.CreateHorizontalApertureAttr(APERTURE)
+        cam.CreateVerticalApertureAttr(APERTURE * H / W)
+        cam.CreateClippingRangeAttr(Gf.Vec2f(*CLIP))
+    xf = UsdGeom.Xformable(cam)
+    ops = xf.GetOrderedXformOps()
+    if len(ops) != 1 or ops[0].GetOpType() != UsdGeom.XformOp.TypeTransform:
+        xf.ClearXformOpOrder()
+        ops = [xf.AddTransformOp()]
+    code = Usd.TimeCode.Default() if time is None else Usd.TimeCode(time)
+    ops[0].Set(Gf.Matrix4d(usd_matrix(eye, target)), code)
+    cam.GetFocalLengthAttr().Set(float(focal), code)
+    return cam
+
+
+def bodies(*robots: Vec3) -> list[Vec3]:
+    return [p for r in robots for p in _body(r)]
+
+
+def dist(a, b) -> float:
+    return float(math.dist(a, b))
