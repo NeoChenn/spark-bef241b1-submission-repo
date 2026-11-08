@@ -47,7 +47,7 @@ services:
     command:
       - /rig/rig/sim/main.py
       - --sim=127.0.0.1:9000
-      - --cinematic=${RIG_CINEMATIC:-night}
+      - --cinematic=${RIG_CINEMATIC:-dusk}
       - --renderer=RealTimePathTracing
       - --width=1280
       - --height=720
