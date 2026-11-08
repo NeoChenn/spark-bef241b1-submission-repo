@@ -185,9 +185,9 @@ def worker(argv):
         hud.append(bridge.timeline.hud_record(snap["t"], snap["phase"], snap["force_n"], (bx[0], bx[1], bx[2]),
                                               {"rust": snap["true_rust_fraction"]}))
         history.append((snap["t"], snap["force_n"]))
+        paint_overlay(snap)
         if writer is None:
             return
-        paint_overlay(snap)
         base.sim.render()
         imgs = {k: np.asarray(a.get_data()) for k, a in cams.items()}
         if any(v.size == 0 for v in imgs.values()):
