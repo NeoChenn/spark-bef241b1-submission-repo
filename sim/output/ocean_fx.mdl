@@ -304,6 +304,7 @@ export material OceanFx(
     float slope_gain = 1.0,
     float debug = 0.0,
     uniform int wave_stride = 1,
+    uniform bool live = false,
     float debug_mode = 0.0
 )
 = let {
@@ -327,9 +328,10 @@ export material OceanFx(
 
     float2 adv = p - DRIFT * (time * drift_speed);
     float2 dc = float2(math::dot(adv, DRIFT), math::dot(adv, perp));
-    float lace = math::max(ridge(noise(adv, time * 0.08, 1.6, 3), 0.22), 0.8 * ridge(noise(adv * 2.7, time * 0.15, 1.6, 2), 0.3));
-    float blob = noise(adv, time * 0.05, 7.0, 3);
-    float streak = noise(float2(dc.x * 0.12, dc.y * 1.4), time * 0.03, 1.0, 3);
+    float lace0 = ridge(noise(adv, time * 0.08, 1.6, live ? 2 : 3), 0.22);
+    float lace = live ? lace0 : math::max(lace0, 0.8 * ridge(noise(adv * 2.7, time * 0.15, 1.6, 2), 0.3));
+    float blob = noise(adv, time * 0.05, 7.0, live ? 2 : 3);
+    float streak = noise(float2(dc.x * 0.12, dc.y * 1.4), time * 0.03, 1.0, live ? 2 : 3);
     float pattern = math::saturate(0.45 * lace + 0.35 * math::smoothstep(0.3, 0.7, blob) + 0.3 * math::smoothstep(0.35, 0.65, streak));
 
     float crest = math::saturate((foam_threshold - o.jac) / foam_softness);

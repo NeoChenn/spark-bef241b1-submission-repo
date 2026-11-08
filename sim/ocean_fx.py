@@ -122,7 +122,11 @@ def pixel_angle(aperture_mm: float, focal_mm: float, width_px: float = REFERENCE
 
 
 def wave_stride(quality: str) -> int:
-    return 1 if quality == "offline" else 2
+    return 1 if quality == "offline" else 3
+
+
+def moved(last, new, tol: float) -> bool:
+    return last is None or max(abs(a - b) for a, b in zip(last, new)) > tol
 
 
 def parse_overrides(text: str) -> dict:
@@ -158,7 +162,9 @@ def apply(stage, name: str, height: float) -> bool:
             shader.CreateInput(key, Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*value))
         else:
             shader.CreateInput(key, Sdf.ValueTypeNames.Float).Set(float(value))
-    shader.CreateInput("wave_stride", Sdf.ValueTypeNames.Int).Set(wave_stride(os.environ.get("RIG_QUALITY", "live")))
+    quality = os.environ.get("RIG_QUALITY", "live")
+    shader.CreateInput("wave_stride", Sdf.ValueTypeNames.Int).Set(wave_stride(quality))
+    shader.CreateInput("live", Sdf.ValueTypeNames.Bool).Set(quality != "offline")
     shader.CreateInput("debug", Sdf.ValueTypeNames.Float).Set(float(os.environ.get("RIG_OCEAN_FX_DEBUG", "0")))
     for key, value in parse_overrides(os.environ.get("RIG_OCEAN_FX_INPUTS", "")).items():
         shader.CreateInput(key, Sdf.ValueTypeNames.Float).Set(value)
@@ -180,8 +186,14 @@ def animate(stage, time: float) -> None:
         if prim.IsValid():
             cam = UsdGeom.Camera(prim)
             eye = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()).ExtractTranslation()
-            _state["cam"].Set(Gf.Vec3f(*eye))
-            _state["angle"].Set(pixel_angle(cam.GetHorizontalApertureAttr().Get(), cam.GetFocalLengthAttr().Get()))
+            eye = tuple(float(v) for v in eye)
+            if moved(_state.get("last_eye"), eye, 1.0):
+                _state["cam"].Set(Gf.Vec3f(*eye))
+                _state["last_eye"] = eye
+            angle = (pixel_angle(cam.GetHorizontalApertureAttr().Get(), cam.GetFocalLengthAttr().Get()),)
+            if moved(_state.get("last_angle"), angle, angle[0] * 0.02):
+                _state["angle"].Set(angle[0])
+                _state["last_angle"] = angle
             if os.environ.get("RIG_OCEAN_FX_DEBUG"):
                 print(f"ocean_fx: t={time:.2f} cam={path} eye={tuple(round(v, 1) for v in eye)}", flush=True)
             return
