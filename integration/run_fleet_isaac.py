@@ -1761,8 +1761,11 @@ def open_control_room(stage, cr: dict, root: str = "/World/Fleet/control_room", 
     if not (mod.IsValid() and win.IsValid()):
         return {"opened": 0}
     UsdGeom.Xform.Define(stage, root)
-    white = UsdShade.MaterialBindingAPI(mod).ComputeBoundMaterial()[0]
+    UsdGeom.Xform.Define(stage, f"{root}/frames")
+    white = _surface(stage, f"{root}/Looks/steel", (0.36, 0.375, 0.385), 0.6, 0.3)
     glass = UsdShade.MaterialBindingAPI(win).ComputeBoundMaterial()[0]
+    warm = _surface(stage, f"{root}/Looks/glass_warm", (0.9, 0.75, 0.55), 0.2, emissive=(2.2, 1.35, 0.62))
+    dark = _surface(stage, f"{root}/Looks/frame", (0.035, 0.037, 0.04), 0.5, 0.4)
     (x0, y0, z0), (x1, y1, z1) = cr["box"]
     m = UsdGeom.Mesh(win)
     M = np.array(UsdGeom.XformCache().GetLocalToWorldTransform(win))
@@ -1775,13 +1778,41 @@ def open_control_room(stage, cr: dict, root: str = "/World/Fleet/control_room", 
     keep = [f for f in faces if not any(f is g for g in north)]
     holes = sorted((float(pts[f, 0].min()), float(pts[f, 0].max()), float(pts[f, 2].min()), float(pts[f, 2].max()))
                    for f in north)
-    cut = UsdGeom.Mesh.Define(stage, f"{root}/windows_cut")
-    cut.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
-    cut.CreateFaceVertexCountsAttr(Vt.IntArray([len(f) for f in keep]))
-    cut.CreateFaceVertexIndicesAttr(Vt.IntArray([int(i) for f in keep for i in f]))
-    cut.CreateDoubleSidedAttr(True)
-    if glass:
-        UsdShade.MaterialBindingAPI.Apply(cut.GetPrim()).Bind(glass)
+    top_z = float(cr.get("floor_z", z0)) + 0.5
+    top = [f for f in keep if pts[f, 2].mean() > top_z]
+    low = [f for f in keep if pts[f, 2].mean() <= top_z]
+    for name, group, mat in (("windows_cut", low, glass), ("windows_warm", top, warm)):
+        if not group:
+            continue
+        cut = UsdGeom.Mesh.Define(stage, f"{root}/{name}")
+        cut.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
+        cut.CreateFaceVertexCountsAttr(Vt.IntArray([len(f) for f in group]))
+        cut.CreateFaceVertexIndicesAttr(Vt.IntArray([int(i) for f in group for i in f]))
+        cut.CreateDoubleSidedAttr(True)
+        if mat:
+            UsdShade.MaterialBindingAPI.Apply(cut.GetPrim()).Bind(mat)
+    bars = 0
+    for k, f in enumerate(faces):
+        lo_, hi_ = pts[f].min(0), pts[f].max(0)
+        thin = int(np.argmin(hi_ - lo_))
+        along = 1 - thin if thin < 2 else 0
+        w_, d_ = 0.05, 0.04
+        for j, (a_, b_) in enumerate((("lo", "z"), ("hi", "z"), ("lo", "s"), ("hi", "s"))):
+            lo2, hi2 = lo_.copy(), hi_.copy()
+            lo2[thin], hi2[thin] = lo_[thin] - d_ / 2, hi_[thin] + d_ / 2
+            if b_ == "z":
+                z_ = lo_[2] if a_ == "lo" else hi_[2]
+                lo2[2], hi2[2] = z_ - w_ / 2, z_ + w_ / 2
+            else:
+                v_ = lo_[along] if a_ == "lo" else hi_[along]
+                lo2[along], hi2[along] = v_ - w_ / 2, v_ + w_ / 2
+            bar = UsdGeom.Cube.Define(stage, f"{root}/frames/f{k}_{j}")
+            bar.CreateSizeAttr(1.0)
+            xf = UsdGeom.Xformable(bar)
+            xf.AddTranslateOp().Set(Gf.Vec3d(*((lo2 + hi2) / 2).tolist()))
+            xf.AddScaleOp().Set(Gf.Vec3f(*(hi2 - lo2).tolist()))
+            UsdShade.MaterialBindingAPI.Apply(bar.GetPrim()).Bind(dark)
+            bars += 1
     parts = [("shell_roof", (x0, y0, z1 - wall), (x1, y1, z1)), ("shell_base", (x0, y0, z0), (x1, y1, z0 + wall)),
              ("shell_s", (x0, y0, z0), (x1, y0 + wall, z1)), ("shell_w", (x0, y0, z0), (x0 + wall, y1, z1)),
              ("shell_e", (x1 - wall, y0, z0), (x1, y1, z1))]
@@ -1803,7 +1834,8 @@ def open_control_room(stage, cr: dict, root: str = "/World/Fleet/control_room", 
             UsdShade.MaterialBindingAPI.Apply(c_.GetPrim()).Bind(white)
     mod.SetActive(False)
     win.SetActive(False)
-    return {"opened": len(north), "holes": [[round(v, 2) for v in h] for h in holes], "shell": len(parts)}
+    return {"opened": len(north), "holes": [[round(v, 2) for v in h] for h in holes], "shell": len(parts),
+            "warm_panes": len(top), "frame_bars": bars}
 
 
 def add_control_room(stage, center, size, yaw: float = 0.0, root: str = "/World/Fleet/control_room") -> int:
