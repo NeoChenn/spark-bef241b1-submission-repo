@@ -50,27 +50,21 @@ INSCATTER = {
 }
 
 
-LIVE_HAZE = False
+LIVE_HAZE = True
+LIVE_EVERY = 4
+LIVE_SCALE = 8
+_LIVE: dict = {"n": 0}
 
 
-def inscatter(rgb: np.ndarray, depth, cam: dict, preset: str, sun_dir, strength: float = 1.0,
-              tier: str = "offline") -> np.ndarray:
-    p = INSCATTER.get(preset)
-    if not p or depth is None or (tier == "live" and not LIVE_HAZE):
-        return rgb
-    depth = depth() if callable(depth) else depth
-    if depth is None:
-        return rgb
+def _field(rgb, depth, cam: dict, p: dict, sun_dir, strength: float, s: int):
     h, w = rgb.shape[:2]
-    s = p["scale"]
     d = np.asarray(depth, np.float32).reshape(depth.shape[0], depth.shape[1])[s // 2::s, s // 2::s]
     d = np.where(np.isfinite(d) & (d > 0), np.minimum(d, p["sky"]), p["sky"])
     hs, ws = d.shape
     K, T = np.asarray(cam["K"], np.float32), np.asarray(cam["T"], np.float32)
-    fy = K[1, 1] * hs / h
-    fx = K[0, 0] * ws / w
     v, u = np.mgrid[0:hs, 0:ws].astype(np.float32)
-    rays = np.stack([(u + 0.5 - ws / 2) / fx, (v + 0.5 - hs / 2) / fy, np.ones_like(u)], -1) @ T[:3, :3].T
+    rays = np.stack([(u + 0.5 - ws / 2) / (K[0, 0] * ws / w), (v + 0.5 - hs / 2) / (K[1, 1] * hs / h),
+                     np.ones_like(u)], -1) @ T[:3, :3].T
     rays /= np.linalg.norm(rays, axis=-1, keepdims=True)
     k = rays[..., 2] * d / p["height"]
     safe = np.where(np.abs(k) > 1e-4, k, 1.0)
@@ -82,7 +76,42 @@ def inscatter(rgb: np.ndarray, depth, cam: dict, preset: str, sun_dir, strength:
     g = p["g"]
     cos = rays @ np.asarray(sun_dir, np.float32)
     phase = (1 - g * g) / (1 + g * g - 2 * g * cos) ** 1.5 * (1 - g) ** 3 / (1 - g * g)
-    col = np.clip(np.asarray(p["color"], np.float32) * (p["ambient"] + p["sun"] * phase)[..., None], 0, 1)
+    return f, p["ambient"] + p["sun"] * phase
+
+
+def _moved(cam: dict, last) -> bool:
+    if last is None:
+        return True
+    T, L = np.asarray(cam["T"], np.float32), np.asarray(last, np.float32)
+    return float(np.linalg.norm(T[:3, 3] - L[:3, 3])) > 2.0 or float(T[:3, 2] @ L[:3, 2]) < 0.9986
+
+
+def inscatter(rgb, depth, cam: dict, preset: str, sun_dir, strength: float = 1.0, tier: str = "offline"):
+    p = INSCATTER.get(preset)
+    if not p or depth is None or (tier == "live" and not LIVE_HAZE):
+        return rgb
+    h, w = rgb.shape[:2]
+    if tier == "live":
+        st = _LIVE
+        st["n"] += 1
+        key = (h, w, preset)
+        if st.get("key") != key or st["n"] % LIVE_EVERY == 0 or _moved(cam, st.get("T")):
+            dep = depth() if callable(depth) else depth
+            if dep is not None:
+                f, glow = _field(rgb, dep, cam, p, sun_dir, strength, LIVE_SCALE)
+                top = p["ambient"] + p["sun"]
+                m = np.clip(f * glow / top, 0, 1)
+                st.update(key=key, T=cam["T"],
+                          mask=Image.fromarray((m * 255).astype(np.uint8)).resize((w, h), Image.BILINEAR),
+                          color=Image.new("RGB", (w, h), tuple(int(min(1.0, c * top) * 255) for c in p["color"])))
+        if "mask" not in st or st.get("key") != key:
+            return rgb
+        return Image.composite(st["color"], Image.fromarray(np.ascontiguousarray(rgb[..., :3])), st["mask"])
+    depth = depth() if callable(depth) else depth
+    if depth is None:
+        return rgb
+    f, glow = _field(rgb, depth, cam, p, sun_dir, strength, p["scale"])
+    col = np.clip(np.asarray(p["color"], np.float32) * glow[..., None], 0, 1)
     fog = Image.fromarray((col * 255).astype(np.uint8)).resize((w, h), Image.BILINEAR)
     mask = Image.fromarray((f * 255).astype(np.uint8)).resize((w, h), Image.BILINEAR)
     return np.asarray(Image.composite(fog, Image.fromarray(np.ascontiguousarray(rgb[..., :3])), mask))
@@ -192,12 +221,13 @@ def _lut(p: dict) -> list:
     return _CACHE[key]
 
 
-def grade(rgb: np.ndarray, tier: str, t: float = 0.0, preset: str = "night") -> np.ndarray:
+def grade(rgb, tier: str, t: float = 0.0, preset: str = "night") -> np.ndarray:
     p = TIERS[tier]["grade"]
     if not p:
-        return rgb
+        return np.asarray(rgb) if isinstance(rgb, Image.Image) else rgb
     p = {**p, **PRESET_GRADE.get(preset, {})}
-    img = Image.fromarray(np.ascontiguousarray(rgb[..., :3])).point(_lut(p))
+    src = rgb if isinstance(rgb, Image.Image) else Image.fromarray(np.ascontiguousarray(rgb[..., :3]))
+    img = src.point(_lut(p))
     if p["vignette"]:
         img = ImageChops.multiply(img, vignette(img.height, img.width, p["vignette"]))
     out = np.asarray(img)

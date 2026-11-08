@@ -474,7 +474,7 @@ def main() -> None:
     ann = rep.AnnotatorRegistry.get_annotator("rgb")
     ann.attach(rp)
     dist_ann = None
-    if grade is not None and args.look == "offline":
+    if grade is not None:
         dist_ann = rep.AnnotatorRegistry.get_annotator("distance_to_camera")
         dist_ann.attach(rp)
     omni.timeline.get_timeline_interface().play()
