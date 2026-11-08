@@ -15,6 +15,9 @@ from policy.control.snapshot import GasSensor, Robot, SensorSnapshot
 FIX = Path(__file__).with_name("fixtures")
 DAY = date(2026, 11, 8)
 ROBOTS = [{"id": "R1", "state": "IDLE", "zone": "A"}, {"id": "R2", "state": "PATROL", "zone": "B"}]
+FILTERED = ["Keep approvals with the operator because the operator explicitly wants to be consulted on painting.",
+            "Regarding the leak at F3: it's critical, meaning I need to prioritize it as safety.",
+            "Keep approvals with the operator for painting jobs. Queue the valve isolation job for F3."]
 
 
 def high():
@@ -116,8 +119,8 @@ def test_thoughts_keep_six_newest_last_and_mode():
         th.add(f"step {k}.", kind="decision", t=float(k))
     v = th.view()
     assert [x["text"] for x in v] == [f"step {k}." for k in range(3, 9)]
-    th.add("a summary.", t=10.0)
-    assert th.mode() == "summaries" and th.view()[-1] == {"t": 10.0, "text": "a summary.", "kind": "summary"}
+    th.add("Gas at F3 is rising.", t=10.0)
+    assert th.mode() == "summaries" and th.view()[-1] == {"t": 10.0, "text": "Gas at F3 is rising.", "kind": "summary"}
 
 
 def test_agent_summaries_tagged_with_calls_and_cost_counts_thoughts():
@@ -130,7 +133,7 @@ def test_agent_summaries_tagged_with_calls_and_cost_counts_thoughts():
     assert rec["status"] == "ok" and rec["tokens_thought"] == 1043
     assert rec["cost_usd"] == pytest.approx(cost_usd(1078 + 1300, 120, 1043, DAY), abs=1e-6)
     v = th.view()
-    assert th.mode() == "summaries" and len(v) == 5
+    assert th.mode() == "summaries" and [x["text"] for x in v] == FILTERED
     assert all(x["kind"] == "summary" and x["call"] == "call_1313667481786457689" for x in v)
     calls = agent.summary()["calls"]
     assert [c["id"] for c in calls] == ["call_1313667481786457689", "call_1313667481786454362"]
@@ -153,10 +156,10 @@ def test_agent_without_summaries_records_decisions_and_refusals():
     v = th.view()
     assert th.mode() == "decisions"
     assert [x["call"] for x in v] == ["c1", "c2"]
-    assert v[0]["text"] == "Queue gas_survey · deck-2 · P2 AUTO — Survey before the visual round."
+    assert v[0]["text"] == "Queue gas survey · deck 2 · P2 — Survey before the visual round."
     assert "refused" in v[1]["text"]
     r = agent.refused()
-    assert len(r) == 1 and r[0]["label"] == "Cancel job J-3" and r[0]["why"] == "every call needs a one-line why"
+    assert len(r) == 1 and r[0]["label"] == "Cancel inspection round · deck 2" and r[0]["why"] == "every call needs a one-line why"
     assert isinstance(r[0]["t"], float)
 
 
@@ -175,7 +178,7 @@ def test_streamed_thoughts_are_not_added_twice():
     agent.thoughts = th
     agent.handle(intent="inspect deck 2", now=1.0)
     v = th.view()
-    assert len(v) == 5 and all(x.get("call") == "call_1313667481786457689" for x in v)
+    assert [x["text"] for x in v] == FILTERED and all(x.get("call") == "call_1313667481786457689" for x in v)
 
 
 def test_agent_backend_streams_by_default(monkeypatch):
@@ -228,7 +231,7 @@ def test_centre_shares_thoughts_with_agent():
     assert agent.thoughts is c.thoughts
     agent.handle(intent="inspect deck 2", now=1.0)
     h = c.tick(snap(), now=0.0)
-    assert h["thoughts_mode"] == "decisions" and h["thoughts"][0]["text"].startswith("Queue inspection · deck-2")
+    assert h["thoughts_mode"] == "decisions" and h["thoughts"][0]["text"].startswith("Queue inspection round · deck 2")
     assert h["agent"]["calls"][0]["id"] == "r1"
 
 
