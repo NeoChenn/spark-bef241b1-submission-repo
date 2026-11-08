@@ -30,6 +30,7 @@ DOCK_STATES = {"CHARGING", "DOCKED", "DOCK_QUEUE"}
 HAZARD_EVENTS = ("drop_obstacle", "drop_can", "close_walkway", "close_stairs", "clear", "set_weather", "person_at")
 BLOCKED = "blocked_by_hazard"
 AHEAD_M = 7.0
+NEAR_M = 3.0
 CAN_STANDOFF_M = 0.9
 CAN_SIZES = ("small", "large")
 PERSON_S = 120.0
@@ -324,6 +325,16 @@ class Fleet:
         h["task"] = task.id
         return h, task
 
+    def _beside(self, r: Robot, m: float) -> list[float]:
+        deck = self.rm.deck_of(float(r.pos[2]))
+        cs = [c for c in self.rm.coarse if c["kind"] in ("walk", "catwalk") and c["deck"] == deck]
+        c = min(cs, key=lambda c: seg_dist(r.pos, c["a"], c["b"]))
+        a, b = np.asarray(c["a"], float), np.asarray(c["b"], float)
+        L = float(np.linalg.norm(b - a))
+        s = float(np.clip(np.dot(r.pos - a, b - a) / max(L * L, 1e-12), 0.0, 1.0)) * L
+        s = s + m if s + m <= L else max(s - m, 0.0)
+        return [round(float(v), 3) for v in a + (b - a) * s / max(L, 1e-9)]
+
     def _random_walkway(self, seed) -> list[float]:
         rng = random.Random(f"can{seed}")
         cs = [c for c in self.rm.coarse if c["kind"] in ("walk", "catwalk")]
@@ -367,7 +378,10 @@ class Fleet:
             at = at.get("edge", at.get("xyz", at.get("xy")))
         if isinstance(at, str):
             if any(r.id == at for r in self.robots):
-                return self._ahead(self._robot(at), AHEAD_M)
+                try:
+                    return self._ahead(self._robot(at), AHEAD_M)
+                except ValueError:
+                    return self._beside(self._robot(at), NEAR_M)
             c = self.rm.coarse[self.hz.targets(self.rm, at)[0]]
             return [round(float(v), 3) for v in (np.array(c["a"]) + np.array(c["b"])) / 2]
         if at is None:
