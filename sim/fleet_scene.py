@@ -36,7 +36,8 @@ import numpy as np  # noqa: E402
 from pxr import Gf, Sdf, Usd, UsdGeom, Vt
 
 import fleet_models as fm  # noqa: E402
-from fleet_replay import OUT_DIR, TOP_DECK, Timeline, active_jobs, deck_height, gas_plumes, look_at, state_color
+from fleet_replay import (OUT_DIR, TOP_DECK, Timeline, active_jobs, deck_height, detector_states, fixed_detectors,
+                          gas_plumes, look_at, state_color)
 from scene_builder import OUTPUT  # noqa: E402
 
 FULL_RIG = OUTPUT / "full_rig.usda"
@@ -154,6 +155,9 @@ class FleetScene:
         UsdGeom.Scope.Define(stage, f"{ROOT}/Gas")
         self.robots = {rid: fm.build_robot(stage, rid, tr.kind, k, ROOT)
                        for k, (rid, tr) in enumerate(timeline.tracks.items())}
+        UsdGeom.Scope.Define(stage, f"{ROOT}/Detectors")
+        self.detectors = {d["id"]: fm.FixedDetector(stage, d["id"], d["position"], d["deck_z"], d["type"], ROOT)
+                          for d in fixed_detectors()}
         self.markers = [Marker(stage, k) for k in range(MAX_MARKERS)]
         self.plumes = [Plume(stage, k) for k in range(MAX_PLUMES)]
         self.camera = UsdGeom.Camera.Define(stage, CAMERA_PATH)
@@ -218,6 +222,9 @@ class FleetScene:
                 marker.show(j["target"], state_color(j["state"]), t, flying)
             else:
                 marker.hide()
+        alarms = detector_states(self.timeline, t)
+        for did, det in self.detectors.items():
+            det.set_state(alarms.get(did), t)
         plumes = gas_plumes(self.timeline, t)
         for k, plume in enumerate(self.plumes):
             if k < len(plumes):

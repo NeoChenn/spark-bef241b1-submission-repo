@@ -1,16 +1,20 @@
-"""One multi-robot gas-leak incident on the real fleet executors.
+"""One gas-leak incident on the real fleet executors: two robot dogs, fixed gas detectors, a human approval.
 
-    python -m fleet.incident [--leak-at T] [--approve-after S] [--out runs/fleet] [--no-ut]
+    python -m fleet.incident [--leak-at T] [--approve-after S] [--out runs/fleet] [--ut]
 
-A leak starts at a flange near valve_05 at T. The fixed gas detector alarms; the coordinator sends the drone
-(A1) on an urgent `gas_survey`, which climbs the plume and fits the source with a 95 % radius. Its finding
-queues a SUPV `valve_isolate` for the nearest valve the robot can stand at; it waits in the coordinator's
-approval queue until the scripted operator approves it S seconds later. Q1 (arm) closes the valve, its
-finding queues a confirming survey (Q2 or A1, whichever the coordinator assigns), and once the gas is down the
-crawler (C1) runs `ut_thickness` on a patch of the leaking flange's spool.
+A leak starts at a flange near valve_05 at T. The fixed point gas detectors around the top-deck pipework
+(`fleet/sensors.py`) read the modelled plume; the first one over its 10 % LEL threshold raises the alarm. The
+coordinator sends Dog-2 (Q2, gas sensor) on an urgent `gas_survey` from the walkway beside that detector: box
+search, plume climb, source fit with a 95 % radius. Its finding queues a SUPV `valve_isolate` for the nearest
+valve a robot can stand at; it waits in the coordinator's approval queue until the scripted operator approves
+it S seconds later. Dog-1 (Q1, arm) closes the valve, its finding queues a confirming survey (a dog), and the
+confirm's follow-up `leak_repair_prep` (ASSIST) is prepared by a dog and handed to the crew.
 
-Every incident job runs the executor registered in `fleet.jobs` (`gas_valves.py`, `crawler.py`); only kinds no
-module registers (here `leak_repair_prep`) use `fleet.demo` stubs, and the summary lists them.
+No drone and no crawler in the default run. `--ut` adds the crawler (C1) for a UT scan of the spool after the
+confirm (the old PR #20 ending); the drone is not used.
+
+Every incident job runs the executor registered in `fleet.jobs` (`gas_valves.py`); only kinds no module
+registers (here `leak_repair_prep`) use `fleet.demo` stubs, and the summary lists them.
 
 Outputs in --out:
     timeline.jsonl            FleetSim timeline, real time, the format sim/fleet_replay.py reads
@@ -33,42 +37,66 @@ from fleet.coordinator import Coordinator
 from fleet.demo import RIG_DOCK, Stub, load_executors
 from fleet.gas.plume import GAS_BASE, true_concentration
 from fleet.rigplanner import RigPlanner
+from fleet.sensors import BY_ID, DetectorNetwork, quiet_fallback
 from fleet.sim import TOP_DECK_Z, FleetSim, new_job
 
 Q, C, A = RobotKind.QUADRUPED, RobotKind.CRAWLER, RobotKind.AERIAL
 D = TOP_DECK_Z
 OUT = REPO / "runs/fleet"
-LEAK = {"id": "leak_01", "source": "flange near valve_05", "position": (21.0, -10.2, 43.4), "rate_g_s": 3.5,
-        "alarm_after_s": 6.0}
+LEAK = {"id": "leak_01", "source": "flange near valve_05", "position": (21.0, -10.2, 43.4), "rate_g_s": 3.5}
 STANCE_Y = -9.0                     # walkway line beside the leaking flange skid
 NAMES = {"Q1": "Dog-1", "Q2": "Dog-2", "A1": "Drone", "C1": "Crawler"}
 INCIDENT_KINDS = ("gas_survey", "valve_isolate", "ut_thickness")
 MAX_S = 1800.0
 
 
-def robots() -> list[Robot]:
-    return [
+def robots(ut: bool = False) -> list[Robot]:
+    """Dog-1 (Q1) and Dog-2 (Q2): Go2 + lift + UR3. Dog-1 carries the valve tool, Dog-2 the gas sensor."""
+    out = [
         Robot("Q1", Q, {"arm", "spray", "camera"}, (24.0, -4.5, D), battery=0.95, speed_mps=0.9),
         Robot("Q2", Q, {"camera", "thermal", "gas_sensor"}, (-1.0, -2.0, D), battery=0.9, speed_mps=1.0),
-        Robot("A1", A, {"camera", "thermal", "gas_sensor"}, (-22.0, -22.0, 51.4), battery=0.85, speed_mps=4.0),
-        Robot("C1", C, {"ut_probe", "camera"}, (12.0, -9.0, D), battery=0.8, speed_mps=0.3),
     ]
+    if ut:
+        out.append(Robot("C1", C, {"ut_probe", "camera"}, (12.0, -9.0, D), battery=0.8, speed_mps=0.3))
+    return out
+
+
+class WalkwaySide:
+    """The gas_survey executor ends the robot at its last sample point, which can be inside the pipe skid. A dog
+    stays on the walkway side of the line (y >= STANCE_Y); the samples themselves are unchanged."""
+
+    def __init__(self, ex):
+        self.ex = ex
+        self.kind, self.level, self.needs, self.robot_kinds = ex.kind, ex.level, ex.needs, ex.robot_kinds
+
+    def __getattr__(self, name):
+        return getattr(self.ex, name)
+
+    def run(self, job, robot, world):
+        res = self.ex.run(job, robot, world)
+        x, y, z = robot.position
+        if robot.kind == Q and y < STANCE_Y:
+            robot.position = (x, STANCE_Y, z)
+        return res
 
 
 class Incident:
     """Builds the FleetSim, runs it until the chain is done, and records the milestones."""
 
-    def __init__(self, leak_at: float = 15.0, approve_after: float = 30.0, ut: bool = True, seed: int = 0,
+    def __init__(self, leak_at: float = 15.0, approve_after: float = 30.0, ut: bool = False, seed: int = 0,
                  timeline_path: Optional[Path] = None, confirm_by: str = "quadruped"):
         os.environ.setdefault("FLEET_GEMINI", "0")
         self.leak_at, self.approve_after, self.ut = float(leak_at), float(approve_after), ut
         self.confirm_by = confirm_by
         executors, self.loaded, self.stubbed = load_executors()
         self.real = {k: not isinstance(ex, Stub) for k, ex in executors.items()}
+        executors["gas_survey"] = WalkwaySide(executors["gas_survey"])
         self.world = World.from_rig_meta()
         self.world.state.update(seed=seed, wind=[0.0, 0.0], gas_leaks=[])
-        self.c = Coordinator(robots(), self.world, executors, RigPlanner(), auto_approve=False,
+        self.c = Coordinator(robots(ut), self.world, executors, RigPlanner(), auto_approve=False,
                              docks={"Q1": RIG_DOCK, "Q2": RIG_DOCK})
+        self.detectors = DetectorNetwork()
+        self.detector_alarms: list[dict] = []
         self.sim = FleetSim(self.c, timeline_path=timeline_path)
         self.m: dict = {"leak_t": self.leak_at}
         self.pending: dict[str, float] = {}
@@ -94,16 +122,29 @@ class Incident:
                 c.submit(new_job(c, "gauge_read", g, a["position_m"], Level.AUTO, priority=4, est_duration_s=40.0))
 
         def inject(s: FleetSim):
-            leak = {**LEAK, "t0": s.world.t}
+            leak = quiet_fallback({**LEAK, "t0": s.world.t})     # only the fixed detectors raise the alarm
             s.world.state["gas_leaks"].append(leak)
             s.c.emit("gas_leak_injected", None, None, position=list(leak["position"]), source=leak["source"],
                      rate_g_s=leak["rate_g_s"], leak=leak["id"])
         sim.at(self.leak_at, "gas leak", inject)
 
+        def survey(s: FleetSim, at_xy, leak: dict) -> Job:
+            # from the walkway beside the alarm; the executor box-searches 3 m around it
+            return new_job(s.c, "gas_survey", leak["id"], (at_xy[0], STANCE_Y, D), Level.AUTO, needs={"gas_sensor"},
+                           robot_kinds={Q}, priority=1, est_duration_s=120.0,
+                           params={"zone": leak["id"], "leak": leak["id"], "standoff": 0.0})
+
+        def on_detector(det, reading, leak):
+            s = self.sim
+            job = survey(s, det.position, leak)
+            job.params["detector"] = det.id
+            s.c.report(job, None, "gas_alarm", position=list(det.position), detector=det.id,
+                       reading=round(reading, 3), unit=det.unit, source=f"fixed gas detector {det.id}")
+        self.detectors.attach(sim, on_detector)
+
         def on_gas(s: FleetSim, robot: Optional[str], leak: dict, how: str):
-            job = new_job(s.c, "gas_survey", leak["id"], leak["position"], Level.AUTO, needs={"gas_sensor"},
-                          robot_kinds={A}, priority=1, est_duration_s=120.0,
-                          params={"zone": leak["id"], "leak": leak["id"], "standoff": 0.0})
+            # a dog's own gas sensor passing within 6 m (FleetSim); the fixed-detector timer is off for this leak
+            job = survey(s, leak["position"], leak)
             s.c.report(job, robot, how, position=[round(v, 3) for v in leak["position"]],
                        source="robot gas sensor" if robot else "fixed gas detector")
         sim.on_gas = on_gas
@@ -134,10 +175,13 @@ class Incident:
             # stand on the walkway beside the flange skid, not at the source estimate (inside the skid model);
             # the executor samples at its own probe points / estimate, which are in params
             job.position = (job.position[0], STANCE_Y, job.position[2])
+        if ev == "detector_alarm":
+            self.detector_alarms.append({"detector": d["detector"], "t": t, "reading": d["reading"],
+                                         "unit": d["unit"], "position": d["position"]})
         if ev in ("gas_alarm", "gas_detected"):
             self._first("detect_t", t)
             self.m.setdefault("detect_how", ev)
-            self.m.setdefault("detect_by", e["robot"] or "fixed gas detector")
+            self.m.setdefault("detect_by", e["robot"] or d.get("detector") or "fixed gas detector")
         elif ev == "approval_requested" and kind == "valve_isolate":
             self.pending[e["job"]] = t + self.approve_after
             self._first("approval_requested_t", t)
@@ -185,13 +229,21 @@ class Incident:
                 self.m["ut_status"] = res.status.value
                 self.m["ut_log"] = res.log[-1] if res.log else ""
                 self.done = True
-            if role == "confirm" and not self.ut:
+            if role == "prep" and not self.ut:
                 self.done = True
 
     def _role(self, job: Job) -> str:
         if job.kind == "gas_survey":
             return "confirm" if job.params.get("mode") == "confirm" else "survey"
         return {"valve_isolate": "isolate", "ut_thickness": "ut", "leak_repair_prep": "prep"}.get(job.kind, job.kind)
+
+    def _first_alarm(self) -> Optional[dict]:
+        det = self.m.get("detect_by")
+        a = next((x for x in self.detector_alarms if x["detector"] == det), None)
+        if a is None:
+            return None
+        return {**a, "type": BY_ID[det].type, "threshold": BY_ID[det].threshold,
+                "after_leak_s": round(a["t"] - self.leak_at, 1)}
 
     def _gas_at_source(self) -> float:
         return float(true_concentration(self.world.state, LEAK["position"][:2]))
@@ -230,7 +282,7 @@ class Incident:
             "leak_to_detect_s": rel("detect_t"), "leak_to_localised_s": rel("localised_t"),
             "leak_to_approval_requested_s": rel("approval_requested_t"), "leak_to_approved_s": rel("approved_t"),
             "leak_to_valve_turned_s": rel("valve_turned_t"), "leak_to_isolated_s": rel("isolated_t"), "leak_to_confirmed_s": rel("confirmed_t"),
-            "leak_to_ut_done_s": rel("ut_done_t"),
+            "leak_to_crew_handover_s": rel("prep_done_t"), "leak_to_ut_done_s": rel("ut_done_t"),
             "approval_wait_s": round(m["approved_t"] - m["approval_requested_t"], 1)
             if "approved_t" in m and "approval_requested_t" in m else None,
         }
@@ -238,8 +290,11 @@ class Incident:
         m["robots"] = roles
         involved = sorted({r for r in roles.values() if r})
         return {
-            "scenario": "gas leak at a flange near valve_05; drone localises, Dog-1 isolates (SUPV), confirm survey, "
-                        "crawler UT on the spool",
+            "scenario": "gas leak at a flange near valve_05; fixed detector alarm, Dog-2 localises, Dog-1 isolates "
+                        "(SUPV, operator approval), Dog-2 confirms, repair prep to the crew"
+                        + (", crawler UT on the spool" if self.ut else ""),
+            "first_alarm": self._first_alarm(),
+            "detector_alarms": self.detector_alarms,
             "times_s": rows, "milestones_t": {k: v for k, v in m.items() if k.endswith("_t")},
             "localisation": {k: m.get(k) for k in ("estimate_xy", "radius95_m", "error_m", "truth_inside_radius",
                                                    "peak_lel", "n_samples", "valves_skipped")},
@@ -264,8 +319,10 @@ class Incident:
 
 
 # ------------------------------------------------------------------------------------- render timeline
-RENDER_EVENTS = {"gas_leak_injected", "gas_alarm", "gas_detected", "assigned", "job_started", "approval_requested",
-                 "approved", "finding", "job_done", "handed_to_crew", "preempted", "gas_isolated"}
+RENDER_EVENTS = {"gas_leak_injected", "detector_alarm", "detector_clear", "gas_alarm", "gas_detected", "assigned",
+                 "job_started", "approval_requested", "approved", "finding", "job_done", "handed_to_crew", "preempted",
+                 "gas_isolated"}
+DETAIL_KEYS = ("position", "kind", "by", "source", "rate_g_s", "detector", "reading", "unit", "type")
 
 
 def _label(job_id: Optional[str], jobs: dict) -> Optional[str]:
@@ -283,7 +340,11 @@ def _summary_line(e: dict, inc: Incident, true_t: float) -> Optional[str]:
     loc = s["localisation"]
     if ev == "gas_leak_injected":
         return f"{T} leak starts: {d.get('source')}, {d.get('rate_g_s')} g/s"
-    if ev in ("gas_alarm", "gas_detected"):
+    if ev in ("detector_alarm", "detector_clear"):
+        return f"{T} {d.get('summary')}"
+    if ev == "gas_alarm":
+        return f"{T} {d.get('detector', 'fixed detector')} raises gas alarm: survey queued"
+    if ev == "gas_detected":
         return f"{T} {d.get('source', 'gas sensor')} alarm"
     if ev == "approval_requested":
         return f"{T} awaiting operator"
@@ -302,18 +363,20 @@ def _summary_line(e: dict, inc: Incident, true_t: float) -> Optional[str]:
         return f"{T} {k}"
     if ev == "job_done":
         return f"{T} done"
+    if ev == "handed_to_crew":
+        return f"{T} repair prep done, handed to the crew"
     return T
 
 
 def survey_path(inc: Incident, rows: list[dict]) -> Optional[tuple[float, float, list]]:
-    """The drone hovers in the coordinator log while the survey executor samples (the executor computes the whole
-    survey when the job starts). For the video only, fly it through the survey's eight strongest logged sample
-    points (nearest-neighbour order) and end at the executor's final position."""
+    """The surveying dog stands still in the coordinator log while the executor samples (the executor computes
+    the whole survey when the job starts). For the video only, walk it through the survey's eight strongest logged
+    sample points (nearest-neighbour order, held on the walkway side y >= STANCE_Y) to its final position."""
     t0, t1 = inc.m.get("survey_start_t"), inc.m.get("survey_done_t")
     iso = next((j for j in inc.c.jobs.values() if j.kind == "valve_isolate"), None)
     if t0 is None or t1 is None or iso is None:
         return None
-    pts = [p[:2] for p in iso.params.get("probe_points", [])]
+    pts = [[p[0], max(p[1], STANCE_Y)] for p in iso.params.get("probe_points", [])]
     at = {r["t"]: r for r in rows}
     if t0 - 1 not in at or t1 not in at:
         return None
@@ -376,11 +439,16 @@ def render_timeline(inc: Incident, start_t: Optional[float] = None, step: float 
         jid = next(j for j, job in jobs.items() if job.kind == "valve_isolate")
         extra.append({"t": iso_done, "event": "gas_isolated", "job": jid, "robot": inc.c.results[jid].robot_id,
                       "detail": {"position": list(LEAK["position"])}})
+        # same for the detectors: a clear logged while the valve job is still running is shown when it finishes
+        for k, e in enumerate(events):
+            if e["event"] == "detector_clear" and e["t"] < iso_done:
+                events[k] = {**e, "t": iso_done + 1.0}
     keep = [e for e in events + extra if e["event"] in RENDER_EVENTS and e["t"] >= t0
             and (e["event"] != "assigned" or e["job"] in jobs and jobs[e["job"]].kind != "gauge_read")
             and (e["event"] not in ("job_started", "job_done") or e["job"] in jobs
                  and jobs[e["job"]].kind != "gauge_read")]
-    key_t = [e["t"] for e in keep if e["event"] in ("gas_leak_injected", "gas_alarm", "finding", "approved",
+    key_t = [e["t"] for e in keep if e["event"] in ("gas_leak_injected", "detector_alarm", "gas_alarm", "finding",
+                                                       "approved",
                                                        "approval_requested", "gas_isolated", "job_started")]
     rt = warp(true_t, key_t, moving)
 
@@ -410,7 +478,7 @@ def render_timeline(inc: Incident, start_t: Optional[float] = None, step: float 
             out.append({"t": round(float(r_t), 3), "robot": rid, "kind": rows[i]["kind"], "position": pos,
                         "yaw": round(yaw, 4), "state": rows[i]["state"], "job": _label(rows[i]["job"], jobs)})
     for e in keep:
-        d = {k: v for k, v in e["detail"].items() if k in ("position", "kind", "by", "source", "rate_g_s")}
+        d = {k: v for k, v in e["detail"].items() if k in DETAIL_KEYS}
         note = _summary_line(e, inc, e["t"])
         if note:
             d["summary"] = note
@@ -421,7 +489,8 @@ def render_timeline(inc: Incident, start_t: Optional[float] = None, step: float 
     info = {"true_start_t": t0, "true_end_t": t_end, "render_s": round(float(rt[-1]), 1),
             "speedup_overall": round((t_end - t0) / max(float(rt[-1]), 1e-6), 2),
             "rates": "1.5x within 3 s of a key event, 6x while any robot moves or samples, 24x otherwise",
-            "step_s": step, "drone_survey_path": "drawn through the survey's 8 strongest sample points"}
+            "step_s": step, "survey_path": "Dog-2 drawn through the survey's 8 strongest sample points, "
+                                             "held on the walkway side of the line"}
     return out, info
 
 
@@ -437,13 +506,13 @@ def main(argv=None) -> int:
     ap.add_argument("--leak-at", type=float, default=15.0, help="sim second the leak starts")
     ap.add_argument("--approve-after", type=float, default=30.0, help="operator approves the SUPV isolation after S s")
     ap.add_argument("--out", default=str(OUT))
-    ap.add_argument("--no-ut", action="store_true", help="skip the crawler UT on the flange spool")
+    ap.add_argument("--ut", action="store_true", help="add the crawler (C1) and a UT scan of the spool (off: dogs only)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--confirm-by", choices=["quadruped", "any"], default="quadruped",
-                    help="who re-samples after isolation: a quadruped (independent of the drone) or any gas robot")
+                    help="who re-samples after isolation: a dog (default) or any robot with a gas sensor")
     args = ap.parse_args(argv)
     out = Path(args.out)
-    inc = Incident(args.leak_at, args.approve_after, ut=not args.no_ut, seed=args.seed,
+    inc = Incident(args.leak_at, args.approve_after, ut=args.ut, seed=args.seed,
                    timeline_path=out / "timeline.jsonl", confirm_by=args.confirm_by)
     s = inc.run()
     rows, info = render_timeline(inc)
@@ -452,6 +521,10 @@ def main(argv=None) -> int:
     (out / "incident").mkdir(parents=True, exist_ok=True)
     (out / "incident/summary.json").write_text(json.dumps(s, indent=1), encoding="utf-8")
     print("INCIDENT (sim seconds after the leak starts)")
+    fa = s["first_alarm"] or {}
+    print(f"  first alarm {fa.get('detector')} at {fa.get('position')} reading {fa.get('reading')} {fa.get('unit')} "
+          f"T+{fa.get('after_leak_s')}s; detector alarms "
+          + ", ".join(f"{a['detector']}@T+{a['t'] - inc.leak_at:.0f}s" for a in s["detector_alarms"]))
     for k, v in s["times_s"].items():
         print(f"  {k:<30} {v}")
     loc = s["localisation"]

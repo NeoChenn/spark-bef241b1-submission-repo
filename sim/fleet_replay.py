@@ -101,6 +101,12 @@ class Event:
         return np.asarray(p, float) if p is not None and len(p) == 3 else None
 
     def text(self) -> str:
+        if self.event.startswith("detector_") and isinstance(self.detail, dict) and self.detail.get("detector"):
+            d = self.detail
+            line = f"{d['detector']} {self.event[9:]}"
+            if d.get("reading") is not None:
+                line += f" {float(d['reading']):.2f} {d.get('unit', 'LEL')}"
+            return d.get("summary") or line
         who = f"{display_name(self.robot)} " if self.robot else ""
         what = self.event.replace("_", " ")
         job = f" [{self.job}]" if self.job else ""
@@ -419,6 +425,8 @@ def gas_plumes(timeline: Timeline, t: float) -> list[dict]:
     for e in timeline.events:
         if "gas" not in e.event and "leak" not in e.event or e.t > t or e.position is None:
             continue
+        if "alarm" in e.event:          # an alarm is placed at the detector that raised it, not at the source
+            continue
         if any(w in e.event for w in ("isolated", "cleared", "closed", "stopped")):
             continue
         strength = min((t - e.t) / 2.0, 1.0)
@@ -430,6 +438,34 @@ def gas_plumes(timeline: Timeline, t: float) -> list[dict]:
         if strength > 0.01:
             plumes.append({"position": e.position, "strength": float(strength), "since": float(t - e.t)})
     return plumes
+
+
+def fixed_detectors() -> list[dict]:
+    """The installed F&G detectors (fleet/sensors.py): id, head position, type. Empty if fleet is not importable."""
+    try:
+        if str(REPO) not in sys.path:
+            sys.path.insert(0, str(REPO))
+        from fleet.sensors import DECK_Z, DETECTORS
+    except Exception:
+        return []
+    return [{"id": d.id, "position": np.asarray(d.position, float), "type": d.type, "deck_z": DECK_Z}
+            for d in DETECTORS]
+
+
+def detector_states(timeline: Timeline, t: float) -> dict[str, str]:
+    """Detectors in alarm at t (latched from `detector_alarm` until a later `detector_clear`)."""
+    out: dict[str, str] = {}
+    for e in timeline.events:
+        if e.t > t:
+            break
+        did = e.detail.get("detector") if isinstance(e.detail, dict) else None
+        if not did:
+            continue
+        if e.event == "detector_alarm":
+            out[did] = "alarm"
+        elif e.event == "detector_clear":
+            out.pop(did, None)
+    return out
 
 
 def recent_events(timeline: Timeline, t: float, hold: float = EVENT_HOLD_S, limit: int = 4) -> list[Event]:
@@ -456,7 +492,7 @@ def plan_shots(timeline: Timeline, duration: Optional[float] = None, min_shot: f
     for e in timeline.events:
         if e.event == "shift_start" or e.robot is None and e.position is None:
             continue
-        urgent = any(w in e.event for w in ("gas", "leak", "alert", "finding"))
+        urgent = any(w in e.event for w in ("gas", "leak", "alert", "finding", "alarm"))
         cues.append((e.t, 0 if urgent else 1, "event" if e.position is not None else "follow", e.robot,
                      e.position, e.text()))
     for rid, tr in timeline.tracks.items():
@@ -633,7 +669,7 @@ def draw_fleet_hud(rgb: np.ndarray, timeline: Timeline, t: float, shot: Shot,
         y0 = im.height - pad - h
         d.rectangle([pad, y0, pad + int(620 * scale), im.height - pad], fill=(0, 0, 0, 140))
         for k, e in enumerate(events):
-            alert = any(word in e.event for word in ("gas", "leak", "alert", "finding", "fail"))
+            alert = any(word in e.event for word in ("gas", "leak", "alert", "finding", "fail", "alarm"))
             col = (255, 90, 60) if alert else (235, 235, 235)
             d.text((pad * 2, y0 + pad // 2 + k * line), f"{e.t:5.1f}s  {e.text()}"[:78], fill=col, font=small)
     for rid, (x, y) in (tags or {}).items():

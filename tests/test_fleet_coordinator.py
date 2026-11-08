@@ -363,3 +363,9 @@ def test_demo_shift_runs(tmp_path):
     assert iso and [e for e in c.timeline if e["job"] == iso[0].id and e["event"] == "approval_requested"]
     assert c.status[[j for j in c.jobs if j.startswith("rust_repair")][0]] != JobStatus.QUEUED
     assert (tmp_path / "t.jsonl").exists()
+    # two robot dogs only; the leak alarm comes from a fixed gas detector (fleet/sensors.py)
+    assert set(c.rt) == {"Q1", "Q2"}
+    assert not any(j.kind in ("aerial_survey", "crawler_ut") for j in c.jobs.values())
+    alarm = next(e for e in c.timeline if e["event"] in ("gas_alarm", "gas_detected"))
+    assert alarm["event"] == "gas_alarm" and alarm["detail"]["detector"].startswith("GD-")
+    assert any(e["event"] == "detector_alarm" for e in c.timeline)
