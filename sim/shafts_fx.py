@@ -30,6 +30,7 @@ def _material(stage):
     sh.CreateIdAttr("UsdPreviewSurface")
     sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.0, 0.0, 0.0))
     sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(1.0)
+    sh.CreateInput("opacityThreshold", Sdf.ValueTypeNames.Float).Set(0.001)
     glow = UsdShade.Shader.Define(stage, f"{path}/glow")
     glow.CreateIdAttr("UsdPrimvarReader_float3")
     glow.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("displayColor")
