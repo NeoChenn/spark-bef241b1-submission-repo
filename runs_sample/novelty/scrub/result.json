@@ -1,0 +1,107 @@
+{
+ "policy": "scrub v2 best (lift_v2)",
+ "shield": "discrete-time CBF on normal penetration, RLS stiffness",
+ "rows": {
+  "calm_base": {
+   "episodes": 513,
+   "success_rate": 0.9922027290448343,
+   "mean_episode_max_force_N": 30.014526887711494,
+   "p95_episode_max_force_N": 35.33994674682617,
+   "max_force_N": 47.21262741088867,
+   "frac_episodes_over_40N": 0.007797270955165692,
+   "mean_time_to_clean_s": 6.69364803408827
+  },
+  "calm_cbf": {
+   "episodes": 516,
+   "success_rate": 0.9883720930232558,
+   "mean_episode_max_force_N": 29.529855425043625,
+   "p95_episode_max_force_N": 33.752288818359375,
+   "max_force_N": 36.513187408447266,
+   "frac_episodes_over_40N": 0.0,
+   "mean_time_to_clean_s": 6.615490545946009,
+   "cbf_duty": 0.017009398946360152
+  },
+  "storm_base": {
+   "episodes": 512,
+   "success_rate": 0.90625,
+   "mean_episode_max_force_N": 34.402603294700384,
+   "p95_episode_max_force_N": 44.510189056396484,
+   "max_force_N": 210.03831481933594,
+   "frac_episodes_over_40N": 0.115234375,
+   "mean_time_to_clean_s": 7.761997524777363
+  },
+  "storm_cbf": {
+   "episodes": 512,
+   "success_rate": 0.919921875,
+   "mean_episode_max_force_N": 33.370607785880566,
+   "p95_episode_max_force_N": 40.972965240478516,
+   "max_force_N": 251.9167022705078,
+   "frac_episodes_over_40N": 0.06640625,
+   "mean_time_to_clean_s": 7.76114689342029,
+   "cbf_duty": 0.023117412746585735
+  }
+ },
+ "calm_over40_pct": [
+  0.78,
+  0.0
+ ],
+ "calm_success_pct": [
+  99.22,
+  98.84
+ ],
+ "storm_over40_pct": [
+  11.52,
+  6.64
+ ],
+ "storm_success_pct": [
+  90.62,
+  91.99
+ ],
+ "eval": {
+  "checkpoint": ".work/scrub_v2_best/model.pt",
+  "task": "Rig-Scrub-Go2UR3Lift-v2",
+  "args": "--meta --force_patch --num_envs 256 --episodes 512 --seed 11",
+  "storm": "calm = level 0, storm = --storm 1.0 (gusts + deck)",
+  "tuned_on": "seed 7, 256 episodes, storm 1.0",
+  "held_out_seed": 11
+ },
+ "shield_params": {
+  "f_max": 40.0,
+  "margin": 2.0,
+  "gamma": 0.5,
+  "alpha": 0.15,
+  "retract_m": 0.02,
+  "rls_lambda": 0.98
+ },
+ "sweep_seed7_storm": {
+  "none": [
+   1.0,
+   10.9
+  ],
+  "alpha1.0_retract5cm": [
+   55.4,
+   36.1
+  ],
+  "alpha0.06_retract5cm": [
+   83.7,
+   4.8
+  ],
+  "alpha0.06_retract1cm": [
+   100.0,
+   6.6
+  ],
+  "alpha0.06_retract2cm_margin0": [
+   100.0,
+   6.2
+  ],
+  "alpha0.15_retract2cm (chosen)": [
+   100.0,
+   4.3
+  ]
+ },
+ "sweep_columns": [
+  "success_pct",
+  "over40_pct"
+ ],
+ "finding": "measured normal tracking gain is ~0.06 per 33 ms step, so a one-step CBF cannot reject 0.3 m/s gust-driven penetration; residual over-limit episodes in storm are gust+deck spikes beyond actuator authority"
+}
