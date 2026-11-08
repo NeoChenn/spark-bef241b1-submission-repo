@@ -83,6 +83,10 @@ def write_mesh(stage, path, m, material, double=False):
     return mesh
 
 
+def light_path(kind, n, live):
+    return f"{s.ROOT}/Lights/{kind}_{n:02d}" if live else f"{s.OFFLINE}/Lights/{kind}_{n:02d}"
+
+
 def zquat(angle_deg):
     h = math.radians(angle_deg) / 2
     return (math.cos(h), 0.0, 0.0, math.sin(h))
@@ -235,7 +239,7 @@ def build_landing(stage, looks, kit, leg):
         if n == 0:
             kit.tube("landing", pos - (0, 0, dz - 4.8), pos + (0, 0, 0.35), 0.05)
         kit.add("lamp", "box", pos, zquat(LANDING_ANGLE), (0.45, 0.45, 0.04))
-        light = UsdLux.SphereLight.Define(stage, f"{s.ROOT}/Lights/landing_{n:02d}")
+        light = UsdLux.SphereLight.Define(stage, light_path("landing", n, n == 0))
         UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(*(pos + u * 0.6 - (0, 0, 0.3))))
         light.CreateRadiusAttr(0.25)
         light.CreateIntensityAttr(320000.0)
@@ -273,7 +277,7 @@ def build_overhang(stage, looks, kit):
     for n, (x, y) in enumerate(((31.25, -30.0), (31.25, -12.0), (31.25, 6.0), (31.25, 20.0))):
         kit.add("steel", "box", (x, y, z - 1.75), scale=(0.7, 0.35, 0.22))
         kit.add("lamp", "box", (x, y, z - 1.87), scale=(0.6, 0.28, 0.03))
-        light = UsdLux.SphereLight.Define(stage, f"{s.ROOT}/Lights/overhang_{n:02d}")
+        light = UsdLux.SphereLight.Define(stage, light_path("overhang", n, n == 1))
         UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(x, y, z - 2.2))
         light.CreateRadiusAttr(0.25)
         light.CreateIntensityAttr(200000.0)
@@ -330,7 +334,7 @@ def build_underside(stage, looks, kit, legs):
         zl = z - 2.35 if (abs(abs(x) - 17.5) < 0.1 or abs(abs(y) - 17.5) < 0.1) else z - 0.9
         kit.add("steel", "box", (x, y, zl + 0.12), scale=(0.7, 0.35, 0.22))
         kit.add("lamp", "box", (x, y, zl), scale=(0.6, 0.28, 0.03))
-        light = UsdLux.SphereLight.Define(stage, f"{s.ROOT}/Lights/under_{n:02d}")
+        light = UsdLux.SphereLight.Define(stage, light_path("under", n, n < 4))
         UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(x, y, zl - 0.35))
         light.CreateRadiusAttr(0.25)
         light.CreateIntensityAttr(260000.0)
@@ -375,7 +379,7 @@ def build() -> Path:
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     stage.OverridePrim("/World")
-    for group in ("", "/Looks", "/Columns", "/Underside", "/Lights", "/Inst", "/Offline", "/Offline/Drips"):
+    for group in ("", "/Looks", "/Columns", "/Underside", "/Lights", "/Inst", "/Offline", "/Offline/Drips", "/Offline/Lights"):
         UsdGeom.Scope.Define(stage, f"{s.ROOT}{group}")
     looks = make_looks(stage)
     for name in ("galv", "black", "pipe_grey", "pipe_green", "pipe_yellow", "pipe_red"):
