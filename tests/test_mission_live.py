@@ -225,7 +225,8 @@ def test_weld_job_runs_and_streams_its_policy_view():
     def check(x):
         h = x.header()
         for rid, v in h["views"].items():
-            seen[rid] = v["policy"]
+            if "policy" in v:
+                seen[rid] = v["policy"]
         return bool(seen) and any(r["state"] in ("GRIND", "WELD", "INSPECT_WELD") for r in h["robots"])
     assert run(m, 400, until=check)
     v = next(iter(seen.values()))

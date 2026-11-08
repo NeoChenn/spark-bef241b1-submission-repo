@@ -120,3 +120,9 @@ def test_noisy_pose_is_seeded_and_small():
     assert xyz[2] == 0.03 and np.linalg.norm(np.array(xyz[:2]) - (1.0, 2.0)) < 0.05 and abs(yaw - 0.4) < 0.4
     errs = [noisy_pose([0, 0, 0], 0.0, rng)[0][0] for _ in range(2000)]
     assert np.std(errs) == pytest.approx(0.01, rel=0.1)
+
+
+def test_ignores_flat_painted_marks_on_the_deck():
+    rgb, depth = scene()
+    rgb[200:230, 300:340] = YELLOW
+    assert detect_cans(rgb, depth, K, down_camera()) == []
