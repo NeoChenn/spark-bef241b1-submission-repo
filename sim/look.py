@@ -45,12 +45,12 @@ def sun_direction(rotate_xyz) -> tuple:
 
 
 INSCATTER = {
-    "dusk": {"color": (1.0, 0.7, 0.45), "density": 1.0 / 90.0, "height": 30.0, "g": 0.72, "sun": 1.0, "ambient": 0.3,
+    "dusk": {"color": (1.0, 0.64, 0.38), "density": 1.0 / 90.0, "height": 30.0, "g": 0.72, "sun": 1.0, "ambient": 0.3,
              "max": 0.5, "sky": 1500.0, "scale": 4},
 }
 
 
-def inscatter(rgb: np.ndarray, depth, cam: dict, preset: str, sun_dir) -> np.ndarray:
+def inscatter(rgb: np.ndarray, depth, cam: dict, preset: str, sun_dir, strength: float = 1.0) -> np.ndarray:
     p = INSCATTER.get(preset)
     if not p or depth is None:
         return rgb
@@ -69,7 +69,7 @@ def inscatter(rgb: np.ndarray, depth, cam: dict, preset: str, sun_dir) -> np.nda
     safe = np.where(np.abs(k) > 1e-4, k, 1.0)
     ratio = np.where(np.abs(k) > 1e-4, (1 - np.exp(-np.clip(k, -30, 30))) / safe, 1.0)
     tau = p["density"] * d * np.exp(-max(float(T[2, 3]), 0.0) / p["height"]) * ratio
-    f = np.clip(1 - np.exp(-np.clip(tau, 0, 50)), 0, p["max"])
+    f = np.clip(1 - np.exp(-np.clip(tau, 0, 50)), 0, p["max"]) * strength
     g = p["g"]
     cos = rays @ np.asarray(sun_dir, np.float32)
     phase = (1 - g * g) / (1 + g * g - 2 * g * cos) ** 1.5 * (1 - g) ** 3 / (1 - g * g)
