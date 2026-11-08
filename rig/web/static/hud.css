@@ -460,10 +460,9 @@ li.on .st { background: var(--accent); }
 .qr-card a { color: var(--accent); text-decoration: none; font-weight: 500; }
 .qr-pop { left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 20; padding: 20px 22px; border-radius: var(--spark-radius-panel); width: min(460px, calc(100% - 32px)); cursor: pointer; }
 
-/* Spark wordmark (placeholder until brand/ ships the SVG; markup lives only in index.html #brand) */
+/* Spark lockup from brand/logo/spark-lockup-dark.svg (copied to static/spark-lockup.svg) */
 #brand { position: fixed; top: var(--top); left: var(--edge); height: 32px; padding: 0 12px; border-radius: var(--spark-radius-panel); background: var(--tint); border: var(--spark-line-hairline) solid var(--spark-color-line); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); display: flex; align-items: center; gap: 9px; z-index: 4; pointer-events: none; color: var(--spark-color-text); }
-#brand .mark { width: 18px; height: 18px; display: block; fill: var(--spark-color-accent); stroke: none; }
-#brand .word { font: 600 17px/1 var(--spark-font-display); letter-spacing: 0.18em; margin-right: -0.18em; }
+#brand .lockup { height: 16px; width: auto; display: block; }
 #brand .tag { font: 500 10px/1 var(--spark-font-body); letter-spacing: 0.16em; text-transform: uppercase; color: var(--spark-color-muted); padding-left: 10px; border-left: var(--spark-line-hairline) solid var(--spark-color-line); }
 body.presenter #brand { opacity: 0.85; }
 button > i.sw { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }

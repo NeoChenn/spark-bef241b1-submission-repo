@@ -6,7 +6,7 @@
 <title>Spark Pitch Deck</title>
 <!-- Spark pitch template. One file, no build step. Arrow keys / Space / PageUp-Down to move, Home/End to jump, F for fullscreen.
      Text marked [EDIT] is placeholder copy; numbers marked [CHECK] must be verified by the team before presenting.
-     Wordmark: placeholder star + "SPARK" text in .wordmark below; swap for brand/logo/spark-lockup-dark.svg when the brand kit merges. -->
+     Wordmark: brand/logo/spark-lockup-dark.svg, inlined once as <symbol id="spark-lockup">. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
 <style>
@@ -32,7 +32,7 @@
   .top { position: absolute; top: 56px; left: 140px; right: 140px; display: flex; align-items: center; justify-content: space-between; color: var(--spark-color-muted); font: 500 18px/1 var(--spark-font-body); letter-spacing: 0.16em; text-transform: uppercase; }
   .foot { position: absolute; bottom: 52px; left: 140px; right: 140px; display: flex; justify-content: space-between; color: var(--spark-color-muted); font: 500 18px/1 var(--spark-font-mono); }
   .wordmark { display: inline-flex; align-items: center; gap: 14px; color: var(--spark-color-text); text-transform: none; }
-  .wordmark svg { width: 26px; height: 26px; fill: var(--spark-color-accent); }
+  .wordmark svg.lockup { height: 24px; width: auto; }
   .wordmark span { font: 600 26px/1 var(--spark-font-display); letter-spacing: 0.18em; }
   .kicker { font: 500 22px/1 var(--spark-font-mono); color: var(--spark-color-accent); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 28px; }
   h1 { font: 600 132px/1.0 var(--spark-font-display); letter-spacing: -0.03em; margin: 0; }
@@ -94,13 +94,28 @@
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute">
-  <defs><path id="star4" d="M12 1.5c.6 5.6 4.9 9.9 10.5 10.5-5.6.6-9.9 4.9-10.5 10.5-.6-5.6-4.9-9.9-10.5-10.5C7.1 11.4 11.4 7.1 12 1.5Z"/></defs>
+  <defs><symbol id="spark-lockup" viewBox="0 0 570.6 130"><g fill="#2EE6D6">
+    <path d="M28.6 0 L70.2 0 L44.2 52 L80.6 52 L20.8 130 L36.4 75.4 L0 75.4 Z"/>
+  </g>
+  <g fill="#F3F5F8">
+    <path d="M194.6 15 L143.29 15 L122.6 35.69 L122.6 73 L178.6 73 L178.6 87.69 L167.29 99 L122.6 99 L122.6 115 L173.91 115 L194.6 94.31 L194.6 57 L138.6 57 L138.6 42.31 L149.91 31 L194.6 31 Z"/>
+    <path d="M232.6 115 L232.6 42.31 L243.91 31 L272.6 31 L272.6 57 L256.6 57 L256.6 73 L288.6 73 L288.6 15 L237.29 15 L216.6 35.69 L216.6 115 Z"/>
+    <path d="M224.6 73 L264.6 73 L264.6 57 L224.6 57 Z"/>
+    <path d="M326.6 115 L326.6 42.31 L337.91 31 L366.6 31 L366.6 115 L382.6 115 L382.6 15 L331.29 15 L310.6 35.69 L310.6 115 Z"/>
+    <path d="M318.6 83 L374.6 83 L374.6 67 L318.6 67 Z"/>
+    <path d="M420.6 115 L420.6 42.31 L431.91 31 L460.6 31 L460.6 57 L444.6 57 L444.6 73 L476.6 73 L476.6 15 L425.29 15 L404.6 35.69 L404.6 115 Z"/>
+    <path d="M412.6 73 L452.6 73 L452.6 57 L412.6 57 Z"/>
+    <path d="M438.94 70.66 L460.6 92.31 L460.6 115 L476.6 115 L476.6 85.69 L450.26 59.34 Z"/>
+    <path d="M498.6 15 L498.6 115 L514.6 115 L514.6 15 Z"/>
+    <path d="M506.6 73 L541.91 73 L570.6 44.31 L570.6 15 L554.6 15 L554.6 37.69 L535.29 57 L506.6 57 Z"/>
+    <path d="M532.94 70.66 L554.6 92.31 L554.6 115 L570.6 115 L570.6 85.69 L544.26 59.34 Z"/>
+  </g></symbol><path id="star4" d="M10.02 1.00 L17.06 1.00 L12.66 9.80 L18.82 9.80 L8.70 23.00 L11.34 13.76 L5.18 13.76 Z"/></defs>
 </svg>
 <div id="deck">
 
   <!-- 1 Title -->
   <section class="slide title center">
-    <div class="top"><span class="wordmark"><svg viewBox="0 0 24 24"><use href="#star4"/></svg><span>SPARK</span></span><span>[EDIT] Team name · Event 2026</span></div>
+    <div class="top"><span class="wordmark"><svg class="lockup" viewBox="0 0 570.6 130" role="img" aria-label="Spark"><use href="#spark-lockup"/></svg></span><span>[EDIT] Team name · Event 2026</span></div>
     <svg class="star fill" viewBox="0 0 24 24"><use href="#star4"/></svg>
     <svg class="star" viewBox="0 0 24 24"><use href="#star4"/></svg>
     <div class="kicker">Autonomous robot fleet · offshore rigs</div>
@@ -111,7 +126,7 @@
 
   <!-- 2 Problem -->
   <section class="slide">
-    <div class="top"><span class="wordmark"><svg viewBox="0 0 24 24"><use href="#star4"/></svg><span>SPARK</span></span><span>The problem</span></div>
+    <div class="top"><span class="wordmark"><svg class="lockup" viewBox="0 0 570.6 130" role="img" aria-label="Spark"><use href="#spark-lockup"/></svg></span><span>The problem</span></div>
     <div class="kicker">Problem</div>
     <h2>Offshore upkeep is slow, costly and risky for people. <span class="edit">[EDIT]</span></h2>
     <div class="cols">
@@ -124,7 +139,7 @@
 
   <!-- 3 Demo -->
   <section class="slide">
-    <div class="top"><span class="wordmark"><svg viewBox="0 0 24 24"><use href="#star4"/></svg><span>SPARK</span></span><span>Demo</span></div>
+    <div class="top"><span class="wordmark"><svg class="lockup" viewBox="0 0 570.6 130" role="img" aria-label="Spark"><use href="#spark-lockup"/></svg></span><span>Demo</span></div>
     <div class="kicker">Live demo</div>
     <h2 style="margin-bottom:28px">One fleet, one rig, one unscripted change. <span class="edit">[EDIT]</span></h2>
     <div class="video panel">
@@ -137,7 +152,7 @@
 
   <!-- 4 How it thinks -->
   <section class="slide">
-    <div class="top"><span class="wordmark"><svg viewBox="0 0 24 24"><use href="#star4"/></svg><span>SPARK</span></span><span>How it thinks</span></div>
+    <div class="top"><span class="wordmark"><svg class="lockup" viewBox="0 0 570.6 130" role="img" aria-label="Spark"><use href="#spark-lockup"/></svg></span><span>How it thinks</span></div>
     <div class="kicker">Architecture</div>
     <h2>Fast skills on the robot. Slow thinking in the cloud. <span class="edit">[EDIT]</span></h2>
     <div class="flow grow">
@@ -154,7 +169,7 @@
 
   <!-- 5 Proof -->
   <section class="slide">
-    <div class="top"><span class="wordmark"><svg viewBox="0 0 24 24"><use href="#star4"/></svg><span>SPARK</span></span><span>Proof</span></div>
+    <div class="top"><span class="wordmark"><svg class="lockup" viewBox="0 0 570.6 130" role="img" aria-label="Spark"><use href="#spark-lockup"/></svg></span><span>Proof</span></div>
     <div class="kicker">Measured in simulation</div>
     <h2>It works, and we measured it.</h2>
     <div class="nums">
@@ -167,7 +182,7 @@
 
   <!-- 6 Safety -->
   <section class="slide">
-    <div class="top"><span class="wordmark"><svg viewBox="0 0 24 24"><use href="#star4"/></svg><span>SPARK</span></span><span>Safety</span></div>
+    <div class="top"><span class="wordmark"><svg class="lockup" viewBox="0 0 570.6 130" role="img" aria-label="Spark"><use href="#spark-lockup"/></svg></span><span>Safety</span></div>
     <div class="kicker">Safety first</div>
     <h2>Safe by design, not by luck. <span class="edit">[EDIT]</span></h2>
     <div class="rules">
@@ -181,7 +196,7 @@
 
   <!-- 7 Close -->
   <section class="slide close center">
-    <div class="top"><span class="wordmark"><svg viewBox="0 0 24 24"><use href="#star4"/></svg><span>SPARK</span></span><span>Thank you</span></div>
+    <div class="top"><span class="wordmark"><svg class="lockup" viewBox="0 0 570.6 130" role="img" aria-label="Spark"><use href="#spark-lockup"/></svg></span><span>Thank you</span></div>
     <div class="kicker">Next</div>
     <h1>Fewer people on the deck. More rigs kept safe. <span class="edit">[EDIT]</span></h1>
     <div class="cta"><span class="primary">[EDIT] The ask</span><span>[EDIT] github / contact</span></div>
