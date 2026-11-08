@@ -10,9 +10,9 @@ REPO = Path(__file__).resolve().parent.parent
 LEAK_META = REPO / "sim/output/leak_flanges_meta.json"
 ROOT = "/World/GasDetectors"
 STATES = {
-    "ok": ((0.05, 1.0, 0.2), 30.0),
-    "warn": ((1.0, 0.55, 0.02), 40.0),
-    "alarm": ((1.0, 0.04, 0.02), 60.0),
+    "ok": ((0.05, 1.0, 0.2), 5.0),
+    "warn": ((1.0, 0.55, 0.02), 6.0),
+    "alarm": ((1.0, 0.04, 0.02), 8.0),
     "fault": ((0.35, 0.36, 0.38), 0.0),
 }
 HOUSING = (0.85, 0.62, 0.03)
@@ -51,7 +51,7 @@ def layout(meta: dict, translation=(0.0, 0.0, 0.0), root: str = ROOT, mount=MOUN
         frame = m.copy()
         frame[:3, 3] = (m @ local)[:3]
         tip = frame @ np.array([0.0, 0.0, -BOX[2] / 2 - HEAD_H, 1.0])
-        out.append(Detector(f"GD-{f['id']}", f["id"], f"{root}/GD_{f['id']}", frame, tip[:3]))
+        out.append(Detector(f"G-{f['id']}", f["id"], f"{root}/G_{f['id']}", frame, tip[:3]))
     return out
 
 
@@ -147,7 +147,7 @@ class GasDetectors:
         return self.detectors[self._key(det_id)].state
 
     def _key(self, det_id: str) -> str:
-        return det_id if det_id in self.detectors else f"GD-{det_id}"
+        return det_id if det_id in self.detectors else f"G-{det_id.split('-')[-1]}"
 
     def set_detector_state(self, det_id: str, state: str) -> None:
         from pxr import Gf, UsdLux
@@ -164,4 +164,4 @@ class GasDetectors:
             rgb, e = STATES[state]
             light = UsdLux.SphereLight(self.stage.GetPrimAtPath(f"{d.path}/glow"))
             light.GetColorAttr().Set(Gf.Vec3f(*rgb))
-            light.GetIntensityAttr().Set(25.0 * e)
+            light.GetIntensityAttr().Set(20.0 * e)

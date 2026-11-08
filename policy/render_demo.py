@@ -361,7 +361,7 @@ def worker(argv):
         print(f"[demo] {shot}: {len(frames)} frames in {wall:.0f}s -> {path}", flush=True)
     for item in filter(None, args.detector_still.split(",")):
         fid, state = (item.split(":") + ["alarm"])[:2]
-        det = detectors.detectors[f"GD-{fid}"]
+        det = detectors.detectors[f"G-{fid}"]
         detectors.set_detector_state(fid, state)
         f = det.frame
         hub = f[:3, 3]
