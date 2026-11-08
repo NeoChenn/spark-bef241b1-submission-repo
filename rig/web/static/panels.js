@@ -1,7 +1,7 @@
 (() => {
   const H = HUD, { q, num, set, esc, spark, fit, now } = H;
   const fc = (f) => (f > 40 ? "#F85149" : f >= 36 ? "#E3B341" : f >= 18 ? "#3FB950" : "rgba(255,255,255,.72)");
-  const COL = { stop: "#F85149", warn: "#E3B341", ok: "#3FB950", act: "#D97757", idle: "rgba(235,235,245,.6)" };
+  const COL = { stop: "#F85149", warn: "#E3B341", ok: "#3FB950", act: "#2EC4B6", idle: "rgba(235,235,245,.6)" };
   const tone = (st = "") => (/PAUSE|RETREAT|FAIL|ESCALATE/.test(st) ? "stop" : /WAIT|BACK|HOLD|DOCK|GAS|BLOCK/.test(st) ? "warn" : /DONE|CHARG/.test(st) ? "ok" : /IDLE/.test(st) ? "idle" : "act");
   const NAMES = { R1: "Unit 1 · rust", R2: "Unit 2 · gas", R3: "Unit 3", Q1: "Unit 1 · rust", Q2: "Unit 2 · gas", Q3: "Unit 3", "unit-1": "Unit 1 · rust", "unit-2": "Unit 2 · gas", "unit-3": "Unit 3" };
   const rname = (r) => r.name || NAMES[r.id] || r.id;
@@ -154,6 +154,17 @@
     return S.gasAlarm || S.linkCut || c?.banner || S.state === "ESCALATE_TO_HUMAN" || an.some((a) => a.severity === "critical") ? 90 : an.some((a) => /warn/.test(a.severity)) ? 50 : 0;
   };
   const ccRow = (a, n) => `<li data-n="${n}" class="${acted.has(a.id) ? "done" : ""}"><span class="tnum">${a.rank || n + 1}</span><span>${esc(a.label)}<small>${a.source === "edge" ? "Edge rule" : "Argon"}${a.rationale ? " · " + esc(a.rationale) : ""}</small></span><b class="tnum">${a.source === "edge" ? "hard" : Math.round((a.confidence || 0) * 100)}</b></li>`;
+  const healthWhy = (f) => {
+    const e = f.evidence || {}, u = e.unit ? " " + e.unit : "";
+    if (f.hazard) return "beside live gas: treated as gas";
+    if (f.status === "STUCK") return `flat at ${e.value}${u}, σ ${e.std} vs ${e.nbr_std ?? "–"}`;
+    if (f.status === "DEAD") return `silent ${e.silent_s} s`;
+    if (f.status === "DRIFT") return `bias ${e.bias > 0 ? "+" : ""}${e.bias}${u} > ${e.tol}`;
+    if (f.status === "NOISY") return `noise ${e.ratio}× its peers`;
+    return `reads ${e.value}${u}`;
+  };
+  const health = (h) => (!h || !h.total ? "" : `<div class="cc-health"><p class="hh"><b>Sensor health</b><span class="tnum ${h.faults.length ? "warn" : ""}">${h.ok}/${h.total} OK</span></p>`
+    + h.faults.slice(0, 3).map((f) => `<p class="hf ${f.hazard || f.status === "DEAD" ? "stop" : ""}"><span class="hs">${f.status === "OUT_OF_RANGE" ? "RANGE" : f.status}</span><span class="id">${esc(f.id)}</span><span class="ev">${esc(healthWhy(f))}</span><span class="jb tnum">${esc((f.job || "–").replace("sensor_maintenance-", "maint ").replace("verify_sensor-", "verify "))}</span></p>`).join("") + `</div>`);
   H.planner = (ag, n) => (ag && (ag.intent || ag.calls?.length) ? `<div class="cc-agent">${ag.intent ? `<p class="intent">“${esc(ag.intent)}”</p>` : ""}${(ag.calls || []).slice(-n).reverse().map((x) =>
     `<p class="call ${x.ok ? "" : "no"}"><b>${x.ok ? "✓" : "✗"}</b>${esc(x.label)}<small>${esc(x.ok ? x.why : "refused: " + x.refused)}</small></p>`).join("")}</div>` : "");
   H.vetoes = (c, n) => (c?.vetoed || []).slice(0, n).map((v) => `<p class="veto"><b>Edge veto</b> <s>${esc(v.label)}</s><small>${esc(v.why)}</small></p>`).join("");
@@ -161,14 +172,30 @@
     desc: "Gemini 4 Argon's situation report and ranked actions, the edge rules that override it, and the planner's last calls. Each action is also a palette command.",
     hint: (S) => { const c = ctl(S); return !c ? "" : c.link === "CUT" ? "Edge only" : c.banner ? sent(c.banner) : c.key ? sent(c.key.replace(/[_+]/g, " ")) : "On track"; },
     render(el, S) {
+      const x = q(el, `<form class="cc-order" data-k="f"><input data-k="i" placeholder="Give Argon an order…" autocomplete="off" aria-label="Order for Argon"><button type="submit">Send</button></form><div data-k="b"></div>`);
+      if (!x.f._on) {
+        x.f._on = true;
+        x.i.addEventListener("keydown", (e) => e.stopPropagation());
+        x.f.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const text = x.i.value.trim();
+          if (!text) return;
+          H.event("intent", { text }, () => { S.intent = text; });
+          H.addLog({ t: S.t, from: "Operator", to: "ORDER", reason: text });
+          S.intent = text;
+          x.i.value = "";
+          x.f.classList.add("sent");
+          setTimeout(() => x.f.classList.remove("sent"), 1200);
+        });
+      }
       const c = ctl(S), key = JSON.stringify(c) + acted.size;
-      if (el._k === key) return;
-      el._k = key;
-      el.innerHTML = !c ? `<p class="none">Waiting for a situation report</p>` : `<div class="cc-meta"><span class="badge ${c.mode === "CLOUD" ? "cloud" : ""}">${c.mode === "CLOUD" ? "Cloud" : "Edge"}</span>${c.latency_ms != null ? `<span class="tnum">${(c.latency_ms / 1000).toFixed(1)} s</span>` : ""}${c.cost_today_usd != null ? `<span class="tnum">$${c.cost_today_usd.toFixed(3)} today · ${c.calls_today || 0} calls</span>` : ""}</div>`
-        + (c.banner ? `<p class="edge">${esc(sent(c.banner))}</p>` : "")
+      if (x.b._k === key) return;
+      x.b._k = key;
+      x.b.innerHTML = !c ? `<p class="none">Waiting for a situation report</p>` : `<div class="cc-meta"><span class="badge ${c.mode === "CLOUD" ? "cloud" : ""}">${c.mode === "CLOUD" ? "Cloud" : "Edge"}</span>${c.latency_ms != null ? `<span class="tnum">${(c.latency_ms / 1000).toFixed(1)} s</span>` : ""}${c.cost_today_usd != null ? `<span class="tnum">$${c.cost_today_usd.toFixed(3)} today · ${c.calls_today || 0} calls</span>` : ""}</div>`
+        + (c.banner ? `<p class="edge">${esc(sent(c.banner))}</p>` : "") + health(c.health)
         + `<div class="cc-sum">${(c.situation?.length ? c.situation : [c.summary || "Edge safety rules only; no cloud plan yet."]).slice(0, 3).map((l) => `<p>${esc(l)}</p>`).join("")}</div>`
         + `<ol class="cc-acts">${(c.actions || []).slice(0, 3).map(ccRow).join("")}</ol>` + H.vetoes(c, 1) + H.planner(c.agent, 1);
-      el.onclick = (e) => { const li = e.target.closest("[data-n]"); if (li) act(c.actions[+li.dataset.n]); };
+      x.b.onclick = (e) => { const li = e.target.closest("[data-n]"); if (li && c) act(c.actions[+li.dataset.n]); };
     } });
   function bounds(m, rs) {
     if (m?.bounds) return m.bounds;

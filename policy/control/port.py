@@ -148,3 +148,18 @@ class ContractAdapter:
 
     def reprioritise(self, job_id, priority, by, why) -> bool:
         return self.c.reprioritise(job_id, int(priority), by=by, why=why)[0]
+
+
+class LockedPort:
+    def __init__(self, port, lock):
+        self.inner, self.lock = port, lock
+
+    def __getattr__(self, name):
+        attr = getattr(self.inner, name)
+        if not callable(attr):
+            return attr
+
+        def call(*a, **kw):
+            with self.lock:
+                return attr(*a, **kw)
+        return call

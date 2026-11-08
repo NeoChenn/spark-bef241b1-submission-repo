@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
@@ -11,9 +12,10 @@ from typing import Optional
 
 from policy.control.adapters import TrendTracker
 from policy.control.limiter import Budget, RateLimiter, cost_usd
+from policy.control.port import LockedPort
 from policy.control.prompt import build, prompt_hash
-from policy.control.safety import arbitrate, edge_rules
-from policy.control.schema import Plan, SchemaError, validate
+from policy.control.safety import arbitrate, edge_rules, hazard_first, verify_fallback
+from policy.control.schema import VERIFY, Plan, SchemaError, validate
 from policy.control.snapshot import SensorSnapshot
 
 OFFLINE_BANNER = "CLOUD OFFLINE — edge rules only"
@@ -25,6 +27,7 @@ LEAK_ALARM_LEL = 10.0
 LEAK_ALARM_TREND = 3.0
 AUTO_CONF = 0.6
 TOP_GAS = 3
+FAULT_GRACE_S = 25.0
 
 
 def _json(text: str):
@@ -42,6 +45,7 @@ def alarms(snap: SensorSnapshot, edge) -> set[str]:
     out |= {f"gas:{g.id}" for g in snap.gas if g.lel >= LEAK_ALARM_LEL and g.lel_trend > LEAK_ALARM_TREND}
     out |= {f"state:{r.id}:{r.state}" for r in snap.robots if r.state in ALARM_STATES}
     out |= {f"verdict:{v.robot}:{v.verdict}" for v in snap.verdicts}
+    out |= {f"health:{h.id}:{h.status}" for h in snap.faults()}
     return out
 
 
@@ -49,8 +53,14 @@ class ControlCentre:
     def __init__(self, backend, log_path="runs/control/calls.jsonl", interval_s: float = 6.0,
                  alarm_gap_s: float = 1.5, per_minute: int = 12, cap_usd_day: float = 5.0, timeout_s: float = 30.0,
                  sync: bool = True, today=date.today, max_images: int = 1, sim_latency: bool = False,
-                 auto_conf: float = AUTO_CONF, agent=None):
+                 auto_conf: float = AUTO_CONF, agent=None, timeline=None, fault_grace_s: float = FAULT_GRACE_S):
         self.backend, self.agent, self.link_cut = backend, agent, False
+        self.timeline, self.fault_grace_s = timeline, fault_grace_s
+        self.lock = threading.RLock()
+        self.orders = None
+        if agent is not None and not isinstance(agent.port, LockedPort):
+            agent.port = LockedPort(agent.port, self.lock)
+        self.fault_seen: dict[str, float] = {}
         self.log_path = Path(log_path) if log_path else None
         self.limiter = RateLimiter(interval_s, alarm_gap_s, per_minute)
         self.budget = Budget(cap_usd_day)
@@ -74,9 +84,14 @@ class ControlCentre:
         return self.backend is not None and self.backend.available
 
     def tick(self, snap: SensorSnapshot, now: Optional[float] = None) -> dict:
+        with self.lock:
+            return self._tick(snap, now)
+
+    def _tick(self, snap: SensorSnapshot, now: Optional[float] = None) -> dict:
         now = time.monotonic() if now is None else now
         self.trends.update(snap)
-        edge = edge_rules(snap, self.latched)
+        first = hazard_first(snap)
+        edge = edge_rules(snap, self.latched) + first
         self.latched = {a.target for a in edge if a.kind == "evacuate"}
         cur = alarms(snap, edge)
         self.unserved |= cur - self.seen
@@ -87,8 +102,20 @@ class ControlCentre:
                 self.status = "capped"
             elif self.limiter.due(now, alarm=bool(self.unserved)):
                 self._start(snap, edge, now)
-        final, vetoed = arbitrate(edge, self.plan.actions if self.plan else [], snap)
+        cloud = self.plan.actions if self.plan else []
+        edge += verify_fallback(snap, edge, self._covered(snap, cloud, now))
+        final, vetoed = arbitrate(edge, cloud, snap)
         return self._header(snap, edge, final, vetoed, now)
+
+    def _covered(self, snap, cloud, now) -> set[str]:
+        faults = {h.id for h in snap.faults()}
+        self.fault_seen = {k: v for k, v in self.fault_seen.items() if k in faults}
+        for k in faults:
+            self.fault_seen.setdefault(k, now)
+        if self.link_cut or not self.cloud or self.status not in ("ok", "idle"):
+            return set()
+        asked = {a.target for a in cloud if a.purpose == VERIFY}
+        return {k for k, t0 in self.fault_seen.items() if k in asked or now - t0 < self.fault_grace_s}
 
     def cut_link(self, on: bool) -> None:
         self.link_cut = bool(on)
@@ -100,8 +127,15 @@ class ControlCentre:
         if self.agent is not None:
             self.agent.cut_link(on)
 
-    def intent(self, text: str, now: float = 0.0):
-        return None if self.agent is None else self.agent.handle(intent=text, now=now)
+    def intent(self, text: str, now: float = 0.0, background: bool = False):
+        if self.agent is None:
+            return None
+        if not background:
+            return self.agent.handle(intent=text, now=now)
+        if self.orders is None:
+            self.orders = ThreadPoolExecutor(1, thread_name_prefix="argon-orders")
+        self.agent.last = {**self.agent.last, "status": "thinking", "intent": text, "text": ""}
+        return self.orders.submit(self.agent.handle, intent=text, now=now)
 
     def finding(self, finding: dict, now: float = 0.0):
         return None if self.agent is None else self.agent.handle(findings=[finding], now=now)
@@ -180,6 +214,15 @@ class ControlCentre:
         self._log(rec)
 
     def _log(self, rec: dict) -> None:
+        if self.timeline is not None:
+            plan = self.plan if rec.get("status") == "ok" else None
+            keep = ("model", "live", "status", "error", "latency_ms", "tokens_in", "tokens_out", "tokens_thought",
+                    "cost_usd", "alarms", "situation", "prompt_hash")
+            self.timeline.log("argon_call", None, None, **{k: rec[k] for k in keep if k in rec},
+                              decision=[{"kind": a.kind, "robot": a.robot, "target": a.target, "purpose": a.purpose,
+                                         "confidence": round(a.confidence, 2), "rationale": a.rationale}
+                                        for a in plan.actions] if plan else [],
+                              rejected=len(rec.get("rejected") or []))
         if self.log_path is None:
             return
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -223,9 +266,16 @@ class ControlCentre:
             "gas": [{"id": g.id, "zone": g.zone, "lel": round(g.lel, 1), "db": g.acoustic_db, "trend": g.lel_trend}
                     for g in sorted(snap.gas, key=lambda g: -g.lel)[:TOP_GAS]],
             "storm_level": round(snap.storm_level, 2),
+            "health": health_view(snap),
             "link": "CUT" if self.link_cut else "UP",
             "agent": self.agent.summary() if self.agent is not None else None,
         }
+
+
+def health_view(snap: SensorSnapshot) -> dict:
+    faults = [{"id": h.id, "kind": h.kind, "status": h.status, "zone": h.zone, "since": round(h.since, 1),
+               "hazard": h.hazard, "job": h.job, "evidence": h.evidence} for h in snap.faults()]
+    return {"total": len(snap.health), "ok": len(snap.health) - len(faults), "faults": faults}
 
 
 def from_env(mode: str = "auto", log_path="runs/control/calls.jsonl", sync: bool = False, port=None,
