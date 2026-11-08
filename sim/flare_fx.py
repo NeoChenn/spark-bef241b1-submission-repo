@@ -24,18 +24,21 @@ JET = (-0.75, 0.0, 0.66)
 COLS, ROWS, TILE_W, TILE_H = 8, 4, 256, 512
 FRAMES = COLS * ROWS
 FPS = 18.0
-HEIGHT, WIDTH = 24.0, 14.0
+HEIGHT, WIDTH = 24.0, 16.0
 WIND = (2.6, 1.5)
 EMISSION = float(os.environ.get("RIG_FLARE_GAIN", "6000"))
 CARDS = (
-    (0.0, 1.0, 1.0, 0.0, 1.0),
-    (52.0, 0.75, 0.8, 0.37, 1.27),
-    (-48.0, 0.68, 0.72, 0.71, 0.83),
+    (0.0, 1.0, 1.0, 0.0, 1.0, 0.0),
+    (52.0, 0.7, 0.86, 0.37, 1.27, 2.6),
+    (-48.0, 0.6, 0.62, 0.71, 0.83, -1.1),
 )
 SEGMENTS = 12
-SMOKE_N, SMOKE_LIFE, SMOKE_LEVELS = 40, 10.0, 5
-HALO_SIZE, HALO_GAIN, HALO_ALPHA = 80.0, EMISSION * 0.2, 0.5
+SMOKE_N, SMOKE_LIFE, SMOKE_LEVELS = 110, 12.0, 8
+SMOKE_TINT, SMOKE_ALPHA, SMOKE_GLOW = (0.055, 0.045, 0.036), 0.42, (1.0, 0.42, 0.12)
+HALO_SIZE, HALO_GAIN, HALO_ALPHA = 46.0, EMISSION * 0.08, 0.35
 SIDE_GAIN = 0.8
+PARTS = {"offline": "flame,side,smoke,halo,anim", "live": "flame,smoke,anim"}
+LIVE_SMOKE = 18
 STOPS = (
     (0.0, (0.7, 0.1, 0.01)),
     (0.3, (1.0, 0.38, 0.05)),
@@ -90,24 +93,26 @@ def flame_frames(n: int = FRAMES, w: int = TILE_W, h: int = TILE_H, seed: int = 
     u = np.linspace(-1.0, 1.0, w)[None, :]
     v = np.linspace(1.0, 0.0, h)[:, None]
     prof = (v + 0.03) ** 0.75 * (1.02 - v) ** 0.8
-    width = 0.85 * prof / prof.max()
+    width = 0.74 * prof / prof.max() * (1.0 + 0.2 * np.sign(u) * np.sin(3.0 * v))
     edge = smoothstep(0.0, 0.08, 1.0 - np.abs(u)) * smoothstep(0.0, 0.06, 1.0 - v)
     out = np.zeros((n, h, w, 4))
     for k in range(n):
         roll = lambda f, s: np.roll(f, -int(round(k * s * h / n)), axis=0)
         wv = (roll(warp, 1) - 0.5) * 2.0
         sv = (roll(side, 2) - 0.5) * 2.0
-        uu = u + 0.5 * wv * v**1.2 + 0.18 * sv * v**0.8
+        uu = u - 0.3 * np.sin(2.6 * v + 0.6) * v + 0.7 * wv * v**1.1 + 0.22 * sv * v**0.8
         body = np.clip(1.0 - (np.abs(uu) / np.maximum(width, 1e-3)) ** 2, 0.0, 1.0)
         turb = 0.5 * roll(coarse, 1) + 0.5 * (1.0 - np.abs(roll(fine, 3) - 0.5) * 2.0)
         env = np.clip(1.0 - (np.abs(uu) / np.maximum(1.35 * width, 1e-3)) ** 2, 0.0, 1.0)
-        i = body**0.8 * (1.1 - 0.85 * v) + (turb - 0.55) * (0.6 + 1.6 * v) * env - 0.25 * v
+        i = body**0.8 * (1.1 - 0.85 * v) + (turb - 0.55) * (0.6 + 2.4 * v) * env - 0.36 * v
         i = np.clip(i * env**0.5, 0.0, 1.0) * smoothstep(0.0, 0.03, v) * edge
         heat = np.clip(i * (1.0 - 0.8 * v) * body**0.4, 0.0, 1.0)
         streak = roll(fine, 3)
         glow = (0.07 + 0.93 * heat**2.4) * (0.35 + 1.3 * streak**1.5)
-        out[k, ..., 3] = smoothstep(0.06, 0.3, i)
-        out[k, ..., :3] = ramp(heat) * glow[..., None]
+        base = smoothstep(0.1, 0.0, v) * body
+        out[k, ..., 3] = smoothstep(0.06, 0.3, i) * (1.0 - 0.45 * base)
+        rgb = ramp(heat) * glow[..., None]
+        out[k, ..., :3] = rgb * (1.0 - 0.8 * base[..., None]) + np.array([0.16, 0.24, 0.45]) * base[..., None]
     return out
 
 
@@ -141,8 +146,9 @@ def smoke_puff(size: int = 256, seed: int = 3) -> np.ndarray:
 def halo(size: int = 256) -> np.ndarray:
     y, x = np.mgrid[-1:1:size * 1j, -1:1:size * 1j]
     r = np.hypot(x, y)
-    a = (np.exp(-(r / 0.22) ** 2) * 0.5 + np.exp(-(r / 0.45) ** 2) * 0.5) * smoothstep(1.0, 0.55, r)
-    img = np.dstack([a, a * 0.45, a * 0.12, a])
+    a = (np.exp(-(r / 0.18) ** 2) * 0.45 + np.exp(-(r / 0.4) ** 2) * 0.55) * smoothstep(0.95, 0.4, r)
+    warm = np.exp(-(r / 0.3) ** 2)
+    img = np.dstack([a, a * (0.5 + 0.35 * warm), a * (0.18 + 0.3 * warm), a])
     return (np.clip(img, 0, 1) * 255 + 0.5).astype(np.uint8)
 
 
@@ -189,7 +195,7 @@ def facing_right(centre, eye, yaw_deg: float = 0.0) -> np.ndarray:
 
 
 def smoke_state(t: float, wind=WIND, n: int = SMOKE_N, life: float = SMOKE_LIFE, origin=None):
-    origin = centerline(np.array([1.0]), t, wind)[0] if origin is None else np.asarray(origin, float)
+    origin = centerline(np.array([0.82]), t, wind)[0] if origin is None else np.asarray(origin, float)
     w = np.array([wind[0], wind[1], 0.0])
     speed = max(np.linalg.norm(w), 1.5)
     w = w / max(np.linalg.norm(w), 1e-6) * speed
@@ -197,18 +203,25 @@ def smoke_state(t: float, wind=WIND, n: int = SMOKE_N, life: float = SMOKE_LIFE,
     shift = t - i * life / n
     gen = np.floor(shift / life)
     age = shift - gen * life
-    h = np.sin((i[:, None] * 12.9898 + gen[:, None] * 78.233 + np.array([0.0, 37.7, 91.3])) * 43758.5453)
-    jitter = (h * 1e4 - np.floor(h * 1e4)) * 2 - 1
-    pos = origin + w[None, :] * age[:, None] + np.array([0, 0, 2.2]) * age[:, None] ** 0.8
-    pos = pos + jitter * (0.8 + 0.55 * age[:, None])
-    scale = 3.0 + 2.1 * age
-    u = age / life
-    alpha = smoothstep(0.0, 0.08, u) * (1 - smoothstep(0.45, 1.0, u))
-    return pos, scale, alpha
+    h = np.sin((i[:, None] * 12.9898 + gen[:, None] * 78.233 + np.array([0.0, 37.7, 91.3, 13.1])) * 43758.5453)
+    rnd = h * 1e4 - np.floor(h * 1e4)
+    jitter = rnd[:, :3] * 2 - 1
+    pos = origin + w[None, :] * age[:, None] * (0.75 + 0.25 * age[:, None] / life)
+    pos = pos + np.array([0, 0, 1.7]) * age[:, None] ** 0.85 + jitter * (0.25 + 0.3 * age[:, None])
+    scale = 2.2 + 1.5 * age * (0.8 + 0.4 * rnd[:, 3])
+    roll = rnd[:, 3] * math.tau + 0.15 * age * np.sign(rnd[:, 0] - 0.5)
+    return pos, scale, age_bucket(age, life), roll
 
 
-def fade_level(alpha: np.ndarray, levels: int = SMOKE_LEVELS) -> np.ndarray:
-    return np.clip(np.round(np.asarray(alpha) * levels - 0.5), 0, levels - 1).astype(int)
+def age_bucket(age, life: float = SMOKE_LIFE, levels: int = SMOKE_LEVELS) -> np.ndarray:
+    return np.clip((np.asarray(age) / life * levels).astype(int), 0, levels - 1)
+
+
+def smoke_level(k: int, levels: int = SMOKE_LEVELS):
+    u = (k + 0.5) / levels
+    alpha = SMOKE_ALPHA * smoothstep(0.0, 0.05, u) * (1.0 - u) ** 1.4
+    glow = math.exp(-u * 9.0)
+    return alpha, glow
 
 
 def write_textures() -> None:
@@ -282,7 +295,7 @@ def build_layer(path: Path = LAYER) -> Path:
             a = r * 3 + c
             faces += [a, a + 1, a + 4, a + 3]
     line = centerline(np.linspace(0, 1, rows), 0.0)
-    for k, (yaw, ws, hs, phase, rate) in enumerate(CARDS):
+    for k, (yaw, ws, hs, phase, rate, side) in enumerate(CARDS):
         mat = _mdl_material(stage, f"{ROOT}/Looks/flame_{k}", "flare_card",
                             {"atlas": FLAME_TEX, "frame": 0.0, "cols": COLS, "rows": ROWS, "gain": EMISSION}, rel)
         m = UsdGeom.Mesh.Define(stage, f"{ROOT}/flame_{k}")
@@ -303,9 +316,10 @@ def build_layer(path: Path = LAYER) -> Path:
     protos = []
     for k in range(SMOKE_LEVELS):
         q = _quad(stage, f"{ROOT}/smoke/proto_{k}")
-        a = 0.85 * (k + 1) / SMOKE_LEVELS
+        a, g = smoke_level(k)
         mat = _mdl_material(stage, f"{ROOT}/Looks/smoke_{k}", "smoke_card",
-                            {"puff": SMOKE_TEX, "tint": (0.06, 0.055, 0.05), "alpha_gain": a}, rel)
+                            {"puff": SMOKE_TEX, "tint": SMOKE_TINT, "alpha_gain": a,
+                             "glow": tuple(c * g * EMISSION * 0.012 for c in SMOKE_GLOW)}, rel)
         UsdShade.MaterialBindingAPI.Apply(q.GetPrim()).Bind(mat)
         protos.append(q.GetPath())
     inst.CreatePrototypesRel().SetTargets(protos)
@@ -351,10 +365,22 @@ def _eye(stage):
     return np.array([0.0, -200.0, 50.0])
 
 
-def billboard_quats(pos: np.ndarray, eye) -> np.ndarray:
+def billboard_quats(pos: np.ndarray, eye, roll=None) -> np.ndarray:
     d = np.asarray(eye, float)[None, :] - pos
     yaw = np.arctan2(d[:, 0], -d[:, 1])
-    return np.column_stack([np.cos(yaw / 2), np.zeros(len(pos)), np.zeros(len(pos)), np.sin(yaw / 2)])
+    r = np.zeros(len(pos)) if roll is None else np.asarray(roll, float)
+    c1, s1, c2, s2 = np.cos(yaw / 2), np.sin(yaw / 2), np.cos(r / 2), np.sin(r / 2)
+    return np.column_stack([c1 * c2, -s1 * s2, c1 * s2, s1 * c2])
+
+
+def parts() -> set:
+    quality = os.environ.get("RIG_QUALITY", "live")
+    return set(os.environ.get("RIG_FLARE_PARTS", PARTS.get(quality, PARTS["live"])).split(","))
+
+
+def _put(attr, value) -> None:
+    if attr.Get() != value:
+        attr.Set(value)
 
 
 def update(stage, t: float, wind=WIND) -> None:
@@ -363,38 +389,62 @@ def update(stage, t: float, wind=WIND) -> None:
     root = stage.GetPrimAtPath(ROOT)
     if not root or not root.IsValid():
         return
+    use = parts()
     flow = stage.GetPrimAtPath(FLOW)
     flow_flame = bool(flow and flow.IsValid()) and os.environ.get("RIG_FLARE_FLOW", "0") == "1"
     shown = "invisible" if flow_flame else "inherited"
     emitter = stage.GetPrimAtPath(f"{FLOW}/flowEmitterSphere")
     if emitter and emitter.IsValid() and not flow_flame:
-        emitter.GetAttribute("fuel").Set(0.0)
-        emitter.GetAttribute("temperature").Set(0.0)
-    for name in [f"flame_{k}" for k in range(len(CARDS))]:
-        UsdGeom.Imageable(stage.GetPrimAtPath(f"{ROOT}/{name}")).GetVisibilityAttr().Set(shown)
+        _put(emitter.GetAttribute("fuel"), 0.0)
+        _put(emitter.GetAttribute("temperature"), 0.0)
+    for k, card in enumerate(CARDS):
+        on = "flame" in use and (card[0] == 0 or "side" in use)
+        _put(UsdGeom.Imageable(stage.GetPrimAtPath(f"{ROOT}/flame_{k}")).GetVisibilityAttr(),
+             shown if on else "invisible")
+    for name in ("smoke", "halo"):
+        _put(UsdGeom.Imageable(stage.GetPrimAtPath(f"{ROOT}/{name}")).GetVisibilityAttr(),
+             "inherited" if name in use else "invisible")
     eye = _eye(stage)
     rows = SEGMENTS + 1
     line = centerline(np.linspace(0, 1, rows), t, wind)
     level = flicker(t)
-    for k, (yaw, ws, hs, phase, rate) in enumerate(CARDS):
+    for k, (yaw, ws, hs, phase, rate, side) in enumerate(CARDS):
+        if "flame" not in use or (yaw != 0 and "side" not in use):
+            continue
         v = np.linspace(0, 1, rows)
         sub = centerline(v * hs, t + phase, wind)
         away = np.asarray(eye, float) - line[rows // 3]
         away = -away / max(np.linalg.norm(away), 1e-6) * 1.6 * abs(np.sign(yaw))
-        sub = sub + np.outer(1.8 * v**1.5, facing_right(line[rows // 3], eye)) * np.sign(yaw) + away
+        sub = sub + np.outer(side * v**1.5, facing_right(line[rows // 3], eye)) + away
         pts = card_points(sub, facing_right(line[rows // 3], eye, yaw), WIDTH * ws * (0.96 + 0.06 * level))
         UsdGeom.Mesh(stage.GetPrimAtPath(f"{ROOT}/flame_{k}")).GetPointsAttr().Set(
             Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
         frame = int(math.floor((t + phase * 7.0) * FPS * rate))
-        sh = UsdShade.Shader.Get(stage, f"{ROOT}/Looks/flame_{k}/shader")
-        sh.GetInput("frame").Set(float(frame % FRAMES))
-        sh.GetInput("gain").Set(EMISSION * flicker(t, k + 1.0) * (1.0 if yaw == 0 else SIDE_GAIN))
-    pos, scale, alpha = smoke_state(t, wind)
+        if "anim" in use:
+            sh = UsdShade.Shader.Get(stage, f"{ROOT}/Looks/flame_{k}/shader")
+            _put(sh.GetInput("frame").GetAttr(), float(frame % FRAMES))
+            sh.GetInput("gain").Set(EMISSION * flicker(t, k + 1.0) * (1.0 if yaw == 0 else SIDE_GAIN))
+    if "smoke" in use:
+        _smoke(stage, t, wind, eye, "side" in use)
+    if "halo" in use:
+        _halo(stage, line, rows, eye, level, shown)
+    _light(stage, line, rows, level)
+
+
+def _smoke(stage, t, wind, eye, full):
+    from pxr import Gf, UsdGeom, Vt
+
+    pos, scale, bucket, roll = smoke_state(t, wind, n=SMOKE_N if full else LIVE_SMOKE)
     inst = UsdGeom.PointInstancer(stage.GetPrimAtPath(f"{ROOT}/smoke"))
     inst.GetPositionsAttr().Set(Vt.Vec3fArray.FromNumpy(pos.astype(np.float32)))
     inst.GetScalesAttr().Set(Vt.Vec3fArray.FromNumpy(np.repeat(scale[:, None], 3, 1).astype(np.float32)))
-    inst.GetProtoIndicesAttr().Set(Vt.IntArray.FromNumpy(fade_level(alpha).astype(np.int32)))
-    inst.GetOrientationsAttr().Set(Vt.QuathArray([Gf.Quath(*map(float, q)) for q in billboard_quats(pos, eye)]))
+    inst.GetProtoIndicesAttr().Set(Vt.IntArray.FromNumpy(bucket.astype(np.int32)))
+    inst.GetOrientationsAttr().Set(Vt.QuathArray([Gf.Quath(*map(float, q)) for q in billboard_quats(pos, eye, roll)]))
+
+
+def _halo(stage, line, rows, eye, level, shown):
+    from pxr import UsdGeom, UsdShade, Vt
+
     centre = line[int(rows * 0.4)]
     right = facing_right(centre, eye) * HALO_SIZE * 0.5
     toward = np.asarray(eye, float) - centre
@@ -406,6 +456,11 @@ def update(stage, t: float, wind=WIND) -> None:
     UsdGeom.Mesh(stage.GetPrimAtPath(f"{ROOT}/halo")).GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(quad.astype(np.float32)))
     UsdShade.Shader.Get(stage, f"{ROOT}/Looks/halo/shader").GetInput("gain").Set(
         HALO_GAIN * level * (0.4 if shown == "invisible" else 1.0))
+
+
+def _light(stage, line, rows, level):
+    from pxr import Gf, Sdf
+
     lamp = stage.GetPrimAtPath(LIGHT)
     if lamp:
         c = line[rows // 4]

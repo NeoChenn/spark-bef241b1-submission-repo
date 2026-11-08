@@ -52,17 +52,43 @@ def test_smoke_is_deterministic_and_drifts_downwind():
     b = fx.smoke_state(3.0, wind=(4.0, 0.0))
     for x, y in zip(a, b):
         assert np.allclose(x, y)
-    pos, scale, alpha = a
-    assert pos.shape == (fx.SMOKE_N, 3) and (alpha >= 0).all() and (alpha <= 1).all()
-    old = scale > scale.mean()
-    assert pos[old, 0].mean() > pos[~old, 0].mean()
+    pos, scale, bucket, roll = a
+    assert pos.shape == (fx.SMOKE_N, 3) and bucket.min() >= 0 and bucket.max() < fx.SMOKE_LEVELS
+    old = bucket >= fx.SMOKE_LEVELS // 2
+    assert pos[old, 0].mean() > pos[~old, 0].mean() + 5.0
+    assert scale[old].mean() > scale[~old].mean()
 
 
-def test_fade_level_buckets():
-    assert fx.fade_level(np.array([0.0, 0.5, 1.0]), 5).tolist() == [0, 2, 4]
+def test_smoke_starts_inside_flame_top():
+    pos, _, bucket, _ = fx.smoke_state(3.0)
+    top = fx.centerline(np.array([1.0]), 3.0)[0]
+    assert np.linalg.norm(pos[bucket == 0] - top, axis=1).min() < 6.0
+
+
+def test_smoke_levels_thin_out_and_glow_young():
+    levels = [fx.smoke_level(k) for k in range(fx.SMOKE_LEVELS)]
+    alphas, glows = zip(*levels)
+    assert alphas[1] > alphas[-1] and glows[0] > 5 * glows[-1]
+    assert max(alphas) <= fx.SMOKE_ALPHA
 
 
 def test_billboard_quats_face_eye():
     q = fx.billboard_quats(np.zeros((1, 3)), (0, -10, 0))
     assert np.linalg.norm(q[0]) == pytest.approx(1.0)
     assert q[0] == pytest.approx([1, 0, 0, 0])
+
+
+def test_billboard_roll_keeps_unit_quats():
+    q = fx.billboard_quats(np.zeros((3, 3)), (0, -10, 0), np.array([0.0, 1.0, 2.5]))
+    assert np.allclose(np.linalg.norm(q, axis=1), 1.0)
+    assert q[0] == pytest.approx([1, 0, 0, 0])
+
+
+def test_parts_by_quality(monkeypatch):
+    monkeypatch.delenv("RIG_FLARE_PARTS", raising=False)
+    monkeypatch.setenv("RIG_QUALITY", "offline")
+    assert {"side", "halo", "smoke"} <= fx.parts()
+    monkeypatch.setenv("RIG_QUALITY", "live")
+    assert "side" not in fx.parts() and "flame" in fx.parts()
+    monkeypatch.setenv("RIG_FLARE_PARTS", "flame")
+    assert fx.parts() == {"flame"}
