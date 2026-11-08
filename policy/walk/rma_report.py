@@ -44,6 +44,7 @@ def chart(res: dict, path: str):
             ax.invert_yaxis()
         else:
             bars = ax.bar(range(len(vals)), vals, color=[cols[k] for k in keys])
+            ax.set_ylim(0, max(vals) * 1.18 + 1e-9)
             ax.set_xticks(range(len(vals)), [LABELS[k].replace(" ", "\n", 1) for k in keys], color=fg, fontsize=8)
             for bb, v in zip(bars, vals):
                 ax.text(bb.get_x() + bb.get_width() / 2, v, f"{v:.2f}", ha="center", va="bottom", color=fg, fontsize=9)
