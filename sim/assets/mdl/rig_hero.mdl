@@ -145,12 +145,12 @@ hero_sample pipe_sample(
     albedo = math::lerp(albedo, rustc * 0.45, bare);
     albedo = math::lerp(albedo, albedo * float3(0.78, 0.66, 0.5), hal);
     albedo = math::lerp(albedo, rustc * 0.75, bleed);
-    albedo = math::lerp(albedo, rustc * float3(0.8, 0.62, 0.5) * 0.7, math::saturate(run));
+    albedo = math::lerp(albedo, rustc * float3(0.75, 0.55, 0.42) * 0.55, math::saturate(run * 1.4));
 
     float grime = grime_amount * math::saturate(under * (0.45 + 0.8 * nm.z) + 0.35 * nf.z * nm.z);
     albedo *= 1.0 - 0.6 * grime;
-    float salt = salt_amount * ss(0.55, 0.85, nf.y * 0.6 + nm.z * 0.4 + 0.25 * under) * (1.0 - hal);
-    albedo = math::lerp(albedo, float3(0.36, 0.37, 0.35), 0.75 * salt);
+    float salt = salt_amount * ss(0.62, 0.92, f3(noise, f.uv / 0.19).y * 0.6 + nm.z * 0.3 + 0.3 * under) * (1.0 - hal);
+    albedo = math::lerp(albedo, float3(0.3, 0.31, 0.29), 0.6 * salt);
 
     float pr = f1(paint_rough, uv);
     float rough = math::lerp(0.34, 0.6, pr);
@@ -190,10 +190,10 @@ export material rig_hero_pipe(
     float3 damage = float3(0.0),
     float damage_r = 0.2,
     float halo = 1.0,
-    float streak_amount = 0.85,
+    float streak_amount = 1.0,
     float streak_length = 0.4,
     float grime_amount = 0.6,
-    float salt_amount = 0.5,
+    float salt_amount = 0.35,
     float wetness = 0.0 [[ anno::hard_range(0.0, 1.0) ]]
 )
 = let {
@@ -217,7 +217,7 @@ hero_sample rust_sample(
     float3 nb = f3(noise, f.uv / 0.09 + float2(0.53, 0.11));
     float k = e / math::max(amount, 0.001) + edge_noise * (0.65 * na.y + 0.35 * nb.z - 0.5);
     float rim0 = 1.0 - rim_width;
-    float core = 1.0 - ss(0.15, 0.55, k + 0.25 * (nb.x - 0.5));
+    float core = 1.0 - ss(0.25, 0.72, k + 0.3 * (nb.x - 0.5));
     float rim = ss(rim0, rim0 + 0.06, k);
     float lip = ss(rim0 - 0.07, rim0, k) * (1.0 - rim);
 
@@ -233,7 +233,7 @@ hero_sample rust_sample(
     float crack = ss(0.5, 0.7, nb.x * 0.6 + na.z * 0.5);
     float3 rimc = math::lerp(pd, fresh * 0.7, crack * 0.55);
     float3 albedo = math::lerp(rust, rimc, rim);
-    albedo = math::lerp(albedo, float3(0.2, 0.19, 0.16), lip * 0.85);
+    albedo = math::lerp(albedo, float3(0.1, 0.092, 0.078), lip * 0.7 * ss(0.3, 0.6, nb.y));
 
     float rough = math::lerp(math::lerp(0.75, 0.95, f1(rust_rough, f.uv / rust_scale)), 0.5, rim);
     float3 rn = nmap(rust_normal, f.uv / rust_scale);
@@ -297,10 +297,10 @@ hero_sample deck_sample(
     float g = f1(grime_tex, q / 1.9 + float2(0.3, 0.6));
     float macro = 0.5 * m1.x + 0.35 * m2.x + 0.15 * m3.x;
 
-    float3 base = tint * math::lerp(1.0, luma(d) / 0.16, 0.45) * (0.62 + 0.76 * macro);
+    float3 base = tint * math::lerp(1.0, luma(d) / 0.16, 0.45) * (0.45 + 1.1 * macro);
     float recess = ss(0.78, 0.55, ao);
     float raised = ss(0.9, 0.975, ao);
-    float dirt = math::saturate(dirt_amount * (recess * (0.45 + 0.9 * m3.z) + 0.55 * ss(0.45, 0.85, m1.z * 0.6 + m2.z * 0.6) + 0.35 * g));
+    float dirt = math::saturate(dirt_amount * (recess * (0.45 + 0.9 * m3.z) + 0.7 * ss(0.5, 0.9, m1.z * 0.6 + m2.z * 0.6) + 0.35 * g));
     float3 albedo = math::lerp(base, float3(0.022, 0.019, 0.015), dirt);
     float stain = stain_amount * ss(0.62, 0.85, m2.y * 0.55 + m1.z * 0.55);
     albedo = math::lerp(albedo, f3(rust_diff, q / 2.3) * 0.3, stain * (0.5 + 0.5 * recess));
@@ -357,7 +357,7 @@ hero_sample line_sample(
     float3 m = f3(noise, q / 2.1 + float2(0.17, 0.83));
     float3 mf = f3(noise, q / 0.37 + float2(0.61, 0.07));
     float im = f1(wear_tex, q / 0.9);
-    float wear = wear_amount * (0.5 * m.x + 0.5 * mf.z) + 0.55 * im;
+    float wear = wear_amount * (0.5 * m.x + 0.5 * mf.z) + 0.45 * im;
     float edge = ss(0.42, 0.6, wear);
     float3 albedo = paint_color * (0.7 + 0.45 * m.z) * (0.9 + 0.2 * mf.y);
     float dirt = math::saturate(dirt_amount * (0.25 + 0.75 * mf.x * m.y) + 0.55 * edge);
@@ -373,7 +373,7 @@ export material rig_hero_line(
     uniform texture_2d noise = texture_2d(),
     uniform texture_2d wear_tex = texture_2d(),
     color paint_color = color(0.62, 0.42, 0.02),
-    float wear_amount = 0.75,
+    float wear_amount = 0.55,
     float dirt_amount = 0.6,
     float wetness = 0.0 [[ anno::hard_range(0.0, 1.0) ]]
 )
