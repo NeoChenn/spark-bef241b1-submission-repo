@@ -176,6 +176,26 @@ def test_the_socket_sightline_clears_the_fixer_arm():
                     assert np.linalg.norm(e + u * w - p) > 0.09, (t, a, b)
 
 
+def test_the_socket_view_clears_the_film_flange():
+    ff = pytest.importorskip("integration.film_flange")
+    s = DEFAULT_FILM_SCENE
+    assert np.allclose(s.bolt, ff.bolt_head(ff.LEAK_BOLT), atol=1e-3)
+    assert np.allclose(s.bolt_axis, -ff.axis()) and np.allclose(s.bolt_radial, ff.radial(ff.LEAK_BOLT), atol=1e-6)
+    shot = next(x for x in SHOTS if x.name == "unit2_job")
+    for t in np.linspace(shot.film[0] + 1.6, shot.film[1] - 1e-3, 8):
+        e = np.array(camera_at_film(t, SHOTS)[0])
+        head = np.asarray(s.bolt)
+        for c in ff.collision():
+            p0, p1 = np.asarray(c["p0"]), np.asarray(c["p1"])
+            ax = p1 - p0
+            for k in np.linspace(0.0, 1.0, 200):
+                p = e + (head - e) * k
+                if np.linalg.norm(p - head) < 0.03:
+                    continue
+                u = (p - p0) @ ax / (ax @ ax)
+                assert not (0.0 <= u <= 1.0 and np.linalg.norm(p - (p0 + u * ax)) < c["radius"]), (t, c["name"])
+
+
 def test_the_scrub_close_up_fills_the_frame_with_the_patch():
     s = DEFAULT_FILM_SCENE
     scrub, paint = (next(x for x in SHOTS if x.name == n) for n in ("unit1_scrub", "unit1_paint"))

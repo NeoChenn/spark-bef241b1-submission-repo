@@ -9,8 +9,7 @@ from typing import Callable, Optional
 import numpy as np
 
 from integration.film_camera import (DEFAULT_FILM_SCENE, TRUNK_Z, FilmScene, conclusion, control_push,
-                                     control_room, follow, rig_orbit, socket_view, unit1_close, unit1_job, unit2_job,
-                                     walk_home)
+                                     control_room, follow, rig_orbit, socket_view, unit1_close, unit1_job, walk_home)
 from rig.sim.zoom import ease
 
 REPO = Path(__file__).resolve().parent.parent
@@ -18,6 +17,8 @@ FILM_RUN = REPO / "runs_sample/film"
 FOLLOW_FOCAL = 33.0
 MOVE_S = 1.2
 UNIT2_IN_S = 1.5
+UNIT2_PAN_EYE = (23.67, -7.96, 44.62)
+UNIT2_LIFT = 0.5
 CLOSE_IN_S = 0.4
 PAINT_CLOSE_S = 1.5
 CLOSE_OUT_S = 1.0
@@ -133,12 +134,14 @@ def _pan(track: Callable, robot: str, eye, t_hold: float) -> Callable:
     return cam
 
 
-def _blend(prev: Callable, cur: Callable, seconds: float, length: float) -> Callable:
+def _blend(prev: Callable, cur: Callable, seconds: float, length: float, lift: float = 0.0) -> Callable:
     def cam(u, t):
         a, c = prev(1.0, None), cur(u, t)
         k = ease(u * length / seconds)
         mix = lambda p, q: tuple(x + (y - x) * k for x, y in zip(p, q))
-        return mix(a[0], c[0]), mix(a[1], c[1]), a[2] + (c[2] - a[2]) * k
+        eye = mix(a[0], c[0])
+        eye = (eye[0], eye[1], eye[2] + lift * 4.0 * k * (1.0 - k))
+        return eye, mix(a[1], c[1]), a[2] + (c[2] - a[2]) * k
     return cam
 
 
@@ -159,9 +162,9 @@ def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE
         length: float | str | None = LENGTH) -> list[Shot]:
     b, s = beats or FilmBeats(), scene
     tr = track or default_track(b, s)
-    j2, j1, c1 = _still(unit2_job(s)), _still(unit1_job(s)), _still(unit1_close(s))
+    j1, c1 = _still(unit1_job(s)), _still(unit1_close(s))
     home = min(b.u1_return, b.u2_return) if b.u2_return >= b.paint_done else b.u1_return
-    p2, p1 = _pan(tr, "unit2", j2(0, 0)[0], b.u2_arrive), _pan(tr, "unit1", j1(0, 0)[0], b.u1_arrive)
+    p2, p1 = _pan(tr, "unit2", UNIT2_PAN_EYE, b.u2_arrive), _pan(tr, "unit1", j1(0, 0)[0], b.u1_arrive)
     pull0 = b.torque_done + 0.8
     sock = lambda u, t: socket_view(s, ((pull0 if t is None else t) - pull0) / max(b.gf5_green + 0.3 - pull0, 0.1))
     plan = [
@@ -187,7 +190,8 @@ def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE
     for name, dur, sim, cam, t_in, t_out, two_d in plan:
         rate = (sim[1] - sim[0]) / dur
         if name in ("unit2_job", "unit1_spray"):
-            cam = _blend(prev, cam, UNIT2_IN_S if name == "unit2_job" else MOVE_S, dur)
+            cam = _blend(prev, cam, UNIT2_IN_S if name == "unit2_job" else MOVE_S, dur,
+                         UNIT2_LIFT if name == "unit2_job" else 0.0)
         badge = "" if rate <= 1.05 or two_d else f"{rate:.1f}x".replace(".0x", "x")
         shots.append(Shot(name, (t, t + dur), sim, rate, cam, t_in, t_out, two_d, badge))
         t, prev = t + dur, cam

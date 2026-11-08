@@ -11,6 +11,7 @@ from rig.camera import look_at, project
 from rig.sim.zoom import ease, spherical
 
 Vec3 = tuple[float, float, float]
+BOLT3_HEAD = (20.572, -10.59747, 43.29747)
 TRUNK_Z = 42.82
 RIG_CENTER = (5.0, 0.0, 44.0)
 CONTROL_ROOM = {"prim": "/World/Rig/module_n83_40_module_white", "windows": "/World/Details/windows_module_n83_40",
@@ -31,9 +32,10 @@ class FilmScene:
     patch_normal: Vec3 = (0.0, 0.6212, 0.7836)
     unit2_dock: Vec3 = (*DOCK["unit2"][:2], TRUNK_Z)
     unit2_work: Vec3 = (21.012, -10.27, TRUNK_Z)
-    bolt: Vec3 = (20.5072, -10.5843, 43.3081)
-    bolt_axis: Vec3 = (-0.92034082, -0.39111735, 0.0)
-    flange: Vec3 = (20.4602, -10.5044, 43.4)
+    bolt: Vec3 = BOLT3_HEAD
+    bolt_axis: Vec3 = (-1.0, 0.0, 0.0)
+    bolt_radial: Vec3 = (0.0, 0.70710678, -0.70710678)
+    flange: Vec3 = (20.56, -10.70, 43.40)
 
 
 DEFAULT_FILM_SCENE = FilmScene()
@@ -111,14 +113,16 @@ def unit2_job(scene: FilmScene = DEFAULT_FILM_SCENE) -> tuple[Vec3, Vec3, float]
 
 
 CLOSE_UP = (1.0, 1.0, 62.0)
-SOCKET_VIEW = {"elevation": 62.0, "distance": 2.0, "focal": 50.0, "pull_m": 0.9, "pull_focal": 40.0}
+SOCKET_VIEW = {"elevation": 20.0, "distance": 2.0, "focal": 50.0, "pull_m": 0.9, "pull_focal": 40.0}
 
 
 def socket_view(scene: FilmScene = DEFAULT_FILM_SCENE, pull: float = 0.0) -> tuple[Vec3, Vec3, float]:
     v = SOCKET_VIEW
     a = np.asarray(scene.bolt_axis, float)
-    side = np.array([-a[1], a[0], 0.0])
-    side = side / np.linalg.norm(side) * (1.0 if side[1] >= 0 else -1.0)
+    r = np.asarray(scene.bolt_radial, float)
+    side = r - (r @ a) * a
+    side[2] = 0.0
+    side = side / np.linalg.norm(side) if np.linalg.norm(side) > 1e-6 else np.cross(a, (0.0, 0.0, 1.0))
     el = math.radians(v["elevation"])
     d = math.cos(el) * side + math.sin(el) * np.array([0.0, 0.0, 1.0])
     k = ease(pull)
