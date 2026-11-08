@@ -91,13 +91,14 @@ class PickCanEnvCfg(DirectRLEnvCfg):
     work_lo: tuple = (-0.5, -0.6, 0.02)
     work_hi: tuple = (0.6, 0.6, 0.85)
     rot_weight: float = 0.6
-    max_dq: float = 0.025
+    max_dq: float = 0.1
+    ik_step: float = 0.005
 
     seal_gap: float = 0.012
     seal_margin: float = 0.01
     seal_align: float = 0.9
     suction_force_cap: float = 25.0
-    suction_torque_cap: float = 0.8
+    suction_torque_cap: float = 1.0
     seal_tear: float = 0.03
 
     lift_goal: float = 0.15

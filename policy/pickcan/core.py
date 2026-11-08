@@ -5,7 +5,7 @@ import math
 import torch
 
 G = 9.81
-TOTE_CENTER = (-0.2, 0.0)
+TOTE_CENTER = (-0.27, 0.0)
 TOTE_HALF = (0.122, 0.102)
 TOTE_FLOOR = 0.32 + 0.062 + 0.008
 TOTE_RIM = 0.32 + 0.062 + 0.09

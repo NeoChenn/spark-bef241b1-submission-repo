@@ -143,7 +143,7 @@ class PickCanEnv(DirectRLEnv):
         jac = self._robot.root_physx_view.get_jacobians()[:, self.jac_idx][:, :, self.arm_ids]
         err_p = self.p_tgt - tip_p
         n = err_p.norm(dim=-1, keepdim=True)
-        err_p = err_p * torch.clamp(0.05 / n.clamp_min(1e-6), max=1.0)
+        err_p = err_p * torch.clamp(c.ik_step / n.clamp_min(1e-6), max=1.0)
         err_r = torch.cross(tip_R[:, :, 0], self.down, dim=-1) * c.rot_weight
         e = torch.cat([err_p, err_r], -1)
         lam2 = 0.05 ** 2

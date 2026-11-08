@@ -198,6 +198,9 @@ def main(argv):
         if phase in ("DETECT", "APPROACH", "DESCEND") and dp.size:
             T = cv_pose(wrist.world_matrix())
             T[:3, 3] -= origin
+            if step == 3:
+                np.savez_compressed(os.path.join(args.out_dir, "wrist_frame.npz"), rgb=wr, depth=dp, K=K, T=T,
+                                    usd=np.asarray(wrist.world_matrix()), can=u._can_state()[0][0].cpu().numpy())
             dets = detect_cans(wr, np.nan_to_num(dp.astype(np.float64), posinf=50.0), K, T)
             dets = [q for q in dets if 0.28 < math.hypot(q["xyz"][0] + 0.01, q["xyz"][1]) < 0.55 and q["xyz"][2] < 0.25]
             if dets and t < args.intro:
@@ -211,6 +214,7 @@ def main(argv):
                 print(f"[video] grasp from detector {grasp_det.tolist()} true can {can_p.round(3).tolist()}", flush=True)
             else:
                 print(f"[video] detector off by {np.linalg.norm(xyz[:2] - can_p[:2]):.3f} m, using env estimate", flush=True)
+                grasp_det = u.grasp_estimate()
         if args.look == "night":
             rgb, wr = grade(rgb), grade(wr)
         im = Image.fromarray(rgb)
