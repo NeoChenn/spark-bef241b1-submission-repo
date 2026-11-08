@@ -18,6 +18,9 @@ QUICK = {"rust": [(0, "DETECT", "rust confirmed"), (6, "SPRAY", "spray converter
          "gas": [(0, "LEAK_APPROACH", "approach leak"), (10, "LEAK_INSPECT", "localise leak"),
                  (30, "RETORQUE", "re-torque bolts"), (55, "DONE", "leak stopped")],
          "crack": [(0, "LEAK_INSPECT", "inspect crack"), (25, "ESCALATE_TO_HUMAN", "crack -> human crew")],
+         "pick_can": [(0, "DETECT", "can found on camera"), (1.35, "APPROACH", "arm to pre-grasp"),
+                      (3.6, "GRASP", "close gripper on the can"), (5.85, "LIFT", "lift clear of the grating"),
+                      (7.2, "STOW", "drop the can in the bin"), (9.0, "DONE", "can stowed, walkway clear")],
          "weld": [(0, "INSPECT", "eddy + laser seam scan"), (16, "GRIND", "grind out crack"),
                   (37, "WELD", "seam-tracked weld"), (68, "INSPECT_WELD", "verify weld"), (77, "DONE", "weld verified")]}
 

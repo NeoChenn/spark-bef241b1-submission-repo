@@ -283,6 +283,8 @@ def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, l
     for _ in range(WARMUP_UPDATES):
         app.update()
     capture = StageCapture(stage)
+    if obstacles is not None:
+        obstacles.republish()
     settings = SettingsWatch(carb.settings.get_settings().get, SYNC_SETTINGS)
     view = make_view(stage, cam_path)
     scene = scene_info(args)
