@@ -14,7 +14,7 @@ from rig.mission.gas import ALARM_LEL, FLOW_GS, INFOTAXIS, METHODS, GasLeak
 IDS = ("gas", "patrol", "repair", "flyby", "nav")
 NAMES = {"gas": "Gas leak", "patrol": "Deck patrol", "repair": "Pipe repair", "flyby": "Fly-by"}
 WEATHER = {"level": "rain", "time": "dusk", "rain": 0.8, "fog": 0.6, "wind_dir": 240.0}
-DEMO_WEATHER = {"level": "calm", "time": "dusk", "rain": 0.0, "fog": 0.0, "wind_dir": 240.0}
+DEMO_WEATHER = {"level": "rain", "time": "dusk", "rain": 0.35, "fog": 0.25, "wind_dir": 240.0}
 ALERTS_KEEP = 10
 OPEN = ("pending", "assigned", "active")
 BEAT_S = 6.0
@@ -507,9 +507,10 @@ class Demo(Script):
     def e(self) -> float:
         return self.run.clock() - self.t0
 
-    def pose(self, rid, xy, yaw, z=None, state="IDLE", task=None, job_state=None, rollout=None) -> None:
+    def pose(self, rid, xy, yaw, z=None, state="IDLE", task=None, job_state=None, rollout=None, rust=None) -> None:
         self.m.override[rid] = {"xy": np.asarray(xy, float)[:2].copy(), "yaw": float(yaw), "z": self.deck if z is None else z,
-                                "mode": "DEMO", "state": state, "task": task, "job_state": job_state, "rollout": rollout}
+                                "mode": "DEMO", "state": state, "task": task, "job_state": job_state, "rollout": rollout,
+                                "rust": rust}
 
     def sim_events(self) -> list:
         return [{"name": "camera", "args": dict(self.cam)}, {"name": "select", "args": {"robot": self.main}},
@@ -530,10 +531,10 @@ class DemoCan(Demo):
              "Learned pick-up carries it to the back tote", "Can stowed, Unit 3 moves on")
     robots = (("R1", [-21.0, 4.0, 31.25], 0.9), ("R2", [10.0, 12.0, 20.0], 0.9), ("R3", [1.4, -4.6, 42.5], 0.95))
     weather = DEMO_WEATHER
-    start, stop, away, yaw = (1.4, -4.6), (3.5, -4.6), (4.3, -4.6), 0.0
+    start, stop, away, yaw = (1.4, -4.6), (3.5, -4.6), (4.1, -4.6), 0.0
     drop_s, walk_s, rep_s, away_s = 0.8, (1.5, 4.5), 5.0, 1.5
     lamp = [3.4, -4.6, 46.5, 25000.0]
-    cam = {"mode": "zoom", "at": [3.1, -4.4, 42.5], "lens": {"dist": 4.0, "elev": 32.0, "focal": 24.0, "az": [-65.0, 65.0, -115.0, 115.0]}}
+    cam = {"mode": "zoom", "at": [3.0, -4.4, 42.5], "lens": {"dist": 4.0, "elev": 32.0, "focal": 24.0, "az": [70.0, 110.0, -65.0, -115.0]}}
 
     def setup(self) -> None:
         from rig.sim.taskmotion import Rollout
@@ -582,8 +583,55 @@ class DemoCan(Demo):
         return {"label": "cans", "value": int(self.i >= 4), "unit": "in the tote"}
 
 
-SCRIPTS = {"gas": Gas, "patrol": Patrol, "repair": Repair, "flyby": Flyby, "demo_can": DemoCan, "nav": Nav}
-DEMOS = {"can": "demo_can", "nav": "nav", "reset": "flyby"}
+class DemoRust(Demo):
+    id, name, main = "demo_rust", "Demo: Rust scrub", "R1"
+    steps = ("Rust patch on the main line", "Unit 1 walks to the pipe", "Learned scrub policy clears the rust",
+             "Patch clean, arm parked")
+    robots = (("R1", [16.4, -5.25, 42.5], 0.95), ("R2", [-21.0, 4.0, 31.25], 0.9), ("R3", [10.0, 12.0, 20.0], 0.8))
+    weather = DEMO_WEATHER
+    patch, axis, base_z, back = (18.2567, -5.655, 43.7199), (-5.75, 43.6, 0.15), 0.32, 1.9
+    walk_s, scrub_s, clear_s, park_s = (1.0, 5.0), 6.0, (6.5, 16.5), 17.5
+    cam = {"mode": "zoom", "view": "rust", "at": [17.8, -5.4, 42.9], "lens": {"eye": [20.2, -2.6, 44.7], "focal": 27.0}}
+
+    def setup(self) -> None:
+        from rig.sim.gait import GaitLoop
+        from rig.sim.taskmotion import scrub_base
+
+        super().setup()
+        g = GaitLoop.load()
+        self.z = round(self.deck + self.base_z - (g.zmean if g else 0.36), 2)
+        x, y, self.yaw = scrub_base(self.patch, *self.axis, trunk_z=self.z + (g.zmean if g else 0.36))
+        self.stop = (x, y)
+        self.start = (x - self.back * math.cos(self.yaw), y - self.back * math.sin(self.yaw))
+        self.pose(self.main, self.start, self.yaw, self.z, rust=1.0)
+
+    def left(self, e: float) -> float:
+        a, b = self.clear_s
+        u = min(max((e - a) / (b - a), 0.0), 1.0)
+        return round(1.0 - u * u * (3 - 2 * u), 3)
+
+    def tick(self) -> None:
+        e = self.e()
+        task, rust = "rust:demo", self.left(e)
+        if e < self.walk_s[0]:
+            self.pose(self.main, self.start, self.yaw, self.z, rust=rust)
+        elif e < self.walk_s[1]:
+            u = (e - self.walk_s[0]) / (self.walk_s[1] - self.walk_s[0])
+            self.pose(self.main, walk(self.start, self.stop, u), self.yaw, self.z, state="TRANSIT", task=task, rust=rust)
+        elif e < self.scrub_s:
+            self.pose(self.main, self.stop, self.yaw, self.z, state="WORK", task=task, job_state="DEPLOY", rust=rust)
+        elif e < self.park_s:
+            self.pose(self.main, self.stop, self.yaw, self.z, state="WORK", task=task, job_state="SCRUB", rust=rust)
+        else:
+            self.pose(self.main, self.stop, self.yaw, self.z, task=task, rust=rust)
+        self.i = 0 if e < self.walk_s[0] else 1 if e < self.scrub_s else 2 if e < self.park_s else 3
+
+    def key(self) -> dict:
+        return {"label": "rust left", "value": round(100 * self.left(self.e())), "unit": "%"}
+
+
+SCRIPTS = {"gas": Gas, "patrol": Patrol, "repair": Repair, "flyby": Flyby, "demo_can": DemoCan, "demo_rust": DemoRust, "nav": Nav}
+DEMOS = {"can": "demo_can", "rust": "demo_rust", "nav": "nav", "reset": "flyby"}
 
 
 class Scenarios:

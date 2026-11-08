@@ -517,7 +517,7 @@ class MissionLive:
                 d["path"] = [[d["pose"]["x"], d["pose"]["y"], d["pose"]["z"]]]
                 d["prev_path"] = None
                 if o["mode"] == "DEMO":
-                    d.update({k: o.get(k) for k in ("state", "task", "job_state", "rollout")})
+                    d.update({k: o.get(k) for k in ("state", "task", "job_state", "rollout", "rust")})
                 elif o["mode"] != "RETURN":
                     d["job_state"] = "LEAK_APPROACH"
                     d["seek"] = o["mode"]
@@ -688,7 +688,7 @@ class MissionLive:
     def for_sim(self) -> dict:
         s = self.snapshot_fleet()
         return {"t": s["t"], "hazards": s["hazards"],
-                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state", "task", "job_state", "rollout")}
+                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state", "task", "job_state", "rollout", "rust")}
                            for r in s["robots"]]}
 
     def state(self) -> dict:

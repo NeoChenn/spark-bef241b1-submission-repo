@@ -358,4 +358,8 @@ def apply(stage, quality: str | None = None) -> dict:
         prim = stage.GetPrimAtPath(path)
         if prim.IsValid():
             prim.SetActive(active)
+    clutter = stage.GetPrimAtPath(f"{ZONE_ROOT}/Clutter")
+    for prim in clutter.GetChildren() if clutter.IsValid() else ():
+        if prim.GetName().startswith("grit_"):
+            prim.SetActive(False)
     return {"offline": offline, "zone": zone}

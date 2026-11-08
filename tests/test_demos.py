@@ -36,7 +36,7 @@ def test_can_demo_timeline_is_scripted():
     assert len(c1) == 1 and c1[0]["phase"] == "ground" and c1[0]["radius"] == 0.0
     assert r2["state"] == "TRANSIT" and r2["path"] == [[r2["pose"]["x"], r2["pose"]["y"], r2["pose"]["z"]]]
     assert r3["job_state"] == "ROLLOUT" and r3["rollout"][0] < r3["rollout"][1] and c3[0]["phase"] == "held"
-    assert c5[0]["phase"] == "tote" and r5["pose"]["x"] == 4.3 and r5["state"] == "IDLE" and i5 == 4 and i4 >= 2
+    assert c5[0]["phase"] == "tote" and r5["pose"]["x"] == 4.1 and r5["state"] == "IDLE" and i5 == 4 and i4 >= 2
     ro = Rollout.load()
     can = np.asarray(c1[0]["xyz"][:2]) - [3.5, -4.6]
     assert np.allclose(can, ro.can[40][:2], atol=1e-3)
