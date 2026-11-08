@@ -139,3 +139,23 @@ def test_fit_to_the_film_recording(tmp_path):
     k = JOINTS.index("socket_drive_joint")
     assert math.degrees(m.vector(50.2)[k] - m.vector(46.8)[k]) == pytest.approx(120.0)
     assert m.vector(50.2)[k] == pytest.approx(m.vector(50.3)[k])
+
+
+@pytest.mark.parametrize("after", [(54.7, "STANDBY"), (114.8, "RETURN")])
+def test_standby_after_verify_keeps_the_home_phase_short(tmp_path, after):
+    import json
+
+    from integration.retorque_motion import from_timeline, timeline_marks
+
+    seq = [(40.5, "SNIFF"), (46.8, "RETORQUE"), (51.8, "VERIFY"), after, (114.8, "RETURN")]
+    rows = [{"type": "tick", "t": t, "robots": {"unit2": {"state": st}}} for t, st in seq]
+    rows.insert(3, {"type": "torque_done", "robot": "unit2", "flange": "F5", "bolt": 3, "t": 50.2})
+    tl = tmp_path / "timeline.jsonl"
+    tl.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    assert timeline_marks(tl)["leave"] == after[0]
+    m = from_timeline(tl)
+    assert m.t0 + m.spans["torque"][0] == pytest.approx(46.8) and m.t_fix == pytest.approx(50.2)
+    assert m.t_end <= 54.7 and m.spans["home"][1] - m.spans["home"][0] <= m.cfg.home_s + 1e-9
+    for t in (55.0, 80.0, 114.0):
+        assert m.phase(t) == "done"
+        assert all(m.at(t)[j] == pytest.approx(STOW[j], abs=1e-6) for j in ARM)
