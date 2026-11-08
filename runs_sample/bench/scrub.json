@@ -131,12 +131,12 @@
      },
      "compute": "CPU, ONNX Runtime 1 thread, batch 1",
      "decision_latency_ms": {
-      "median": 0.0172,
-      "p90": 0.0218,
+      "median": 0.0129,
+      "p90": 0.0148,
       "n": 87136
      },
      "api_cost_usd_per_episode": 0.0,
-     "wall_s": 15.2
+     "wall_s": 10.2
     },
     "Greedy scripted": {
      "episodes": 200,
@@ -179,12 +179,12 @@
      },
      "compute": "CPU, Python",
      "decision_latency_ms": {
-      "median": 0.0126,
-      "p90": 0.1978,
+      "median": 0.0081,
+      "p90": 0.1501,
       "n": 81928
      },
      "api_cost_usd_per_episode": 0.0,
-     "wall_s": 17.5
+     "wall_s": 12.3
     },
     "Random": {
      "episodes": 200,
@@ -227,12 +227,12 @@
      },
      "compute": "CPU",
      "decision_latency_ms": {
-      "median": 0.0441,
-      "p90": 0.0643,
+      "median": 0.0416,
+      "p90": 0.0674,
       "n": 1796
      },
      "api_cost_usd_per_episode": 0.0,
-     "wall_s": 11.6
+     "wall_s": 9.5
     },
     "Gemini controller": {
      "status": "not run - needs GEMINI_API_KEY",
@@ -370,12 +370,12 @@
      },
      "compute": "CPU, ONNX Runtime 1 thread, batch 1",
      "decision_latency_ms": {
-      "median": 0.0128,
-      "p90": 0.0145,
+      "median": 0.0147,
+      "p90": 0.019,
       "n": 88896
      },
      "api_cost_usd_per_episode": 0.0,
-     "wall_s": 10.1
+     "wall_s": 12.3
     },
     "Greedy scripted": {
      "episodes": 200,
@@ -418,12 +418,12 @@
      },
      "compute": "CPU, Python",
      "decision_latency_ms": {
-      "median": 0.0081,
-      "p90": 0.1568,
+      "median": 0.008,
+      "p90": 0.1553,
       "n": 83379
      },
      "api_cost_usd_per_episode": 0.0,
-     "wall_s": 12.5
+     "wall_s": 12.4
     },
     "Random": {
      "episodes": 200,
@@ -466,12 +466,12 @@
      },
      "compute": "CPU",
      "decision_latency_ms": {
-      "median": 0.0261,
-      "p90": 0.0385,
+      "median": 0.033,
+      "p90": 0.0494,
       "n": 1796
      },
      "api_cost_usd_per_episode": 0.0,
-     "wall_s": 8.0
+     "wall_s": 8.4
     },
     "Gemini controller": {
      "status": "not run - needs GEMINI_API_KEY",
@@ -482,11 +482,191 @@
  },
  "isaac_lab": {
   "train": {
+   "PPO v2": {
+    "episodes": 256,
+    "success": {
+     "mean": 0.9531,
+     "lo": 0.9199,
+     "hi": 0.973,
+     "n": 256
+    },
+    "time_to_clean_s": {
+     "mean": 7.0531,
+     "lo": 6.7242,
+     "hi": 7.382,
+     "n": 244
+    },
+    "peak_force_N": {
+     "mean": 30.6504,
+     "lo": 29.6639,
+     "hi": 31.6368,
+     "n": 256
+    },
+    "p95_peak_force_N": 35.85,
+    "over_40N": {
+     "mean": 0.0195,
+     "lo": 0.0084,
+     "hi": 0.0449,
+     "n": 256
+    },
+    "fraction_removed": {
+     "mean": 0.9443,
+     "lo": 0.9356,
+     "hi": 0.953,
+     "n": 256
+    },
+    "removed_pct_per_s": {
+     "mean": 15.2172,
+     "lo": 14.3457,
+     "hi": 16.0887,
+     "n": 256
+    },
+    "compute": "Isaac Lab GPU, batched",
+    "api_cost_usd_per_episode": 0.0,
+    "scenario_hash": "71b8b0bd7eeb",
+    "seed": 20261108,
+    "batched_act_ms_median": 8.338811108842492
+   },
+   "Greedy scripted": {
+    "episodes": 256,
+    "success": {
+     "mean": 0.3203,
+     "lo": 0.2662,
+     "hi": 0.3798,
+     "n": 256
+    },
+    "time_to_clean_s": {
+     "mean": 10.9598,
+     "lo": 10.3288,
+     "hi": 11.5907,
+     "n": 82
+    },
+    "peak_force_N": {
+     "mean": 38.8291,
+     "lo": 37.3879,
+     "hi": 40.2703,
+     "n": 256
+    },
+    "p95_peak_force_N": 53.7,
+    "over_40N": {
+     "mean": 0.4648,
+     "lo": 0.4047,
+     "hi": 0.526,
+     "n": 256
+    },
+    "fraction_removed": {
+     "mean": 0.6867,
+     "lo": 0.6561,
+     "hi": 0.7173,
+     "n": 256
+    },
+    "removed_pct_per_s": {
+     "mean": 5.6453,
+     "lo": 5.1722,
+     "hi": 6.1185,
+     "n": 256
+    },
+    "compute": "Isaac Lab GPU, batched",
+    "api_cost_usd_per_episode": 0.0,
+    "scenario_hash": "71b8b0bd7eeb",
+    "seed": 20261108,
+    "batched_act_ms_median": 37.971791927702725
+   },
    "Gemini controller": {
     "status": "not run in Isaac Lab (API latency would need a paused sim; CPU mock only)"
    }
   },
   "rig": {
+   "PPO v2": {
+    "episodes": 256,
+    "success": {
+     "mean": 0.9727,
+     "lo": 0.9446,
+     "hi": 0.9867,
+     "n": 256
+    },
+    "time_to_clean_s": {
+     "mean": 7.0637,
+     "lo": 6.7391,
+     "hi": 7.3883,
+     "n": 249
+    },
+    "peak_force_N": {
+     "mean": 29.852,
+     "lo": 29.447,
+     "hi": 30.257,
+     "n": 256
+    },
+    "p95_peak_force_N": 34.91,
+    "over_40N": {
+     "mean": 0.0117,
+     "lo": 0.004,
+     "hi": 0.0339,
+     "n": 256
+    },
+    "fraction_removed": {
+     "mean": 0.9509,
+     "lo": 0.9493,
+     "hi": 0.9525,
+     "n": 256
+    },
+    "removed_pct_per_s": {
+     "mean": 15.3906,
+     "lo": 14.5572,
+     "hi": 16.2241,
+     "n": 256
+    },
+    "compute": "Isaac Lab GPU, batched",
+    "api_cost_usd_per_episode": 0.0,
+    "scenario_hash": "7d2d1fbc9b7f",
+    "seed": 20261108,
+    "batched_act_ms_median": 8.328555035404861
+   },
+   "Greedy scripted": {
+    "episodes": 256,
+    "success": {
+     "mean": 0.332,
+     "lo": 0.2772,
+     "hi": 0.3918,
+     "n": 256
+    },
+    "time_to_clean_s": {
+     "mean": 11.1718,
+     "lo": 10.5692,
+     "hi": 11.7743,
+     "n": 85
+    },
+    "peak_force_N": {
+     "mean": 38.2894,
+     "lo": 37.0824,
+     "hi": 39.4963,
+     "n": 256
+    },
+    "p95_peak_force_N": 53.03,
+    "over_40N": {
+     "mean": 0.4648,
+     "lo": 0.4047,
+     "hi": 0.526,
+     "n": 256
+    },
+    "fraction_removed": {
+     "mean": 0.7013,
+     "lo": 0.6708,
+     "hi": 0.7318,
+     "n": 256
+    },
+    "removed_pct_per_s": {
+     "mean": 5.6641,
+     "lo": 5.2398,
+     "hi": 6.0884,
+     "n": 256
+    },
+    "compute": "Isaac Lab GPU, batched",
+    "api_cost_usd_per_episode": 0.0,
+    "scenario_hash": "7d2d1fbc9b7f",
+    "seed": 20261108,
+    "batched_act_ms_median": 37.31873200740665
+   },
    "Gemini controller": {
     "status": "not run in Isaac Lab (API latency would need a paused sim; CPU mock only)"
    }
