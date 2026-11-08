@@ -1,0 +1,181 @@
+{
+ "nv_air_compressor_a01": {
+  "min": [
+   -0.7565,
+   -0.2727,
+   0.0
+  ],
+  "max": [
+   0.9347,
+   0.2727,
+   1.1804
+  ],
+  "mpu": 1.0,
+  "up": "Z",
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Equipment_AirCompressor_A01/sm_equipment_airCompressor_a01_01.usd"
+ },
+ "nv_suppression_cyl_b01": {
+  "min": [
+   -0.1816,
+   -0.1163,
+   0.0
+  ],
+  "max": [
+   0.1766,
+   0.1163,
+   0.1741
+  ],
+  "mpu": 1.0,
+  "up": "Z"
+ },
+ "nv_tripod_light": {
+  "min": [
+   -0.3831,
+   -0.3413,
+   0.0003
+  ],
+  "max": [
+   0.1796,
+   0.3413,
+   1.2388
+  ],
+  "mpu": 1.0,
+  "up": "Z",
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Tripod_Flood_Task_Light_A01/sm_lighting_taskLight_tripodFlood_a01_01.usd"
+ },
+ "nv_scaffold_a01": {
+  "min": [
+   -0.3989,
+   -1.0042,
+   0.0
+  ],
+  "max": [
+   0.3906,
+   0.9498,
+   1.8812
+  ],
+  "mpu": 1.0,
+  "up": "Z",
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Equipment/Rolling_Steel_Scaffold_A01/sm_scaffold_rolling_steel_a01_01.usd"
+ },
+ "nv_ibc_steel_a01": {
+  "min": [
+   -0.6325,
+   -0.5558,
+   0.0
+  ],
+  "max": [
+   0.6325,
+   0.5562,
+   1.2967
+  ],
+  "mpu": 1.0,
+  "up": "Z",
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Ibc_Tank_Steel_Stainless_A01/sm_ibcTank_steel_stainless_a01_01.usd"
+ },
+ "nv_stillage_d01": {
+  "min": [
+   -0.5576,
+   -0.895,
+   0.0
+  ],
+  "max": [
+   0.5576,
+   0.8579,
+   1.4888
+  ],
+  "mpu": 1.0,
+  "up": "Z",
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Racks/Storage_System_Heavy_Duty_D01/sm_storageSystem_rack_heavyDuty_d01_01.usd"
+ },
+ "nv_pipe_bundle_b08": {
+  "min": [
+   -0.5449,
+   -3.5019,
+   0.0
+  ],
+  "max": [
+   0.5449,
+   3.5019,
+   0.684
+  ],
+  "mpu": 1.0,
+  "up": "Z",
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Equipment/Pipe_Plastic_Gray_B08/sm_pipe_plastic_gray_b08_01.usd"
+ },
+ "nv_hopper_blue_a04": {
+  "min": [
+   -0.4337,
+   -0.7181,
+   0.0
+  ],
+  "max": [
+   0.4337,
+   0.7181,
+   0.9651
+  ],
+  "mpu": 1.0,
+  "up": "Z",
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Hopper_Dumpling_Steel_Blue_A04/sm_hopper_dumpling_steel_blue_a04_01.usd"
+ },
+ "nv_barrier_rail_a02": {
+  "min": [
+   -0.1149,
+   -0.115,
+   0.0001
+  ],
+  "max": [
+   1.1149,
+   0.115,
+   1.0719
+  ],
+  "mpu": 1.0,
+  "up": "Z",
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Barriers/Barrier_Fence_Metal_A02/sm_barrier_fence_metal_a02_01.usd"
+ },
+ "nv_extinguisher_a01": {
+  "min": [
+   -0.0,
+   -0.094,
+   0.0001
+  ],
+  "max": [
+   0.1087,
+   0.09,
+   0.4174
+  ],
+  "mpu": 1.0,
+  "up": "Z",
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/Fire_Protection_Extinguisher_Portable_A01/sm_fireProtection_extinguisher_portable_a01_01.usd"
+ },
+ "nv_first_aid_a01": {
+  "min": [
+   0.0,
+   -0.1805,
+   0.0001
+  ],
+  "max": [
+   0.1801,
+   0.1904,
+   0.4681
+  ],
+  "mpu": 1.0,
+  "up": "Z",
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/First_Aid_Cabinet_Wall_Mounted_A01/sm_safety_firstAidCabinet_wallMounted_a01_01.usd"
+ },
+ "nv_hose_reel_exhaust": {
+  "min": [
+   -0.3789,
+   -0.4657,
+   0.003
+  ],
+  "max": [
+   0.3185,
+   0.6407,
+   0.9607
+  ],
+  "mpu": 1.0,
+  "up": "Z",
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Ventilation_ExhaustExtractor_HoseReel_A01/sm_ventilation_exhaustExtractor_hoseReel_a01_01.usd"
+ }
+}
