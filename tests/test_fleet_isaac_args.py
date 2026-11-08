@@ -180,10 +180,12 @@ def test_film_edl_steps_colours_and_room():
     assert shots[1]["film_t1"] == 56.0 and R.normalize_shot({"name": "x"}) is None
     steps = R.film_steps(shots, 30)
     tasks = [t for t in steps if t[1] is not None]
-    assert len(tasks) == 120 and [t for t in steps][-1][1][0] == "back"
+    assert len(tasks) == 90 and [t for t in steps][-1][1][0] == "back"
     assert all(a[0] <= b[0] for a, b in zip(steps, steps[1:]))
-    back = [t for t, task in tasks if task[0] == "back"]
-    assert abs((back[1] - back[0]) - 2.5 / 30) < 1e-6
+    back = [(t, task) for t, task in tasks if task[0] == "back"]
+    assert len(back) == 30 and abs((back[1][0] - back[0][0]) - 2 * 2.5 / 30) < 1e-6 and back[0][1][3] == 2
+    still = R.film_steps([R.normalize_shot({"name": "board", "sim": [12, 12], "film": [12, 24]})], 30)
+    assert [t for t in still if t[1] is not None] == [(12.0, ("board", 0, 12.0, 360))]
     assert len([t for t in R.film_steps(shots, 30, "u2") if t[1] is not None]) == 60
     assert R.hex_linear("#FFFFFF") == (1.0, 1.0, 1.0) and R.hex_linear("#2D55C8")[2] > 0.5
     assert R.paint_role("/R/Geometry/base/lift_housing/lift_carriage/ur3_base_link/x") == "arm"
