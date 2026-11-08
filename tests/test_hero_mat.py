@@ -175,7 +175,7 @@ def test_live_tier_hands_heavy_looks_back_to_photoreal(monkeypatch):
         return UsdShade.Material(stage.GetPrimAtPath(path)).GetSurfaceOutput("mdl").GetConnectedSources()[0][0].source.GetPath().name
 
     hm.apply(stage, "night", "live")
-    assert source("/World/Looks/deck") == hm.FALLBACK and source("/World/Looks/frame") == hm.FALLBACK
+    assert source("/World/Looks/deck") == hm.FALLBACK and source("/World/Looks/frame") == hm.SHADER
     assert source("/World/RepairZone/Looks/green_metal_rust") == hm.SHADER
     assert source("/World/Looks/rail") == hm.SHADER
     hm.apply(stage, "night", "offline")

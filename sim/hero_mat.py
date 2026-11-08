@@ -36,7 +36,7 @@ TARGETS = {
 }
 WET_PUDDLES = ("deck", "frame", "zone_steel", "rail", "zone_pipe_grey", "zone_pipe_orange")
 DETAIL = WET_PUDDLES
-LIVE_KINDS = ("pipe", "rust", "line")
+LIVE_KINDS = ("pipe", "rust", "line", "frame", "zone_steel", "rail", "zone_pipe_grey", "zone_pipe_orange")
 FALLBACK = "rig_mdl"
 PATCH_GEOM = "/World/Pipes/damage_patch/geom"
 
