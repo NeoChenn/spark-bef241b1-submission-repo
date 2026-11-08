@@ -47,6 +47,8 @@ def teacher(args):
     agent = WalkRMAPPORunnerCfg()
     agent.seed, agent.max_iterations, agent.device = args.seed, args.iters, "cuda:0"
     agent.policy.noise_std_type = "log"
+    if args.lr:
+        agent.algorithm.learning_rate, agent.algorithm.schedule = args.lr, "fixed"
     env = RslRlVecEnvWrapper(raw, clip_actions=agent.clip_actions)
     os.makedirs(args.run_dir, exist_ok=True)
     runner = OnPolicyRunner(env, agent.to_dict(), log_dir=args.run_dir, device=agent.device)
@@ -226,6 +228,7 @@ def main(argv):
     p.add_argument("--run_dir", required=True)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--blind", action="store_true")
+    p.add_argument("--lr", type=float, default=0.0)
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
