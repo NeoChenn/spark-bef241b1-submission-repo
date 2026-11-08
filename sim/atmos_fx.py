@@ -196,10 +196,10 @@ class Atmosphere:
         if not omni.kit.app.get_app().get_extension_manager().set_extension_enabled_immediate("omni.flowusd", True):
             return None
         vents = list(VENTS) + [(EXHAUST[0], EXHAUST[1], EXHAUST[2] + EXHAUST[3] + 0.5)]
-        self.flow_layer = Sdf.Layer.CreateAnonymous("atmos_flow.usda")
-        self.flow_layer.ImportFromString(atmos.flow_usda(FLARE_TIP, vents, self.w["wind"], self.q["flow_cell"], **self.flow_kw))
+        path = Path(tempfile.mkdtemp()) / "atmos_flow.usda"
+        path.write_text(atmos.flow_usda(FLARE_TIP, vents, self.w["wind"], self.q["flow_cell"], **self.flow_kw))
         prim = self.stage.DefinePrim(f"{ROOT}/Flow", "Xform")
-        prim.GetReferences().AddReference(self.flow_layer.identifier)
+        prim.GetReferences().AddReference(str(path))
         self._settings({"/rtx/flow/enabled": True, "/rtx/flow/pathTracingEnabled": True,
                         "/rtx/flow/rayTracedReflectionsEnabled": True, "/rtx/flow/rayTracedTranslucencyEnabled": True,
                         "/rtx/flow/rayTracedShadowsEnabled": True})
