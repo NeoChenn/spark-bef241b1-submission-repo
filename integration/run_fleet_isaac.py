@@ -82,6 +82,13 @@ def resolve(path: str) -> Path:
     return q if q.is_absolute() else REPO / q
 
 
+def file_sha256(path: str):
+    import hashlib
+
+    q = resolve(path)
+    return hashlib.sha256(q.read_bytes()).hexdigest() if q.exists() else None
+
+
 def pick_timeline(arg: str) -> str:
     if arg:
         return arg
@@ -1353,7 +1360,7 @@ def main(argv=None):
     if writer is not None:
         writer.close()
     (out / "fleet_isaac.json").write_text(json.dumps({
-        "timeline": tl, "frames": rendered, "fps": args.fps // max(1, args.every), "size": [args.width, args.height],
+        "timeline": tl, "timeline_sha256": file_sha256(tl), "frames": rendered, "fps": args.fps // max(1, args.every), "size": [args.width, args.height],
         "renderer": args.renderer, "spp": args.spp, "subframes": args.subframes, "look": args.look, "nav": args.nav,
         "nav_policy": args.nav_policy if Path(args.nav_policy).exists() else "pure_pursuit", "camera": cam_kind,
         "unit2_usd": str(u2_usd) if u2_usd else None, "scrub": "recorded" if brush_log is not None else "scripted",
