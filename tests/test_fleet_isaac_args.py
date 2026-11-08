@@ -117,3 +117,9 @@ def test_rust_job_masks_progress_and_timeline_masks():
     s = R.parse_rows(rows)
     assert s.pose("unit1", 1) == (0.0, 0.0, 0.0)
     assert s.masks_at(0.5) is None and R.resample(s.masks_at(1)["sprayed"], (4, 4))[3, 3] == 1
+
+
+def test_retorque_bolt_from_the_live_timeline():
+    s = R.load_scenario(str(R.REPO / "runs_sample/fleet_demo/live_timeline.jsonl"))
+    assert R.timeline_bolt(s) == 3
+    assert R.parse_args(["--bolt", "5"]).bolt == 5

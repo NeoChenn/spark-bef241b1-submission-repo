@@ -64,6 +64,7 @@ def parse_args(argv=None):
     p.add_argument("--lidar-beams", type=int, default=360)
     p.add_argument("--lidar-height", type=float, default=0.28)
     p.add_argument("--scrub-log", default="", help="render_demo raw_*.json with recorded PPO brush positions")
+    p.add_argument("--bolt", type=int, default=-1, help="bolt to re-torque; -1 = the timeline's, else 3")
     p.add_argument("--unit2-usd", default="")
     p.add_argument("--unit2-urdf", default="")
     p.add_argument("--camera", default="auto", choices=["auto", "wide", "unit1", "unit2"])
@@ -569,6 +570,14 @@ def fixer_stance(f: dict, xy, reach: float = 0.4):
     return float(p[0]), float(p[1]), math.atan2(-d[1], -d[0])
 
 
+def timeline_bolt(scn: Scenario, default: int = 3) -> int:
+    for r in scn.rows:
+        b = ((r.get("robots") or {}).get("unit2") or {}).get("bolt") if isinstance(r.get("robots"), dict) else None
+        if b is not None and str(b).isdigit():
+            return int(b)
+    return default
+
+
 def nearest_flange(flanges: dict | None, xy, within: float = 3.5):
     best = None
     for f in (flanges or {}).get("flanges", []):
@@ -656,6 +665,7 @@ def camera_source(args, scn: Scenario, meta: dict):
                         beats = fc.Beats.from_events(beat_times(scn, args.start))
                     base_fn = fn
                     fn = lambda t: base_fn(t, beats)
+                    args.beats_used = {f.name: getattr(beats, f.name) for f in __import__("dataclasses").fields(beats)}
                     print(f"[fleet] camera beats {beats}", flush=True)
                 except Exception as exc:
                     print(f"[fleet] camera beats default ({exc})", flush=True)
@@ -685,13 +695,18 @@ def look_rows(eye, target):
     return m
 
 
-def header_row(k: int, t: float, cam, args, units: dict, dets: dict, events: list, acts: dict) -> dict:
+def header_row(k: int, t: float, cam, args, units: dict, dets: dict, events: list, acts: dict,
+               shown: dict | None = None) -> dict:
     from rig.camera import from_usd
 
     eye, target, focal = cam
     rows = look_rows(eye, target)
     camd = from_usd(rows.tolist(), focal, 20.955, args.width, args.height)
-    robots = {rid: {"pos": [round(u.x, 4), round(u.y, 4)], "yaw": round(u.yaw, 4), "v": round(u.v, 3),
+    shown = shown or {}
+    robots = {rid: {"pos": [round(shown.get(rid, (u.x, u.y))[0], 4), round(shown.get(rid, (u.x, u.y))[1], 4)],
+                    "yaw": round(shown.get(rid, (0, 0, u.yaw))[2] if rid in shown else u.yaw, 4),
+                    "trunk_z": round(shown[rid][3], 4) if rid in shown else None,
+                    "timeline_pos": [round(u.x, 4), round(u.y, 4)], "v": round(u.v, 3),
                     "w": round(u.w, 3), "nav": u.mode, "cmd": [round(u.vx, 3), round(u.wz, 3)],
                     "lidar_min": None if not math.isfinite(u.min_range) else round(u.min_range, 3),
                     "activity": acts.get(rid)} for rid, u in units.items()}
@@ -894,6 +909,24 @@ def main(argv=None):
     head = (out / "fleet_isaac_header.jsonl").open("w")
     nav_t = args.start
     scrub_t, t_prev, rendered, work_w, fix_w, fix_pose = 0.0, args.start, 0, 0.0, 0.0, None
+    retq = None
+    if tools["unit2"] == "socket_tip":
+        try:
+            from policy.leak.geometry import FlangeGeometry
+            from policy.skills.retorque import RetorqueSkill, work_pose
+
+            rt_times = [tt for tt, st in scn.states.get("unit2", []) if activity("unit2", st) == "retorque"]
+            f_rt = nearest_flange(flanges, scn.pose("unit2", rt_times[0])[:2]) if rt_times else None
+            if f_rt is not None:
+                bolt = args.bolt if args.bolt >= 0 else timeline_bolt(scn, 3)
+                fg = FlangeGeometry.from_meta(f_rt)
+                wbase = work_pose(fg, deck_z=deck)
+                traj = RetorqueSkill(model=models["unit2"]).plan(fg, bolt, wbase)
+                retq = (traj, wbase, rt_times[0] - traj.phase_span("align")[0])
+                print(f"[fleet] retorque {fg.id} bolt {bolt} head {np.round(traj.bolt_center, 3).tolist()} "
+                      f"t0={retq[2]:.2f} dur={traj.duration:.2f}", flush=True)
+        except Exception as exc:
+            print(f"[fleet] retorque skill unavailable: {exc}", flush=True)
     seeds = {rid: dict(q[rid]) for rid in UNITS}
 
     def arm_target(rid, act, u, t):
@@ -929,10 +962,15 @@ def main(argv=None):
         working = acts["unit1"] in ("scrub", "spray", "paint")
         work_w = min(1.0, work_w + 1.0 / args.fps) if working else max(0.0, work_w - 1.0 / args.fps)
         u2 = units["unit2"]
+        in_rt = retq is not None and retq[2] - 1.0 <= t <= retq[2] + retq[0].duration
         f2 = nearest_flange(flanges, (u2.x, u2.y)) if acts["unit2"] in ("inspect", "retorque") else None
-        fix_w = min(1.0, fix_w + 1.0 / args.fps) if f2 is not None else max(0.0, fix_w - 1.0 / args.fps)
-        if f2 is not None:
+        fix_w = min(1.0, fix_w + 1.0 / args.fps) if (f2 is not None or in_rt) else max(0.0, fix_w - 1.0 / args.fps)
+        if in_rt:
+            wb = retq[1]
+            fix_pose = (float(wb[0, 3]), float(wb[1, 3]), math.atan2(wb[1, 0], wb[0, 0]))
+        elif f2 is not None:
             fix_pose = fixer_stance(f2, (u2.x, u2.y))
+        shown = {}
         for rid, u in units.items():
             model = models[rid]
             moving = abs(u.v) > 0.05 or abs(u.w) > 0.15
@@ -947,8 +985,9 @@ def main(argv=None):
                 s3 = work_w * work_w * (3 - 2 * work_w)
                 bx, by, byaw = bx + s3 * (sx - bx), by + s3 * (sy - by), wrap(byaw + s3 * wrap(syaw - byaw))
                 moving = moving or 0 < work_w < 1
-            base = pose(bx, by, deck + STAND_HEIGHT + (0.008 * abs(math.sin(u.dist / 0.18 * math.pi)) if moving else 0.0),
-                        byaw)
+            bz = deck + STAND_HEIGHT + (0.008 * abs(math.sin(u.dist / 0.18 * math.pi)) if moving else 0.0)
+            base = pose(bx, by, bz, byaw)
+            shown[rid] = (bx, by, byaw, bz)
             target_q = dict(q[rid])
             if trot_q is not None:
                 legs = trot_q(u.dist, abs(u.v) + 0.25 * abs(u.w) if moving else 0.0)
@@ -957,7 +996,13 @@ def main(argv=None):
                 target_q.update(gait(STANDING, u.dist / 0.18 * math.pi, 1.0 if moving else 0.0))
             goal = arm_target(rid, acts[rid], u if rid == "unit1" else NavUnit(rid, bx, by, byaw), t) \
                 if not moving else None
-            if goal is None:
+            skill_q = None
+            if rid == "unit2" and in_rt and retq[2] <= t:
+                skill_q = retq[0].at(t - retq[2])
+                goal = None
+            if skill_q is not None:
+                target_q.update(skill_q)
+            elif goal is None:
                 target_q.update(ARM_STOWED)
             else:
                 pt, appr, roll = goal
@@ -974,7 +1019,7 @@ def main(argv=None):
                         target_q["ur3_wrist_3_joint"] = target_q.get("ur3_wrist_3_joint", 0.0) + 0.8 * math.sin(roll)
                 else:
                     target_q.update(ARM_STOWED)
-            blend = 1.0 if k == 0 else min(1.0, 4.0 / args.fps)
+            blend = 1.0 if k == 0 or skill_q is not None else min(1.0, 4.0 / args.fps)
             for j, v in target_q.items():
                 if "thigh" in j or "calf" in j:
                     q[rid][j] = v
@@ -1028,7 +1073,14 @@ def main(argv=None):
         if writer is not None:
             writer.append_data(rgb)
         evs = scn.events_between(t - max(1, args.every) / args.fps, t)
-        row = header_row(rendered, t, c, args, units, dets, evs, acts)
+        row = header_row(rendered, t, c, args, units, dets, evs, acts, shown)
+        if in_rt and retq[2] <= t:
+            ph = retq[0].phase[min(int(np.searchsorted(retq[0].t, t - retq[2])), len(retq[0].phase) - 1)]
+            row["retorque"] = {"phase": ph, "bolt": retq[0].bolt, "flange": retq[0].flange_id,
+                               "socket_tip": [round(float(v), 4) for v in
+                                              models["unit2"].tool_pose(pose(*shown["unit2"][:2], shown["unit2"][3],
+                                                                             shown["unit2"][2]), q["unit2"],
+                                                                        tools["unit2"])[:3, 3]]}
         row["rust"] = {"progress": {k: round(v, 2) for k, v in prog.items()}, "source": "timeline" if
                        scn.masks_at(t) is not None else "synthetic"}
         head.write(json.dumps(row) + "\n")
@@ -1044,7 +1096,12 @@ def main(argv=None):
         "renderer": args.renderer, "spp": args.spp, "subframes": args.subframes, "look": args.look, "nav": args.nav,
         "nav_policy": args.nav_policy if Path(args.nav_policy).exists() else "pure_pursuit", "camera": cam_kind,
         "unit2_usd": str(u2_usd) if u2_usd else None, "scrub": "recorded" if brush_log is not None else "scripted",
-        "detectors": detectors is not None}, indent=1))
+        "detectors": detectors is not None, "beats": getattr(args, "beats_used", None),
+        "retorque": None if retq is None else {"flange": retq[0].flange_id, "bolt": retq[0].bolt, "t0": retq[2],
+                                               "duration": retq[0].duration,
+                                               "bolt_center": [round(float(v), 4) for v in retq[0].bolt_center],
+                                               "phases": {ph: [round(retq[2] + a, 3) for a in retq[0].phase_span(ph)]
+                                                          for ph in dict.fromkeys(retq[0].phase)}}}, indent=1))
     print(f"[fleet] DONE {rendered} frames -> {out}", flush=True)
     os._exit(0)
 
