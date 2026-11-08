@@ -10,6 +10,7 @@ import torch
 from detection.localize import RustLocalizer, fake_colour_classifier, pixel_rays, ray_cylinder
 from policy.interfaces import CameraModel, PipeGeometry
 from policy.orchestrator import Orchestrator, OrchestratorConfig, S
+from policy.storm import Lens, Weather, wet_factor
 
 try:
     from policy.envs.rust_state import RustState as _RustStateBase
@@ -132,6 +133,8 @@ class MockPerception:
         self.occluded_frames = 0
         self.n_frames = 0
         self._cache = {}
+        self.lens = Lens(seed=0)
+        self.visibility = 0.0
 
     def camera(self) -> CameraModel:
         return CameraModel(self.K, self.views[self.view], self.W, self.H)
@@ -171,7 +174,7 @@ class MockPerception:
             g = np.exp(-(((xx - self.W * 0.5) / self.glare_sx) ** 2 + ((yy - self.H * 0.5) / (0.6 * self.glare_sx)) ** 2))
             a = (self.glare_alpha * g)[..., None] * hit[..., None]
             img = img * (1 - a) + 250 * a
-        return np.clip(img, 0, 255).astype(np.uint8)
+        return self.lens.apply(np.clip(img, 0, 255).astype(np.uint8), self.visibility)
 
 
 class MockArm:
@@ -185,6 +188,7 @@ class MockArm:
         self.rng = np.random.default_rng(seed)
         self.drop_prob = 0.06
         self.contact_radius = 0.03
+        self.gust_n = 0.0
 
     def move_to(self, waypoints):
         reached = [bool(self.rng.random() > self.drop_prob) for _ in waypoints]
@@ -200,7 +204,7 @@ class MockArm:
         self.theta = (self.theta + float(np.clip(a[0], -0.15, 0.15))) % TWO_PI
         self.z = float(np.clip(self.z + np.clip(a[1], -0.03, 0.03), -self.pipe.length / 2, self.pipe.length / 2))
         press = float(np.clip(a[2], 0, 1))
-        self.force = 25.0 * press
+        self.force = 25.0 * press + (0.9 * self.gust_n if press > 0 else 0.0)
         if self.spike_steps > 0:
             self.spike_steps -= 1
             self.force = 65.0
@@ -266,12 +270,42 @@ class MockBridge:
         self.person_window = None
         self.hud = []
         self.verbose = verbose
+        self.storm = Weather(seed=0)
+        self.base_coef = None
 
     def sim_time(self):
         return self.t
 
+    def weather(self):
+        return self.storm.at(self.t)
+
+    def storm_level(self, level):
+        self.storm.set_level(level, self.t)
+        coef = getattr(self.world, "abrasion_coef", None)
+        if coef is not None:
+            self.base_coef = coef.clone() if self.base_coef is None else self.base_coef
+            coef[:] = self.base_coef * wet_factor(level)
+
+    def _lens_perception(self):
+        p = self.perception
+        return p if hasattr(p, "lens") else getattr(p, "rust", None)
+
+    def wipe_lens(self):
+        p = self._lens_perception()
+        if p is not None:
+            p.lens.wipe()
+
+    def _weather_tick(self, dt):
+        w = self.weather()
+        p = self._lens_perception()
+        if p is not None and hasattr(p, "lens"):
+            p.lens.rain(dt, w["rain"])
+            p.visibility = 0.6 * w["rain"]
+        self.arm.gust_n = w["gust_n"] if w["level"] > 0 else 0.0
+
     def advance(self, dt):
         self.t += dt
+        self._weather_tick(dt)
         while self.events and self.events[0][0] <= self.t:
             _, name, fn = self.events.pop(0)
             fn()
@@ -342,9 +376,12 @@ def build(log_path="runs/decisions.jsonl", glare=True, verbose=True, seed=0):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--log", default="runs/decisions.jsonl")
+    ap.add_argument("--storm", type=float, default=0.0)
     args = ap.parse_args(argv)
     t0 = time.time()
     orch, bridge, world, perception, arm, pipe = build(args.log)
+    if args.storm > 0:
+        return storm_demo(orch, bridge, world, args.storm, t0, args.log)
 
     def on_spray_hook():
         t_spray = bridge.t
@@ -376,6 +413,26 @@ def main(argv=None):
     print(f"\nfinal: {orch.state.value}  true rust remaining={float(world.fraction_remaining()[0]):.3f}  "
           f"painted cells={int(world.painted.sum())}  decisions={len(orch.records)} -> {args.log}  "
           f"wall={time.time() - t0:.1f}s")
+    return orch
+
+
+def storm_demo(orch, bridge, world, level, t0, log):
+    fired = False
+    while orch.state not in (S.DONE, S.ESCALATE_TO_HUMAN) and len(orch.records) < 600:
+        prev = orch.state
+        orch.step()
+        if prev == S.SPRAY and not fired:
+            fired = True
+            bridge.events.append((bridge.t + 20.0, f"storm_level {level:.1f}", lambda: bridge.storm_level(level)))
+            bridge.events.sort(key=lambda e: e[0])
+    for r in orch.records:
+        st = r.evidence.get("storm") or {}
+        print(f"t={r.t:6.1f}s  {r.frm:>13} -> {r.to:<17} conf={r.evidence.get('detector_conf')}  "
+              f"F={r.evidence.get('force')}  gust={st.get('gust_n')}  rain={st.get('rain')}  lens={st.get('lens_q')}"
+              f"  | {r.reason}")
+    print("\nHUD:", *orch.overlay_text(), sep="\n  ")
+    print(f"\nfinal: {orch.state.value}  true rust remaining={float(world.fraction_remaining()[0]):.3f}  "
+          f"decisions={len(orch.records)} -> {log}  wall={time.time() - t0:.1f}s")
     return orch
 
 

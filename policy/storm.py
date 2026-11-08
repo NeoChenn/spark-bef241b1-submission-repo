@@ -117,9 +117,10 @@ def lens_quality(img: np.ndarray) -> float:
 
 
 class Weather:
-    def __init__(self, seed: int = 0, horizon_s: float = 900.0, lull_every_s: float = 22.0, lull_s: float = 7.0):
+    def __init__(self, seed: int = 0, horizon_s: float = 900.0, lull_every_s: float = 22.0, lull_s: float = 9.0,
+                 lull_depth: float = 0.85):
         self.seed, self.horizon = seed, horizon_s
-        self.lull_every, self.lull_s = lull_every_s, lull_s
+        self.lull_every, self.lull_s, self.lull_depth = lull_every_s, lull_s, lull_depth
         self.level, self.t_on = 0.0, 0.0
         self._sample()
 
@@ -138,7 +139,7 @@ class Weather:
     def _envelope(self, tau: float) -> float:
         u = (tau - self.lulls) / self.lull_s
         dip = np.where((u >= 0) & (u <= 1), np.minimum(1.0, 2.0 * np.sin(math.pi * np.clip(u, 0, 1))), 0.0).max()
-        return float(1.0 - 0.85 * dip)
+        return float(1.0 - self.lull_depth * dip)
 
     def at(self, t: float) -> dict:
         if self.level <= 0:
