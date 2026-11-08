@@ -1,9 +1,9 @@
 (() => {
   const H = HUD, { q, num, set, esc, spark, fit, now } = H;
   const fc = (f) => (f > 40 ? "#F85149" : f >= 36 ? "#E3B341" : f >= 18 ? "#3FB950" : "rgba(255,255,255,.72)");
-  const COL = { stop: "#F85149", warn: "#E3B341", ok: "#3FB950", act: "#D97757", idle: "rgba(235,235,245,.6)" };
+  const COL = { stop: "#F85149", warn: "#E3B341", ok: "#3FB950", act: "#2EC4B6", idle: "rgba(235,235,245,.6)" };
   const tone = (st = "") => (/PAUSE|RETREAT|FAIL|ESCALATE/.test(st) ? "stop" : /WAIT|BACK|HOLD|DOCK|GAS|BLOCK/.test(st) ? "warn" : /DONE|CHARG/.test(st) ? "ok" : /IDLE/.test(st) ? "idle" : "act");
-  const NAMES = { R1: "Unit 1 · rust", R2: "Unit 2 · gas", R3: "Unit 3", Q1: "Unit 1 · rust", Q2: "Unit 2 · gas", Q3: "Unit 3", "unit-1": "Unit 1 · rust", "unit-2": "Unit 2 · gas", "unit-3": "Unit 3" };
+  const NAMES = { R1: "Unit 1 · rust", R2: "Unit 2 · gas", R3: "Unit 3", Q1: "Unit 1 · rust", Q2: "Unit 2 · gas", Q3: "Unit 3", "unit-1": "Unit 1 · rust", "unit-2": "Unit 2 · gas", "unit-3": "Unit 3", unit1: "Unit 1 · Scrubber", unit2: "Unit 2 · Fixer" };
   const rname = (r) => r.name || NAMES[r.id] || r.id;
   const pct = (v, d = 0) => (v == null ? "—" : (100 * v).toFixed(d) + " %");
   const STEPS = ["Patrol", "Detect", "Spray", "Soak", "Scrub", "Verify", "Paint", "Done"];
@@ -149,8 +149,10 @@
   });
   const hot = (S) => {
     const c = S.control, an = c?.anomalies || [];
-    if (!c && S.state !== "ESCALATE_TO_HUMAN") return 0;
-    if (S.gasAlarm && now() - S.gasAt < 6 / S.speed) return 0;
+    const fh = H.fusionHot ? H.fusionHot(S) : 0;
+    if (!c && !fh && S.state !== "ESCALATE_TO_HUMAN") return 0;
+    if (!fh && S.gasAlarm && now() - S.gasAt < 6 / S.speed) return 0;
+    if (!c) return fh || 90;
     return S.gasAlarm || S.linkCut || c?.banner || S.state === "ESCALATE_TO_HUMAN" || an.some((a) => a.severity === "critical") ? 90 : an.some((a) => /warn/.test(a.severity)) ? 50 : 0;
   };
   const ccRow = (a, n) => `<li data-n="${n}" class="${acted.has(a.id) ? "done" : ""}"><span class="tnum">${a.rank || n + 1}</span><span>${esc(a.label)}<small>${a.source === "edge" ? "Edge rule" : "Argon"}${a.rationale ? " · " + esc(a.rationale) : ""}</small></span><b class="tnum">${a.source === "edge" ? "hard" : Math.round((a.confidence || 0) * 100)}</b></li>`;
@@ -159,16 +161,20 @@
   H.vetoes = (c, n) => (c?.vetoed || []).slice(0, n).map((v) => `<p class="veto"><b>Edge veto</b> <s>${esc(v.label)}</s><small>${esc(v.why)}</small></p>`).join("");
   H.panel({ id: "control", title: "Control centre", meta: "Gemini 4 Argon", icon: "target", key: "a", priority: hot, phases: (S) => hot(S) > 0, keys: "situation report gemini argon actions plan edge link",
     desc: "Gemini 4 Argon's situation report and ranked actions, the edge rules that override it, and the planner's last calls. Each action is also a palette command.",
-    hint: (S) => { const c = ctl(S); return !c ? "" : c.link === "CUT" ? "Edge only" : c.banner ? sent(c.banner) : c.key ? sent(c.key.replace(/[_+]/g, " ")) : "On track"; },
+    hint: (S) => { const c = ctl(S); return !c ? (H.fusionHint ? H.fusionHint(S) : "") : c.link === "CUT" ? "Edge only" : c.banner ? sent(c.banner) : c.key ? sent(c.key.replace(/[_+]/g, " ")) : "On track"; },
     render(el, S) {
-      const c = ctl(S), key = JSON.stringify(c) + acted.size;
-      if (el._k === key) return;
-      el._k = key;
-      el.innerHTML = !c ? `<p class="none">Waiting for a situation report</p>` : `<div class="cc-meta"><span class="badge ${c.mode === "CLOUD" ? "cloud" : ""}">${c.mode === "CLOUD" ? "Cloud" : "Edge"}</span>${c.latency_ms != null ? `<span class="tnum">${(c.latency_ms / 1000).toFixed(1)} s</span>` : ""}${c.cost_today_usd != null ? `<span class="tnum">$${c.cost_today_usd.toFixed(3)} today · ${c.calls_today || 0} calls</span>` : ""}</div>`
+      const x = q(el, `<div data-k="m"></div><div data-k="f"></div><form class="cc-order" data-k="o"><input placeholder="Give Argon an order…" autocomplete="off" aria-label="Order for Argon"><button type="submit">Send</button></form>`);
+      if (H.order) H.order(x.o);
+      const fu = H.fusion ? H.fusion(S) : "";
+      if (x.f._h !== fu) { x.f._h = fu; x.f.innerHTML = fu; }
+      const c = ctl(S), key = JSON.stringify(c) + acted.size + !fu;
+      if (x.m._k === key) return;
+      x.m._k = key;
+      x.m.innerHTML = !c ? (fu ? "" : `<p class="none">Waiting for a situation report</p>`) : `<div class="cc-meta"><span class="badge ${c.mode === "CLOUD" ? "cloud" : ""}">${c.mode === "CLOUD" ? "Cloud" : "Edge"}</span>${c.latency_ms != null ? `<span class="tnum">${(c.latency_ms / 1000).toFixed(1)} s</span>` : ""}${c.cost_today_usd != null ? `<span class="tnum">$${c.cost_today_usd.toFixed(3)} today · ${c.calls_today || 0} calls</span>` : ""}</div>`
         + (c.banner ? `<p class="edge">${esc(sent(c.banner))}</p>` : "")
         + `<div class="cc-sum">${(c.situation?.length ? c.situation : [c.summary || "Edge safety rules only; no cloud plan yet."]).slice(0, 3).map((l) => `<p>${esc(l)}</p>`).join("")}</div>`
         + `<ol class="cc-acts">${(c.actions || []).slice(0, 3).map(ccRow).join("")}</ol>` + H.vetoes(c, 1) + H.planner(c.agent, 1);
-      el.onclick = (e) => { const li = e.target.closest("[data-n]"); if (li) act(c.actions[+li.dataset.n]); };
+      x.m.onclick = (e) => { const li = e.target.closest("[data-n]"); if (li) act(c.actions[+li.dataset.n]); };
     } });
   function bounds(m, rs) {
     if (m?.bounds) return m.bounds;
@@ -191,7 +197,7 @@
     });
     if (m?.dock) { const [dx, dy] = m.dock.xyz; g.strokeStyle = COL.act; g.lineWidth = 1.2; g.strokeRect(X(dx) - 5, Y(dy) - 5, 10, 10); if (big) { g.fillStyle = "rgba(235,235,245,.5)"; g.font = "500 11px -apple-system, system-ui, sans-serif"; g.fillText("Dock", X(dx) + 9, Y(dy) + 4); } }
     if (big) (f?.tasks || []).filter((t) => t.status !== "done" && t.xyz).forEach((t) => {
-      g.fillStyle = t.kind === "gas" ? COL.stop : t.kind === "rust" ? COL.act : "rgba(235,235,245,.35)";
+      g.fillStyle = t.kind === "gas" ? COL.stop : t.kind === "rust" ? "#C4623A" : "rgba(235,235,245,.35)";
       const x = X(t.xyz[0]), y = Y(t.xyz[1]);
       g.beginPath(); g.moveTo(x, y - 4); g.lineTo(x + 4, y); g.lineTo(x, y + 4); g.lineTo(x - 4, y); g.fill();
     });
