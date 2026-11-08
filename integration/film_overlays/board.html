@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Control board</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=block">
+<link rel="stylesheet" href="film.css">
+<style>
+  #glow { position: fixed; inset: 0; pointer-events: none; opacity: 0; box-shadow: inset 0 0 280px 70px rgba(242, 139, 130, 0.36), inset 0 0 70px 10px rgba(242, 139, 130, 0.22); }
+  #board { position: absolute; left: 180px; top: 120px; width: 1560px; height: 840px; display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 64px 1fr 1fr; gap: 20px; }
+  header { grid-column: 1 / -1; display: flex; align-items: center; gap: 18px; padding: 0 8px; }
+  header b { font-size: 26px; font-weight: 500; letter-spacing: -0.015em; }
+  header .faint { font-size: 18px; }
+  header .pill { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--label2); padding: 9px 16px; border-radius: 999px; background: var(--fill); border: 1px solid var(--hair); }
+  header .pill i { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+  section { padding: 22px 26px; display: flex; flex-direction: column; min-height: 0; }
+  h3 { margin: 0 0 14px; font-size: 15px; font-weight: 500; color: var(--label3); letter-spacing: 0.02em; display: flex; justify-content: space-between; }
+  h3 em { font-style: normal; font-family: var(--mono); font-size: 13px; }
+  #gas { grid-row: 2 / 4; }
+  .row { display: grid; align-items: center; gap: 14px; padding: 9px 12px; margin: 0 -12px; border-radius: 12px; }
+  .g { grid-template-columns: 12px 64px 42px 1fr 80px; height: 96px; }
+  .g .led { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); }
+  .g b { font-weight: 500; font-size: 19px; }
+  .g svg { width: 100%; height: 34px; }
+  .g svg path { fill: none; stroke: rgba(255, 255, 255, 0.55); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+  .g svg line { stroke: rgba(242, 139, 130, 0.35); stroke-dasharray: 3 4; stroke-width: 1; }
+  .g .v { text-align: right; font-size: 24px; }
+  .row.hot { background: rgba(242, 139, 130, 0.09); }
+  .row.hot b, .row.hot .v, .row.hot .k { color: var(--alarm); }
+  .row.hot .led { background: var(--alarm); box-shadow: 0 0 12px var(--alarm); }
+  .row.hot svg path { stroke: var(--alarm); }
+  .p { grid-template-columns: 76px 1fr 64px 58px; height: 46px; font-size: 17px; }
+  .p .bar { position: relative; height: 6px; border-radius: 3px; background: var(--fill); }
+  .p .bar s { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: rgba(255, 255, 255, 0.5); }
+  .p .bar u { position: absolute; top: -5px; width: 1.5px; height: 16px; background: rgba(242, 139, 130, 0.55); }
+  .row.hot .bar s { background: var(--alarm); }
+  .p .k { text-align: right; font-size: 18px; }
+  .p .c { color: var(--label3); font-size: 15px; text-align: right; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; }
+  .split > div { padding: 22px 26px; }
+  .big { display: flex; flex-direction: column; gap: 14px; }
+  .big div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; white-space: nowrap; }
+  .big span { color: var(--label2); font-size: 16px; }
+  .big b { font-weight: 400; font-size: 24px; font-family: var(--mono); }
+  .big b small { font-size: 14px; color: var(--label3); margin-left: 6px; }
+  .wind { display: inline-block; width: 18px; height: 18px; vertical-align: -2px; margin-right: 6px; }
+  .wind path { stroke: var(--label2); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .f { grid-template-columns: 14px 1fr; height: auto; padding: 12px; gap: 6px 16px; }
+  .f b { font-weight: 500; font-size: 20px; }
+  .f .st { grid-column: 2; display: flex; gap: 16px; align-items: center; font-size: 16px; color: var(--label2); }
+  .f .st .bt { width: 70px; height: 5px; border-radius: 3px; background: var(--fill); position: relative; }
+  .f .st .bt s { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: rgba(255, 255, 255, 0.55); }
+  .f .now { color: var(--label); }
+  .kv { display: flex; justify-content: space-between; font-size: 16px; color: var(--label2); margin-bottom: 8px; }
+  .kv b { font-weight: 400; color: var(--label); font-family: var(--mono); font-size: 15px; }
+  .kv b.up { color: var(--accent); }
+  #dec { margin-top: 10px; display: flex; flex-direction: column; gap: 12px; }
+  .d { padding: 14px 16px; border-radius: 14px; background: rgba(46, 196, 182, 0.07); border: 1px solid rgba(46, 196, 182, 0.18); opacity: 0; }
+  .d small { display: block; font-size: 13px; letter-spacing: 0.02em; color: var(--accent); margin-bottom: 6px; }
+  .d.edge { background: rgba(255, 255, 255, 0.05); border-color: var(--hair); }
+  .d.edge small { color: var(--label2); }
+  .d p { margin: 0; font-size: 19px; line-height: 1.35; }
+  .d .dot { margin: 0 6px 0 2px; }
+</style>
+</head>
+<body>
+<div id="glow"></div>
+<div id="board">
+  <header><b>Control room</b><span class="faint">Top deck · north module</span><span class="pill"><i></i><span id="hdr"></span></span></header>
+  <section id="gas" class="glass"><h3>Gas detectors <em>% LEL</em></h3><div id="gasRows"></div></section>
+  <section class="glass"><h3>Pipe integrity <em>corrosion index · coating</em></h3><div id="pipe"></div></section>
+  <section class="glass" id="fleet"><h3>Fleet</h3><div id="fleetRows"></div></section>
+  <section class="glass split"><div class="glass"><h3>Process <em>main line</em></h3><div class="big" id="proc"></div></div><div class="glass"><h3>Weather</h3><div class="big" id="wx"></div></div></section>
+  <section class="glass"><h3>Argon <em id="model"></em></h3><div class="kv"><span>Link</span><b class="up" id="link"></b></div><div class="kv"><span>Last decision</span><b id="last">none</b></div><div id="dec"></div></section>
+</div>
+<script src="film.js"></script>
+<script>
+  const { fade, pulse, at, spark, $, esc, data } = K, B = data.board || {}, L = data.span || 12;
+  const T = { alarm: 0.22 * L, red: 0.42 * L, d: [0.56 * L, 0.72 * L] };
+  const WIN = 0.45 * L;
+  const dets = B.detectors || [];
+  $("gasRows").innerHTML = dets.map((d) => `<div class="row g" id="g-${d.id}"><i class="led"></i><b>${esc(d.id)}</b><span class="faint">${esc(d.flange)}</span><svg viewBox="0 0 300 34" preserveAspectRatio="none"><line x1="0" x2="300" y1="${34 - 34 * (B.alarm_lel || 10) / 30}" y2="${34 - 34 * (B.alarm_lel || 10) / 30}"/><path/></svg><span class="v mono"></span></div>`).join("");
+  $("pipe").innerHTML = (B.segments || []).map((s, i) => `<div class="row p" id="p-${i}"><span>${esc(s.id)}</span><span class="bar"><s></s><u style="left:${(B.corrosion_limit || 0.6) * 100}%"></u></span><span class="k mono"></span><span class="c">${esc(s.coating)}</span></div>`).join("");
+  const P = B.process || {}, W = B.weather || {};
+  $("proc").innerHTML = [["Pressure", P.pressure_bar, "bar"], ["Temp", P.temp_c, "°C"], ["Flow", P.flow_kgs, "kg/s"]].map(([k, v, u]) => `<div><span>${k}</span><b>${esc(v)}<small>${u}</small></b></div>`).join("");
+  $("wx").innerHTML = `<div><span>Wind</span><b>${esc(W.wind_ms)}<small>m/s</small></b></div><div><span>From</span><b><svg class="wind" viewBox="0 0 24 24" style="transform:rotate(${(W.wind_dir_deg || 0) + 180}deg)"><path d="M12 20V4M6 10l6-6 6 6"/></svg>${esc(W.wind_dir || "")}</b></div><div><span>Sea state</span><b>${esc(W.sea || "")}</b></div>`;
+  $("model").textContent = (B.argon || {}).model || "";
+  $("link").textContent = (B.argon || {}).link === "UP" ? "up" : "edge only";
+  $("hdr").textContent = `Argon · ${(B.argon || {}).link === "UP" ? "online" : "edge"}`;
+  $("fleetRows").innerHTML = (B.fleet || []).map((r, i) => `<div class="row f" id="f-${i}"><i class="dot ${r.id === "unit1" ? "u1" : "u2"}" style="margin-top:7px"></i><b>${esc(r.name)}</b><div class="st"><span class="now"></span><span>${esc(r.pos || "")}</span><span class="bt"><s style="width:${Math.round((r.battery || 0) * 100)}%"></s></span><span class="mono">${Math.round((r.battery || 0) * 100)} %</span></div></div>`).join("");
+  const DEC = B.decisions || [];
+  $("dec").innerHTML = DEC.map((d, i) => `<div class="d ${d.source === "argon" ? "" : "edge"}" id="d-${i}"><small>${d.source === "argon" ? "Argon" : "Edge rule"}</small><p>${d.html}</p></div>`).join("");
+  function lelAt(d, t) {
+    if (!d.climb) return d.base;
+    const f = (t - T.alarm) / (T.red + 0.25 * L - T.alarm);
+    return f <= 0 ? d.base : at(d.climb, Math.min(1, f));
+  }
+  window.render = (t) => {
+    let hot = 0;
+    const p = 0.72 + 0.28 * pulse(t);
+    dets.forEach((d) => {
+      const el = $("g-" + d.id), v = lelAt(d, t), on = v >= (B.alarm_lel || 10);
+      const series = [];
+      for (let k = 0; k <= 40; k++) { const tt = t - WIN + (WIN * k) / 40; series.push([tt, lelAt(d, tt)]); }
+      el.querySelector("path").setAttribute("d", spark(series, t - WIN, t, t, 300, 34, 0, 30));
+      el.querySelector(".v").textContent = v.toFixed(1);
+      el.classList.toggle("hot", on);
+      el.style.opacity = on ? p : 1;
+      if (on) hot = 1;
+    });
+    (B.segments || []).forEach((s, i) => {
+      const el = $("p-" + i), f = fade(t, T.alarm + 0.05 * L, T.red + 0.06 * L), v = s.index + (s.alarm_index != null ? (s.alarm_index - s.index) * f : 0), on = v >= (B.corrosion_limit || 0.6);
+      el.querySelector(".bar s").style.width = Math.min(100, v * 100) + "%";
+      el.querySelector(".k").textContent = v.toFixed(2);
+      el.classList.toggle("hot", on);
+      el.style.opacity = on ? p : 1;
+      if (on) hot = 1;
+    });
+    $("glow").style.opacity = hot ? (0.55 + 0.45 * pulse(t)) * fade(t, T.alarm, T.red) : 0;
+    DEC.forEach((d, i) => { const e = $("d-" + i), f = fade(t, T.d[i] || L, (T.d[i] || L) + 0.6); e.style.opacity = f; e.style.transform = `translateY(${(1 - f) * 8}px)`; });
+    const shown = DEC.filter((d, i) => t >= (T.d[i] || L) + 0.3);
+    $("last").textContent = shown.length ? shown[shown.length - 1].short : "none";
+    (B.fleet || []).forEach((r, i) => { const k = r.after != null && t >= (T.d[r.after] || L) + 0.3; $("f-" + i).querySelector(".now").textContent = k ? r.state_after : r.state; });
+    return true;
+  };
+  window.render(0);
+</script>
+</body>
+</html>
