@@ -1,5 +1,6 @@
 (() => {
-  if (new URLSearchParams(location.search).has("mock")) return;
+  const mq = new URLSearchParams(location.search);
+  if (mq.has("mock") && mq.get("mock") !== "fill") return;
   const canvas = document.getElementById("view");
   const ctx = canvas.getContext("2d");
   const statusEl = document.getElementById("status");
