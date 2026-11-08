@@ -472,12 +472,13 @@ def _secs(x: float) -> str:
 def key_numbers(timeline: list[dict], headers: list[dict]) -> list[tuple[str, str]]:
     rows = timeline or []
     out = []
-    alarm = next((r for r in rows if r.get("type") == "finding" and r.get("kind") not in (None, "OK")), None)
-    if alarm is not None:
-        cleared = next((r for r in rows if r.get("type") == "finding" and r.get("kind") == "OK"
-                        and r.get("sensor") == alarm.get("sensor") and r["t"] > alarm["t"]), None)
+    finds = [r for r in rows if r.get("type") == "finding"]
+    for alarm in (r for r in finds if r.get("kind") not in (None, "OK", "PIPE_SENSOR_FAULT")):
+        cleared = next((r for r in finds if r.get("kind") == "OK" and r.get("sensor") == alarm.get("sensor")
+                        and r["t"] > alarm["t"]), None)
         if cleared is not None:
             out.append((_secs(cleared["t"] - alarm["t"]), f"alarm to {alarm.get('sensor', 'flange')} green"))
+            break
     calls = [r for r in rows if r.get("type") == "argon_call" and r.get("status") == "ok"]
     last = argon(headers[-1]) if headers else {}
     if calls:

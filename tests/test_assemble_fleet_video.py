@@ -247,3 +247,9 @@ def test_unusable_beats_fall_back_instead_of_crashing(monkeypatch):
 
     fc = types.SimpleNamespace(Beats=types.SimpleNamespace(from_events=bad), DEFAULT_BEATS="default")
     assert av._beats(fc, {"beats": {"1_scrubbing": 5.0}}) == "default"
+
+
+def test_a_stuck_head_does_not_hide_the_leak_clear_time():
+    headers, rows = scenario()
+    rows.insert(0, {"type": "finding", "kind": "PIPE_SENSOR_FAULT", "sensor": "G-F6", "t": 5.0})
+    assert av.key_numbers(rows, headers)[0] == ("42 s", "alarm to G-F2 green")
