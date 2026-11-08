@@ -225,7 +225,7 @@ def worker(argv):
         if prev == S.SPRAY and "patch" not in fired:
             fired.add("patch")
             th_new, z_new = th0 + 0.30, 0.13
-            bridge.schedule(now + 12.0, f"NEW rust patch at theta={th_new:.2f}, z={z_new:+.2f}",
+            bridge.schedule(now + 6.0, f"NEW rust patch at theta={th_new:.2f}, z={z_new:+.2f}",
                             lambda: bridge.spawn_patch(th_new, z_new, size=0.035, level=0.85))
         if orch.state == S.SCRUB and prev != S.SCRUB and "bead" not in fired and "patch" in fired:
             fired.add("bead")

@@ -97,7 +97,7 @@ def test_injected_patch_lands_clear_of_existing_rust_and_reachable():
     s.rust = w.blob(1.2, 0.1, 0.05, 0.85)
     th, z = w.inject_patch(1.2, 0.13, size=0.035)
     gap = (((th - 1.2) * 0.15) ** 2 + (z - 0.1) ** 2) ** 0.5
-    assert gap > 0.09 and abs(z) < 0.2
+    assert gap > 0.16 and abs(z) < 0.2
     i, j = s.H * (z + 0.3) / 0.6, th / (2 * 3.14159265) * s.W
     assert 4 <= i < 28 and 5 <= j < 30
     assert float(s.rust.sum()) > float(w.blob(1.2, 0.1, 0.05, 0.85).sum())

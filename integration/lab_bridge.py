@@ -24,7 +24,7 @@ def smooth(s: float) -> float:
 
 
 class LabWorld:
-    def __init__(self, state, min_gap: float = 0.09):
+    def __init__(self, state, min_gap: float = 0.16):
         self.s = state
         self.min_gap = min_gap
         self.painted = torch.zeros(1, state.H, state.W, dtype=torch.bool, device=state.device)
