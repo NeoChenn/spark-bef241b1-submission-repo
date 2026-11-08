@@ -1208,7 +1208,7 @@ class Scenarios:
                     6: "weld frozen while gas is above 10 %LEL", 7: "hot-work gate released"}.get(s.i, "")
         if s.id == "demo_gas":
             return {1: f"fixed detector over {ALARM_LEL * 100:.0f} %LEL", 2: f"{METHODS[m.leak.method]} on the trunk and arm-tip sensors",
-                    3: "scripted arm motion on the handwheel", 4: "vapour stopped, gas clearing"}.get(s.i, "")
+                    3: "turning the handwheel to isolate the line", 4: "vapour stopped, gas clearing"}.get(s.i, "")
         if s.id == "patrol":
             return {1: "puddles are a soft cost", 2: "pickup policy on depth geometric priors",
                     4: f"battery {self.m._robot('R3').battery.soc:.0%}"}.get(s.i, "")
