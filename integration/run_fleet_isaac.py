@@ -24,6 +24,7 @@ ROBOT_KEYS = ("robot", "unit", "rid")
 STATE_KEYS = ("state", "mode", "status", "activity", "phase")
 NAV_DT = 0.1
 MASK_KEYS = ("rust_grid", "sprayed", "painted")
+AT_PIPE = ("DETECT", "APPROACH", "SOAK", "VERIFY", "DONE")
 LIDAR_RANGE = 4.0
 STAND_HEIGHT = 0.32
 UNIT1_USD = REPO / "sim/output/robot/go2_ur3_lift/go2_ur3_lift.usda"
@@ -959,7 +960,8 @@ def main(argv=None):
             scrub_t += t - t_prev
             prog[acts["unit1"]] += t - t_prev
         t_prev = t
-        working = acts["unit1"] in ("scrub", "spray", "paint")
+        st1 = scn.state("unit1", t).upper()
+        working = acts["unit1"] in ("scrub", "spray", "paint") or any(k in st1 for k in AT_PIPE)
         work_w = min(1.0, work_w + 1.0 / args.fps) if working else max(0.0, work_w - 1.0 / args.fps)
         u2 = units["unit2"]
         in_rt = retq is not None and retq[2] - 1.0 <= t <= retq[2] + retq[0].duration
