@@ -1,52 +1,51 @@
 import json
-from datetime import date
 
 import numpy as np
 import pytest
 
 from policy.control.backend import Reply
-from policy.control.brain import ArgonBrain, compare, register
+from policy.control.brain import compare
 from policy.control.centre import ControlCentre
-from policy.control.fleet_port import FleetPort
-from policy.control.rigsensors import RigSensors
 from policy.control.safety import arbitrate, edge_rules, hazard_first, verify_fallback
-from policy.control.schema import Action, SchemaError, validate
+from policy.control.schema import Action, validate
 from policy.control.snapshot import GasSensor, Robot, SensorHealth, SensorSnapshot
-from policy.fleet.fleet import Fleet
-from policy.fleet.jobs import JobLibrary, JobTrace
-from policy.fleet.rigmap import load_rig_map
-from policy.fleet.scenario import nearest_node
+from tests.argon_world import DAY, A, C, Q, events, run, world
 
-DAY = date(2026, 11, 8)
-SNIFF = ("camera", "gas_sniffer")
-
-
-def stub_jobs(work_s=10.0):
-    return JobLibrary(lambda kind, scenario: JobTrace(kind, scenario, work_s, "DONE",
-                                                      [(0.0, "WORK", "stub"), (work_s, "DONE", "end")]))
+SNIFF = {"camera", "gas_sensor"}
+ROBOTS = [("NOSNIFF", Q, {"camera"}, (-20.0, 21.0, 42.5), 1.0),
+          ("LOW", Q, SNIFF, (-17.0, 21.0, 42.5), 0.152),
+          ("MID", Q, SNIFF, (-21.0, 14.0, 31.25), 1.0),
+          ("TOP", Q, SNIFF, (2.0, 20.0, 42.5), 1.0)]
 
 
-def world(robots, backend=None, **kw):
-    rm = load_rig_map()
-    rig = RigSensors(seed=3)
-    register(rm, rig)
-    f = Fleet(rm, stub_jobs())
-    for rid, xyz, soc, sensors in robots:
-        f.add_robot(rid, nearest_node(rm, xyz), soc, sensors=sensors)
-    port = FleetPort(f, rig.specs)
-    centre = ControlCentre(backend, log_path=None, today=lambda: DAY, timeline=port, **kw)
-    return ArgonBrain(f, rig, centre, port, operator_s=None)
+def test_candidates_rank_by_rig_graph_with_capability_and_battery():
+    b = world(ROBOTS)
+    cands = b.candidates("G-F1")
+    c = {x["robot"]: x for x in cands}
+    assert c["NOSNIFF"]["why"] == "no gas_sensor" and not c["NOSNIFF"]["ok"]
+    assert not c["LOW"]["ok"] and c["LOW"]["why"].startswith("battery") and c["LOW"]["need_wh"] > c["LOW"]["spare_wh"]
+    assert c["MID"]["ok"] and c["TOP"]["ok"]
+    pos = {rid: np.asarray(rt.robot.position) for rid, rt in b.c.rt.items()}
+    head = np.asarray(b.rig.specs["G-F1"].pos)
+    assert np.linalg.norm(pos["MID"] - head) < np.linalg.norm(pos["TOP"] - head)
+    assert c["TOP"]["eta_s"] < c["MID"]["eta_s"]
+    assert cands[0]["robot"] == "TOP"
 
 
-def run(brain, n):
-    for _ in range(int(n)):
-        brain.step()
-
-
-ROBOTS = [("NOSNIFF", [-20.0, 21.0, 42.5], 1.0, ("camera",)),
-          ("LOW", [-17.0, 21.0, 42.5], 0.152, SNIFF),
-          ("MID", [-21.0, 14.0, 31.25], 1.0, SNIFF),
-          ("TOP", [2.0, 20.0, 42.5], 1.0, SNIFF)]
+def test_mixed_fleet_sends_the_unit_that_can_reach_the_head():
+    b = world([("Q2", Q, {"camera", "thermal", "acoustic"}, (-20.0, 10.0, 42.5), 0.9),
+               ("A1", A, {"camera", "thermal"}, (25.0, -25.0, 47.0), 0.9),
+               ("C1", C, {"camera", "acoustic"}, (-3.0, -6.5, 42.5), 0.9)])
+    flare = {x["robot"]: x for x in b.candidates("T-FLARE")}
+    assert flare["A1"]["ok"] and not flare["Q2"]["ok"] and "cannot reach" in flare["Q2"]["why"]
+    shell = {x["robot"]: x for x in b.candidates("A-V101")}
+    assert shell["C1"]["ok"] and "cannot reach" in shell["Q2"]["why"] and "no acoustic" in shell["A1"]["why"]
+    b.rig.inject("T-FLARE", "stuck", 0.0)
+    b.rig.inject("A-V101", "dead", 0.0)
+    assert run(b, 60, until=lambda: len(events(b, "fault_dispatch")) == 2)
+    sent = {e["detail"]["sensor"]: e["robot"] for e in events(b, "fault_dispatch")}
+    assert sent == {"T-FLARE": "A1", "A-V101": "C1"}
+    assert run(b, 600, until=lambda: len(events(b, "maintenance_raised")) == 2)
 
 
 @pytest.fixture
@@ -57,53 +56,34 @@ def stuck():
     return b
 
 
-def test_candidates_rank_by_rig_graph_with_capability_and_battery():
-    b = world(ROBOTS)
-    run(b, 1)
-    cands = b.candidates("G-F1", {})
-    c = {x["robot"]: x for x in cands}
-    assert c["NOSNIFF"]["why"] == "no gas_sniffer" and not c["NOSNIFF"]["ok"]
-    assert not c["LOW"]["ok"]
-    assert c["MID"]["ok"] and c["TOP"]["ok"]
-    pos = {r.id: r.pos for r in b.f.robots}
-    head = np.asarray(b.rig.specs["G-F1"].pos)
-    assert np.linalg.norm(pos["MID"] - head) < np.linalg.norm(pos["TOP"] - head)
-    assert c["TOP"]["eta_s"] < c["MID"]["eta_s"]
-    assert cands[0]["robot"] == "TOP"
-
-
-def test_battery_round_trip_rule():
-    b = world([("LOW", [-17.0, 21.0, 42.5], 0.152, SNIFF), ("FAR", [20.0, -4.0, 42.5], 1.0, SNIFF)])
-    run(b, 1)
-    c = {x["robot"]: x for x in b.candidates("G-F1", {})}
-    assert not c["LOW"]["ok"] and c["LOW"]["why"].startswith("battery") and c["LOW"]["need_wh"] > c["LOW"]["spare_wh"]
-    assert c["FAR"]["ok"]
-
-
 def test_edge_mode_dispatches_nearest_capable_robot_and_raises_maintenance(stuck):
+    run(stuck, 3)
+    ev = events(stuck, "fault_dispatch")[0]
+    assert ev["detail"]["source"] == "edge" and ev["robot"] == "TOP" and ev["detail"]["sensor"] == "G-F1"
+    job = stuck.c.jobs[ev["job"]]
+    assert job.params["robot"] == "TOP" and job.needs == {"gas_sensor"} and job.target == "G-F1"
+    assert run(stuck, 300, until=lambda: events(stuck, "maintenance_raised"))
+    assert not events(stuck, "verify_reading")[0]["detail"]["agree"]
+    m = events(stuck, "maintenance_raised")[0]["job"]
+    assert stuck.port.job(m)["status"] == "WAITING_APPROVAL" and stuck.port.job(m)["requested_by"] == "argon"
     run(stuck, 1)
-    job = next(j for j in stuck.port.jobs.values() if j["kind"] == "verify_sensor")
-    assert job["params"]["robot"] == "TOP" and job["target"] == "G-F1"
-    task = stuck.f.tasks[job["task"]]
-    assert task.pin == "TOP" and task.needs == frozenset({"gas_sniffer"})
-    ev = next(e for e in stuck.port.timeline if e["event"] == "fault_dispatch")
-    assert ev["detail"]["source"] == "edge" and ev["robot"] == "TOP"
-    run(stuck, 200)
-    events = [e["event"] for e in stuck.port.timeline]
-    assert "verify_reading" in events and "maintenance_raised" in events
-    m = next(j for j in stuck.port.jobs.values() if j["kind"] == "sensor_maintenance")
-    assert m["status"] == "WAITING_APPROVAL" and m["requested_by"] == "argon"
-    assert next(h for h in stuck.snap.health if h.id == "G-F1").job == m["id"]
+    assert next(h for h in stuck.snap.health if h.id == "G-F1").job == m
+
+
+def test_approved_maintenance_goes_to_the_crew_and_the_head_comes_back(stuck):
+    stuck.operator_s, stuck.crew_s = 5.0, 20.0
+    assert run(stuck, 400, until=lambda: events(stuck, "sensor_repaired"))
+    assert events(stuck, "approved")[0]["detail"]["by"] == "operator"
+    run(stuck, 30)
+    assert next(h for h in stuck.snap.health if h.id == "G-F1").status == "OK"
 
 
 def test_agreeing_robot_clears_the_fault():
-    b = world([("TOP", [2.0, 20.0, 42.5], 1.0, SNIFF)])
+    b = world([("TOP", Q, {"camera"}, (-10.0, 20.0, 42.5), 1.0)])
     b.rig.process_step("gauge_03", 0.0, 1.2)
-    run(b, 60)
-    assert any(e["event"] == "fault_dispatch" and e["detail"]["sensor"] == "gauge_03" for e in b.port.timeline)
-    run(b, 200)
-    ev = {e["event"]: e for e in b.port.timeline}
-    assert ev["verify_reading"]["detail"]["agree"] and "fault_cleared" in ev
+    assert run(b, 300, until=lambda: events(b, "fault_cleared"))
+    assert events(b, "verify_reading", sensor="gauge_03")[0]["detail"]["agree"]
+    run(b, 2)
     assert next(h for h in b.snap.health if h.id == "gauge_03").status == "OK"
 
 

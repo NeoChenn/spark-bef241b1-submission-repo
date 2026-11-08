@@ -52,16 +52,17 @@ def test_agent_port_is_locked_with_the_tick():
 def test_shift_takes_an_order_without_stalling_the_fleet(tmp_path):
     from policy.control.shift import run
     res = run("replay", tmp_path, t_end=60.0, orders=[(10.0, "Inspect deck 2, don't paint without me.")])
-    tl = res["brain"].port.timeline
+    tl = res["brain"].c.timeline
     call = next(e for e in tl if e["event"] == "gemini_call")
     assert call["detail"]["status"] == "ok" and "require_operator" in call["detail"]["decision"]
-    assert res["brain"].f.t >= 60.0
+    assert res["brain"].c.t >= 60.0
     assert "paint" in res["brain"].centre.agent.envelope.reserved
 
 
 def test_the_planner_speaks_as_argon_and_cannot_approve_argons_maintenance(tmp_path):
     from policy.control.shift import build
     brain = build("replay", tmp_path)
-    jid = brain.port.queue("sensor_maintenance", "G-F1", "SUPV", 2, by="argon", why="flat head")
+    jid = brain.port.queue("sensor_maintenance", "G-F1", "SUPV", 2, params={"needs": ["crew"]}, by="argon",
+                           why="flat head")
     out = brain.centre.agent.envelope.call(brain.centre.agent.port, "approve_request", {"job_id": jid, "why": "ok"})
     assert not out["ok"] and "its own SUPV job" in out["refused"]

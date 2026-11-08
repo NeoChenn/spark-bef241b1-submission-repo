@@ -14,6 +14,7 @@ CAP_USD = 0.05
 
 def test_one_live_argon_call_on_a_stuck_gas_head(tmp_path):
     brain = build("edge", tmp_path)
+    brain.centre.backend = None
     while not any(h.id == "G-F1" and h.status == "STUCK" for h in (brain.snap.health if brain.snap else [])):
         brain.step()
     backend = ArgonBackend()

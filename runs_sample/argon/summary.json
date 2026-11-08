@@ -1,36 +1,46 @@
 {
  "mode": "replay",
  "model": "gemini-4-argon (replay)",
- "t_end": 720.0,
- "wall_s": 8.06,
- "argon_calls": 66,
- "argon_ok": 66,
- "latency_ms_mean": 1899,
- "cost_usd": 0.5961,
+ "t_end": 800.0,
+ "wall_s": 6.74,
+ "argon_calls": 77,
+ "argon_ok": 77,
+ "latency_ms_mean": 1818,
+ "cost_usd": 0.7751,
  "events": {
-  "argon_call": 66,
-  "sensor_fault": 4,
-  "job_queued": 7,
-  "fault_dispatch": 4,
-  "verify_reading": 4,
-  "approval_requested": 3,
-  "job_closed": 7,
-  "maintenance_raised": 3,
-  "approved": 3,
-  "link_cut": 2,
-  "sensor_repaired": 3,
-  "sensor_ok": 4,
-  "link_restored": 2,
-  "gas_alarm": 1,
+  "job_queued": 28,
+  "assigned": 24,
+  "argon_call": 77,
+  "job_started": 24,
+  "job_done": 28,
+  "sensor_fault": 6,
+  "fault_dispatch": 6,
+  "verify_reading": 6,
+  "approval_requested": 6,
+  "maintenance_raised": 5,
+  "low_battery": 1,
+  "approved": 6,
+  "handed_to_crew": 5,
+  "docked": 1,
+  "link_cut": 1,
+  "sensor_repaired": 5,
+  "sensor_ok": 6,
+  "link_restored": 1,
+  "fault_cleared": 1,
+  "preempted": 1,
+  "priority_change": 1,
+  "gas_leak_injected": 1,
+  "gas_detected": 1,
   "escalation": 2,
   "edge_rule": 1,
-  "argon_vetoed": 1,
+  "argon_vetoed": 2,
+  "finding": 2,
   "leak_isolated": 1,
-  "fault_cleared": 1
+  "charged": 1
  },
  "jobs": [
   {
-   "id": "VERI-001",
+   "id": "verify_sensor-016",
    "kind": "verify_sensor",
    "target": "G-F1",
    "status": "DONE",
@@ -38,7 +48,7 @@
    "robot": null
   },
   {
-   "id": "SENS-002",
+   "id": "sensor_maintenance-017",
    "kind": "sensor_maintenance",
    "target": "G-F1",
    "status": "DONE",
@@ -46,7 +56,7 @@
    "robot": null
   },
   {
-   "id": "VERI-003",
+   "id": "verify_sensor-018",
    "kind": "verify_sensor",
    "target": "gauge_03",
    "status": "DONE",
@@ -54,7 +64,7 @@
    "robot": null
   },
   {
-   "id": "SENS-004",
+   "id": "sensor_maintenance-019",
    "kind": "sensor_maintenance",
    "target": "gauge_03",
    "status": "DONE",
@@ -62,7 +72,23 @@
    "robot": null
   },
   {
-   "id": "VERI-005",
+   "id": "verify_sensor-020",
+   "kind": "verify_sensor",
+   "target": "T-FLARE",
+   "status": "DONE",
+   "requested_by": "argon",
+   "robot": null
+  },
+  {
+   "id": "sensor_maintenance-021",
+   "kind": "sensor_maintenance",
+   "target": "T-FLARE",
+   "status": "DONE",
+   "requested_by": "argon",
+   "robot": null
+  },
+  {
+   "id": "verify_sensor-022",
    "kind": "verify_sensor",
    "target": "gauge_06",
    "status": "DONE",
@@ -70,7 +96,23 @@
    "robot": null
   },
   {
-   "id": "VERI-006",
+   "id": "verify_sensor-023",
+   "kind": "verify_sensor",
+   "target": "A-V101",
+   "status": "DONE",
+   "requested_by": "argon",
+   "robot": null
+  },
+  {
+   "id": "sensor_maintenance-025",
+   "kind": "sensor_maintenance",
+   "target": "A-V101",
+   "status": "DONE",
+   "requested_by": "argon",
+   "robot": null
+  },
+  {
+   "id": "verify_sensor-026",
    "kind": "verify_sensor",
    "target": "G-F6",
    "status": "DONE",
@@ -78,7 +120,7 @@
    "robot": null
   },
   {
-   "id": "SENS-007",
+   "id": "sensor_maintenance-027",
    "kind": "sensor_maintenance",
    "target": "G-F6",
    "status": "DONE",

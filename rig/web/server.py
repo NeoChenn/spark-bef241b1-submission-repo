@@ -17,8 +17,6 @@ from rig.hud import check_event
 STATIC = Path(__file__).parent / "static"
 REPO = Path(__file__).resolve().parents[2]
 MOCK_PATH = REPO / "runs/hud/mock_session.json"
-SESSIONS = {"argon": REPO / "runs/argon/hud_session.json",
-            "argon-live": REPO / "runs_sample/argon_live/hud_session.json"}
 FLEET_DIRS = (REPO / "runs/fleet", REPO / "runs_sample/fleet")
 FLEET_SCHEMA = "fleet_state.v1"
 SHOTS = {1: "sim/output/cine_storm_aerial.png", 2: "sim/output/preview_hero.png",
@@ -217,18 +215,6 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             from rig.hud import record_mock
             await asyncio.to_thread(record_mock, mock_path, str(mock_path.parent / "decisions.jsonl"))
         return FileResponse(mock_path, media_type="application/json")
-
-    @app.get("/api/session/{name}")
-    async def session(name: str) -> Response:
-        path = SESSIONS.get(name)
-        if path is None:
-            raise HTTPException(404, f"unknown session {name!r}; expected one of {sorted(SESSIONS)}")
-        if not path.exists() and name == "argon":
-            from policy.control.shift import run
-            await asyncio.to_thread(run, "replay", path.parent)
-        if not path.exists():
-            raise HTTPException(404, f"{path.name} not recorded yet")
-        return FileResponse(path, media_type="application/json")
 
     @app.get("/api/mock/shot/{n}")
     async def mock_shot(n: int) -> FileResponse:

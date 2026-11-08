@@ -72,6 +72,9 @@ class HealthMonitor:
         self.tracks: dict[str, Track] = {}
         self.t = self.t0 = 0.0
 
+    def register(self, sid: str, kind: str, zone: str = "", group: str = "", pos=None) -> None:
+        self.tracks.setdefault(sid, Track(sid, kind, zone, group, pos))
+
     def _ingest(self, t: float, rs: list[Reading]) -> None:
         for r in rs:
             tr = self.tracks.get(r.id)
@@ -157,7 +160,7 @@ class HealthMonitor:
 
     def update(self, snap: SensorSnapshot) -> list[SensorHealth]:
         t = float(snap.t)
-        if not self.tracks:
+        if self.t == 0.0 and self.t0 == 0.0:
             self.t0 = t
         self.t = t
         self._ingest(t, readings(snap))

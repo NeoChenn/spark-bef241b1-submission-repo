@@ -3,11 +3,9 @@ from __future__ import annotations
 import bisect
 from dataclasses import dataclass, field
 
-SETUP_S = {"verify_sensor": 5.0, "rust": 20.0, "gas": 15.0, "crack": 15.0, "leak_check": 15.0, "inspect": 10.0}
+SETUP_S = {"rust": 20.0, "gas": 15.0, "crack": 15.0, "leak_check": 15.0, "inspect": 10.0}
 FLANGE_KINDS = {"gas", "crack", "leak_check"}
 LEAK_SCENARIO = {"clean": "none", "loose": "loose", "crack": "crack", "big": "big"}
-SIMPLE = {"verify_sensor": (15.0, [(0.0, "MEASURE", "reading the suspect sensor with the onboard sensor"),
-                                   (15.0, "DONE", "onboard reading sent to Argon")])}
 
 
 @dataclass
@@ -45,9 +43,6 @@ def _segments(records) -> list[tuple[float, str, str]]:
 
 
 def run_orchestrator(kind: str, scenario: str) -> JobTrace:
-    if kind in SIMPLE:
-        dur, segs = SIMPLE[kind]
-        return JobTrace(kind, scenario, dur, "DONE", segs)
     from policy.leak.mock import build_rig
     from policy.orchestrator import S
     if kind in FLANGE_KINDS:

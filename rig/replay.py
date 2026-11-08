@@ -11,7 +11,12 @@ TO = {"job_queued": "QUEUED", "approval_requested": "APPROVAL", "approved": "APP
       "preempted": "PREEMPTED", "requeued": "REQUEUED", "priority_change": "REPLAN", "segment_wait": "WAIT",
       "segment_clear": "CLEAR", "person_pause": "PAUSE_PERSON", "person_clear": "RESUME", "low_battery": "LOW_BATTERY",
       "docked": "DOCKED", "charged": "CHARGED", "gas_leak_injected": "GAS_LEAK", "gas_detected": "GAS",
-      "gas_alarm": "GAS", "duplicate_skipped": "SKIP", "cut_link": "EDGE"}
+      "gas_alarm": "GAS", "duplicate_skipped": "SKIP", "cut_link": "EDGE", "sensor_fault": "FAULT",
+      "fault_dispatch": "VERIFY", "verify_reading": "READING", "maintenance_raised": "MAINTENANCE",
+      "fault_cleared": "CLEARED", "sensor_repaired": "REPAIRED", "leak_isolated": "ISOLATED", "argon_vetoed": "VETO",
+      "agent_refused": "REFUSED", "link_cut": "LINK CUT", "link_restored": "LINK UP", "robot_held": "HOLD",
+      "robot_resumed": "RESUME", "gemini_call": "PLANNER"}
+QUIET = {"argon_call", "edge_rule", "escalation", "sensor_ok", "hold_expired"}
 STATUS = {"job_queued": "QUEUED", "approval_requested": "WAITING_APPROVAL", "approved": "QUEUED", "rejected": "REJECTED",
           "assigned": "ASSIGNED", "job_started": "RUNNING", "handed_to_crew": "HANDED_TO_HUMAN", "preempted": "QUEUED",
           "requeued": "QUEUED"}
@@ -32,7 +37,11 @@ def _reason(e: dict) -> str:
     d = e.get("detail") or {}
     if e["event"] == "person_pause":
         return f"person {float(d.get('distance_m', 0)):.1f} m away -> pause"
-    for k in ("explanation", "summary", "reason", "log", "source"):
+    if e["event"] == "sensor_fault":
+        return f"{d.get('sensor')} {d.get('status')}" + (" · beside live gas: treated as gas" if d.get("hazard") else "")
+    if e["event"] == "verify_reading":
+        return f"{d.get('sensor')}: robot {d.get('robot_mean')} vs head {d.get('head_mean')} -> {d.get('why')}"
+    for k in ("explanation", "summary", "reason", "why", "log", "source"):
         if d.get(k):
             return str(d[k])
     if "battery" in d:
@@ -62,8 +71,11 @@ def timeline_session(lines: list[dict], rate: float = 8.0) -> dict:
         while k < len(pending) and pending[k] <= t:
             evs += events[pending[k]]
             k += 1
-        decisions = []
+        decisions, control = [], None
         for e in evs:
+            if e["event"] == "argon_control":
+                control = e.get("detail")
+                continue
             name, d, jid = e["event"], e.get("detail") or {}, e.get("job")
             if jid and name in ("job_queued",):
                 jobs[jid] = {"id": jid, "kind": d.get("kind"), "target": d.get("target"), "level": d.get("level"),
@@ -93,6 +105,8 @@ def timeline_session(lines: list[dict], rate: float = 8.0) -> dict:
             if name == "job_done" and (d.get("kind") == "valve_isolate" or "iso" in str(jid)):
                 gas, _ = None, zones.pop("gas", None)
             who = e.get("robot")
+            if name in QUIET:
+                continue
             decisions.append({"t": float(e["t"]), "from": NAMES.get(who, who) if who else "Fleet",
                               "to": TO.get(name, name.upper()), "reason": _reason(e), "job": jid})
         robots, fleet = [], []
@@ -126,5 +140,7 @@ def timeline_session(lines: list[dict], rate: float = 8.0) -> dict:
             snap["orchestrator"] = json.loads(key)
         if gas is not None:
             snap["gas"] = dict(gas)
+        if control is not None:
+            snap["control"] = control
         snaps.append(snap)
     return {"snapshots": snaps, "duration": snaps[-1]["pt"] if snaps else 0.0, "replay": True}

@@ -21,6 +21,8 @@ LINE_BAR = {"N": 12.0, "E": 16.0}
 LEAK_LEN_M = 4.0
 LEAK_RAMP_S = 20.0
 LEAK_DECAY_S = 25.0
+FLARE_HEAD = (-58.0, 8.0, 68.0)
+V101_HEAD = (-8.0, -2.0, 46.5)
 
 
 @dataclass
@@ -30,6 +32,9 @@ class Spec:
     pos: tuple
     zone: str
     flange: Optional[str] = None
+    reach: str = "QCA"
+    where: str = "deck level"
+    base: float = 0.0
 
 
 @dataclass
@@ -78,7 +83,10 @@ def default_specs(rig_meta=RIG_META, flange_meta=FLANGE_META) -> list[Spec]:
             pos = tuple(float(v) for v in p["position_m"])
             specs.append(Spec(p["id"], "pressure", pos, zone_of(pos)))
     specs += [Spec("T-N1", "thermal", (-15.0, 23.0, 43.4), "N"), Spec("T-E1", "thermal", (21.0, -10.0, 43.4), "E"),
-              Spec("A-N1", "acoustic", (-6.0, 23.5, 43.4), "N"), Spec("A-E1", "acoustic", (30.0, -10.0, 43.4), "E")]
+              Spec("A-N1", "acoustic", (-6.0, 23.5, 43.4), "N"), Spec("A-E1", "acoustic", (30.0, -10.0, 43.4), "E"),
+              Spec("T-FLARE", "thermal", FLARE_HEAD, "FLARE", reach="A", where="flare tip, 25 m above the deck",
+                   base=180.0),
+              Spec("A-V101", "acoustic", V101_HEAD, "V101", reach="CA", where="separator V101 shell, 4 m up")]
     return specs
 
 
@@ -122,7 +130,7 @@ class RigSensors:
         if s.kind == "gas":
             v = 1.6 + 0.3 * common + near
         elif s.kind == "thermal":
-            v = 38.0 + 1.5 * common - 0.08 * near
+            v = 38.0 + s.base + 1.5 * common - 0.08 * near
         elif s.kind == "acoustic":
             v = 42.0 + 1.5 * common + 0.7 * near
         else:

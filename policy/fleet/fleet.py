@@ -41,8 +41,6 @@ class Robot:
     dist_m: float = 0.0
     arrived_t: float = 0.0
     time_in: Counter = field(default_factory=Counter)
-    sensors: frozenset = field(default_factory=frozenset)
-    held: bool = False
 
 
 @dataclass
@@ -84,10 +82,10 @@ class Fleet:
         self._event_tick = True
         self._blocked: set[int] = set()
 
-    def add_robot(self, rid: str, node: int, soc: float = 1.0, sensors=(), **battery) -> Robot:
+    def add_robot(self, rid: str, node: int, soc: float = 1.0, **battery) -> Robot:
         b = Battery(**battery)
         b.wh = soc * b.capacity_wh
-        r = Robot(rid, node, b, self.rm.pos[node].copy(), sensors=frozenset(sensors))
+        r = Robot(rid, node, b, self.rm.pos[node].copy())
         self.robots.append(r)
         return r
 
@@ -193,50 +191,6 @@ class Fleet:
         return (t.status == "pending" and t.node not in self._blocked
                 and (t.kind == "gas" or not self._in_gas(t.node)))
 
-    def _free(self, r: Robot) -> bool:
-        return not r.failed and not r.paused and not r.held
-
-    def hold(self, rid: str, why: str = "") -> bool:
-        r = next((x for x in self.robots if x.id == rid), None)
-        if r is None or r.failed or r.held:
-            return False
-        r.held = r.paused = True
-        self._truncate(r)
-        self._event_tick = True
-        self._log("hold", f"{r.id} held: {why}" if why else f"{r.id} held", robot=r.id)
-        return True
-
-    def resume(self, rid: str, why: str = "") -> bool:
-        r = next((x for x in self.robots if x.id == rid), None)
-        if r is None or not r.held:
-            return False
-        r.held = False
-        self._event_tick = True
-        if not self._person_near(r):
-            r.paused = False
-            if r.goal is not None:
-                self._go(r, r.goal)
-        self._log("resume", f"{r.id} resumes: {why}" if why else f"{r.id} resumes", robot=r.id)
-        return True
-
-    def _assign_pinned(self) -> None:
-        for t in [t for t in self.tasks.values() if t.pin and self._assignable(t)]:
-            r = next((x for x in self.robots if x.id == t.pin), None)
-            if r is None or r.failed:
-                self._log("unpin", f"{t.id}: {t.pin} unavailable -> any robot with {sorted(t.needs)}", task=t.id)
-                t.pin = None
-                continue
-            if not self._free(r) or (r.task is not None and (r.task.kind == "gas" or r.task.pin)):
-                continue
-            if r.task is not None:
-                old = r.task
-                old.preemptions += 1
-                self.preemptions += 1
-                self._release(r)
-                self._log("preempt", f"{r.id} pre-empted from {old.id} -> {t.id}", robot=r.id, task=old.id)
-            r.low = False
-            self._give(r, t, f"pinned by Argon: {t.kind}")
-
     def _mid(self, r: Robot) -> Optional[Leg]:
         return next((lg for lg in r.legs if lg.t0 <= self.t < lg.t1), None)
 
@@ -334,7 +288,7 @@ class Fleet:
 
     def _preempt_gas(self) -> None:
         for gas in [t for t in self.tasks.values() if t.kind == "gas" and self._assignable(t)]:
-            cands = [r for r in self.robots if self._free(r) and gas.needs <= r.sensors
+            cands = [r for r in self.robots if not r.failed and not r.paused
                      and not (r.task is not None and r.task.kind == "gas")]
             if not cands:
                 continue
@@ -377,11 +331,11 @@ class Fleet:
     def _assign(self) -> None:
         if self._event_tick:
             for r in self.robots:
-                if r.task is not None and r.task.kind != "gas" and not r.task.pin and r.task.status == "assigned":
+                if r.task is not None and r.task.kind != "gas" and r.task.status == "assigned":
                     self._release(r)
-        robots = [r for r in self.robots if self._free(r) and r.task is None
+        robots = [r for r in self.robots if not r.failed and not r.paused and r.task is None
                   and not (r.low and r.battery.soc < r.battery.resume_frac)]
-        tasks = [t for t in self.tasks.values() if self._assignable(t) and not t.pin]
+        tasks = [t for t in self.tasks.values() if self._assignable(t)]
         if not robots or not tasks:
             return
         eta, need = self._plan_matrix(robots, tasks)
@@ -389,7 +343,7 @@ class Fleet:
         cost = np.full(eta.shape, INF)
         for i, r in enumerate(robots):
             for j in range(len(tasks)):
-                if math.isfinite(eta[i, j]) and r.battery.can_afford(need[i, j]) and tasks[j].needs <= r.sensors:
+                if math.isfinite(eta[i, j]) and r.battery.can_afford(need[i, j]):
                     cost[i, j] = eta[i, j] + W_SOC * (1.0 - r.battery.soc) - W_PRIO * prio[j]
         for i, j in assign(cost):
             r = robots[i]
@@ -426,7 +380,7 @@ class Fleet:
                 self._log("pause_person", f"{r.id} paused: person within {self.person_radius_m:.0f} m", robot=r.id)
             elif len(r.legs) > len(self._kept(r)):
                 self._truncate(r)
-        elif not near and r.paused and not r.held:
+        elif not near and r.paused:
             r.paused = False
             self._log("resume", f"{r.id} resumes: person clear", robot=r.id)
             if r.goal is not None:
@@ -535,11 +489,10 @@ class Fleet:
         self._suspend_gas_zone()
         dd, ds = self._dock_costs()
         self._battery_checks(dd, ds)
-        self._assign_pinned()
         self._assign()
         self._event_tick = False
         for r in self.robots:
-            if not self._free(r) or r.task is not None:
+            if r.failed or r.paused or r.task is not None:
                 continue
             if not r.to_dock:
                 low = r.battery.soc < r.battery.return_frac

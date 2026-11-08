@@ -5,33 +5,44 @@ from typing import Optional
 
 import numpy as np
 
+from fleet.contract import Job, JobResult, JobStatus, Level, RobotKind
+from fleet.coordinator import GAS_RESPONSE, OPEN, RESERVE, URGENT
+from fleet.risk import risk_priority
+from fleet.sim import new_job
 from policy.control.centre import ControlCentre, health_view
-from policy.control.fleet_port import SENSOR_FOR, FleetPort
+from policy.control.fleet_port import SENSOR_FOR, VERIFY_S, FleetPort
 from policy.control.health import DRIFT_TOL, NOISE_FLOOR, NOISY_RATIO, STUCK_EPS, STUCK_RATIO, HealthMonitor
 from policy.control.rigsensors import RigSensors, zone_of
-from policy.control.safety import LEL_CLEAR
 from policy.control.schema import VERIFY
 from policy.control.snapshot import Robot, SensorSnapshot
-from policy.fleet.battery import Battery
-from policy.fleet.jobs import SETUP_S, SIMPLE
 from policy.fleet.rigmap import DECKS
 
 GAS_ALARM_LEL = 10.0
 MAINTENANCE = "sensor_maintenance"
-BUSY_KINDS = ("gas", VERIFY)
 TRUST_S = 600.0
 MAX_EVENTS = 12
+STANDOFF_M = 0.8
+CANDIDATE_TTL_S = 3.0
+NOT_FREE = {"FAILED": "robot failed", "HELD": "held", "PAUSED_PERSON": "paused for a person",
+            "CHARGING": "charging", "DOCKING": "returning to dock", "DOCK_QUEUE": "waiting for a dock pad"}
+KIND_NAME = {RobotKind.QUADRUPED: "quadruped", RobotKind.AERIAL: "drone", RobotKind.CRAWLER: "crawler",
+             RobotKind.ROV: "ROV"}
+
+
+class VerifySensor:
+    kind = VERIFY
+    level = Level.AUTO
+    needs: set = set()
+    robot_kinds: set = set()
+
+    def run(self, job: Job, robot, world) -> JobResult:
+        return JobResult(job.id, robot.id, JobStatus.DONE, world.t, world.t + VERIFY_S,
+                         log=[f"read {job.target} with the onboard {next(iter(job.needs), 'sensor')}"])
 
 
 def deck_name(z: float) -> str:
     d = min(DECKS, key=lambda k: abs(DECKS[k] - z))
-    return d if abs(DECKS[d] - z) < 2.0 else "stairs"
-
-
-def register(rm, rig: RigSensors) -> None:
-    for s in rig.specs.values():
-        if s.id not in rm.poi_node and abs(s.pos[2] - DECKS["top_deck"]) < 3.0:
-            rm.add_poi(s.id, s.pos, "top_deck")
+    return d if abs(DECKS[d] - z) < 2.0 else "stairs" if 20.0 < z < 43.0 else "air"
 
 
 def compare(kind: str, robot: list[float], head: list[float]) -> dict:
@@ -58,74 +69,77 @@ def compare(kind: str, robot: list[float], head: list[float]) -> dict:
 
 
 class ArgonBrain:
-    def __init__(self, fleet, rig: RigSensors, centre: ControlCentre, port: Optional[FleetPort] = None,
+    def __init__(self, sim, rig: RigSensors, centre: ControlCentre, port: Optional[FleetPort] = None,
                  monitor: Optional[HealthMonitor] = None, operator_s: Optional[float] = 40.0, crew_s: float = 90.0):
-        self.f, self.rig, self.centre = fleet, rig, centre
-        self.port = port or FleetPort(fleet, rig.specs)
+        self.sim, self.c, self.rig, self.centre = sim, sim.c, rig, centre
+        self.port = port or FleetPort(self.c, rig.specs)
         self.monitor = monitor or HealthMonitor()
+        for sp in rig.specs.values():
+            self.monitor.register(sp.id, sp.kind, sp.zone, sp.zone, sp.pos)
         self.operator_s, self.crew_s = operator_s, crew_s
         if centre.timeline is None:
             centre.timeline = self.port
+        sim.on_gas = lambda s, rid, leak, event: self._raise_gas(leak["source"], event, robot=rid)
         self.probes: dict[str, dict] = {}
         self.statuses: dict[str, str] = {}
         self.alarmed: set[str] = set()
-        self.gas_tasks: dict[str, str] = {}
         self.isolated: set[str] = set()
-        self.last: dict = {}
+        self.crew: dict[str, float] = {}
         self.vetoed: set[str] = set()
+        self.cands: dict[str, tuple[float, list]] = {}
+        self.last: dict = {}
         self.snap: Optional[SensorSnapshot] = None
 
     def zone(self, pos) -> str:
         z = zone_of(pos)
         if z:
             return z
-        if np.linalg.norm(np.asarray(pos)[:2] - self.f.rm.pos[self.f.rm.dock][:2]) < 2.0:
+        if any(math.dist(pos, rt.dock) < 2.0 for rt in self.c.rt.values()):
             return "dock"
         return deck_name(float(pos[2]))
 
     def robots(self) -> list[Robot]:
         out = []
-        for r in self.f.robots:
-            js, _ = self.f.job_state(r)
-            out.append(Robot(r.id, state=r.state if js is None else js, caption=_caption(r, js),
-                             pose=(round(float(r.pos[0]), 2), round(float(r.pos[1]), 2), round(float(r.pos[2]), 2)),
-                             battery=round(r.battery.soc, 3), task=r.task.id if r.task else None,
-                             zone=self.zone(r.pos), sensors=sorted(r.sensors), deck=deck_name(float(r.pos[2]))))
+        for rid, rt in self.c.rt.items():
+            job = self.c.jobs.get(rt.job) if rt.job else None
+            p = tuple(round(float(v), 2) for v in rt.robot.position)
+            out.append(Robot(rid, state=rt.state, caption=f"{job.kind} {job.target}" if job else rt.state.lower(),
+                             pose=p, battery=round(float(rt.robot.battery), 3), task=rt.job, zone=self.zone(p),
+                             sensors=sorted(rt.robot.capabilities), deck=deck_name(p[2])))
         return out
 
-    def candidates(self, sid: str, cache: dict) -> list[dict]:
+    def candidates(self, sid: str) -> list[dict]:
         s = self.rig.specs[sid]
-        node = self.f.rm.poi_node.get(sid)
-        need_sensor = SENSOR_FOR[s.kind]
-        if "dock" not in cache:
-            cache["dock"] = self.f._dock_costs()
-        dd, ds = cache["dock"]
-        work = Battery.work_energy(SETUP_S[VERIFY] + SIMPLE[VERIFY][0])
+        need = SENSOR_FOR[s.kind]
         out = []
-        for r in self.f.robots:
-            if r.id not in cache:
-                a, t0 = self.f._origin(r)
-                dist, _, stair = self.f.rm.dijkstra(a, self.f._blocked - {a})
-                cache[r.id] = (dist, stair, t0 - self.f.t)
-            dist, stair, lag = cache[r.id]
-            eta = lag + dist[node] if node is not None else math.inf
-            c = {"robot": r.id, "sensor": need_sensor, "eta_s": round(float(eta), 1) if math.isfinite(eta) else None,
-                 "battery": round(r.battery.soc, 3), "ok": False, "why": ""}
-            if math.isfinite(eta):
-                need = Battery.path_energy(eta, stair[node]) + work + Battery.path_energy(dd[node], ds[node])
-                c["need_wh"] = round(need, 1)
-                c["spare_wh"] = round(r.battery.wh - r.battery.reserve_wh, 1)
-            if need_sensor not in r.sensors:
-                c["why"] = f"no {need_sensor}"
-            elif r.failed:
-                c["why"] = "robot failed"
-            elif r.held or r.paused:
-                c["why"] = "held" if r.held else "paused for a person"
-            elif r.task is not None and (r.task.kind in BUSY_KINDS):
-                c["why"] = f"busy: {r.task.kind}"
-            elif not math.isfinite(eta):
+        for rid, rt in self.c.rt.items():
+            r = rt.robot
+            p = self.c.power(r)
+            route = self.c.planner.route(r, s.pos, STANDOFF_M)
+            eta = None if route.blocked else route.time(r.speed_mps)
+            c = {"robot": rid, "kind": KIND_NAME.get(r.kind, r.kind.value), "sensor": need,
+                 "eta_s": None if eta is None else round(eta, 1), "battery": round(float(r.battery), 3),
+                 "ok": False, "why": ""}
+            if eta is not None:
+                end = route.legs[-1].end if route.legs else tuple(r.position)
+                wh = (route.energy_wh(p, r.speed_mps) + p.work_w * VERIFY_S / 3600.0
+                      + self.c.to_dock_wh(r, end, rt.dock))
+                c["need_wh"] = round(wh, 1)
+                c["spare_wh"] = round((float(r.battery) - RESERVE) * p.capacity_wh, 1)
+            job = self.c.jobs.get(rt.job) if rt.job else None
+            if need not in r.capabilities:
+                c["why"] = f"no {need}"
+            elif r.kind.value not in s.reach:
+                c["why"] = f"a {c['kind']} cannot reach {sid} ({s.where})"
+            elif rt.state in NOT_FREE:
+                c["why"] = NOT_FREE[rt.state]
+            elif job is not None and (job.priority <= URGENT or job.kind in GAS_RESPONSE or job.kind == VERIFY
+                                      or job.params.get("gas_response")
+                                      or (rt.state == "WORKING" and job.level == Level.SUPV)):
+                c["why"] = f"busy: {job.kind} {job.target}"
+            elif eta is None:
                 c["why"] = "unreachable"
-            elif not r.battery.can_afford(c["need_wh"]):
+            elif c["need_wh"] > c["spare_wh"]:
                 c["why"] = f"battery: round trip {c['need_wh']:.0f} Wh > spare {c['spare_wh']:.0f} Wh"
             else:
                 c["ok"] = True
@@ -133,19 +147,23 @@ class ArgonBrain:
         return sorted(out, key=lambda c: (not c["ok"], c["eta_s"] if c["eta_s"] is not None else math.inf))
 
     def snapshot(self) -> SensorSnapshot:
-        gas, fixed = self.rig.read(self.f.t)
-        snap = SensorSnapshot(t=float(self.f.t), robots=self.robots(), gas=gas, fixed=fixed,
-                              jobs=[{k: j[k] for k in ("id", "kind", "target", "zone", "robot", "status", "priority",
-                                                       "level")} for j in self.port.fleet_state()["jobs"]
-                                    if j["status"] not in ("DONE", "CANCELLED")],
-                              events=[{"t": e["t"], "event": e["event"], "robot": e["robot"], "job": e["job"]}
-                                      for e in self.port.timeline[-MAX_EVENTS:] if e["event"] != "argon_call"],
-                              sources=["fleet_sim", "rig_sensors"])
+        gas, fixed = self.rig.read(self.c.t)
+        live = {s.value for s in OPEN}
+        jobs = [{k: j[k] for k in ("id", "kind", "target", "zone", "robot", "status", "priority", "level")}
+                for j in self.port.jobs() if j["status"] in live]
+        events = [{"t": e["t"], "event": e["event"], "robot": e["robot"], "job": e["job"]}
+                  for e in self.c.timeline[-MAX_EVENTS * 3:] if e["event"] not in ("argon_call", "argon_control",
+                                                                                   "segment_wait", "segment_clear")]
+        snap = SensorSnapshot(t=float(self.c.t), robots=self.robots(), gas=gas, fixed=fixed, jobs=jobs,
+                              events=events[-MAX_EVENTS:], sources=["fleet_coordinator", "rig_sensors"])
         self.monitor.update(snap)
-        cache: dict = {}
         for h in snap.health:
             if h.status != "OK" and h.id in self.rig.specs:
-                h.candidates = self.candidates(h.id, cache)
+                t0, cands = self.cands.get(h.id, (-1e9, None))
+                if self.c.t - t0 >= CANDIDATE_TTL_S:
+                    t0, cands = self.c.t, self.candidates(h.id)
+                    self.cands[h.id] = (t0, cands)
+                h.candidates = cands
         return snap
 
     def _transitions(self, snap: SensorSnapshot) -> None:
@@ -160,104 +178,119 @@ class ArgonBrain:
                                   best=next((c["robot"] for c in h.candidates if c["ok"]), None))
             self.statuses[h.id] = h.status
 
-    def _gas_alarms(self, snap: SensorSnapshot) -> None:
+    def _raise_gas(self, fid: str, event: str, robot: Optional[str] = None, **detail) -> None:
+        if fid in self.alarmed:
+            return
+        self.alarmed.add(fid)
+        xyz = tuple(self.c.planner.rm.flanges[fid])
+        for leak in self.c.world.state.get("gas_leaks", []):
+            if leak.get("source") == fid:
+                leak["reported"] = True
+        for jid, st in list(self.c.status.items()):
+            j = self.c.jobs[jid]
+            if j.kind == "flange_leak_check" and j.target == fid and st in OPEN and not j.params.get("gas_response"):
+                self.c.cancel(jid, by="coordinator", reason="superseded by the gas response")
+        job = new_job(self.c, "flange_leak_check", fid, xyz, Level.AUTO, priority=risk_priority("gas"),
+                      est_duration_s=20.0, params={"leak": self.c.world.state.get("flanges", {}).get(fid, "loose"),
+                                                   "gas_response": True, "zone": f"flange:{fid}"})
+        self.c.report(job, robot, event, flange=fid, position=[round(v, 3) for v in xyz], **detail)
+
+    def _gas(self, snap: SensorSnapshot) -> None:
         flanges = self.rig.flanges
         for g in snap.gas:
-            if g.lel < GAS_ALARM_LEL:
-                continue
             spec = self.rig.specs.get(g.id)
-            if spec is None:
+            if g.lel < GAS_ALARM_LEL or spec is None:
                 continue
             fid = spec.flange or min(flanges, key=lambda k: float(np.linalg.norm(flanges[k] - np.asarray(spec.pos))))
-            if fid in self.alarmed or (not spec.flange and any(zone_of(flanges[x]) == g.zone for x in self.alarmed)):
+            if not spec.flange and any(zone_of(flanges[x]) == g.zone for x in self.alarmed):
                 continue
-            self.alarmed.add(fid)
-            self.f.schedule(self.f.t, "gas_alarm", flange=fid, scenario="loose")
-            self.port.log("gas_alarm", None, None, sensor=g.id, flange=fid, lel=g.lel,
-                          why=f"{g.id} reads {g.lel:.0f}% LEL >= {GAS_ALARM_LEL:.0f}%: gas until proven otherwise")
-        for t in self.f.tasks.values():
-            if t.kind == "gas" and t.status == "done" and t.id not in self.gas_tasks:
-                self.gas_tasks[t.id] = t.poi
-                self.isolated.add(t.poi)
-                self.rig.isolate(t.poi, self.f.t)
-                self.port.log("leak_isolated", t.id, None, flange=t.poi,
-                              why=f"gas response at {t.poi} done (re-torque): leak isolated")
-        for fid in list(self.alarmed):
-            if fid in self.isolated and all(g.lel < LEL_CLEAR for g in snap.gas if g.zone == zone_of(flanges[fid])):
-                self.alarmed.discard(fid)
-                self.isolated.discard(fid)
+            self._raise_gas(fid, "gas_alarm", source=f"fixed gas head {g.id}", sensor=g.id, lel=round(g.lel, 1),
+                            why=f"{g.id} reads {g.lel:.0f}% LEL >= {GAS_ALARM_LEL:.0f}%: gas until proven otherwise")
+        for leak in self.c.world.state.get("gas_leaks", []):
+            fid = leak.get("source")
+            if leak.get("isolated") and fid not in self.isolated:
+                self.isolated.add(fid)
+                self.rig.isolate(fid, self.c.t)
+                self.port.log("leak_isolated", None, None, flange=fid,
+                              why=f"{fid} re-torqued: leak isolated, gas decaying")
 
     def _verify(self, snap: SensorSnapshot) -> None:
         values = {g.id: g.lel for g in snap.gas} | {x.id: x.value for x in snap.fixed}
         health = {h.id: h for h in snap.health}
-        for j in list(self.port.jobs.values()):
-            if j["kind"] != VERIFY:
+        for jid, j in list(self.c.jobs.items()):
+            if j.kind != VERIFY:
                 continue
-            sid = j["target"]
-            if j["status"] in ("QUEUED", "ASSIGNED", "RUNNING"):
-                self.monitor.attach(sid, j["id"])
+            st = self.c.status.get(jid)
+            sid = j.target
+            p = self.probes.setdefault(jid, {"robot": [], "head": [], "done": False})
+            if p["done"]:
+                continue
+            if st in OPEN:
+                self.monitor.attach(sid, jid)
                 if sid in health:
-                    health[sid].job = j["id"]
-            t = self.f.tasks.get(j.get("task") or "")
-            if t is None:
-                continue
-            p = self.probes.setdefault(j["id"], {"robot": [], "head": [], "done": False})
-            r = next((x for x in self.f.robots if x.task is t), None)
-            if t.status == "active" and r is not None and r.state == "WORK":
-                p["robot"].append(self.rig.probe(sid, self.f.t))
+                    health[sid].job = jid
+            rid = self.c.assigned_to.get(jid)
+            rt = self.c.rt.get(rid) if rid else None
+            if rt is not None and rt.job == jid and rt.state == "WORKING":
+                p["robot"].append(self.rig.probe(sid, self.c.t))
+                p["rid"] = rid
                 if values.get(sid) is not None:
                     p["head"].append(values[sid])
-            if t.status == "done" and not p["done"]:
+            if st == JobStatus.DONE:
                 p["done"] = True
-                self._verdict(j, p, t.robot or j["params"].get("robot"))
+                self._verdict(jid, sid, p, p.get("rid"))
+            elif st in (JobStatus.CANCELLED, JobStatus.FAILED, JobStatus.HANDED_TO_HUMAN):
+                p["done"] = True
+                self.monitor.attach(sid, None)
 
-    def _verdict(self, j: dict, p: dict, rid: Optional[str]) -> None:
-        sid = j["target"]
+    def _verdict(self, jid: str, sid: str, p: dict, rid: Optional[str]) -> None:
         s = self.rig.specs[sid]
         res = compare(s.kind, p["robot"], p["head"])
-        self.port.log("verify_reading", j["id"], rid, sensor=sid, **res)
+        self.port.log("verify_reading", jid, rid, sensor=sid, **res)
         if s.kind == "gas" and res["robot_mean"] is not None and res["robot_mean"] >= GAS_ALARM_LEL:
-            self.port.log("gas_confirmed", j["id"], rid, sensor=sid, lel=res["robot_mean"],
+            self.port.log("gas_confirmed", jid, rid, sensor=sid, lel=res["robot_mean"],
                           why="robot sniffer confirms real gas at the head")
         if res["agree"]:
             self.monitor.clear(sid, TRUST_S)
-            self.port.finish(j["id"], "DONE", outcome="agree")
-            self.port.log("fault_cleared", j["id"], rid, sensor=sid, why=res["why"])
+            self.port.log("fault_cleared", jid, rid, sensor=sid, why=res["why"])
             return
-        mid = self.port.queue(MAINTENANCE, sid, "SUPV", 2, params={"evidence": res, "verified_by": rid},
+        mid = self.port.queue(MAINTENANCE, sid, "SUPV", 2,
+                              params={"needs": ["crew"], "evidence": res, "verified_by": rid},
                               by=self.port.agent, why=f"{sid}: {res['why']}; replace or recalibrate the head")
         self.monitor.confirm(sid, mid)
-        self.port.finish(j["id"], "DONE", outcome="disagree", maintenance=mid)
         self.port.log("maintenance_raised", mid, rid, sensor=sid, why=res["why"])
 
     def _people(self) -> None:
-        for j in list(self.port.jobs.values()):
-            if j["status"] == "WAITING_APPROVAL" and self.operator_s is not None:
-                req = next((e["t"] for e in reversed(self.port.timeline) if e["event"] == "approval_requested"
-                            and e["job"] == j["id"]), self.f.t)
-                if self.f.t - req >= self.operator_s:
-                    self.port.approve_request(j["id"], "operator", f"operator approved {j['kind']} of {j['target']}")
-                    j["handed_t"] = self.f.t
-            elif j["kind"] == MAINTENANCE and j["status"] == "HANDED_TO_HUMAN":
-                j.setdefault("handed_t", self.f.t)
-                if self.f.t - j["handed_t"] >= self.crew_s:
-                    self.rig.repair(j["target"])
-                    self.monitor.clear(j["target"])
-                    self.port.finish(j["id"], "DONE", by="crew")
-                    self.port.log("sensor_repaired", j["id"], None, sensor=j["target"], by="crew")
+        if self.operator_s is not None:
+            for jid in list(self.c.approvals):
+                req = (self.c.requests.get(jid) or [{"t": self.c.t}])[0]["t"]
+                if self.c.t - req >= self.operator_s:
+                    self.c.approve(jid, by="operator")
+        for jid, j in list(self.c.jobs.items()):
+            st = self.c.status.get(jid)
+            if j.kind != MAINTENANCE:
+                continue
+            if st == JobStatus.QUEUED:
+                self.port.to_crew(jid, f"approved: crew replaces or recalibrates {j.target}")
+                self.crew[jid] = self.c.t
+            elif st == JobStatus.HANDED_TO_HUMAN and self.c.t - self.crew.setdefault(jid, self.c.t) >= self.crew_s:
+                self.rig.repair(j.target)
+                self.monitor.clear(j.target)
+                self.port.close(jid, "crew", sensor=j.target)
+                self.port.log("sensor_repaired", jid, None, sensor=j.target, by="crew")
 
     def step(self) -> dict:
         with self.centre.lock:
             return self._step()
 
     def _step(self) -> dict:
-        self.f.step()
+        self.sim.step()
         snap = self.snapshot()
         self._verify(snap)
         self._transitions(snap)
-        self._gas_alarms(snap)
+        self._gas(snap)
         self._people()
-        ctl = self.centre.tick(snap, now=float(self.f.t))
+        ctl = self.centre.tick(snap, now=float(self.c.t))
         self.port.apply(ctl["actions"], {h.id: h for h in snap.health})
         for v in ctl["vetoed"]:
             if v["id"] not in self.vetoed:
@@ -269,9 +302,3 @@ class ArgonBrain:
                          "sensors": r.sensors, "pose": list(r.pose)} for r in snap.robots]
         self.snap, self.last = snap, ctl
         return ctl
-
-
-def _caption(r, js) -> str:
-    if r.task is None:
-        return r.state.lower()
-    return f"{r.task.kind} {r.task.poi}" + (f" ({js.lower()})" if js else "")

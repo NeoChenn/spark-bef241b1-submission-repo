@@ -91,7 +91,7 @@ def verify_fallback(snap: SensorSnapshot, edge: list[Action], skip=frozenset()) 
         c = min(ok, key=lambda c: c["eta_s"])
         taken.add(c["robot"])
         a = _edge("dispatch", c["robot"], h.id, f"{h.id} {h.status}; nearest capable robot {c['robot']} "
-                                                f"({c['eta_s']:.0f} s by the rig graph, {c['sensor']})", "sensor")
+                                                f"({c.get('kind', 'robot')}, {c['eta_s']:.0f} s by route, {c['sensor']})", "sensor")
         a.purpose = VERIFY
         out.append(a)
     return out

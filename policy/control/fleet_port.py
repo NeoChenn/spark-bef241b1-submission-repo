@@ -1,171 +1,134 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Optional
 
+from fleet.contract import Job, JobStatus, Level, RobotKind
+from fleet.coordinator import GAS_RESPONSE, IDLE_DOCK_BATTERY, OPEN
 from policy.control.envelope import ROBOT_FUNCTIONS, Envelope
 from policy.control.schema import EDGE_KINDS, VERIFY
-from policy.fleet.tasks import KIND_BASE
 
 ARGON = "argon"
-SENSOR_FOR = {"gas": "gas_sniffer", "thermal": "thermal_cam", "acoustic": "ultrasonic_mic", "pressure": "camera"}
-FLEET_STATUS = {"pending": "QUEUED", "assigned": "ASSIGNED", "active": "RUNNING", "done": "DONE",
-                "escalated": "HANDED_TO_HUMAN", "superseded": "CANCELLED", "cancelled": "CANCELLED"}
-OPEN = ("QUEUED", "WAITING_APPROVAL", "ASSIGNED", "RUNNING")
-BOOST_PER_LEVEL = 20.0
+SENSOR_FOR = {"gas": "gas_sensor", "thermal": "thermal", "acoustic": "acoustic", "pressure": "camera"}
+VERIFY_S = 15.0
 HOLD_TTL_S = 90.0
-ALIASES = {"inspection": "inspect", "rust_inspect": "inspect", "gas_survey": "leak_check", "rust_repair": "rust"}
 
 
 class FleetPort:
-    def __init__(self, fleet, sensors: Optional[dict] = None, envelope: Optional[Envelope] = None,
-                 timeline_path=None, agent: str = ARGON):
-        self.f = fleet
+    def __init__(self, coordinator, sensors: Optional[dict] = None, envelope: Optional[Envelope] = None,
+                 agent: str = ARGON):
+        self.c = coordinator
         self.sensors = sensors or {}
         self.envelope = envelope or Envelope(agent, ROBOT_FUNCTIONS)
         self.agent = agent
-        self.jobs: dict[str, dict] = {}
-        self.timeline: list[dict] = []
-        self.path = Path(timeline_path) if timeline_path else None
-        if self.path is not None:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text("")
-        self.seq = 0
         self.esd = {"active": False, "zone": None}
         self.active_edge: set[str] = set()
         self.holds: dict[str, float] = {}
 
+    @property
+    def t(self) -> float:
+        return float(self.c.t)
+
+    @property
+    def timeline(self) -> list[dict]:
+        return self.c.timeline
+
     def log(self, event: str, job=None, robot=None, **detail) -> dict:
-        e = {"t": round(float(self.f.t), 2), "event": event, "job": job, "robot": robot, "detail": detail}
-        self.timeline.append(e)
-        if self.path is not None:
-            with self.path.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(e, default=str) + "\n")
-        return e
+        return self.c.emit(event, job, robot, **detail)
 
     def robot(self, rid: str):
-        return next((r for r in self.f.robots if r.id == rid), None)
+        return self.c.rt.get(rid)
 
-    def person_pauses(self) -> dict:
-        return {r.id: None for r in self.f.robots if r.paused and not r.held and self.f._person_near(r)}
-
-    def sync(self) -> None:
-        for j in self.jobs.values():
-            t = self.f.tasks.get(j.get("task") or "")
-            if t is not None and j["status"] in OPEN:
-                j["status"], j["robot"] = FLEET_STATUS.get(t.status, j["status"]), t.robot
-
-    def fleet_state(self) -> dict:
-        self.sync()
-        robots = [{"id": r.id, "state": r.state, "battery": round(r.battery.soc, 3),
-                   "position": [round(float(v), 2) for v in r.pos], "job": r.task.id if r.task else None,
-                   "sensors": sorted(r.sensors), "held": r.held} for r in self.f.robots]
-        return {"t": round(float(self.f.t), 2), "robots": robots, "jobs": [dict(j) for j in self.jobs.values()],
-                "approvals": [j["id"] for j in self.jobs.values() if j["status"] == "WAITING_APPROVAL"],
-                "esd": dict(self.esd), "person_pauses": self.person_pauses()}
+    def _status(self, jid) -> str:
+        s = self.c.status.get(jid)
+        return getattr(s, "value", s)
 
     def job(self, job_id):
-        self.sync()
-        j = self.jobs.get(job_id)
-        return dict(j) if j else None
+        j = self.c.jobs.get(job_id)
+        if j is None:
+            return None
+        return {"id": job_id, "kind": j.kind, "target": j.target, "level": j.level.value, "priority": j.priority,
+                "status": self._status(job_id), "requested_by": j.params.get("requested_by", "coordinator"),
+                "why": j.params.get("why", ""), "params": dict(j.params), "robot": self.c.assigned_to.get(job_id),
+                "zone": getattr(self.sensors.get(j.target), "zone", j.params.get("zone", ""))}
+
+    def jobs(self) -> list[dict]:
+        return [self.job(j) for j in self.c.jobs]
 
     def open_job(self, kind: str, target: str) -> Optional[dict]:
-        self.sync()
-        return next((j for j in self.jobs.values() if j["kind"] == kind and j["target"] == target
-                     and j["status"] in OPEN), None)
+        return next((self.job(j) for j, x in self.c.jobs.items() if x.kind == kind and x.target == target
+                     and self.c.status.get(j) in OPEN), None)
 
-    def _task(self, j: dict) -> None:
-        p = j["params"]
-        kw = {}
-        if j["kind"] == VERIFY:
-            s = self.sensors[j["target"]]
-            kw = {"xyz": list(s.pos), "needs": frozenset({SENSOR_FOR[s.kind]}), "pin": p.get("robot") or None}
-        t = self.f.add_task(j["kind"], j["target"], **kw)
-        t.priority_boost = (3 - j["priority"]) * BOOST_PER_LEVEL
-        j["task"], j["status"] = t.id, "QUEUED"
-
-    def plannable(self, kind: str, target: str) -> bool:
-        return kind in KIND_BASE and (target in self.f.rm.poi_node or target in self.sensors)
+    def fleet_state(self) -> dict:
+        robots = [{"id": rid, "state": rt.state, "battery": round(float(rt.robot.battery), 3),
+                   "position": [round(float(v), 2) for v in rt.robot.position], "job": rt.job,
+                   "capabilities": sorted(rt.robot.capabilities)} for rid, rt in self.c.rt.items()]
+        return {"t": round(self.t, 2), "robots": robots, "jobs": self.jobs(), "approvals": list(self.c.approvals),
+                "crew": list(self.c.crew), "esd": dict(self.esd),
+                "person_pauses": {r["id"]: None for r in robots if r["state"] == "PAUSED_PERSON"}}
 
     def queue(self, kind, target, level="AUTO", priority=3, params=None, by="operator", why="") -> str:
-        kind = ALIASES.get(kind, kind)
-        dup = self.open_job(kind, target)
-        if dup:
-            return dup["id"]
-        self.seq += 1
-        jid = f"{kind[:4].upper()}-{self.seq:03d}"
-        j = {"id": jid, "kind": kind, "target": target, "level": level, "priority": int(priority), "status": "QUEUED",
-             "requested_by": by, "why": why, "params": dict(params or {}), "task": None, "robot": None,
-             "zone": getattr(self.sensors.get(target), "zone", "")}
-        self.jobs[jid] = j
-        if level == "SUPV":
-            j["status"] = "WAITING_APPROVAL"
-        elif level == "HUMAN" or not self.plannable(kind, target):
-            j["status"] = "HANDED_TO_HUMAN"
+        params = dict(params or {})
+        needs = set(params.pop("needs", ()))
+        s = self.sensors.get(target)
+        if s is not None:
+            pos = s.pos
         else:
-            self._task(j)
-        self.log("job_queued", jid, j["params"].get("robot"), kind=kind, target=target, level=level,
-                 priority=int(priority), by=by, why=why)
-        if j["status"] == "WAITING_APPROVAL":
-            self.log("approval_requested", jid, None, kind=kind, target=target, by=by)
-        return jid
+            asset = self.c.world.assets.get(target) or {}
+            pos = params.pop("position", None) or asset.get("position_m")
+            if pos is None:
+                pos, level = (0.0, 0.0, 0.0), "HUMAN"
+                params["note"] = f"{target} has no position on the rig: routed to the crew"
+        kinds = set()
+        if kind == VERIFY and s is not None:
+            needs.add(SENSOR_FOR[s.kind])
+            kinds = {RobotKind(k) for k in s.reach}
+        job = Job(self.c.new_id(kind), kind, target, tuple(float(v) for v in pos), Level(level), needs=needs,
+                  robot_kinds=kinds,
+                  priority=int(priority), est_duration_s=VERIFY_S if kind == VERIFY else 60.0,
+                  params={"standoff": 0.8, **params, "requested_by": by, "why": why})
+        self.c.submit(job, allow_auto=False, by=by, note=why)
+        if job.id in self.c.jobs:
+            return job.id
+        return self.open_job(kind, target)["id"]
 
     def cancel(self, job_id, by, why) -> bool:
-        j = self.jobs.get(job_id)
-        if not j or j["status"] not in ("QUEUED", "WAITING_APPROVAL"):
-            return False
-        t = self.f.tasks.get(j.get("task") or "")
-        if t is not None:
-            self.f._drop(t, "cancelled")
-        j["status"] = "CANCELLED"
-        self.log("cancelled", job_id, None, by=by, why=why)
-        return True
+        return self.c.cancel(job_id, by=by, reason=why)[0]
 
     def approve_request(self, job_id, by, why) -> bool:
-        j = self.jobs.get(job_id)
-        if not j or j["status"] != "WAITING_APPROVAL":
-            return False
-        if self.plannable(j["kind"], j["target"]):
-            self._task(j)
-        else:
-            j["status"] = "HANDED_TO_HUMAN"
-        self.log("approved", job_id, None, by=by, why=why)
-        return True
+        return self.c.approve(job_id, by=by)
 
     def reprioritise(self, job_id, priority, by, why) -> bool:
-        j = self.jobs.get(job_id)
-        if not j or j["status"] not in OPEN:
-            return False
-        old, j["priority"] = j["priority"], int(priority)
-        t = self.f.tasks.get(j.get("task") or "")
-        if t is not None:
-            t.priority_boost = (3 - int(priority)) * BOOST_PER_LEVEL
-        self.log("reprioritised", job_id, None, by=by, why=why, old=old, new=int(priority))
-        return True
+        return self.c.reprioritise(job_id, int(priority), by=by, why=why)[0]
 
     def hold(self, rid, by, why) -> bool:
-        return self.f.hold(rid, f"{why} ({by})")
-
-    def hold_refusal(self, rid) -> Optional[str]:
-        r = self.robot(rid)
-        if r is not None and r.task is not None and r.task.kind == "gas":
-            return f"{rid} is on the gas response {r.task.id}; only the operator can stop a safety job"
-        if r is not None and r.battery.soc < r.battery.return_frac:
-            return (f"{rid} battery {r.battery.soc:.0%} is below the {r.battery.return_frac:.0%} return level; "
-                    "holding it could strand it, the planner sends it to the dock")
-        return None
+        return self.c.hold(rid, by=by, why=why)
 
     def resume(self, rid, by, why) -> bool:
-        return self.f.resume(rid, f"{why} ({by})")
+        return self.c.resume(rid, by=by, why=why)
 
-    def finish(self, job_id, status: str, **detail) -> None:
-        j = self.jobs[job_id]
-        j["status"] = status
-        self.log("job_closed", job_id, j.get("robot"), status=status, **detail)
+    def hold_refusal(self, rid) -> Optional[str]:
+        rt = self.robot(rid)
+        if rt is None:
+            return None
+        job = self.c.jobs.get(rt.job) if rt.job else None
+        if job is not None and (job.kind in GAS_RESPONSE or job.params.get("gas_response")):
+            return f"{rid} is on the gas response {job.id}; only the operator can stop a safety job"
+        if rt.robot.battery < IDLE_DOCK_BATTERY:
+            return (f"{rid} battery {rt.robot.battery:.0%} is below the {IDLE_DOCK_BATTERY:.0%} return level; "
+                    "holding it could strand it, the coordinator sends it to the dock")
+        return None
 
     def request(self, name: str, args: dict) -> dict:
         return self.envelope.call(self, name, args)
+
+    def to_crew(self, job_id: str, why: str) -> None:
+        self.c._to_crew(job_id, why)
+
+    def close(self, job_id: str, by: str, **detail) -> None:
+        self.c.status[job_id] = JobStatus.DONE
+        if job_id in self.c.crew:
+            self.c.crew.remove(job_id)
+        self.log("job_done", job_id, None, status="DONE", by=by, **detail)
 
     def apply(self, actions: list[dict], health: dict) -> list[dict]:
         out, live = [], set()
@@ -188,16 +151,14 @@ class FleetPort:
                                                  "params": {"robot": rid, "sensor_kind": h.kind},
                                                  "why": a["rationale"]})
                 if res["ok"]:
-                    jid = res["result"]["job_id"]
-                    self.log("fault_dispatch", jid, rid, sensor=tgt, status=h.status, source=a["source"],
-                             confidence=a["confidence"], why=a["rationale"])
+                    self.log("fault_dispatch", res["result"]["job_id"], rid, sensor=tgt, status=h.status,
+                             source=a["source"], confidence=a["confidence"], why=a["rationale"])
                 out.append(res)
             elif kind in ("hold", "resume"):
+                rt = self.robot(rid)
                 if kind == "hold" and rid in self.holds:
-                    self.holds[rid] = self.f.t
-                if kind == "hold" and self.robot(rid) is not None and self.robot(rid).held:
-                    continue
-                if kind == "resume" and self.robot(rid) is not None and not self.robot(rid).held:
+                    self.holds[rid] = self.t
+                if rt is None or (kind == "hold") == (rt.state == "HELD"):
                     continue
                 bad = self.hold_refusal(rid) if kind == "hold" else None
                 if bad:
@@ -208,21 +169,31 @@ class FleetPort:
                     continue
                 res = self.request(f"{kind}_robot", {"robot": rid, "why": a["rationale"]})
                 if res["ok"] and kind == "hold":
-                    self.holds[rid] = self.f.t
+                    self.holds[rid] = self.t
                 elif res["ok"]:
                     self.holds.pop(rid, None)
                 out.append(res)
-            elif kind == "dispatch" and tgt in self.jobs:
-                t = self.f.tasks.get(self.jobs[tgt].get("task") or "")
-                if t is not None and t.status == "pending" and t.pin != rid:
-                    t.pin = rid
+            elif kind == "dispatch" and tgt in self.c.jobs:
+                j = self.c.jobs[tgt]
+                if self.c.status.get(tgt) == JobStatus.QUEUED and j.params.get("robot") != rid:
+                    j.params["robot"] = rid
                     self.log("assigned_by_argon", tgt, rid, why=a["rationale"])
             elif kind not in ("dispatch", "second_view", "evacuate"):
                 out.append(self.request(kind, {"robot": rid, "target": tgt, "why": a["rationale"]}))
         self.active_edge = live
         for rid, t in list(self.holds.items()):
-            if self.f.t - t > HOLD_TTL_S:
+            if self.t - t > HOLD_TTL_S:
                 self.holds.pop(rid)
-                self.f.resume(rid, f"Argon hold not renewed for {HOLD_TTL_S:.0f} s")
+                self.c.resume(rid, by=self.agent, why=f"Argon hold not renewed for {HOLD_TTL_S:.0f} s")
                 self.log("hold_expired", None, rid, ttl_s=HOLD_TTL_S)
+        self.unpin()
         return out
+
+    def unpin(self) -> None:
+        for jid, j in self.c.jobs.items():
+            rid = j.params.get("robot")
+            if rid and self.c.status.get(jid) == JobStatus.QUEUED:
+                rt = self.robot(rid)
+                if rt is None or rt.state == "FAILED":
+                    j.params.pop("robot")
+                    self.log("unpinned", jid, rid, why=f"{rid} unavailable: any robot with {sorted(j.needs)}")
