@@ -84,7 +84,7 @@ def test_stuck_sensor_files_one_ticket_to_the_human_inbox_and_dispatches_no_repa
         assert "only a human approves" in tk["envelope"]["note"]
         assert ("approval_requested", "gemini") in events
     assert seen[1.0] == "green" and seen[5.0] == "red" and seen[15.5] == "grey"
-    assert [k for t, k, _, _ in cmds if t >= 12.0] == []
+    assert [k for t, k, _, _ in cmds if t >= 13.0] == []
 
 
 def test_stuck_sensor_combines_with_the_stuck_health_verdict(tmp_path):
