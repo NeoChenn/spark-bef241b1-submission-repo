@@ -148,6 +148,8 @@ export material OceanFx(
     float grazing_gain = 0.8,
     float mask_lo = 0.02,
     float mask_hi = 0.13,
+    float glitter = 0.2,
+    float glitter_roughness = 0.14,
     float drift_speed = 0.6,
     float3 camera_position = float3(0.0, 0.0, 40.0),
     float pixel_angle = 0.0008,
@@ -200,7 +202,12 @@ export material OceanFx(
     float visible = math::smoothstep(mask_lo, mask_hi, ndv);
     bsdf water = df::fresnel_layer(
         ior: 1.333,
-        layer: df::microfacet_ggx_smith_bsdf(roughness_u: alpha, roughness_v: alpha, tint: color(visible), mode: df::scatter_reflect),
+        layer: df::normalized_mix(
+            components: df::bsdf_component[](
+                df::bsdf_component(weight: 1.0 - glitter, component: df::microfacet_ggx_smith_bsdf(roughness_u: alpha, roughness_v: alpha, tint: color(visible), mode: df::scatter_reflect)),
+                df::bsdf_component(weight: glitter, component: df::microfacet_ggx_smith_bsdf(roughness_u: glitter_roughness, roughness_v: glitter_roughness, tint: color(visible), mode: df::scatter_reflect))
+            )
+        ),
         base: df::diffuse_reflection_bsdf(tint: body)
     );
     bsdf froth = df::fresnel_layer(
