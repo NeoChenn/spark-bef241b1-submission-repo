@@ -33,6 +33,7 @@ STALE_AFTER_S = 2.0
 BLACK_MEAN = 3.0
 HELLO_TIMEOUT_S = 5.0
 FLEET_TICK_S = 0.25
+CONTROL_TICK_S = 1.0
 FLEET_SIM_EVERY = 2
 
 
@@ -60,6 +61,7 @@ class FrameHub:
         self.plume_npz: bytes | None = None
         self.pip: dict | None = None
         self.fleet: dict | None = None
+        self.control: dict | None = None
         self.meta: dict = {}
         self.version = 0
         self._state_event = asyncio.Event()
@@ -155,7 +157,7 @@ class RenderClient:
 
 def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Path = MOCK_PATH,
                fleet_dirs=FLEET_DIRS, root: Path = REPO, fleet=None, lan_host: str | None = None,
-               lan_port: int | None = None, token: str | None = None) -> FastAPI:
+               lan_port: int | None = None, token: str | None = None, control=None) -> FastAPI:
     root = Path(root).resolve()
     hub = FrameHub()
     fleet_seq = {"n": 0, "event": asyncio.Event()}
@@ -270,6 +272,20 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             if writer is not None and fleet_seq["n"] % FLEET_SIM_EVERY == 0:
                 writer.write(encode({"type": "event", "name": "fleet", "args": fleet.for_sim()}))
 
+    async def control_loop() -> None:
+        from policy.control.adapters import from_header
+
+        while True:
+            await asyncio.sleep(CONTROL_TICK_S)
+            st = fleet.state() if fleet is not None else (hub.fleet or {})
+            h = {**hub.meta, "t": st.get("t", hub.meta.get("t")), "robots": st.get("robots") or [],
+                 "tasks": st.get("tasks") or []}
+            try:
+                hub.control = control.tick(from_header(h))
+            except Exception as e:
+                print(f"rig web: control tick failed: {type(e).__name__}: {e}", flush=True)
+            hub._bump()
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         server = await asyncio.start_server(lambda r, w: handle(r, w, False), sim_host, sim_port)
@@ -283,11 +299,13 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
         elif lan_host:
             print(f"rig web: {lan_host} ingest disabled, INGEST_TOKEN is empty", flush=True)
         loop = asyncio.create_task(fleet_loop()) if fleet is not None else None
+        ctl = asyncio.create_task(control_loop()) if control is not None else None
         try:
             yield
         finally:
-            if loop is not None:
-                loop.cancel()
+            for task in (loop, ctl):
+                if task is not None:
+                    task.cancel()
             for s in servers:
                 s.close()
             for client in list(renders):
@@ -339,6 +357,10 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
         except ValueError as e:
             raise HTTPException(400, str(e))
         out = {}
+        if control is not None and ev["name"] == "cut_link":
+            control.cut_link(bool(ev["args"].get("on", True)))
+        elif control is not None and ev["name"] == "intent":
+            control.intent(str(ev["args"].get("text") or ""))
         if fleet is not None and is_fleet_event(ev["name"], ev["args"]):
             try:
                 out["fleet"] = fleet.event(ev["name"], ev["args"])
@@ -488,6 +510,8 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
                 version, header = await hub.wait_state(version)
                 idx, events = hub.events_since(idx)
                 extra = {"plume": hub.plume} if hub.plume else {}
+                if hub.control is not None:
+                    extra["control"] = hub.control
                 if hub.pip and hub.pip["seq"] != pip_seq:
                     extra["pip"], pip_seq = hub.pip, hub.pip["seq"]
                 await ws.send_json({**header, **extra, "events": events})
@@ -510,5 +534,19 @@ def default_fleet():
         return None
 
 
+def default_control():
+    mode = os.environ.get("RIG_CONTROL", "auto")
+    if mode in ("", "0", "off"):
+        return None
+    try:
+        from policy.control.centre import from_env
+        return from_env(mode, log_path=REPO / "runs/control/calls.jsonl", sync=False,
+                        interval_s=float(os.environ.get("RIG_CONTROL_INTERVAL", "30")))
+    except (ImportError, OSError) as e:
+        print(f"rig web: control centre off ({e})", flush=True)
+        return None
+
+
 app = create_app(os.environ.get("SIM_HOST", "127.0.0.1"), int(os.environ.get("SIM_PORT", "9000")), fleet=default_fleet(),
+                 control=default_control(),
                  lan_host=os.environ.get("SIM_HOST_LAN") or None, token=os.environ.get("INGEST_TOKEN") or None)

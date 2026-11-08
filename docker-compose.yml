@@ -11,8 +11,13 @@ services:
     environment:
       SIM_HOST: "127.0.0.1"
       SIM_PORT: "9000"
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      CONTROL_CAP_USD: ${CONTROL_CAP_USD:-5}
+      RIG_CONTROL_INTERVAL: ${RIG_CONTROL_INTERVAL:-30}
       SIM_HOST_LAN: ${SIM_HOST_LAN:-}
       INGEST_TOKEN: ${INGEST_TOKEN:-}
+    volumes:
+      - ./runs/control:/app/runs/control
     restart: unless-stopped
 
   sim:
