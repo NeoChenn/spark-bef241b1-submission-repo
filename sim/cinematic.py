@@ -9,6 +9,7 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 import assets_hero
 import facade
 import flare_fx
+import weather
 import greebles
 import look
 import ocean
@@ -74,6 +75,20 @@ PRESETS = {
         "lights": 0.0,
         "windows": 0.15,
         "sea_color": (0.01, 0.03, 0.04),
+    },
+    "dusk": {
+        "sky": ASSETS / "third_party" / "hdris" / "belfast_sunset_puresky.hdr",
+        "dome": 180.0,
+        "sky_rotation": 333.0,
+        "sun": 1200.0,
+        "sun_rotation": (85.0, 0.0, 205.0),
+        "sun_color": (1.0, 0.52, 0.22),
+        "fog_color": (0.8, 0.45, 0.22),
+        "fog_height": 0.004,
+        "wave_height": 1.0,
+        "lights": 0.7,
+        "windows": 0.8,
+        "sea_color": (0.012, 0.024, 0.03),
     },
 }
 
@@ -529,20 +544,28 @@ def add_deck_floods(stage, gain: float = 1.0) -> None:
         _relight(stage.GetPrimAtPath(path), look.fixture("spot", kelvin, intensity * gain, cone))
 
 
+CURRENT = {"time": "night"}
+
+
 def apply_preset(stage, name: str) -> None:
-    preset = PRESETS[name]
     assets_hero.attach(stage)
-    facade.apply(stage, preset["windows"])
     photoreal.apply(stage, name)
     greebles.apply(stage)
     structure.apply(stage, name)
     hero_mat.apply(stage, name)
-    ocean_fx.apply(stage, name, preset["wave_height"])
     flare_fx.attach(stage)
     relight(stage)
     add_deck_floods(stage)
     add_zone_spot(stage)
     add_work_light(stage)
+    set_time(stage, name)
+
+
+def set_time(stage, name: str, atm=None) -> None:
+    preset = PRESETS[name]
+    CURRENT["time"] = name
+    facade.apply(stage, preset["windows"])
+    ocean_fx.apply(stage, name, preset["wave_height"])
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))
     dome.GetIntensityAttr().Set(preset["dome"])
@@ -578,6 +601,9 @@ def apply_preset(stage, name: str) -> None:
             settings.set_bool(path, value)
         else:
             settings.set_float(path, value)
+    if atm is not None:
+        atm.preset = name
+        atm.set_weather(atm.w)
 
 
 CAMERA_KEYS = (
@@ -624,7 +650,7 @@ def animate_effects(stage, time: float) -> None:
         wave = math.sin(time * (7.0 + index * 1.7) + index * 2.1) * 0.5 + math.sin(time * 13.0 + index) * 0.5
         stretch = 2.2 + 0.32 * wave
         prim.GetAttribute("xformOp:scale").Set(Gf.Vec3f(1.0 + 0.12 * wave, 1.0 + 0.12 * wave, stretch))
-    flare_fx.update(stage, time)
+    flare_fx.update(stage, time, weather.flare_wind(flare_fx.WIND))
     pulse = 0.55 + 0.45 * max(math.sin(time * 2.2), 0.0)
     strobe = 1.0 if (time % 1.6) < 0.12 else 0.02
     for index, level in [(b[0], pulse) for b in RED_BEACONS] + [(i, strobe) for i, _ in STROBES]:

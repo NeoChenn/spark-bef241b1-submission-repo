@@ -111,3 +111,16 @@ def test_cables_cross_walkways_only_at_protectors():
         for x, y, _ in pts:
             if g.route_distance(x, y) < 0.3:
                 assert min(math.dist((x, y), c) for c, _ in g.PROTECTORS) < 0.6
+
+
+def test_puddles_stay_on_deck_and_out_of_work_zone():
+    items = g.puddle_layout()
+    assert len(items) > 20
+    for x, y, size, rot, shape in items:
+        assert abs(x) <= g.DECK_LIMIT[0] and abs(y) <= g.DECK_LIMIT[1]
+        assert not g.in_work_zone(x, y, 0.3)
+        assert 0.4 < size < 1.6 and shape in range(4)
+
+
+def test_puddle_layout_is_deterministic():
+    assert g.puddle_layout() == g.puddle_layout()
