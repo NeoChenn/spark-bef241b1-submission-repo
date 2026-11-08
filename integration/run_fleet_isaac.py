@@ -344,16 +344,27 @@ def activity(rid: str, state: str) -> str:
     return "stow"
 
 
-def rust_masks(shape, pipe: dict, side: float, z0: float, prog: dict, radius: float = 0.13, length: float = 0.8):
+def activity_totals(scn: Scenario, rid: str = "unit1") -> dict:
+    out = {}
+    seq = scn.states.get(rid, [])
+    for (t0, st), nxt in zip(seq, [*seq[1:], (scn.end, None)]):
+        a = activity(rid, st)
+        out[a] = out.get(a, 0.0) + max(0.0, nxt[0] - t0)
+    return out
+
+
+def rust_masks(shape, pipe: dict, side: float, z0: float, prog: dict, radius: float = 0.13, length: float = 0.8,
+               full: dict | None = None):
+    full = {"spray": 3.0, "scrub": 14.0, "paint": 4.0, **(full or {})}
     n_z, n_t = shape
     z = -length / 2 + (np.arange(n_z) + 0.5) * length / n_z
     th = (np.arange(n_t) + 0.5) * 2 * math.pi / n_t
     c = pipe["theta"] if side > 0 else math.pi - pipe["theta"]
     dth = np.abs((th - c + math.pi) % (2 * math.pi) - math.pi) * pipe["radius"]
     d = np.hypot((z - z0)[:, None], dth[None, :]) / radius
-    sprayed = d < 1.15 * min(1.0, prog.get("spray", 0.0) / 3.0)
-    rust = np.where(d < 1.0, np.clip(1.0 - d, 0.2, 1.0), 0.0) * (d >= min(1.0, prog.get("scrub", 0.0) / 14.0))
-    painted = d < 1.15 * min(1.0, prog.get("paint", 0.0) / 4.0)
+    sprayed = d < 1.15 * min(1.0, prog.get("spray", 0.0) / full["spray"])
+    rust = np.where(d < 1.0, np.clip(1.0 - d, 0.2, 1.0), 0.0) * (d >= min(1.0, prog.get("scrub", 0.0) / full["scrub"]))
+    painted = d < 1.15 * min(1.0, prog.get("paint", 0.0) / full["paint"])
     return {"rust_grid": rust, "sprayed": sprayed.astype(float), "painted": painted.astype(float)}
 
 
@@ -799,6 +810,9 @@ def main(argv=None):
     print(f"[fleet] rust at z={z_rust:.2f} side={side0:+.0f} squish={brush is not None} trot={trot_q is not None}",
           flush=True)
     prog = {"spray": 0.0, "scrub": 0.0, "paint": 0.0}
+    tot = activity_totals(scn)
+    full = {k: max(0.5, 0.8 * tot.get(k, 0.0)) for k in prog}
+    print(f"[fleet] rust job seconds {tot} -> full {full}", flush=True)
     brush_log = load_brush_log(args.scrub_log, (pipe["origin"][0], spawn[1], meta["world"]["deck_z_m"]))
     print(f"[fleet] scrub {'recorded ' + args.scrub_log if brush_log is not None else 'scripted sweep'}", flush=True)
     deck = float(meta["world"]["deck_z_m"])
@@ -854,8 +868,7 @@ def main(argv=None):
         acts = {rid: activity(rid, scn.state(rid, t)) for rid in UNITS}
         if acts["unit1"] in ("scrub", "spray", "paint"):
             scrub_t += t - t_prev
-            if work_w >= 1.0:
-                prog[acts["unit1"]] += t - t_prev
+            prog[acts["unit1"]] += t - t_prev
         t_prev = t
         working = acts["unit1"] in ("scrub", "spray", "paint")
         work_w = min(1.0, work_w + 1.0 / args.fps) if working else max(0.0, work_w - 1.0 / args.fps)
@@ -911,7 +924,7 @@ def main(argv=None):
                     o_, a_ = np.asarray(pipe["origin"]), np.asarray(pipe["axis"])
                     brush._set("sponge", brush.pad.sponge(tip[:3, 3], tip[:3, :3], o_, a_, pipe["radius"], force))
                     brush._set("hub", brush.pad.hub(tip[:3, 3], tip[:3, :3], o_, a_, pipe["radius"]))
-        masks = scn.masks_at(t) or rust_masks(geom.shape, pipe_c, side0, 0.0, prog, length=seg_len)
+        masks = scn.masks_at(t) or rust_masks(geom.shape, pipe_c, side0, 0.0, prog, length=seg_len, full=full)
         painted = resample(masks.get("painted", np.zeros(geom.shape)), geom.shape) > 0.5
         overlay.wet.update((resample(masks.get("sprayed", np.zeros(geom.shape)), geom.shape) > 0.5) & ~painted)
         overlay.rust.update(np.clip(resample(masks.get("rust_grid", np.zeros(geom.shape)), geom.shape) / 0.1, 0, 1)
