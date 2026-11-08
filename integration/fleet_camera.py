@@ -18,9 +18,11 @@ W, H = 1280, 720
 LABEL_LIFT = 0.85
 TANGENT = 0.75
 TRUNK_Z = 42.82
+MAX_TAKE_S = 120.0
 ALIASES = {"retorque_done": "fixed", "gas_clear": "green", "hold": "step_back", "retreat": "step_back",
            "resume_rust": "resume", "unit2_arrive": "arrive", "duration_s": "end", "SPRAY": "spray",
-           "PAINT": "paint", "spray_start": "spray", "paint_start": "paint", "2_gf5_amber": "amber",
+           "PAINT": "paint", "SCRUB": "scrub", "1_unit1_spray": "spray", "1_unit1_scrub": "scrub",
+           "5_unit1_paint": "paint", "2_gf5_amber": "amber",
            "2_gf5_red": "red", "3_unit1_held": "step_back", "4_unit2_sniffs": "arrive", "4_gf5_green": "green",
            "5_resume_rust": "resume"}
 RIG_BOXES = (
@@ -57,24 +59,24 @@ RIG_BOXES = (
 @dataclass(frozen=True)
 class Beats:
     start: float = 0.0
-    push: float = 0.5
-    amber: float = 6.75
-    red: float = 8.55
-    step_back: float = 10.0
-    arrive: float = 27.0
-    fixed: float = 34.0
-    green: float = 40.2
-    resume: float = 42.7
-    spray: float = 45.0
-    paint: float = 50.0
-    end: float = 60.0
+    spray: float = 4.0
+    scrub: float = 10.0
+    amber: float = 18.75
+    red: float = 20.55
+    step_back: float = 22.0
+    arrive: float = 39.0
+    fixed: float = 46.0
+    green: float = 52.2
+    resume: float = 54.7
+    paint: float = 62.0
+    end: float = 75.0
 
     def __post_init__(self):
         ts = astuple(self)
         if any(b <= a for a, b in zip(ts, ts[1:])):
             raise ValueError(f"beat times must increase: {ts}")
-        if self.end - self.start > 60.0 + 1e-9:
-            raise ValueError("the take must be 60 s or shorter")
+        if self.end - self.start > MAX_TAKE_S:
+            raise ValueError(f"the sim take must be {MAX_TAKE_S:.0f} s or shorter")
 
     @classmethod
     def from_events(cls, events) -> "Beats":
@@ -95,14 +97,15 @@ class Beats:
         g = lambda k, v: got.get(k, v)
         start = g("start", d.start)
         amber = g("amber", d.amber)
+        spray = g("spray", max(start + 0.5, min(d.spray, amber - 9.0)))
+        scrub = g("scrub", max(spray + 1.0, min(amber - 4.0, spray + 6.0)))
         red = g("red", amber + 1.8)
-        fixed = g("fixed", d.fixed)
+        fixed = g("fixed", d.fixed - d.amber + amber)
         green = g("green", fixed + 6.2)
         resume = g("resume", green + 2.5)
-        end = g("end", start + 60.0)
-        paint = g("paint", max(end - 10.0, resume + 5.0))
-        return cls(start, g("push", max(start + 0.5, amber - 6.25)), amber, red, g("step_back", red + 1.5),
-                   g("arrive", fixed - 7.0), fixed, green, resume, g("spray", max(resume + 1.0, paint - 5.0)), paint, end)
+        paint = g("paint", resume + 7.3)
+        return cls(start, spray, scrub, amber, red, g("step_back", red + 1.5), g("arrive", fixed - 7.0), fixed,
+                   green, resume, paint, g("end", paint + 13.0))
 
 
 @dataclass(frozen=True)
@@ -187,7 +190,9 @@ def shots(scene: Scene = DEFAULT_SCENE) -> dict[str, tuple]:
         "detector": _close(s.detector, 3.0, 64.0, 25.0, CLOSE),
         "pull_back": _fit(both, 180.0, 26.0, WIDE),
         "gripper": _close(s.bolt, 1.7, 60.0, 32.0, CLOSE),
-        "spray": _close(tuple(np.asarray(s.scrub) + 0.18 * np.asarray(s.normal)), 2.0, 55.0, 24.0, 35.0),
+        "spray": _close(tuple(np.asarray(s.scrub) + 0.18 * np.asarray(s.normal)), 2.0, 125.0, 24.0, 35.0),
+        "resume": _close(tuple((np.asarray(s.unit1_work) + np.asarray(s.unit1_back)) / 2 + [0, 0, 0.4]), 4.0, 130.0,
+                         28.0, MID),
         "paint": _close(_up(s.scrub, 0.02), 1.6, 100.0, 24.0, CLOSE),
         "green": _close(tuple((np.asarray(s.detector) + np.asarray(s.bolt)) / 2), 2.6, 70.0, 25.0, MID),
         "wide": _fit(both, 185.0, 26.0, WIDE),
@@ -200,16 +205,18 @@ def _move(t0: float, t1: float, cap: float = 4.0, frac: float = 0.55) -> float:
 
 def beat_spans(beats: Beats = DEFAULT_BEATS) -> list[tuple[str, float, float, float]]:
     b = beats
+    est = max(b.start + 2.5, b.spray - 1.5)
     plan = [
-        ("establish", b.start, b.push),
-        ("scrub", b.amber - 1.4, b.amber - 0.6),
+        ("establish", b.start, est),
+        ("spray", _move(est, b.scrub, cap=5.0, frac=0.7), max(b.scrub - 0.5, est + 1.0)),
+        ("scrub", b.scrub + 1.0, b.amber - 0.6),
         ("detector", min(b.amber + 1.4, b.red - 0.3), b.step_back),
         ("pull_back", _move(b.step_back, b.arrive, cap=6.0), max(b.arrive - 4.0, b.step_back + 4.0)),
         ("gripper", _move(b.arrive - 4.0, b.fixed, cap=6.0), min(b.fixed + 1.5, b.green - 1.5)),
         ("green", b.green - 1.0, b.resume),
-        ("spray", b.spray, b.paint - 2.0),
-        ("paint", b.paint, min(b.paint + 3.0, b.end - 7.0)),
-        ("wide", _move(min(b.paint + 3.0, b.end - 7.0), b.end, cap=5.0, frac=0.85), b.end),
+        ("resume", _move(b.resume, b.paint, cap=3.0), b.paint - 1.5),
+        ("paint", b.paint, min(b.paint + 4.0, b.end - 6.0)),
+        ("wide", _move(min(b.paint + 4.0, b.end - 6.0), b.end, cap=5.0, frac=0.85), b.end),
     ]
     out, t0 = [], b.start
     for name, arrive, end in plan:
@@ -221,7 +228,7 @@ def beat_spans(beats: Beats = DEFAULT_BEATS) -> list[tuple[str, float, float, fl
 
 DRIFT = {"establish": (0.6, -0.4, -0.2), "scrub": (0.05, 0.06, 0.0), "detector": (0.12, 0.08, 0.0),
          "pull_back": (-0.6, -0.3, -0.2), "gripper": (0.05, 0.05, 0.0), "green": (0.1, 0.1, 0.05),
-         "spray": (0.08, 0.05, 0.0), "paint": (-0.06, 0.05, 0.0), "wide": (-0.3, 0.2, 0.1)}
+         "spray": (0.08, 0.05, 0.0), "resume": (0.2, 0.1, 0.0), "paint": (-0.06, 0.05, 0.0), "wide": (-0.3, 0.2, 0.1)}
 
 
 def inside(eye, scene: Scene = DEFAULT_SCENE) -> bool:
