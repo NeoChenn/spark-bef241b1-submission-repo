@@ -53,7 +53,7 @@ def _ramp(e0: float, e1: float, x):
     return t * t * (3 - 2 * t)
 
 
-def layer(cam: dict, specs, t: float = 0.0, gain: float = 40.0, scale: int = 4, samples: int = 40) -> np.ndarray:
+def layer(cam: dict, specs, t: float = 0.0, gain: float = 150.0, scale: int = 4, samples: int = 40) -> np.ndarray:
     from topside_frames import kelvin_rgb
 
     h, w = max(1, cam["h"] // scale), max(1, cam["w"] // scale)
@@ -61,7 +61,7 @@ def layer(cam: dict, specs, t: float = 0.0, gain: float = 40.0, scale: int = 4, 
     eye = T[:3, 3]
     acc = np.zeros((h, w, 3), np.float32)
     s = np.linspace(0.02, 1.0, samples)
-    along = _ramp(0.0, 0.08, s) * (1 - s) ** 1.3 * (1 - _ramp(0.75, 1.0, s))
+    along = _ramp(0.0, 0.15, s) * (1 - s) ** 0.7 * (1 - _ramp(0.8, 1.0, s))
     for sp in specs:
         if inside(eye, sp):
             continue
@@ -88,7 +88,7 @@ def layer(cam: dict, specs, t: float = 0.0, gain: float = 40.0, scale: int = 4, 
             if x0 >= x1 or y0 >= y1:
                 continue
             yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
-            g = np.exp(-((xx - ui) ** 2 + (yy - vi) ** 2) / (2 * (0.6 * ri) ** 2)) * ai
+            g = np.exp(-((xx - ui) ** 2 + (yy - vi) ** 2) / (2 * (0.5 * ri) ** 2)) * ai
             acc[y0:y1, x0:x1] += g[..., None] * rgb
     return acc
 
