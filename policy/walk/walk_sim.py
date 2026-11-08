@@ -219,6 +219,31 @@ def eval_patrol(args, meta, full):
             "mean_cmd_tracking_err_mps": sum(track) / max(1, len(track))}
 
 
+def backdrop_layer(scene: str, out: str):
+    from pxr import Sdf, Usd, UsdPhysics
+
+    src = Usd.Stage.Open(scene)
+    layer = Sdf.Layer.CreateNew(out) if not os.path.exists(out) else Sdf.Layer.FindOrOpen(out)
+    layer.Clear()
+    layer.subLayerPaths.append(scene)
+    st = Usd.Stage.Open(layer)
+    st.SetEditTarget(layer)
+    st.SetDefaultPrim(st.GetPrimAtPath("/World"))
+    n = 0
+    for prim in src.Traverse():
+        if str(prim.GetPath()).startswith("/World/Robots"):
+            continue
+        if prim.IsA(UsdPhysics.Scene):
+            st.OverridePrim(prim.GetPath()).SetActive(False)
+        elif prim.HasAPI(UsdPhysics.CollisionAPI):
+            UsdPhysics.CollisionAPI(st.OverridePrim(prim.GetPath())).CreateCollisionEnabledAttr(False)
+            n += 1
+    if src.GetPrimAtPath("/World/Robots").IsValid():
+        st.OverridePrim("/World/Robots").SetActive(False)
+    layer.Save()
+    return out, n
+
+
 def chase_camera(p, yaw, back=2.6, side=1.5, up=1.1):
     import numpy as np
 
@@ -234,8 +259,6 @@ def render(args, meta, full):
     import numpy as np
     import omni.usd
     import torch
-    from pxr import Usd, UsdPhysics
-
     from isaaclab.envs import ViewerCfg
     from isaaclab.sim import RenderCfg
 
@@ -243,7 +266,9 @@ def render(args, meta, full):
     from policy.walk.walk_env_cfg import WalkEnvCfg, apply_payload
 
     deck_z = float(meta.get("world", {}).get("deck_z_m", 0.0))
-    cfg = deck_cfg(WalkEnvCfg(), 1, scene=os.path.abspath(args.scene), deck_z=deck_z)
+    os.makedirs(args.out_dir, exist_ok=True)
+    layer, n_off = backdrop_layer(os.path.abspath(args.scene), os.path.join(os.path.abspath(args.out_dir), "backdrop.usda"))
+    cfg = deck_cfg(WalkEnvCfg(), 1, scene=layer, deck_z=deck_z)
     cfg.terminations.base_contact = None
     cfg.terminations.bad_orientation = None
     cfg.scene.robot.spawn.make_instanceable = False
@@ -253,17 +278,6 @@ def render(args, meta, full):
     env, policy = load_policy(make_env(cfg, render=True), args.ckpt)
     base = env.unwrapped
     stage = omni.usd.get_context().get_stage()
-    n_off = 0
-    for prim in Usd.PrimRange(stage.GetPrimAtPath("/World/Backdrop")):
-        if prim.IsA(UsdPhysics.Scene):
-            prim.SetActive(False)
-        elif prim.HasAPI(UsdPhysics.CollisionAPI):
-            UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Set(False)
-            n_off += 1
-    for path in ("/World/Backdrop/Robots", "/World/Backdrop/Pipes/damage_patch"):
-        prim = stage.GetPrimAtPath(path)
-        if prim.IsValid():
-            prim.SetActive(False)
     from pxr import UsdGeom
 
     UsdGeom.Imageable(stage.GetPrimAtPath("/World/ground")).MakeInvisible()
