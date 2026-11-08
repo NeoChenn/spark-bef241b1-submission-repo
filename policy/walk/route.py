@@ -58,7 +58,7 @@ def falls_per_km(falls: int, dist_m: float) -> float:
 class WaypointFollower:
     def __init__(self, path, goal_yaw: float, v_max: float = 1.0, w_max: float = 1.0, lookahead: float = 0.8,
                  k_heading: float = 2.0, r_final: float = 1.0, k_final: float = 1.5, v_final: float = 0.5,
-                 pos_tol: float = 0.03, yaw_tol: float = 0.05, k_slow: float = 0.8):
+                 pos_tol: float = 0.03, yaw_tol: float = 0.05, k_slow: float = 0.8, v_min: float = 0.0):
         self.pts = resample(path, 0.05)
         self.s = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(self.pts, axis=0), axis=1))]
         self.total = float(self.s[-1])
@@ -66,7 +66,7 @@ class WaypointFollower:
         self.goal_yaw = goal_yaw
         self.v_max, self.w_max, self.lookahead, self.k_heading = v_max, w_max, lookahead, k_heading
         self.r_final, self.k_final, self.v_final, self.k_slow = r_final, k_final, v_final, k_slow
-        self.pos_tol, self.yaw_tol = pos_tol, yaw_tol
+        self.pos_tol, self.yaw_tol, self.v_min = pos_tol, yaw_tol, v_min
         self.progress, self.done = 0.0, False
 
     def _update_progress(self, p):
@@ -92,6 +92,8 @@ class WaypointFollower:
             n = float(np.linalg.norm(v))
             if n > self.v_final:
                 v *= self.v_final / n
+            elif 1e-9 < n < self.v_min and dist > self.pos_tol:
+                v *= self.v_min / n
             wz = float(np.clip(self.k_heading * yaw_err, -self.w_max, self.w_max))
             return float(v[0]), float(v[1]), wz, False
         k = min(int(np.searchsorted(self.s, self.progress + self.lookahead)), len(self.pts) - 1)

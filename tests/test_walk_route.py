@@ -109,3 +109,10 @@ def test_simulated_unicycle_reaches_goal():
 def test_falls_per_km():
     assert falls_per_km(3, 1500.0) == pytest.approx(2.0)
     assert falls_per_km(0, 0.0) == 0.0
+
+
+def test_final_approach_keeps_minimum_speed():
+    f = WaypointFollower(SQUARE, goal_yaw=0.0, pos_tol=0.03, v_min=0.15)
+    f.progress = polyline_length(SQUARE)
+    vx, vy, _, done = f.command(4.0, 2.94, 0.0)
+    assert not done and math.hypot(vx, vy) == pytest.approx(0.15)
