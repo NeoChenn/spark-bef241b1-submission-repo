@@ -1,0 +1,1876 @@
+{
+ "task": "zero-shot grasp keypoint on unseen shapes (bottle / box / can) with 2 distractors per scene",
+ "images": "synthetic ray-cast deck scenes (bench/pick_scenes.py), exact GT top-centre grasp point + depth",
+ "baseline": "pickcan.detect_cans",
+ "model": "gemini-robotics-er-2-preview",
+ "gemini_calls": 30,
+ "tokens_in": 35850,
+ "tokens_out": 16694,
+ "approx_cost_usd": 0.0525,
+ "price_assumed_per_mtok": {
+  "in": 0.3,
+  "out": 2.5
+ },
+ "median_latency_ms": 3786.0,
+ "methods": {
+  "colour detector": {
+   "n": 30,
+   "found": 30,
+   "on_object": 2,
+   "on_object_rate": [
+    0.06666666666666667,
+    0.018477023791270378,
+    0.2132345836261692
+   ],
+   "within_3cm": 1,
+   "within_3cm_rate": [
+    0.03333333333333333,
+    0.005908590381612455,
+    0.16670390991409173
+   ],
+   "median_px_err": 131.77447207766897,
+   "median_err3d_cm": 26.147274543381872
+  },
+  "colour detector, oracle pick": {
+   "n": 30,
+   "found": 30,
+   "on_object": 14,
+   "on_object_rate": [
+    0.4666666666666667,
+    0.30232388907699753,
+    0.638577003801267
+   ],
+   "within_3cm": 9,
+   "within_3cm_rate": [
+    0.3,
+    0.16664748268243793,
+    0.47875787458714947
+   ],
+   "median_px_err": 68.99116736919653,
+   "median_err3d_cm": 14.981866465274274
+  },
+  "Robotics-ER zero-shot": {
+   "n": 30,
+   "found": 30,
+   "on_object": 29,
+   "on_object_rate": [
+    0.9666666666666667,
+    0.8332960900859082,
+    0.9940914096183874
+   ],
+   "within_3cm": 28,
+   "within_3cm_rate": [
+    0.9333333333333333,
+    0.7867654163738308,
+    0.9815229762087295
+   ],
+   "median_px_err": 1.7433546569686231,
+   "median_err3d_cm": 0.46098475723818416
+  }
+ },
+ "per_class": {
+  "bottle": {
+   "colour detector": {
+    "n": 10,
+    "found": 10,
+    "on_object": 1,
+    "on_object_rate": [
+     0.1,
+     0.017876213095072896,
+     0.4041500267952385
+    ],
+    "within_3cm": 0,
+    "within_3cm_rate": [
+     0.0,
+     0.0,
+     0.2775327998628892
+    ],
+    "median_px_err": 143.7571786314566,
+    "median_err3d_cm": 27.283226758356754
+   },
+   "colour detector, oracle pick": {
+    "n": 10,
+    "found": 10,
+    "on_object": 6,
+    "on_object_rate": [
+     0.6,
+     0.31267376973365824,
+     0.8318196702937638
+    ],
+    "within_3cm": 4,
+    "within_3cm_rate": [
+     0.4,
+     0.16818032970623614,
+     0.6873262302663417
+    ],
+    "median_px_err": 41.83166013388454,
+    "median_err3d_cm": 8.76544109116134
+   },
+   "Robotics-ER zero-shot": {
+    "n": 10,
+    "found": 10,
+    "on_object": 10,
+    "on_object_rate": [
+     1.0,
+     0.7224672001371107,
+     1.0
+    ],
+    "within_3cm": 10,
+    "within_3cm_rate": [
+     1.0,
+     0.7224672001371107,
+     1.0
+    ],
+    "median_px_err": 6.4881172977056165,
+    "median_err3d_cm": 1.2863352818516618
+   }
+  },
+  "box": {
+   "colour detector": {
+    "n": 10,
+    "found": 10,
+    "on_object": 1,
+    "on_object_rate": [
+     0.1,
+     0.017876213095072896,
+     0.4041500267952385
+    ],
+    "within_3cm": 1,
+    "within_3cm_rate": [
+     0.1,
+     0.017876213095072896,
+     0.4041500267952385
+    ],
+    "median_px_err": 133.83039146908192,
+    "median_err3d_cm": 26.96100913327545
+   },
+   "colour detector, oracle pick": {
+    "n": 10,
+    "found": 10,
+    "on_object": 3,
+    "on_object_rate": [
+     0.3,
+     0.10779126740630099,
+     0.6032218525388546
+    ],
+    "within_3cm": 1,
+    "within_3cm_rate": [
+     0.1,
+     0.017876213095072896,
+     0.4041500267952385
+    ],
+    "median_px_err": 129.92368629334538,
+    "median_err3d_cm": 25.921357390977924
+   },
+   "Robotics-ER zero-shot": {
+    "n": 10,
+    "found": 10,
+    "on_object": 9,
+    "on_object_rate": [
+     0.9,
+     0.5958499732047615,
+     0.9821237869049271
+    ],
+    "within_3cm": 9,
+    "within_3cm_rate": [
+     0.9,
+     0.5958499732047615,
+     0.9821237869049271
+    ],
+    "median_px_err": 1.4096180056307293,
+    "median_err3d_cm": 0.3730785034786206
+   }
+  },
+  "can": {
+   "colour detector": {
+    "n": 10,
+    "found": 10,
+    "on_object": 0,
+    "on_object_rate": [
+     0.0,
+     0.0,
+     0.2775327998628892
+    ],
+    "within_3cm": 0,
+    "within_3cm_rate": [
+     0.0,
+     0.0,
+     0.2775327998628892
+    ],
+    "median_px_err": 130.92340825527998,
+    "median_err3d_cm": 23.38883672760073
+   },
+   "colour detector, oracle pick": {
+    "n": 10,
+    "found": 10,
+    "on_object": 5,
+    "on_object_rate": [
+     0.5,
+     0.236593090512564,
+     0.7634069094874361
+    ],
+    "within_3cm": 4,
+    "within_3cm_rate": [
+     0.4,
+     0.16818032970623614,
+     0.6873262302663417
+    ],
+    "median_px_err": 62.365289988598164,
+    "median_err3d_cm": 10.914168181356642
+   },
+   "Robotics-ER zero-shot": {
+    "n": 10,
+    "found": 10,
+    "on_object": 10,
+    "on_object_rate": [
+     1.0,
+     0.7224672001371107,
+     1.0
+    ],
+    "within_3cm": 9,
+    "within_3cm_rate": [
+     0.9,
+     0.5958499732047615,
+     0.9821237869049271
+    ],
+    "median_px_err": 4.786367712636487,
+    "median_err3d_cm": 1.1062282460317323
+   }
+  }
+ },
+ "notes": [
+  "baseline is the pick-cans colour detector, top-scored blob; oracle pick hands it the GT-nearest blob",
+  "the detector is built for saturated cans, so white/grey/cardboard targets are out of its domain by design",
+  "the one Robotics-ER miss (seed 128, query 'box') pointed at the yellow tool case, itself a box",
+  "VLM pixel is snapped to the top surface with the depth image before scoring 3-D error",
+  "cost uses an assumed Robotics-ER price; replies are cached in runs/novpick/replies.json"
+ ],
+ "rows": {
+  "colour detector": [
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 106.72199809660485,
+    "err3d": 0.18639390330805558,
+    "pixel": [
+     180.1,
+     276.0
+    ],
+    "xyz": [
+     -0.0508,
+     0.1938,
+     0.0683
+    ],
+    "seed": 100,
+    "kind": "bottle",
+    "label": "green glass bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 104.65101838120226,
+    "err3d": 0.22711234320812257,
+    "pixel": [
+     196.7,
+     234.0
+    ],
+    "xyz": [
+     0.0262,
+     0.1902,
+     0.0675
+    ],
+    "seed": 101,
+    "kind": "box",
+    "label": "grey metal box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 193.2986501005685,
+    "err3d": 0.32457189246034696,
+    "pixel": [
+     419.8,
+     248.7
+    ],
+    "xyz": [
+     -0.0224,
+     -0.1555,
+     0.0815
+    ],
+    "seed": 102,
+    "kind": "can",
+    "label": "green can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 96.04277404166426,
+    "err3d": 0.13824998776335184,
+    "pixel": [
+     467.4,
+     303.2
+    ],
+    "xyz": [
+     -0.0768,
+     -0.2179,
+     0.0362
+    ],
+    "seed": 103,
+    "kind": "bottle",
+    "label": "brown bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 109.22370683147595,
+    "err3d": 0.18631902337424158,
+    "pixel": [
+     353.5,
+     214.8
+    ],
+    "xyz": [
+     0.0664,
+     -0.0504,
+     0.0653
+    ],
+    "seed": 104,
+    "kind": "box",
+    "label": "cardboard box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 99.76272966168303,
+    "err3d": 0.16009701749703772,
+    "pixel": [
+     288.5,
+     201.4
+    ],
+    "xyz": [
+     0.0815,
+     0.048,
+     0.0847
+    ],
+    "seed": 105,
+    "kind": "can",
+    "label": "silver can"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 203.9407363848515,
+    "err3d": 0.262090356878312,
+    "pixel": [
+     155.8,
+     276.2
+    ],
+    "xyz": [
+     -0.0922,
+     0.1907,
+     0.0812
+    ],
+    "seed": 106,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 166.0308939342062,
+    "err3d": 0.3617023763732183,
+    "pixel": [
+     390.4,
+     138.8
+    ],
+    "xyz": [
+     0.2592,
+     -0.1276,
+     0.0815
+    ],
+    "seed": 107,
+    "kind": "box",
+    "label": "grey metal box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 148.62819238188155,
+    "err3d": 0.3103649398678713,
+    "pixel": [
+     329.6,
+     147.2
+    ],
+    "xyz": [
+     0.2201,
+     -0.0212,
+     0.0813
+    ],
+    "seed": 108,
+    "kind": "can",
+    "label": "red can"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 126.60472047929706,
+    "err3d": 0.24367295683309317,
+    "pixel": [
+     309.1,
+     205.9
+    ],
+    "xyz": [
+     0.0822,
+     0.0178,
+     0.0815
+    ],
+    "seed": 109,
+    "kind": "bottle",
+    "label": "clear bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 130.9124713294921,
+    "err3d": 0.25757201383023304,
+    "pixel": [
+     311.8,
+     224.7
+    ],
+    "xyz": [
+     0.0523,
+     0.013,
+     0.0676
+    ],
+    "seed": 110,
+    "kind": "box",
+    "label": "white box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 129.2103436847141,
+    "err3d": 0.1860914372698461,
+    "pixel": [
+     354.9,
+     260.6
+    ],
+    "xyz": [
+     -0.0526,
+     -0.0618,
+     0.089
+    ],
+    "seed": 111,
+    "kind": "can",
+    "label": "green can"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 179.87693083183913,
+    "err3d": 0.3537162470838086,
+    "pixel": [
+     409.8,
+     180.2
+    ],
+    "xyz": [
+     0.1609,
+     -0.1753,
+     0.0631
+    ],
+    "seed": 112,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 180.91753710308816,
+    "err3d": 0.37872421836491926,
+    "pixel": [
+     439.1,
+     271.1
+    ],
+    "xyz": [
+     -0.0515,
+     -0.1811,
+     0.0686
+    ],
+    "seed": 113,
+    "kind": "box",
+    "label": "grey metal box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 121.77968745059157,
+    "err3d": 0.24950599595587653,
+    "pixel": [
+     408.1,
+     288.7
+    ],
+    "xyz": [
+     -0.0863,
+     -0.1322,
+     0.0909
+    ],
+    "seed": 114,
+    "kind": "can",
+    "label": "blue can"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 111.94630476846797,
+    "err3d": 0.24771583029508962,
+    "pixel": [
+     390.9,
+     229.1
+    ],
+    "xyz": [
+     0.0376,
+     -0.1093,
+     0.066
+    ],
+    "seed": 115,
+    "kind": "bottle",
+    "label": "green glass bottle"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 5.449311451735967,
+    "err3d": 0.012239837999667484,
+    "pixel": [
+     362.6,
+     179.8
+    ],
+    "xyz": [
+     0.1198,
+     -0.0791,
+     0.1048
+    ],
+    "seed": 116,
+    "kind": "box",
+    "label": "red box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 142.47872020596145,
+    "err3d": 0.2126777197961219,
+    "pixel": [
+     401.5,
+     227.9
+    ],
+    "xyz": [
+     0.0369,
+     -0.1267,
+     0.0863
+    ],
+    "seed": 117,
+    "kind": "can",
+    "label": "white can"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 88.15172481219155,
+    "err3d": 0.39193758523701894,
+    "pixel": [
+     320.9,
+     149.0
+    ],
+    "xyz": [
+     0.242,
+     -0.0209,
+     0.0622
+    ],
+    "seed": 118,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 136.74831160867177,
+    "err3d": 0.2608551339893254,
+    "pixel": [
+     290.4,
+     178.0
+    ],
+    "xyz": [
+     0.1491,
+     0.0456,
+     0.0831
+    ],
+    "seed": 119,
+    "kind": "box",
+    "label": "white box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 132.63647282584586,
+    "err3d": 0.20571718347291157,
+    "pixel": [
+     441.0,
+     191.6
+    ],
+    "xyz": [
+     0.1233,
+     -0.1834,
+     0.0847
+    ],
+    "seed": 120,
+    "kind": "can",
+    "label": "red can"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 228.65348739592403,
+    "err3d": 0.364288583361431,
+    "pixel": [
+     233.3,
+     297.2
+    ],
+    "xyz": [
+     -0.1174,
+     0.1098,
+     0.0924
+    ],
+    "seed": 121,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 186.93623942508873,
+    "err3d": 0.3288043487002308,
+    "pixel": [
+     432.7,
+     151.0
+    ],
+    "xyz": [
+     0.2322,
+     -0.1822,
+     0.0807
+    ],
+    "seed": 122,
+    "kind": "box",
+    "label": "cardboard box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 78.78817458150345,
+    "err3d": 0.21827073859613805,
+    "pixel": [
+     224.1,
+     234.6
+    ],
+    "xyz": [
+     -0.009,
+     0.1287,
+     0.0823
+    ],
+    "seed": 123,
+    "kind": "can",
+    "label": "green can"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 235.53592039562614,
+    "err3d": 0.45006504553037324,
+    "pixel": [
+     194.9,
+     286.7
+    ],
+    "xyz": [
+     -0.0557,
+     0.1965,
+     0.0676
+    ],
+    "seed": 124,
+    "kind": "bottle",
+    "label": "clear bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 128.93490125719867,
+    "err3d": 0.27836504867618356,
+    "pixel": [
+     285.4,
+     289.1
+    ],
+    "xyz": [
+     -0.0778,
+     0.0464,
+     0.0689
+    ],
+    "seed": 125,
+    "kind": "box",
+    "label": "white box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 112.92301680168485,
+    "err3d": 0.3491913580853572,
+    "pixel": [
+     302.3,
+     159.3
+    ],
+    "xyz": [
+     0.2459,
+     0.0163,
+     0.0611
+    ],
+    "seed": 126,
+    "kind": "can",
+    "label": "white can"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 160.90963678361618,
+    "err3d": 0.2835741782888231,
+    "pixel": [
+     374.3,
+     169.3
+    ],
+    "xyz": [
+     0.1868,
+     -0.0901,
+     0.0798
+    ],
+    "seed": 127,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 197.00434630275672,
+    "err3d": 0.3272392801332029,
+    "pixel": [
+     413.1,
+     171.8
+    ],
+    "xyz": [
+     0.1595,
+     -0.1557,
+     0.0835
+    ],
+    "seed": 128,
+    "kind": "box",
+    "label": "cardboard box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 192.53749805828622,
+    "err3d": 0.3522426471856486,
+    "pixel": [
+     393.4,
+     247.5
+    ],
+    "xyz": [
+     -0.0047,
+     -0.1214,
+     0.0816
+    ],
+    "seed": 129,
+    "kind": "can",
+    "label": "white can"
+   }
+  ],
+  "colour detector, oracle pick": [
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 8.49889397370008,
+    "err3d": 0.01776366694305045,
+    "pixel": [
+     245.1,
+     183.8
+    ],
+    "xyz": [
+     0.1179,
+     0.116,
+     0.0897
+    ],
+    "seed": 100,
+    "kind": "bottle",
+    "label": "green glass bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 104.65101838120226,
+    "err3d": 0.22711234320812257,
+    "pixel": [
+     196.7,
+     234.0
+    ],
+    "xyz": [
+     0.0262,
+     0.1902,
+     0.0675
+    ],
+    "seed": 101,
+    "kind": "box",
+    "label": "grey metal box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 4.285616647311545,
+    "err3d": 0.00794705652876271,
+    "pixel": [
+     225.9,
+     223.7
+    ],
+    "xyz": [
+     0.0634,
+     0.1617,
+     0.0604
+    ],
+    "seed": 102,
+    "kind": "can",
+    "label": "green can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 19.477022886798046,
+    "err3d": 0.02678269465482035,
+    "pixel": [
+     391.2,
+     290.6
+    ],
+    "xyz": [
+     -0.0843,
+     -0.1088,
+     0.0626
+    ],
+    "seed": 103,
+    "kind": "bottle",
+    "label": "brown bottle"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 46.85256366072461,
+    "err3d": 0.07764205795418765,
+    "pixel": [
+     231.3,
+     197.1
+    ],
+    "xyz": [
+     0.1286,
+     0.1401,
+     0.0561
+    ],
+    "seed": 104,
+    "kind": "box",
+    "label": "cardboard box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 99.76272966168303,
+    "err3d": 0.16009701749703772,
+    "pixel": [
+     288.5,
+     201.4
+    ],
+    "xyz": [
+     0.0815,
+     0.048,
+     0.0847
+    ],
+    "seed": 105,
+    "kind": "can",
+    "label": "silver can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 63.07562678720155,
+    "err3d": 0.13954031180844778,
+    "pixel": [
+     407.7,
+     243.0
+    ],
+    "xyz": [
+     0.0538,
+     -0.1347,
+     0.0365
+    ],
+    "seed": 106,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 166.0308939342062,
+    "err3d": 0.3617023763732183,
+    "pixel": [
+     390.4,
+     138.8
+    ],
+    "xyz": [
+     0.2592,
+     -0.1276,
+     0.0815
+    ],
+    "seed": 107,
+    "kind": "box",
+    "label": "grey metal box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 2.9175164467666703,
+    "err3d": 0.003722489642395139,
+    "pixel": [
+     333.0,
+     298.6
+    ],
+    "xyz": [
+     -0.0925,
+     -0.0106,
+     0.0639
+    ],
+    "seed": 108,
+    "kind": "can",
+    "label": "red can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 0.7325919820759142,
+    "err3d": 0.0010083537920279478,
+    "pixel": [
+     433.5,
+     185.5
+    ],
+    "xyz": [
+     -0.0419,
+     -0.1386,
+     0.2205
+    ],
+    "seed": 109,
+    "kind": "bottle",
+    "label": "clear bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 130.9124713294921,
+    "err3d": 0.25757201383023304,
+    "pixel": [
+     311.8,
+     224.7
+    ],
+    "xyz": [
+     0.0523,
+     0.013,
+     0.0676
+    ],
+    "seed": 110,
+    "kind": "box",
+    "label": "white box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 129.2103436847141,
+    "err3d": 0.1860914372698461,
+    "pixel": [
+     354.9,
+     260.6
+    ],
+    "xyz": [
+     -0.0526,
+     -0.0618,
+     0.089
+    ],
+    "seed": 111,
+    "kind": "can",
+    "label": "green can"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 179.87693083183913,
+    "err3d": 0.3537162470838086,
+    "pixel": [
+     409.8,
+     180.2
+    ],
+    "xyz": [
+     0.1609,
+     -0.1753,
+     0.0631
+    ],
+    "seed": 112,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 180.91753710308816,
+    "err3d": 0.37872421836491926,
+    "pixel": [
+     439.1,
+     271.1
+    ],
+    "xyz": [
+     -0.0515,
+     -0.1811,
+     0.0686
+    ],
+    "seed": 113,
+    "kind": "box",
+    "label": "grey metal box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 2.7568884869203925,
+    "err3d": 0.004587223038552149,
+    "pixel": [
+     336.3,
+     189.7
+    ],
+    "xyz": [
+     0.1368,
+     -0.022,
+     0.0643
+    ],
+    "seed": 114,
+    "kind": "can",
+    "label": "blue can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 22.332465971958538,
+    "err3d": 0.036328281328424146,
+    "pixel": [
+     282.4,
+     228.7
+    ],
+    "xyz": [
+     -0.0742,
+     0.0508,
+     0.1837
+    ],
+    "seed": 115,
+    "kind": "bottle",
+    "label": "green glass bottle"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 5.449311451735967,
+    "err3d": 0.012239837999667484,
+    "pixel": [
+     362.6,
+     179.8
+    ],
+    "xyz": [
+     0.1198,
+     -0.0791,
+     0.1048
+    ],
+    "seed": 116,
+    "kind": "box",
+    "label": "red box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 142.47872020596145,
+    "err3d": 0.2126777197961219,
+    "pixel": [
+     401.5,
+     227.9
+    ],
+    "xyz": [
+     0.0369,
+     -0.1267,
+     0.0863
+    ],
+    "seed": 117,
+    "kind": "can",
+    "label": "white can"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 61.33085429581054,
+    "err3d": 0.23916490909485968,
+    "pixel": [
+     336.3,
+     212.2
+    ],
+    "xyz": [
+     0.0619,
+     -0.0225,
+     0.0756
+    ],
+    "seed": 118,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 136.74831160867177,
+    "err3d": 0.2608551339893254,
+    "pixel": [
+     290.4,
+     178.0
+    ],
+    "xyz": [
+     0.1491,
+     0.0456,
+     0.0831
+    ],
+    "seed": 119,
+    "kind": "box",
+    "label": "white box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 31.421678661754672,
+    "err3d": 0.058186346130095094,
+    "pixel": [
+     309.3,
+     199.4
+    ],
+    "xyz": [
+     0.1002,
+     0.0193,
+     0.068
+    ],
+    "seed": 120,
+    "kind": "can",
+    "label": "red can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 0.8247311877283363,
+    "err3d": 0.0013138079164202966,
+    "pixel": [
+     337.0,
+     93.3
+    ],
+    "xyz": [
+     0.1977,
+     -0.0211,
+     0.2206
+    ],
+    "seed": 121,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 37.966999028226184,
+    "err3d": 0.060386238602181556,
+    "pixel": [
+     231.7,
+     218.6
+    ],
+    "xyz": [
+     0.0537,
+     0.1352,
+     0.0627
+    ],
+    "seed": 122,
+    "kind": "box",
+    "label": "cardboard box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 2.7724533207055573,
+    "err3d": 0.0067152374998528256,
+    "pixel": [
+     231.5,
+     158.8
+    ],
+    "xyz": [
+     0.2054,
+     0.1724,
+     0.06
+    ],
+    "seed": 123,
+    "kind": "can",
+    "label": "green can"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 235.53592039562614,
+    "err3d": 0.45006504553037324,
+    "pixel": [
+     194.9,
+     286.7
+    ],
+    "xyz": [
+     -0.0557,
+     0.1965,
+     0.0676
+    ],
+    "seed": 124,
+    "kind": "bottle",
+    "label": "clear bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 128.93490125719867,
+    "err3d": 0.27836504867618356,
+    "pixel": [
+     285.4,
+     289.1
+    ],
+    "xyz": [
+     -0.0778,
+     0.0464,
+     0.0689
+    ],
+    "seed": 125,
+    "kind": "box",
+    "label": "white box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 205.38218490757717,
+    "err3d": 0.2903517532505637,
+    "pixel": [
+     441.2,
+     267.5
+    ],
+    "xyz": [
+     -0.0785,
+     -0.1577,
+     0.0682
+    ],
+    "seed": 126,
+    "kind": "can",
+    "label": "white can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 74.9067079511915,
+    "err3d": 0.13898054049480268,
+    "pixel": [
+     171.5,
+     251.9
+    ],
+    "xyz": [
+     -0.015,
+     0.2281,
+     0.0461
+    ],
+    "seed": 127,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 197.00434630275672,
+    "err3d": 0.3272392801332029,
+    "pixel": [
+     413.1,
+     171.8
+    ],
+    "xyz": [
+     0.1595,
+     -0.1557,
+     0.0835
+    ],
+    "seed": 128,
+    "kind": "box",
+    "label": "cardboard box"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 93.30890131544166,
+    "err3d": 0.1832813369335108,
+    "pixel": [
+     216.4,
+     232.1
+    ],
+    "xyz": [
+     0.0234,
+     0.168,
+     0.0674
+    ],
+    "seed": 129,
+    "kind": "can",
+    "label": "white can"
+   }
+  ],
+  "Robotics-ER zero-shot": [
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 12.261137792411914,
+    "err3d": 0.022139550276700115,
+    "pixel": [
+     249.6,
+     204.0
+    ],
+    "xyz": [
+     0.0984,
+     0.1095,
+     0.0659
+    ],
+    "seed": 100,
+    "kind": "bottle",
+    "label": "green glass bottle"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 1.3144840284888206,
+    "err3d": 0.004025779898321374,
+    "pixel": [
+     243.2,
+     141.1
+    ],
+    "xyz": [
+     0.2453,
+     0.1464,
+     0.0779
+    ],
+    "seed": 101,
+    "kind": "box",
+    "label": "grey metal box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 9.123210112738498,
+    "err3d": 0.01985485391389407,
+    "pixel": [
+     227.8,
+     229.4
+    ],
+    "xyz": [
+     0.0457,
+     0.1556,
+     0.0651
+    ],
+    "seed": 102,
+    "kind": "can",
+    "label": "green can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 16.1312609127669,
+    "err3d": 0.023655717106716382,
+    "pixel": [
+     373.1,
+     298.1
+    ],
+    "xyz": [
+     -0.101,
+     -0.0838,
+     0.0644
+    ],
+    "seed": 103,
+    "kind": "bottle",
+    "label": "brown bottle"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 0.583570592639784,
+    "err3d": 0.0024322585832982834,
+    "pixel": [
+     259.8,
+     159.8
+    ],
+    "xyz": [
+     0.1795,
+     0.0929,
+     0.0899
+    ],
+    "seed": 104,
+    "kind": "box",
+    "label": "cardboard box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 12.152430652897012,
+    "err3d": 0.018212376656148388,
+    "pixel": [
+     224.0,
+     284.2
+    ],
+    "xyz": [
+     -0.054,
+     0.1473,
+     0.061
+    ],
+    "seed": 105,
+    "kind": "can",
+    "label": "silver can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 8.38499407548679,
+    "err3d": 0.012764726079552886,
+    "pixel": [
+     362.2,
+     291.8
+    ],
+    "xyz": [
+     -0.0766,
+     -0.0737,
+     0.071
+    ],
+    "seed": 106,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 1.9677080092997563,
+    "err3d": 0.003855113118583235,
+    "pixel": [
+     343.7,
+     300.0
+    ],
+    "xyz": [
+     -0.0932,
+     -0.0343,
+     0.0595
+    ],
+    "seed": 107,
+    "kind": "box",
+    "label": "grey metal box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 11.41098638512154,
+    "err3d": 0.016212953527257292,
+    "pixel": [
+     332.8,
+     307.2
+    ],
+    "xyz": [
+     -0.1056,
+     -0.0099,
+     0.0633
+    ],
+    "seed": 108,
+    "kind": "can",
+    "label": "red can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 1.3701178041969349,
+    "err3d": 0.001892806862560677,
+    "pixel": [
+     433.3,
+     184.8
+    ],
+    "xyz": [
+     -0.0409,
+     -0.1381,
+     0.2204
+    ],
+    "seed": 109,
+    "kind": "bottle",
+    "label": "clear bottle"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 0.5369511446496187,
+    "err3d": 0.002669218007367277,
+    "pixel": [
+     416.6,
+     146.9
+    ],
+    "xyz": [
+     0.2279,
+     -0.1727,
+     0.0812
+    ],
+    "seed": 110,
+    "kind": "box",
+    "label": "white box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 0.22794872425659282,
+    "err3d": 0.001162739704724322,
+    "pixel": [
+     226.6,
+     247.2
+    ],
+    "xyz": [
+     -0.0767,
+     0.1181,
+     0.1265
+    ],
+    "seed": 111,
+    "kind": "can",
+    "label": "green can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 0.22653351360536977,
+    "err3d": 0.0009279258347239932,
+    "pixel": [
+     233.6,
+     143.0
+    ],
+    "xyz": [
+     0.0779,
+     0.1305,
+     0.2205
+    ],
+    "seed": 112,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 0.7905027508900739,
+    "err3d": 0.004834965627853248,
+    "pixel": [
+     329.0,
+     127.7
+    ],
+    "xyz": [
+     0.2748,
+     -0.0007,
+     0.1083
+    ],
+    "seed": 113,
+    "kind": "box",
+    "label": "grey metal box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 8.363306629285805,
+    "err3d": 0.021420827379673015,
+    "pixel": [
+     337.9,
+     196.8
+    ],
+    "xyz": [
+     0.1167,
+     -0.0261,
+     0.0658
+    ],
+    "seed": 114,
+    "kind": "can",
+    "label": "blue can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 2.4421952696428497,
+    "err3d": 0.00501899439859616,
+    "pixel": [
+     281.0,
+     208.8
+    ],
+    "xyz": [
+     -0.0779,
+     0.0505,
+     0.2204
+    ],
+    "seed": 115,
+    "kind": "bottle",
+    "label": "green glass bottle"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 1.3182421427998519,
+    "err3d": 0.003606456950989177,
+    "pixel": [
+     363.5,
+     186.2
+    ],
+    "xyz": [
+     0.1164,
+     -0.0819,
+     0.0933
+    ],
+    "seed": 116,
+    "kind": "box",
+    "label": "red box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 0.5378480729637113,
+    "err3d": 0.0010379520720230511,
+    "pixel": [
+     259.8,
+     217.4
+    ],
+    "xyz": [
+     0.0007,
+     0.0782,
+     0.1265
+    ],
+    "seed": 117,
+    "kind": "can",
+    "label": "white can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 0.5943237461829944,
+    "err3d": 0.0006044517377098239,
+    "pixel": [
+     275.8,
+     224.6
+    ],
+    "xyz": [
+     -0.1057,
+     0.0694,
+     0.2204
+    ],
+    "seed": 118,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 1.7328605543471596,
+    "err3d": 0.002492197368815648,
+    "pixel": [
+     309.1,
+     314.4
+    ],
+    "xyz": [
+     -0.1118,
+     0.0274,
+     0.0671
+    ],
+    "seed": 119,
+    "kind": "box",
+    "label": "white box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 0.7533987615201713,
+    "err3d": 0.0011693667213622475,
+    "pixel": [
+     309.8,
+     168.0
+    ],
+    "xyz": [
+     0.1042,
+     0.018,
+     0.1265
+    ],
+    "seed": 120,
+    "kind": "can",
+    "label": "red can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 4.591240519924442,
+    "err3d": 0.012961979557480347,
+    "pixel": [
+     337.3,
+     98.4
+    ],
+    "xyz": [
+     0.1843,
+     -0.0215,
+     0.2205
+    ],
+    "seed": 121,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 1.7538487595900865,
+    "err3d": 0.004384729516910437,
+    "pixel": [
+     249.6,
+     186.2
+    ],
+    "xyz": [
+     0.0787,
+     0.1065,
+     0.1096
+    ],
+    "seed": 122,
+    "kind": "box",
+    "label": "cardboard box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 15.568180401737537,
+    "err3d": 0.04283295739660904,
+    "pixel": [
+     233.6,
+     171.8
+    ],
+    "xyz": [
+     0.1638,
+     0.1574,
+     0.0637
+    ],
+    "seed": 123,
+    "kind": "can",
+    "label": "green can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 14.442411274045105,
+    "err3d": 0.027052769256500967,
+    "pixel": [
+     378.9,
+     156.0
+    ],
+    "xyz": [
+     0.2311,
+     -0.1231,
+     0.0618
+    ],
+    "seed": 124,
+    "kind": "bottle",
+    "label": "clear bottle"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 1.5009938684616064,
+    "err3d": 0.0030691677017581813,
+    "pixel": [
+     251.5,
+     164.6
+    ],
+    "xyz": [
+     0.1894,
+     0.1159,
+     0.0701
+    ],
+    "seed": 125,
+    "kind": "box",
+    "label": "white box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 1.0074359596607017,
+    "err3d": 0.0027093901124249174,
+    "pixel": [
+     236.8,
+     252.0
+    ],
+    "xyz": [
+     -0.0815,
+     0.1261,
+     0.1265
+    ],
+    "seed": 126,
+    "kind": "can",
+    "label": "white can"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 8.455118847004742,
+    "err3d": 0.017171523699822083,
+    "pixel": [
+     220.8,
+     196.8
+    ],
+    "xyz": [
+     0.1031,
+     0.1713,
+     0.0685
+    ],
+    "seed": 127,
+    "kind": "bottle",
+    "label": "white bottle"
+   },
+   {
+    "hit": true,
+    "on_object": false,
+    "px_err": 196.30510649608297,
+    "err3d": 0.3288468618554007,
+    "pixel": [
+     413.4,
+     184.3
+    ],
+    "xyz": [
+     0.1553,
+     -0.1579,
+     0.0606
+    ],
+    "seed": 128,
+    "kind": "box",
+    "label": "cardboard box"
+   },
+   {
+    "hit": true,
+    "on_object": true,
+    "px_err": 1.2094287959871692,
+    "err3d": 0.005911611393377354,
+    "pixel": [
+     233.6,
+     141.6
+    ],
+    "xyz": [
+     0.1915,
+     0.1618,
+     0.1266
+    ],
+    "seed": 129,
+    "kind": "can",
+    "label": "white can"
+   }
+  ]
+ }
+}

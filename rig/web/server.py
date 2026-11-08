@@ -10,8 +10,8 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Body, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi import Body, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from rig.frames import encode, read_message_async
@@ -63,6 +63,7 @@ class FrameHub:
         self.fleet: dict | None = None
         self.control: dict | None = None
         self.meta: dict = {}
+        self.mission: dict = {}
         self.version = 0
         self._state_event = asyncio.Event()
         self.latency_ms: float | None = None
@@ -116,10 +117,19 @@ class FrameHub:
         self.meta = {k: v for k, v in meta.items() if k != "events"}
         self._bump()
 
+    def publish_mission(self, h: dict) -> None:
+        self.log.extend(h.get("events") or [])
+        self.mission = {k: v for k, v in h.items() if k != "events"}
+        self._trim()
+        self._bump()
+
     def _absorb(self, header: dict) -> None:
         self.log.extend(header.get("events") or [])
         if isinstance(header.get("fleet"), dict):
             self.fleet = header["fleet"]
+        self._trim()
+
+    def _trim(self) -> None:
         if len(self.log) > LOG_KEEP:
             self.log_base += len(self.log) - LOG_KEEP
             self.log = self.log[-LOG_KEEP:]
@@ -130,7 +140,7 @@ class FrameHub:
         event.set()
 
     def header(self) -> dict:
-        return {**self.meta, **(self.latest[2] if self.latest else {})}
+        return {**self.meta, **(self.latest[2] if self.latest else {}), **self.mission}
 
     async def wait_state(self, version: int) -> tuple[int, dict]:
         while self.version <= version:
@@ -157,9 +167,16 @@ class RenderClient:
 
 def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Path = MOCK_PATH,
                fleet_dirs=FLEET_DIRS, root: Path = REPO, fleet=None, lan_host: str | None = None,
-               lan_port: int | None = None, token: str | None = None, control=None) -> FastAPI:
+               lan_port: int | None = None, token: str | None = None, control=None, mission=None,
+               event_gap_s: float = 0.0) -> FastAPI:
     root = Path(root).resolve()
+    last_event: dict[str, float] = {}
     hub = FrameHub()
+    if mission is not None:
+        fleet, control = mission.fleet, mission.control
+        mission.leak.field = lambda: hub.plume_field if (hub.plume or {}).get("flange") == mission.leak.fid else None
+        mission.sim_flange = lambda: (hub.plume or {}).get("flange")
+    live = mission or fleet
     fleet_seq = {"n": 0, "event": asyncio.Event()}
     current: dict[str, asyncio.StreamWriter | None] = {"writer": None}
     pending: deque = deque()
@@ -265,18 +282,29 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
         while True:
             await asyncio.sleep(FLEET_TICK_S)
             now = time.monotonic()
-            await asyncio.to_thread(fleet.advance, now - last)
+            if mission is not None:
+                await asyncio.to_thread(mission.advance, now - last)
+                hub.publish_mission(await asyncio.to_thread(mission.header))
+            else:
+                await asyncio.to_thread(fleet.advance, now - last)
             last = now
             fleet_changed()
             writer = current["writer"]
             if writer is not None and fleet_seq["n"] % FLEET_SIM_EVERY == 0:
-                writer.write(encode({"type": "event", "name": "fleet", "args": fleet.for_sim()}))
+                writer.write(encode({"type": "event", "name": "fleet", "args": live.for_sim()}))
 
     async def control_loop() -> None:
         from policy.control.adapters import from_header
 
         while True:
             await asyncio.sleep(CONTROL_TICK_S)
+            if mission is not None:
+                try:
+                    hub.control = await asyncio.to_thread(mission.control_tick)
+                except Exception as e:
+                    print(f"rig web: mission control tick failed: {type(e).__name__}: {e}", flush=True)
+                hub._bump()
+                continue
             st = fleet.state() if fleet is not None else (hub.fleet or {})
             h = {**hub.meta, "t": st.get("t", hub.meta.get("t")), "robots": st.get("robots") or [],
                  "tasks": st.get("tasks") or []}
@@ -317,11 +345,20 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
 
     app = FastAPI(lifespan=lifespan)
     app.state.hub = hub
+    app.include_router(__import__("rig.web.views_api", fromlist=["views_router"]).views_router(hub))
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
     @app.get("/")
     async def index() -> FileResponse:
         return FileResponse(STATIC / "index.html")
+
+    @app.get("/interactive")
+    async def interactive() -> FileResponse:
+        return FileResponse(STATIC / "interactive.html")
+
+    @app.get("/judge")
+    async def judge() -> RedirectResponse:
+        return RedirectResponse("/interactive")
 
     @app.get("/api/health")
     async def health() -> dict:
@@ -351,17 +388,32 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
         }
 
     @app.post("/api/event")
-    async def post_event(body: dict) -> dict:
+    async def post_event(body: dict, request: Request):
+        who = (request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+               or (request.client.host if request.client else "?"))
+        now = time.monotonic()
+        wait = event_gap_s - (now - last_event.get(who, -1e9))
+        if wait > 0:
+            return JSONResponse({"detail": "one change per second, please", "retry_s": round(wait, 2)}, status_code=429)
+        last_event[who] = now
+        if len(last_event) > 4096:
+            last_event.clear()
         try:
             ev = check_event(body)
         except ValueError as e:
             raise HTTPException(400, str(e))
         out = {}
-        if control is not None and ev["name"] == "cut_link":
+        if mission is not None:
+            try:
+                out.update(await asyncio.to_thread(mission.event, ev["name"], ev["args"]))
+            except (ValueError, TypeError, KeyError) as e:
+                raise HTTPException(400, str(e))
+            fleet_changed()
+        elif control is not None and ev["name"] == "cut_link":
             control.cut_link(bool(ev["args"].get("on", True)))
         elif control is not None and ev["name"] == "intent":
             control.intent(str(ev["args"].get("text") or ""))
-        if fleet is not None and is_fleet_event(ev["name"], ev["args"]):
+        if mission is None and fleet is not None and is_fleet_event(ev["name"], ev["args"]):
             try:
                 out["fleet"] = fleet.event(ev["name"], ev["args"])
             except (ValueError, TypeError) as e:
@@ -382,8 +434,8 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
 
     @app.get("/api/fleet")
     async def fleet_state() -> Response:
-        if fleet is not None:
-            return JSONResponse(fleet.state())
+        if live is not None:
+            return JSONResponse(live.state())
         if hub.fleet is not None:
             return JSONResponse(hub.fleet)
         return FileResponse(fleet_file("fleet_state.json"), media_type="application/json")
@@ -405,8 +457,8 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
     async def ws_fleet(ws: WebSocket) -> None:
         await ws.accept()
         try:
-            while fleet is not None:
-                await ws.send_json(fleet.state())
+            while live is not None:
+                await ws.send_json(live.state())
                 await fleet_seq["event"].wait()
             await ws.close()
         except (WebSocketDisconnect, RuntimeError):
@@ -539,6 +591,32 @@ def default_fleet():
         return None
 
 
+def default_mission():
+    if os.environ.get("RIG_MISSION", "1") in ("", "0", "off"):
+        return None
+    try:
+        from rig.mission.live import MissionLive
+        fleet = default_fleet()
+        if fleet is None:
+            return None
+        return MissionLive(fleet, control=mission_control)
+    except (ImportError, OSError) as e:
+        print(f"rig web: mission brain off ({e})", flush=True)
+        return None
+
+
+def mission_control(port):
+    mode = os.environ.get("RIG_CONTROL", "auto")
+    if mode in ("", "0", "off"):
+        return None
+    from policy.control.centre import from_env
+    from policy.gemini_verifier import load_api_key
+    if mode == "auto" and not load_api_key():
+        mode = "edge"
+    return from_env(mode, log_path=REPO / "runs/control/calls.jsonl", sync=False, port=port,
+                    interval_s=float(os.environ.get("RIG_CONTROL_INTERVAL", "10")))
+
+
 def default_control():
     mode = os.environ.get("RIG_CONTROL", "auto")
     if mode in ("", "0", "off"):
@@ -552,6 +630,8 @@ def default_control():
         return None
 
 
-app = create_app(os.environ.get("SIM_HOST", "127.0.0.1"), int(os.environ.get("SIM_PORT", "9000")), fleet=default_fleet(),
-                 control=default_control(),
+MISSION = default_mission()
+app = create_app(os.environ.get("SIM_HOST", "127.0.0.1"), int(os.environ.get("SIM_PORT", "9000")),
+                 fleet=None if MISSION else default_fleet(), control=None if MISSION else default_control(),
+                 mission=MISSION, event_gap_s=float(os.environ.get("RIG_EVENT_GAP_S", "1")),
                  lan_host=os.environ.get("SIM_HOST_LAN") or None, token=os.environ.get("INGEST_TOKEN") or None)

@@ -20,6 +20,17 @@ with TestClient(create_app(sim_port=0, fleet=default_fleet())) as c:
     from rig.web.server import default_control
     out["control"] = type(default_control()).__name__
     out["from_image"] = policy.fleet.__path__[0].startswith(os.getcwd())
+    from rig.web.server import MISSION
+    if MISSION is not None:
+        MISSION.advance(1.0)
+        MISSION.event("gas_leak", {"on": True})
+        MISSION.event("drop_can", {})
+        MISSION.event("weld_job", {"poi": "weld_x", "xyz": [10.0, -8.0, 42.5]})
+        MISSION.advance(1.0)
+        MISSION.control_tick(0.0)
+        out["mission"] = sorted(MISSION.header())
+        import rig.mission.gas
+        out["mission_from_image"] = rig.mission.gas.__file__.startswith(os.getcwd())
     print(json.dumps(out))
 """
 
@@ -52,3 +63,6 @@ def test_web_image_serves_fleet_and_bench(tmp_path, fleet):
     assert {"orch", "detect", "safety", "scrub"} <= set(got["bench"])
     assert got["mock"] == [200, 200, 200]
     assert got["control"] == "ControlCentre"
+    if fleet == "judges":
+        assert {"control", "gas", "fleet", "robots", "caption", "sensors", "orchestrator"} <= set(got["mission"])
+        assert got["mission_from_image"]
