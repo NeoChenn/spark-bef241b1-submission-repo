@@ -157,3 +157,40 @@ class Weather:
             if self.at(t + s)["rain"] < threshold:
                 return float(t + s)
         return None
+
+
+def scripted_gusts(times, peak: float, dur: float, mean: float = 0.0, direction=(0.0, -1.0, 0.0)) -> dict:
+    t = torch.tensor([list(map(float, times))])
+    d = torch.tensor([list(map(float, direction))])
+    return {"t0": t - dur / 2, "dur": torch.full_like(t, float(dur)), "peak": torch.full_like(t, float(peak)),
+            "mean": torch.tensor([float(mean)]), "dir": d / d.norm(dim=-1, keepdim=True)}
+
+
+class GustGate:
+    def __init__(self, limit: float = 12.0, resume: float = 6.0):
+        self.limit, self.resume, self.paused = limit, resume, False
+
+    def update(self, gust: float) -> bool:
+        self.paused = gust > self.limit if not self.paused else gust >= self.resume
+        return self.paused
+
+
+def storm_grade(rgb: np.ndarray, level: float, t: float, seed: int = 0) -> np.ndarray:
+    if level <= 0:
+        return rgb
+    from PIL import Image, ImageDraw
+
+    f = rgb[..., :3].astype(np.float32)
+    grey = f.mean(-1, keepdims=True)
+    f = f + (grey - f) * 0.45 * level
+    f = f * (1 - 0.35 * level) + np.array([18.0, 26.0, 38.0]) * 0.35 * level
+    im = Image.fromarray(np.clip(f, 0, 255).astype(np.uint8)).convert("RGBA")
+    over = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(over)
+    rng = np.random.default_rng(seed * 100003 + int(round(t * 1000)))
+    h, w = rgb.shape[:2]
+    for _ in range(int(500 * level)):
+        x, y = rng.uniform(-0.2 * w, w), rng.uniform(-0.1 * h, h)
+        n = rng.uniform(0.02, 0.05) * h
+        d.line([(x, y), (x + 0.35 * n, y + n)], fill=(205, 215, 230, int(rng.uniform(40, 110))), width=1)
+    return np.asarray(Image.alpha_composite(im, over).convert("RGB"))

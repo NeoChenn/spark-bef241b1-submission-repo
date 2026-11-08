@@ -140,3 +140,28 @@ def test_weather_calm_and_storm_with_lulls():
     w.set_level(0.0, t=70.0)
     assert w.at(71.0)["gust_n"] == 0 and w.at(71.0)["rain"] == 0
     assert math.isfinite(w.at(1e4)["rain"])
+
+
+def test_scripted_gusts_peak_at_given_times():
+    from policy.storm import scripted_gusts
+    g = scripted_gusts([4.0, 9.0], peak=24.0, dur=2.0, mean=2.0, direction=(0.0, -1.0, 0.0))
+    f = lambda t: float(gust_force(g, torch.tensor([t]))[0])
+    assert abs(f(4.0) - 26.0) < 1e-4 and abs(f(9.0) - 26.0) < 1e-4 and abs(f(6.5) - 2.0) < 1e-4
+    assert torch.allclose(g["dir"][0], torch.tensor([0.0, -1.0, 0.0]))
+
+
+def test_gust_gate_hysteresis():
+    from policy.storm import GustGate
+    gate = GustGate(limit=12.0, resume=6.0)
+    seq = [gate.update(x) for x in (3, 11, 13, 10, 7, 5.9, 8, 12.5)]
+    assert seq == [False, False, True, True, True, False, False, True]
+
+
+def test_storm_grade_rain_overlay():
+    from policy.storm import storm_grade
+    img = scene()
+    assert np.array_equal(storm_grade(img, 0.0, t=1.0), img)
+    a, b = storm_grade(img, 1.0, t=1.0), storm_grade(img, 1.0, t=1.0)
+    assert np.array_equal(a, b) and a.shape == img.shape and a.dtype == np.uint8
+    assert not np.array_equal(storm_grade(img, 1.0, t=1.1), a)
+    assert a.astype(float)[..., 0].mean() < img.astype(float)[..., 0].mean()
