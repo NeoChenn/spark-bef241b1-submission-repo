@@ -61,9 +61,9 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round
 .cmp .u { color: var(--label3); margin-left: -4px; font-weight: 400; }
 .cmp .sep { width: 1px; height: 12px; background: var(--hair); margin: 0 3px; }
 #island.nokey .sep, #island.nokey #i-key, #island.nokey #i-unit { display: none; }
-.cmp .edge { color: var(--warn); font-size: 11px; font-weight: 600; }
+.cmp .edge { color: var(--warn); font-size: 11px; font-weight: 600; line-height: 1; padding: 4px 7px; margin-left: 4px; border-radius: 6px; background: rgba(227,179,65,.14); }
 .cmp .edge:empty { display: none; }
-.cmp .edge.cloud { color: var(--accent); }
+.cmp .edge.cloud { color: var(--accent); background: var(--accent-soft); }
 .ban { padding: 13px 24px 13px 13px; gap: 14px; opacity: 0; transform: scale(.92); filter: blur(4px); pointer-events: none; }
 .ban b { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; display: block; }
 .ban p { margin: 1px 0 0; color: var(--label2); }
@@ -204,7 +204,7 @@ body.presenter .sub { font-size: 22px; }
 .plume { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 9px; background: rgba(0,0,0,.22); }
 .cc-sum { margin: 0 0 8px; line-height: 1.45; }
 .cc-sum p { margin: 0 0 4px; }
-.cc-meta { display: flex; align-items: center; gap: 10px; margin: -2px 0 8px; font-size: 12px; color: var(--label3); }
+.cc-meta { display: flex; flex-wrap: wrap; white-space: nowrap; align-items: center; gap: 4px 10px; margin: -2px 0 8px; font-size: 12px; color: var(--label3); }
 .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; background: rgba(227,179,65,.16); color: var(--warn); }
 .badge.cloud { background: var(--accent-soft); color: var(--accent); }
 .cc-acts small, .veto small, .call small { display: block; color: var(--label3); font-size: 11.5px; line-height: 1.35; white-space: normal; }
@@ -217,6 +217,7 @@ body.presenter .sub { font-size: 22px; }
 .call.no b { color: var(--stop); }
 .call small { text-indent: 0; }
 .orch .sub3 { margin-top: 18px; }
+.orch h3 em { font-style: normal; font-weight: 400; }
 .edge { margin: 0 0 8px; color: var(--warn); font-size: 12px; font-weight: 600; }
 .cc-acts { list-style: none; margin: 0 -8px; padding: 0; }
 .cc-acts li { display: grid; grid-template-columns: 14px 1fr auto; align-items: start; gap: 8px; padding: 6px 8px; border-radius: 9px; cursor: pointer; transition: background 120ms; }

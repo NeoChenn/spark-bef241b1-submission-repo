@@ -154,8 +154,10 @@
     const c = S.control, an = c?.anomalies || [];
     if (waiting(S).length && !(S.gasAlarm && now() - S.gasAt < 6 / S.speed)) return 95;
     if (!c && S.state !== "ESCALATE_TO_HUMAN") return 0;
+    const sk = JSON.stringify([c?.situation, (c?.actions || []).map((a) => a?.label)]).replace(/\d+(\.\d+)?/g, "#");
+    if (sk !== H._sk) { H._sk = sk; H._skAt = now(); }
     if (S.gasAlarm && now() - S.gasAt < 6 / S.speed) return 0;
-    return S.gasAlarm || S.linkCut || c?.banner || S.state === "ESCALATE_TO_HUMAN" || an.some((a) => a.severity === "critical") ? 90 : an.some((a) => /warn/.test(a.severity)) ? 50 : 0;
+    return S.gasAlarm || S.linkCut || c?.banner || S.state === "ESCALATE_TO_HUMAN" || an.some((a) => a?.severity === "critical") ? 90 : an.some((a) => /warn/.test(a?.severity)) ? 50 : c && S.started && now() - H._skAt < 14 / S.speed ? 20 : 0;
   };
   const ccRow = (a, n) => !a ? "" : `<li data-n="${n}" class="${acted.has(a.id) ? "done" : ""}"><span class="tnum">${a.rank || n + 1}</span><span>${esc(a.label)}<small>${a.source === "edge" ? "Edge rule" : "Argon"}${a.rationale ? " · " + esc(a.rationale) : ""}</small></span><b class="tnum">${a.source === "edge" ? "hard" : Math.round((a.confidence || 0) * 100)}</b></li>`;
   H.planner = (ag, n) => (ag && (ag.intent || ag.calls?.length) ? `<div class="cc-agent">${ag.intent ? `<p class="intent">“${esc(ag.intent)}”</p>` : ""}${(ag.calls || []).slice(-n).reverse().map((x) =>
@@ -169,7 +171,7 @@
       if (el._k === key) return;
       el._k = key;
       const aps = ap.slice(0, 2).map((a) => `<div class="ap mini"><b>${esc((a.kind || "job").replace(/_/g, " "))} · ${esc(a.target || a.job)}</b>${a.text ? `<p>${esc(a.text)}</p>` : ""}<div><button data-job="${esc(a.job)}" data-a="1" class="yes">Approve</button><button data-job="${esc(a.job)}" data-a="0">Reject</button></div></div>`).join("");
-      el.innerHTML = (aps ? `<h6 class="cc-h">Waiting for you</h6>${aps}` : "") + (!c ? (aps ? "" : `<p class="none">Waiting for a situation report</p>`) : `<div class="cc-meta"><span class="badge ${c.mode === "CLOUD" ? "cloud" : ""}">${c.mode === "CLOUD" ? "Cloud" : "Edge"}</span>${c.model ? `<span>${esc(String(c.model).replace(/ \(.*\)$/, ""))}</span>` : ""}${typeof c.latency_ms === "number" ? `<span class="tnum">${(c.latency_ms / 1000).toFixed(1)} s</span>` : ""}${typeof c.cost_today_usd === "number" ? `<span class="tnum">$${c.cost_today_usd.toFixed(3)} today · ${c.calls_today || 0} calls</span>` : ""}</div>`
+      el.innerHTML = (aps ? `<h6 class="cc-h">Waiting for you</h6>${aps}` : "") + (!c ? (aps ? "" : `<p class="none">Waiting for a situation report</p>`) : `<div class="cc-meta"><span class="badge ${c.mode === "CLOUD" ? "cloud" : ""}">${c.mode === "CLOUD" ? "Cloud" : "Edge"}</span>${typeof c.latency_ms === "number" ? `<span class="tnum">${(c.latency_ms / 1000).toFixed(1)} s</span>` : ""}${typeof c.cost_today_usd === "number" ? `<span class="tnum">$${c.cost_today_usd.toFixed(3)} today · ${c.calls_today || 0} calls</span>` : ""}</div>`
         + (c.banner ? `<p class="edge">${esc(sent(c.banner))}</p>` : "")
         + `<div class="cc-sum">${(Array.isArray(c.situation) && c.situation.length ? c.situation : [typeof c.situation === "string" ? c.situation : c.summary || "Edge safety rules only; no cloud plan yet."]).slice(0, 3).map((l) => `<p>${esc(l)}</p>`).join("")}</div>`
         + `<ol class="cc-acts">${(c.actions || []).slice(0, 3).map(ccRow).join("")}</ol>` + H.vetoes(c, 1) + H.planner(c.agent, 1));
@@ -256,7 +258,7 @@
       if (!r) { if (el._k !== "none") { el._k = "none"; el.innerHTML = `<p class="none">No robots reporting yet</p>`; } return; }
       const id = r.id, st = r.job_state || r.state, tn = r.caption?.tone || tone(st), soc = r.battery?.soc ?? lastv(S, id + ".battery");
       const gas = lastv(S, id + ".gas_lel"), force = lastv(S, id + ".force_n") ?? (H.bots(S)[0]?.id === id && S.series.force ? S.force : null);
-      const kv = [["Battery", soc == null ? null : Math.round(soc * 100) + " %"], ["Task", r.task ? String(r.task).replace(/_/g, " ") : null], ["Deck", r.deck ? String(r.deck).replace("_deck", "").replace(/_/g, " ") : null],
+      const kv = [["Battery", soc == null ? null : Math.round(soc * 100) + " %"], ["Task", r.task ? String(r.task).split(":").pop().replace(/_/g, " ") : null], ["Deck", r.deck ? String(r.deck).replace("_deck", "").replace(/_/g, " ") : null],
         ["Gas", gas == null ? null : (gas * 100).toFixed(1) + " % LEL"], ["Force", force == null ? null : force.toFixed(1) + " N"]].filter((x) => x[1] != null).slice(0, 4);
       const others = H.bots(S).filter((o) => o.id !== id);
       const src = H.viewSrc?.(id), key = [id, st, r.caption?.text, JSON.stringify(kv), others.map((o) => o.id + (o.job_state || o.state)).join(), src].join("|");

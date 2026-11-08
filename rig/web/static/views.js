@@ -132,8 +132,10 @@
           `<div class="job"><i class="p${Math.min(5, Math.round(j.priority || 3))}"></i><span>${esc((j.kind || "").replace(/_/g, " "))} <em>${esc(j.target || "")}</em></span><em>${j.robot ? esc(short(j.robot)) : ""}</em>${j.level ? `<kbd>${esc(j.level)}</kbd>` : ""}</div>`).join("") : ""; }).join("") || `<p class="none">No jobs yet</p>`;
         x.inbox.innerHTML = aps.map((a) => `<div class="ap"><b>${esc((a.kind || "").replace(/_/g, " "))} · ${esc(a.target || a.job)}</b><p>${esc(a.text)}</p><div><button data-job="${esc(a.job)}" data-a="1" class="yes">Approve</button><button data-job="${esc(a.job)}" data-a="0">Reject</button></div></div>`).join("") || `<p class="none">Nothing waiting for you</p>`;
         x.inbox.innerHTML += c?.agent || c?.vetoed?.length ? `<h3 class="sub3">Planner</h3>${H.planner(c.agent, 8)}${H.vetoes(c, 3)}` : "";
+        const sit = Array.isArray(c?.situation) ? c.situation : c?.situation ? [c.situation] : [];
+        x.inbox.innerHTML += c ? `<h3 class="sub3">Argon <em class="dim">${esc(c.mode === "CLOUD" ? "cloud" : "edge")}${c.model ? " · " + esc(String(c.model).replace(/ \(.*\)$/, "")) : ""}</em></h3><div class="cc-sum">${sit.slice(0, 3).map((l) => `<p>${esc(l)}</p>`).join("")}</div><ol class="cc-acts">${(c.actions || []).filter(Boolean).slice(0, 5).map((a, n) => `<li><span class="tnum">${a.rank || n + 1}</span><span>${esc(a.label)}<small>${a.source === "edge" ? "Edge rule" : "Argon"}${a.rationale ? " · " + esc(a.rationale) : ""}</small></span><b class="tnum">${a.source === "edge" ? "hard" : Math.round((a.confidence || 0) * 100)}</b></li>`).join("")}</ol>` : "";
       }
-      if (x.log._n !== S.logN) { x.log._n = S.logN; x.log.innerHTML = H.logRows(S, 16); }
+      if (x.log._n !== S.logN || !S.log.length) { x.log._n = S.logN; x.log.innerHTML = H.logRows(S, 16) || `<p class="none">No decisions yet · state changes and re-plans land here with their reasons</p>`; }
     } });
   H.on((h) => {
     const ap = h.orchestrator?.approvals;

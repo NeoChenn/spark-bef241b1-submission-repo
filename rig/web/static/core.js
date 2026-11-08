@@ -312,7 +312,8 @@
     const c = S.caption || S.robots[0]?.caption;
     if (c || SIM) return c;
     const n = S.fleet?.robots?.length || 0, cc = S.control;
-    return { lead: "Live", rest: [n ? ` · ${n} robots on the rig` : " · offshore rig", cc?.situation?.[0] ? " · " + String(cc.situation[0]).replace(/\.$/, "") : ""].join(""), tone: "act" };
+    const s0 = Array.isArray(cc?.situation) ? cc.situation[0] : cc?.situation;
+    return s0 ? { lead: "Argon", rest: " · " + String(s0).split(/(?<=[.;:])\s/)[0].replace(/[.;:]$/, ""), tone: "act" } : { lead: "Live", rest: n ? ` · ${n} robots on the rig` : " · offshore rig", tone: "act" };
   }
   function subtitle() {
     const c = caption(), html = c ? `<b>${esc(c.lead)}</b>${esc(c.rest)}` : "", key = (c?.tone || "") + html.replace(/\d+(\.\d+)?/g, "#");
