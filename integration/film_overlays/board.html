@@ -92,7 +92,7 @@
   $("model").textContent = A.model || "";
   $("link").textContent = A.link === "UP" ? "up" : "edge only";
   $("hdr").textContent = `Argon · ${A.link === "UP" ? "online" : "edge"}`;
-  $("calls").textContent = A.calls ? `${A.calls} · $${(+A.cost_usd).toFixed(3)}` : "—";
+  const callsAt = (t) => { let c = null; (A.calls || []).forEach((x) => { if (x[0] <= t) c = x; }); return c; };
   $("fleetRows").innerHTML = (B.fleet || []).map((r, i) => `<div class="row f" id="f-${i}"><i class="dot ${r.id === "unit1" ? "u1" : "u2"}" style="margin-top:7px"></i><b>${esc(r.name)}</b><div class="st"><span class="now"></span><span>${esc(r.pos || "")}</span><span class="bt"><s></s></span><span class="mono bp"></span></div></div>`).join("");
   const DEC = B.decisions || [];
   $("dec").innerHTML = DEC.map((d, i) => `<div class="d ${d.source === "argon" ? "" : "edge"}" id="d-${i}"><small>${d.source === "argon" ? "Argon" : "Edge rule"}</small><p>${d.html}</p></div>`).join("");
@@ -123,6 +123,7 @@
     $("glow").style.opacity = hot ? (0.55 + 0.45 * pulse(t)) * fade(t, H0, H0 + 1.2) : 0;
     DEC.forEach((d, i) => { const e = $("d-" + i), f = fade(t, d.u, d.u + 0.5); e.style.opacity = f; e.style.transform = `translateY(${(1 - f) * 8}px)`; });
     const shown = DEC.filter((d) => t >= d.u);
+    const c = callsAt(t); $("calls").textContent = c ? `${c[1]} · $${c[2].toFixed(4)}` : "—";
     $("last").textContent = shown.length ? shown[shown.length - 1].short : "none";
     (B.fleet || []).forEach((r, i) => {
       const k = r.after != null && t >= DEC[r.after].u, e = $("f-" + i), b = at(r.battery, t) ?? 0;
