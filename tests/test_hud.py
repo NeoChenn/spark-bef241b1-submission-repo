@@ -96,11 +96,11 @@ def test_draw_card_composites_in_corner(state, force):
 def test_project_center_and_offsets():
     from policy.hud import project
 
-    assert project((5, 0, 0), (0, 0, 0), (1, 0, 0), 20.955, 1280, 720) == pytest.approx((640, 360))
-    x, y = project((5, -1, 1), (0, 0, 0), (1, 0, 0), 20.955, 1280, 720)
+    assert project((5, 0, 0), (0, 0, 0), (1, 0, 0), 15.0, 1280, 720, 15.0) == pytest.approx((640, 360))
+    x, y = project((5, -1, 1), (0, 0, 0), (1, 0, 0), 15.0, 1280, 720, 15.0)
     assert x > 640 and y < 360
-    assert x - 640 == pytest.approx(1280 * 20.955 / 20.955 / 5, rel=1e-6)
-    assert project((-5, 0, 0), (0, 0, 0), (1, 0, 0), 20.955, 1280, 720) is None
+    assert x - 640 == pytest.approx(720 / 5, rel=1e-6) and 360 - y == pytest.approx(720 / 5, rel=1e-6)
+    assert project((-5, 0, 0), (0, 0, 0), (1, 0, 0), 15.0, 1280, 720) is None
 
 
 def test_draw_card_with_brush_ring_draws_near_brush():

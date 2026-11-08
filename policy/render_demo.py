@@ -242,7 +242,7 @@ def worker(argv):
         t_patch = None
         obs = env.get_observations()
         cam.GetAttribute("focalLength").Set(spec["focal"])
-        aperture = float(cam.GetAttribute("horizontalAperture").Get() or 20.955)
+        v_aperture = float(cam.GetAttribute("verticalAperture").Get() or 15.2908)
         painter.update(base.rust.rust[0].cpu().numpy())
         eye, look = camera_path(spec["keys"], 0.0)
         base.sim.set_camera_view((eye + origin).tolist(), (look + origin).tolist())
@@ -295,7 +295,7 @@ def worker(argv):
                 info.append({"t": round(t, 3), "frac": frac, "force": force, "state": state[0],
                              "brush": [round(float(v), 4) for v in base.brush_w[0]],
                              "eye": [round(float(v), 4) for v in eye], "look": [round(float(v), 4) for v in look],
-                             "focal": spec["focal"], "aperture": aperture})
+                             "focal": spec["focal"], "v_aperture": v_aperture})
             k += 1
         wall = time.time() - t0
         fps = int(round(1 / dt))

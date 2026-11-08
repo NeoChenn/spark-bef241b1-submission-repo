@@ -95,7 +95,7 @@ def sparkline_points(values, x0, y0, w, h, vmax):
             for k, x in enumerate(v)]
 
 
-def project(p, eye, look, focal, w, h, aperture=20.955):
+def project(p, eye, look, focal, w, h, v_aperture=15.2908):
     p, e, l = (np.asarray(v, float) for v in (p, eye, look))
     f = (l - e) / np.linalg.norm(l - e)
     r = np.cross(f, (0.0, 0.0, 1.0))
@@ -105,7 +105,7 @@ def project(p, eye, look, focal, w, h, aperture=20.955):
     z = d @ f
     if z <= 1e-6:
         return None
-    k = focal / aperture * w
+    k = focal / v_aperture * h
     return float(w / 2 + k * (d @ r) / z), float(h / 2 - k * (d @ u) / z)
 
 
@@ -303,7 +303,7 @@ def composite(raw, log_path, sinks, keys=(), key_stem=None, spark_s=3.0):
         if i >= len(log):
             break
         e = log[i]
-        bp = project(e["brush"], e["eye"], e["look"], e["focal"], w, h, e.get("aperture", 20.955)) if "brush" in e else None
+        bp = project(e["brush"], e["eye"], e["look"], e["focal"], w, h, e.get("v_aperture", 15.2908)) if "brush" in e else None
         img = draw_card(grade(fr), e["state"], e["frac"], e["force"], forces[max(0, i - n_spark):i + 1], e["t"],
                         brush_px=bp)
         for s in sinks:
