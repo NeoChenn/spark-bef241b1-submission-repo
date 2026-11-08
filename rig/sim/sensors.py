@@ -51,9 +51,7 @@ class SensorRig:
         self.main_ms = self.compose_ms = 0.0
         self.captures = 0
         self.on = True
-        self.rp = self.rp_prim = self.texture = None
         self.read_ms = 0.0
-        self.params = None
         self.stale = 0
         self.targets = map_targets(leak)
         threading.Thread(target=self._work, daemon=True).start()
@@ -79,49 +77,40 @@ class SensorRig:
         shaping = UsdLux.ShapingAPI.Apply(lamp.GetPrim())
         shaping.CreateShapingConeAngleAttr(38.0)
         shaping.CreateShapingConeSoftnessAttr(0.4)
-        if self.rp is None and self.on:
-            self._product(path)
-        c = {"path": path, "cam": cam, "role": role, "far": far}
+        c = {"path": path, "cam": cam, "role": role, "far": far, "p": self._product(path)}
         print(f"rig sim: sensor cam {path} {self.size[0]}x{self.size[1]} role={c['role']}", flush=True)
         return c
 
-    def _product(self, path: str) -> None:
+    def _product(self, path: str) -> dict:
         import omni.replicator.core as rep
         from pxr import Sdf
 
-        self.rp = rep.create.render_product(path, self.size)
-        self.rgb = rep.AnnotatorRegistry.get_annotator("rgb")
-        self.rgb.attach(self.rp)
-        self.depth = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane")
-        self.depth.attach(self.rp)
-        try:
-            self.params = rep.AnnotatorRegistry.get_annotator("camera_params")
-            self.params.attach(self.rp)
-        except Exception as exc:
-            self.params = None
-            print(f"rig sim: camera_params unavailable {exc!r}", flush=True)
-        self.texture = getattr(self.rp, "hydra_texture", None)
-        print(f"rig sim: sensor texture pausable={hasattr(self.texture, 'set_updates_enabled')}", flush=True)
-        self.rp_prim = self.stage.GetPrimAtPath(getattr(self.rp, "path", ""))
-        if self.mode and self.rp_prim.IsValid():
+        rp = rep.create.render_product(path, self.size)
+        out = {"rp": rp, "params": None}
+        for key, name in (("rgb", "rgb"), ("depth", "distance_to_image_plane"), ("params", "camera_params")):
+            try:
+                ann = rep.AnnotatorRegistry.get_annotator(name)
+                ann.attach(rp)
+                out[key] = ann
+            except Exception as exc:
+                print(f"rig sim: annotator {name} unavailable {exc!r}", flush=True)
+        out["texture"] = getattr(rp, "hydra_texture", None)
+        prim = self.stage.GetPrimAtPath(getattr(rp, "path", ""))
+        if self.mode and prim.IsValid():
             with self._session():
-                self.rp_prim.CreateAttribute("omni:rtx:rendermode", Sdf.ValueTypeNames.Token).Set(self.mode)
-        print(f"rig sim: sensor render product {getattr(self.rp, 'path', None)} valid={self.rp_prim.IsValid()} mode={self.mode}", flush=True)
+                prim.CreateAttribute("omni:rtx:rendermode", Sdf.ValueTypeNames.Token).Set(self.mode)
+        print(f"rig sim: sensor render product {getattr(rp, 'path', None)} for {path} mode={self.mode}", flush=True)
+        return out
 
     def _session(self):
         from pxr import Usd
 
         return Usd.EditContext(self.stage, self.stage.GetSessionLayer())
 
-    def _aim(self, path: str) -> None:
-        if self.rp_prim is not None and self.rp_prim.IsValid():
-            with self._session():
-                self.rp_prim.GetRelationship("camera").SetTargets([path])
-
     def _fresh(self, c: dict) -> bool:
-        if self.params is None:
+        if c["p"]["params"] is None:
             return True
-        nf = (self.params.get_data() or {}).get("cameraNearFar")
+        nf = (c["p"]["params"].get_data() or {}).get("cameraNearFar")
         return nf is not None and len(nf) > 1 and abs(float(nf[1]) - c["far"]) < 0.5
 
     def _header(self, c: dict) -> dict:
@@ -143,8 +132,10 @@ class SensorRig:
         if ev.get("name") == "views":
             self.on = bool(a.get("on", True))
             self.pending = None
-            if self.texture is not None and hasattr(self.texture, "set_updates_enabled"):
-                self.texture.set_updates_enabled(self.on)
+            for c in self.cams.values():
+                tex = c["p"]["texture"]
+                if tex is not None and hasattr(tex, "set_updates_enabled"):
+                    tex.set_updates_enabled(self.on)
             print(f"rig sim: views {'on' if self.on else 'off'}", flush=True)
             return True
         if ev.get("name") != "force":
@@ -159,7 +150,7 @@ class SensorRig:
         for rid in list(self.obstacles.robots):
             if rid not in self.cams:
                 self.cams[rid] = self._mount(rid)
-        if not self.on or self.rp is None:
+        if not self.on:
             return
         if self.pending is not None:
             p = self.pending
@@ -173,7 +164,7 @@ class SensorRig:
                 return
             if p["left"] <= 0:
                 t1 = time.perf_counter()
-                rgb, depth = np.asarray(self.rgb.get_data()), np.asarray(self.depth.get_data())
+                rgb, depth = np.asarray(c["p"]["rgb"].get_data()), np.asarray(c["p"]["depth"].get_data())
                 self.read_ms = 0.8 * self.read_ms + 0.2 * (time.perf_counter() - t1) * 1e3
                 self.pending = None
                 if rgb.ndim == 3 and rgb.size and depth.size:
@@ -190,7 +181,6 @@ class SensorRig:
             rid = self.schedule.due(list(self.cams), t)
             if rid is not None:
                 c = self.cams[rid]
-                self._aim(c["path"])
                 path = (self.obstacles.paths.get(rid) or {}).get("path")
                 self.pending = {"rid": rid, "left": SETTLE, "cam": self._header(c), "pose": self._pose(rid), "path": path}
         self.main_ms = 0.9 * self.main_ms + 0.1 * (time.perf_counter() - t0) * 1e3
