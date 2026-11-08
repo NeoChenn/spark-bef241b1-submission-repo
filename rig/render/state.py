@@ -215,3 +215,26 @@ def resample(times: list[float], fps: float) -> list[tuple[int, float]]:
             out.append((i + 1, (t - times[i]) / span if span > 0 else 1.0))
         t += 1.0 / fps
     return out
+
+
+class Latest:
+    def __init__(self) -> None:
+        import threading
+
+        self._cv = threading.Condition()
+        self._item = None
+        self.dropped = 0
+
+    def put(self, item) -> None:
+        with self._cv:
+            if self._item is not None:
+                self.dropped += 1
+            self._item = item
+            self._cv.notify()
+
+    def get(self, timeout: float | None = None):
+        with self._cv:
+            if self._item is None:
+                self._cv.wait(timeout)
+            item, self._item = self._item, None
+            return item
