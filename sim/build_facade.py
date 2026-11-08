@@ -24,7 +24,8 @@ HIDE = (
 )
 EXISTING = {"galv": "/World/Looks/topside_galv", "yellow": "/World/Looks/topside_yellow",
             "white_steel": "/World/Looks/topside_steel_white"}
-SPILL_NITS = 1200.0
+SPILL_NITS = 3800.0
+SPILL_TILT = 0.45
 STAIR = ((0.65, -37.3), 31.25, 42.5)
 FLOODS = (
     ((-21.0, -39.3, 41.6), (-21.0, -37.8, 33.0), 4000.0), ((-12.0, -39.3, 41.6), (-12.0, -37.8, 33.0), 2100.0),
@@ -151,7 +152,7 @@ def materials(stage) -> dict:
         "trim": paint(stage, "trim", (0.46, 0.48, 0.49), chip=0.5, rust=0.25),
         "frame": paint(stage, "frame", (0.08, 0.085, 0.09), chip=0.15, rust=0.05, metallic=0.4),
         "door": paint(stage, "door", (0.16, 0.24, 0.3), chip=0.55, rust=0.3),
-        "unit": paint(stage, "unit", (0.62, 0.63, 0.61), chip=0.4, rust=0.2),
+        "unit": paint(stage, "unit", (0.74, 0.75, 0.73), chip=0.3, rust=0.12),
         "interior": preview(stage, "interior", (0.004, 0.004, 0.005), roughness=0.03, emit=TEX / "interiors.png"),
         "sign": preview(stage, "sign", roughness=0.35, emit=TEX / "signs.png", diffuse_tex=TEX / "signs.png"),
         "louvre": preview(stage, "louvre", roughness=0.6, diffuse_tex=TEX / "louvre.png"),
@@ -244,10 +245,15 @@ def build_wall(b, w, lamps, spills, extra_signs):
                     break
         elif fl.unit(o["key"] + "u") < 0.35:
             ua, uz = o["along"], o["z0"] - 0.4
-            b.box("unit", *fl.wall_box(w, ua - 0.4, uz, ua + 0.4, uz + 0.55, D, D + 0.4))
-            b.quad("louvre", fl.quad(w, ua - 0.34, uz + 0.05, ua + 0.34, uz + 0.5, D + 0.401))
-            b.box("frame", *fl.wall_box(w, ua - 0.35, uz - 0.05, ua + 0.35, uz, D, D + 0.45))
-            taken.append((ua - 0.4, uz, ua + 0.4, uz + 0.55))
+            uz = o["z0"] - 0.2
+            b.box("unit", *fl.wall_box(w, ua - 0.3, uz, ua + 0.3, uz + 0.4, D, D + 0.26))
+            b.quad("louvre", fl.quad(w, ua - 0.25, uz + 0.04, ua + 0.25, uz + 0.36, D + 0.261))
+            for k in range(6):
+                lz = uz + 0.07 + k * 0.053
+                b.box("unit", *fl.wall_box(w, ua - 0.25, lz, ua + 0.25, lz + 0.014, D + 0.26, D + 0.29))
+            for side in (-0.22, 0.22):
+                b.box("trim", *fl.wall_box(w, ua + side - 0.02, uz - 0.08, ua + side + 0.02, uz, D, D + 0.28))
+            taken.append((ua - 0.3, uz, ua + 0.3, uz + 0.4))
     for along, zc, size, tile in extra_signs.get(w["name"], ()):
         add_sign(b, w, along, zc, size, tile, taken)
     return len(items)
@@ -311,7 +317,8 @@ def annex_ladder(b):
 def spill_lights(stage, spills):
     UsdGeom.Scope.Define(stage, f"{facade.OFFLINE}/Spill")
     for i, (w, o, D) in enumerate(spills):
-        out = np.array(fl.outward(w))
+        out = np.array(fl.outward(w)) + (0.0, 0.0, -SPILL_TILT)
+        out /= np.linalg.norm(out)
         root = UsdGeom.Xform.Define(stage, f"{facade.OFFLINE}/Spill/win_{i:03d}")
         ops = UsdGeom.Xformable(root)
         ops.AddTranslateOp().Set(Gf.Vec3d(*fl.to_world(w, o["along"], o["z0"] + o["h"] / 2, D + 0.03)))
@@ -321,7 +328,7 @@ def spill_lights(stage, spills):
         width, height = (o["w"], o["h"]) if w["axis"] == "y" else (o["h"], o["w"])
         light.CreateWidthAttr(float(width))
         light.CreateHeightAttr(float(height))
-        light.CreateIntensityAttr(SPILL_NITS * (0.5 + fl.unit(o["key"] + "i")))
+        light.CreateIntensityAttr(SPILL_NITS * (0.4 + 1.2 * fl.unit(o["key"] + "i")))
         light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(fl.TILE_KELVIN[o["tile"]])))
 
 
