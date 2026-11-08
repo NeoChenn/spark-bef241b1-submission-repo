@@ -202,7 +202,7 @@ def test_mock_session_captions_and_fleet(tmp_path):
     fleet = s["fleet"]
     assert fleet[0]["pt"] > s["duration"]
     assert [x["pt"] for x in fleet] == sorted(x["pt"] for x in fleet)
-    assert all(len(x["robots"]) == 2 and x["camera"]["w"] == 1280 for x in fleet)
+    assert all(len(x["robots"]) == 3 and x["camera"]["w"] == 1280 for x in fleet)
     modes = {anchor(x["camera"], r["world_pos"], occluded=bool(r.get("occluded")))["mode"]
              for x in fleet for r in x["robots"]}
     assert {"on", "edge", "occluded"} <= modes

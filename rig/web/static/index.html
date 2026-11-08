@@ -4,8 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rig Camera</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="/static/hud.css">
 </head>
 <body>
@@ -14,107 +13,34 @@
     <canvas id="view" width="640" height="360"></canvas>
     <div id="flash"></div>
   </div>
+  <div id="labels"></div>
 
-  <div id="hud">
-    <section class="mod captions" data-mod="captions" id="captions">
-      <div id="labels"></div>
-      <div class="subtitle hide" id="subtitle"><span class="sub"></span><span class="sub"></span></div>
-    </section>
-
-    <section class="mod panel pill" data-mod="hud" id="status-pill">
-      <span class="state chip-state" id="st-name"><span class="dot" id="st-dot"></span><span id="st-label">STANDBY</span></span>
-      <span class="sep"></span>
-      <span class="kv"><i>T</i><b class="num" id="st-time">0.0</b><i>s</i></span>
-      <span class="kv"><i>FPS</i><b class="num" id="fps">–</b></span>
-      <span class="badge" id="st-src">EDGE</span>
-      <span class="link" id="status">connecting…</span>
-      <span class="hidden" id="age"></span>
-    </section>
-
-    <nav class="panel mods" id="mods">
-      <button class="mods-head" id="mods-toggle"><span>Modules</span><kbd>Tab</kbd></button>
-      <ul id="mods-list"></ul>
-    </nav>
-
-    <section class="mod panel stepper" data-mod="hud" id="stepper">
-      <ol id="steps"></ol>
-      <div class="tags" id="tags"></div>
-    </section>
-
-    <section class="mod panel soak" data-mod="hud" id="soak">
-      <svg viewBox="0 0 44 44"><circle class="track" cx="22" cy="22" r="19"/><circle class="ring" id="soak-ring" cx="22" cy="22" r="19"/></svg>
-      <div><i>Soak</i><b class="num" id="soak-left">30</b><i>s</i></div>
-    </section>
-
-    <section class="mod panel gemini" data-mod="gemini" id="gemini">
-      <header><i>Second opinion</i><span class="model">Gemini Robotics-ER</span></header>
-      <div class="g-row"><span class="chip" id="g-verdict">—</span><span class="num g-lat" id="g-lat">— ms</span></div>
-      <div class="bar"><span id="g-bar"></span></div>
-      <div class="g-conf"><i>Confidence</i><b class="num" id="g-conf">0.00</b></div>
-      <div class="thumb"><img id="g-img" alt=""><svg id="g-pts"></svg></div>
-      <p id="g-reason"></p>
-    </section>
-
-    <section class="mod forcemod" data-mod="force" id="forcemod">
-      <div class="fm-head"><i>Brush force</i><b class="num" id="fm-now">0.0</b><i>N</i></div>
-      <div class="gauge"><span id="fm-gauge"></span><s style="left:76%"></s><s class="lim" style="left:80%"></s></div>
-      <canvas id="fm-chart" width="204" height="84"></canvas>
-      <div class="fm-foot"><i>max</i><b class="num" id="fm-max">0.0</b><i>N</i><span class="fm-lim">limit 40</span></div>
-    </section>
-
-    <section class="mod panel vitals" data-mod="hud" id="vitals">
-      <div class="vital"><div class="v-head"><i>Brush force</i><b class="num" id="v-force">0.0</b><em>N</em></div><canvas id="sp-force" width="260" height="34"></canvas></div>
-      <div class="vital"><div class="v-head"><i>Rust remaining</i><b class="num" id="v-rust">—</b><em>%</em></div><div class="drain"><span id="v-rust-bar"></span></div><canvas id="sp-rust" width="260" height="34"></canvas></div>
-      <div class="vital"><div class="v-head"><i>Detector conf</i><b class="num" id="v-conf">—</b><em></em></div><canvas id="sp-conf" width="260" height="34"></canvas></div>
-    </section>
-
-    <section class="mod panel log" data-mod="log" id="log">
-      <header><i>Decisions</i><kbd>L</kbd></header>
-      <ol id="log-list"></ol>
-    </section>
-
-    <section class="mod panel pip" data-mod="pip" id="pip">
-      <header><i>Inspection camera</i><span class="rec"></span></header>
-      <img id="pip-img" alt="">
-    </section>
-
-    <section class="mod panel map" data-mod="map" id="map">
-      <header><i>Pipe map</i><span class="legend"><s class="l-rust"></s>rust<s class="l-spray"></s>sprayed<s class="l-paint"></s>painted</span></header>
-      <canvas id="map-canvas" width="320" height="200"></canvas>
-      <div class="axis"><span>0°</span><span>θ around pipe</span><span>360°</span></div>
-    </section>
-
-    <section class="mod panel control" data-mod="control" id="control">
-      <header><i>Control centre</i><span class="model" id="cc-model">Gemini 4 Argon</span></header>
-      <div class="cc-meta"><span class="badge" id="cc-mode">EDGE</span><span class="num" id="cc-lat">—</span><span class="num" id="cc-cost">$0.000 today</span></div>
-      <div class="cc-banner" id="cc-banner"></div>
-      <form class="cc-order" id="cc-order"><input id="cc-order-text" placeholder="Give Argon an order…" autocomplete="off" aria-label="Order for Argon"><button type="submit">Send</button></form>
-      <div class="cc-health" id="cc-health"></div>
-      <div class="cc-sit" id="cc-sit"><p>Waiting for the first fleet snapshot…</p></div>
-      <ol class="cc-acts" id="cc-acts"></ol>
-      <div class="cc-chips" id="cc-chips"></div>
-      <div class="cc-agent" id="cc-agent"></div>
-      <div class="cc-foot" id="cc-foot"></div>
-    </section>
-
-    <section class="panel unscripted" id="unscripted">
-      <button class="u-head" id="u-toggle"><i>Unscripted change</i><kbd>U</kbd></button>
-      <div class="u-body" id="u-body"></div>
-    </section>
+  <div id="island" class="glass hl" role="button" aria-label="Status, opens the command palette">
+    <div class="cmp"><span class="dot"></span><b id="i-state">Ready</b><span class="tnum" id="i-time">0.0</span><span class="u">s</span><span class="sep"></span><span class="tnum" id="i-key"></span><span class="u" id="i-unit"></span><span class="edge" id="i-edge"></span></div>
+    <div class="ban"><span class="b-icon" id="b-icon"></span><div><b id="b-title"></b><p id="b-sub"></p></div></div>
   </div>
+  <div id="subtitle"><span class="sub"></span><span class="sub"></span></div>
 
-  <section class="panel" id="help"><header><i>Controls</i><kbd>?</kbd></header><ul id="help-list"></ul></section>
+  <div class="dock" id="dock-left"><div class="dglass"></div></div>
+  <div class="dock" id="dock-right"><div class="dglass"></div></div>
+  <div class="dock" id="dock-bottom"><div class="dglass"></div></div>
+  <div id="sheet" class="glass hl" role="dialog" aria-label="View"></div>
 
-  <div id="title">
-    <div class="t-inner">
-      <i class="t-kicker">Offshore autonomy · live sim</i>
-      <h1 id="t-name">Rig Rust Repair</h1>
-      <p id="t-line">Corrosion on offshore pipework is found late and fixed by people on ropes. A quadruped finds it, treats it and proves it is gone.</p>
-      <span class="t-cta"><kbd>Space</kbd> to begin <kbd>?</kbd> controls</span>
+  <div id="palette" class="glass hl" role="dialog" aria-label="Command palette">
+    <label class="p-search">
+      <svg viewBox="0 0 24 24"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M20 20l-3.6-3.6"/></svg>
+      <input id="p-input" placeholder="Search panels, views, cameras, changes" autocomplete="off" spellcheck="false" role="combobox" aria-controls="p-list">
+    </label>
+    <div class="p-body"><ul id="p-list" role="listbox"></ul><div id="p-preview"></div></div>
+    <div class="p-foot">
+      <span><span class="dot"></span><span id="status">connecting…</span><span class="sep">·</span><span id="fps">–</span> fps<span class="sep">·</span><span id="age"></span></span>
+      <span class="p-keys"><kbd>↑↓</kbd><kbd>↵</kbd>run<kbd id="p-keep">⌘↵</kbd>run, keep open<kbd>esc</kbd></span>
     </div>
   </div>
 
   <script src="/static/viewer.js"></script>
-  <script src="/static/hud.js"></script>
+  <script src="/static/core.js"></script>
+  <script src="/static/panels.js"></script>
+  <script src="/static/views.js"></script>
 </body>
 </html>

@@ -124,7 +124,6 @@ def make_localizer():
 
 
 def inset(frame: np.ndarray, inspection: np.ndarray | None, mask: np.ndarray | None, label: str) -> np.ndarray:
-    """Detector view in the bottom-right corner: the inspection frame with the rust mask outlined in red."""
     if inspection is None:
         return frame
     view = inspection[..., :3].astype(np.float32).copy()
@@ -268,7 +267,7 @@ def main() -> None:
             continue
         if prev == S.SPRAY and "patch" not in fired:
             fired.add("patch")
-            th_new, z_new = theta + 0.28, 0.12
+            th_new, z_new = theta - 0.3, 0.12
             bridge.schedule(now + 12.0, f"NEW rust patch at theta={th_new:.2f}, z={z_new:+.2f}",
                             lambda: bridge.spawn_patch(th_new, z_new, size=0.035, level=0.85))
         if orch.state == S.SCRUB and "bead" not in fired:

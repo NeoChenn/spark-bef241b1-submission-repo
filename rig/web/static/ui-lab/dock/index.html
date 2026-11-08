@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rig Camera · Dock</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="dock.css">
+</head>
+<body>
+  <div id="stage">
+    <div id="backdrop"><div class="shot" id="shotA"></div><div class="shot" id="shotB"></div></div>
+    <canvas id="view" width="640" height="360"></canvas>
+    <div id="flash"></div>
+  </div>
+  <span hidden id="status"></span><span hidden id="fps"></span><span hidden id="age"></span>
+
+  <div id="labels"></div>
+
+  <div id="island" class="glass">
+    <div class="cmp">
+      <span class="dot"></span><b id="i-state">Standby</b>
+      <span class="num" id="i-time">0.0</span><span class="u">s</span>
+      <span class="sep"></span>
+      <span class="num" id="i-key">—</span><span class="u" id="i-unit"></span>
+    </div>
+    <div class="ban">
+      <span class="b-icon" id="b-icon"></span>
+      <div><b id="b-title"></b><p id="b-sub"></p></div>
+    </div>
+  </div>
+  <p id="subtitle"></p>
+
+  <aside id="side" class="glass">
+    <section data-p="mission">
+      <div class="seg" id="seg"></div>
+      <div class="m-row"><b id="m-step">Patrol</b><span id="m-of">1 of 8</span>
+        <span class="soak" id="soak"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8"/><circle class="ring" id="soak-ring" cx="10" cy="10" r="8"/></svg><span class="num" id="soak-left">30</span>s</span>
+      </div>
+    </section>
+    <section data-p="vitals">
+      <div class="v"><span>Brush force</span><b class="num" id="v-force">—</b><em>N</em><canvas id="sp-force"></canvas></div>
+      <div class="v"><span>Rust remaining</span><b class="num" id="v-rust">—</b><em>%</em><canvas id="sp-rust"></canvas></div>
+      <div class="v"><span>Detector confidence</span><b class="num" id="v-conf">—</b><em></em><canvas id="sp-conf"></canvas></div>
+    </section>
+    <section data-p="force">
+      <div class="big"><b class="num" id="fm-now">0.0</b><em>N</em><span class="r">peak <b class="num" id="fm-max">0.0</b> · limit 40</span></div>
+      <div class="gauge"><span id="fm-gauge"></span><s></s></div>
+      <canvas id="fm-chart"></canvas>
+    </section>
+    <section data-p="map">
+      <canvas id="map-canvas"></canvas>
+      <div class="legend"><s class="l-rust"></s>Rust<s class="l-spray"></s>Sprayed<s class="l-paint"></s>Painted<span class="r">0–360°</span></div>
+    </section>
+    <section data-p="insp">
+      <div class="media"><img id="pip-img" alt=""></div>
+    </section>
+    <section data-p="gemini">
+      <div class="g-row"><span class="chip" id="g-verdict">Waiting</span><b class="num" id="g-conf">0.00</b><span class="r num" id="g-lat">— ms</span></div>
+      <div class="media"><img id="g-img" alt=""><svg id="g-pts"></svg></div>
+      <p class="note" id="g-reason">No second opinion requested yet.</p>
+    </section>
+    <section data-p="gas">
+      <ul class="rows" id="gas-list"></ul>
+    </section>
+    <section data-p="plume">
+      <div class="media"><canvas id="plume"></canvas></div>
+      <p class="note" id="plume-note">Wind 4 kn from SW</p>
+    </section>
+    <section data-p="control">
+      <p class="note lead" id="cc-sum"></p>
+      <ol class="actions" id="cc-list"></ol>
+    </section>
+    <section data-p="fleet">
+      <ul class="rows" id="fleet-list"></ul>
+    </section>
+    <section data-p="log">
+      <ol class="log" id="log-list"></ol>
+    </section>
+    <section data-p="help">
+      <ul class="keys" id="help-list"></ul>
+    </section>
+  </aside>
+
+  <nav id="dock" class="glass"></nav>
+
+  <div id="scrim"></div>
+  <div id="spot" class="glass" role="dialog" aria-label="Command palette">
+    <label class="field"><span id="spot-mag"></span><input id="q" autocomplete="off" spellcheck="false" placeholder="Search panels, cameras, events…"><kbd>esc</kbd></label>
+    <div id="results" role="listbox"></div>
+    <footer><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> run</span><span><kbd>⇧↵</kbd> pin to dock</span></footer>
+  </div>
+
+  <script src="/static/viewer.js"></script>
+  <script src="dock.js"></script>
+</body>
+</html>

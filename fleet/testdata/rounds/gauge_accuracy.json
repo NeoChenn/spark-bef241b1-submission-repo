@@ -1,0 +1,61 @@
+{
+ "classical": {
+  "normal": {
+   "n": 300,
+   "unreadable": 1,
+   "mae_pct_fs": 1.79,
+   "median_pct_fs": 1.55,
+   "p95_pct_fs": 4.32,
+   "max_pct_fs": 8.26,
+   "within_2pct": 0.639,
+   "within_5pct": 0.98,
+   "mae_bar": 0.286,
+   "red_band_classification_acc": 0.983,
+   "mae_pct_fs_when_conf_ge_0.5": 1.8,
+   "share_conf_ge_0.5": 0.983
+  },
+  "hard": {
+   "n": 300,
+   "unreadable": 11,
+   "mae_pct_fs": 4.4,
+   "median_pct_fs": 2.48,
+   "p95_pct_fs": 10.26,
+   "max_pct_fs": 79.64,
+   "within_2pct": 0.388,
+   "within_5pct": 0.789,
+   "mae_bar": 0.705,
+   "red_band_classification_acc": 0.948,
+   "mae_pct_fs_when_conf_ge_0.5": 2.87,
+   "share_conf_ge_0.5": 0.775
+  }
+ },
+ "gemini": {
+  "model": "gemini-robotics-er-2-preview",
+  "calls": 20,
+  "n": 20,
+  "unreadable": 1,
+  "mae_pct_fs": 1.71,
+  "median_pct_fs": 1.05,
+  "p95_pct_fs": 4.76,
+  "max_pct_fs": 6.27,
+  "within_2pct": 0.789,
+  "within_5pct": 0.947,
+  "mae_bar": 0.274,
+  "classical_on_same_crops": {
+   "n": 20,
+   "unreadable": 1,
+   "mae_pct_fs": 2.19,
+   "median_pct_fs": 2.31,
+   "p95_pct_fs": 4.23,
+   "max_pct_fs": 4.6,
+   "within_2pct": 0.474,
+   "within_5pct": 1.0,
+   "mae_bar": 0.351
+  },
+  "disagreement_flags": 5,
+  "cases_with_a_reader_off_by_gt_5pct": 1,
+  "of_which_flagged": 1,
+  "mean_latency_ms": 8724
+ },
+ "note": "synthetic crops rendered from sim/assets/generated/gauge_dial.png; errors in % of full scale"
+}

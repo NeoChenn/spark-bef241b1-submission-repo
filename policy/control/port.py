@@ -103,43 +103,42 @@ class ContractAdapter:
     def _job(self, jid) -> dict:
         j = self.c.jobs[jid]
         return {"id": jid, "kind": j.kind, "target": j.target, "level": getattr(j.level, "value", j.level),
-                "priority": j.priority, "status": self._status(jid), "requested_by": j.params.get("requested_by",
-                                                                                                    "coordinator"),
-                "why": j.params.get("why", ""), "params": dict(j.params)}
+                "priority": j.priority, "status": self._status(jid),
+                "requested_by": j.params.get("requested_by", "coordinator"), "why": j.params.get("why", ""),
+                "params": dict(j.params), "robot": self.c.assigned_to.get(jid), "parent": j.parent}
 
     def log(self, event, job=None, robot=None, **detail) -> dict:
         return self.c.emit(event, job, robot, **detail)
 
     def fleet_state(self) -> dict:
-        robots = [{"id": rid, "state": rt.state, "battery": round(float(rt.robot.battery), 3),
+        robots = [{"id": rid, "kind": getattr(rt.robot.kind, "value", rt.robot.kind), "state": rt.state,
+                   "battery": round(float(rt.robot.battery), 3),
                    "position": [round(float(v), 2) for v in rt.robot.position], "job": rt.job}
                   for rid, rt in self.c.rt.items()]
         st = getattr(self.c.world, "state", {}) or {}
         return {"t": round(float(self.c.t), 2), "robots": robots, "jobs": [self._job(j) for j in self.c.jobs],
-                "approvals": list(self.c.approvals), "esd": dict(st.get("esd") or {"active": False, "zone": None}),
+                "approvals": list(self.c.approvals), "crew": list(getattr(self.c, "crew", [])),
+                "esd": dict(st.get("esd") or {"active": False, "zone": None}),
                 "person_pauses": {r["id"]: None for r in robots if r["state"] == "PAUSED_PERSON"}}
 
     def job(self, job_id):
         return self._job(job_id) if job_id in self.c.jobs else None
 
     def queue(self, kind, target, level="AUTO", priority=3, params=None, by="operator", why="") -> str:
+        params = dict(params or {})
         jid = self.c.new_id(kind)
-        pos = tuple((getattr(self.c.world, "assets", {}).get(target) or {}).get("position_m") or (0.0, 0.0, 0.0))
+        asset = (getattr(self.c.world, "assets", {}) or {}).get(target) or {}
+        pos = tuple(float(v) for v in (params.pop("position", None) or asset.get("position_m") or (0.0, 0.0, 0.0)))
         job = self.k.Job(id=jid, kind=kind, target=target, position=pos, level=self.k.Level(level),
-                         priority=int(priority), params={**(params or {}), "requested_by": by, "why": why})
-        self.c.submit(job)
-        return jid if jid in self.c.jobs else next(
-            (j for j, x in self.c.jobs.items() if x.kind == kind and x.target == target), jid)
+                         priority=int(priority), params={**params, "requested_by": by, "why": why})
+        self.c.submit(job, allow_auto=by == "operator", by=by, note=why)
+        if jid in self.c.jobs:
+            return jid
+        return next((j for j, x in self.c.jobs.items() if x.kind == kind and x.target == target
+                     and self._status(j) in OPEN), jid)
 
     def cancel(self, job_id, by, why) -> bool:
-        s = self._status(job_id)
-        if s == "WAITING_APPROVAL":
-            return self.c.reject(job_id, reason=f"cancelled by {by}: {why}")
-        if s != "QUEUED":
-            return False
-        self.c.status[job_id] = self.k.JobStatus.FAILED
-        self.c.emit("cancelled", job_id, None, by=by, why=why)
-        return True
+        return self.c.cancel(job_id, by=by, reason=why)[0]
 
     def approve_request(self, job_id, by, why) -> bool:
         ok = self.c.approve(job_id, by=by)
@@ -148,12 +147,7 @@ class ContractAdapter:
         return ok
 
     def reprioritise(self, job_id, priority, by, why) -> bool:
-        if job_id not in self.c.jobs or self._status(job_id) not in OPEN:
-            return False
-        j = self.c.jobs[job_id]
-        old, j.priority = j.priority, int(priority)
-        self.c.emit("reprioritised", job_id, None, by=by, why=why, old=old, new=int(priority))
-        return True
+        return self.c.reprioritise(job_id, int(priority), by=by, why=why)[0]
 
 
 class LockedPort:

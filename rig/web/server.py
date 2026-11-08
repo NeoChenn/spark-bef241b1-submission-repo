@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import json
 import os
 from collections import deque
 import time
@@ -11,13 +12,15 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from rig.frames import encode, read_message_async
-from rig.hud import CONTROL_EVENTS, EXTRA, HOOKS
+from rig.hud import check_event
 
 STATIC = Path(__file__).parent / "static"
 REPO = Path(__file__).resolve().parents[2]
 MOCK_PATH = REPO / "runs/hud/mock_session.json"
 SESSIONS = {"argon": REPO / "runs/argon/hud_session.json",
             "argon-live": REPO / "runs_sample/argon_live/hud_session.json"}
+FLEET_DIRS = (REPO / "runs/fleet", REPO / "runs_sample/fleet")
+FLEET_SCHEMA = "fleet_state.v1"
 SHOTS = {1: "sim/output/cine_storm_aerial.png", 2: "sim/output/preview_hero.png",
          3: "sim/output/preview_repair_closeup.png"}
 LOG_KEEP = 200
@@ -38,6 +41,7 @@ class FrameHub:
         self._times: list[float] = []
         self.log: list[dict] = []
         self.log_base = 0
+        self.fleet: dict | None = None
 
     @property
     def fps(self) -> float:
@@ -52,6 +56,8 @@ class FrameHub:
         self.last_frame_at = now
         self.latest = (self._seq, jpeg, header)
         self.log.extend(header.get("events") or [])
+        if isinstance(header.get("fleet"), dict):
+            self.fleet = header["fleet"]
         if len(self.log) > LOG_KEEP:
             self.log_base += len(self.log) - LOG_KEEP
             self.log = self.log[-LOG_KEEP:]
@@ -70,7 +76,9 @@ class FrameHub:
         return end, self.log[max(0, idx - self.log_base):]
 
 
-def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Path = MOCK_PATH) -> FastAPI:
+def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Path = MOCK_PATH,
+               fleet_dirs=FLEET_DIRS, root: Path = REPO) -> FastAPI:
+    root = Path(root).resolve()
     hub = FrameHub()
     current: dict[str, asyncio.StreamWriter | None] = {"writer": None}
     pending: deque = deque()
@@ -147,15 +155,61 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
 
     @app.post("/api/event")
     async def post_event(body: dict) -> dict:
-        name = body.get("name")
-        if name not in HOOKS + EXTRA + CONTROL_EVENTS:
-            raise HTTPException(400, f"unknown event {name!r}; expected one of {HOOKS + EXTRA + CONTROL_EVENTS}")
-        pending.append({"name": name, "args": body.get("args") or {}})
+        try:
+            pending.append(check_event(body))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
         queued = len(pending)
         flush()
         if current["writer"] is not None:
             await current["writer"].drain()
         return {"queued": queued, "delivered": not pending}
+
+    def fleet_file(name: str) -> Path:
+        for d in fleet_dirs:
+            if (Path(d) / name).exists():
+                return Path(d) / name
+        raise HTTPException(404, f"no {name}")
+
+    @app.get("/api/fleet")
+    async def fleet() -> Response:
+        if hub.fleet is not None:
+            return JSONResponse(hub.fleet)
+        return FileResponse(fleet_file("fleet_state.json"), media_type="application/json")
+
+    @app.post("/api/fleet")
+    async def post_fleet(body: dict) -> dict:
+        if body.get("schema") != FLEET_SCHEMA:
+            raise HTTPException(400, f"expected schema {FLEET_SCHEMA}")
+        hub.fleet = body
+        return {"t": body.get("t")}
+
+    @app.get("/api/fleet/map")
+    async def fleet_map() -> FileResponse:
+        return FileResponse(fleet_file("fleet_map.json"), media_type="application/json")
+
+    @app.get("/api/replay")
+    async def replay(path: str) -> dict:
+        from rig.replay import load_timeline, timeline_session
+        p = (root / path).resolve()
+        if not any(p.is_relative_to(root / d) for d in ("runs", "runs_sample")):
+            raise HTTPException(403, "replay files must live under runs/ or runs_sample/")
+        if not p.is_file():
+            raise HTTPException(404, f"no {path}")
+        return await asyncio.to_thread(lambda: timeline_session(load_timeline(p)))
+
+    @app.get("/api/bench")
+    async def bench() -> list:
+        out = {}
+        for d in ("runs_sample/bench", "runs/bench"):
+            for f in sorted((root / d).glob("*.json")):
+                try:
+                    body = json.loads(f.read_text())
+                except ValueError:
+                    continue
+                if isinstance(body, dict):
+                    out[f.stem] = {"name": f.stem, **body}
+        return list(out.values())
 
     @app.get("/api/mock")
     async def mock() -> Response:
