@@ -90,7 +90,7 @@ def leg_sources(stage):
         leg = legs[rng.integers(0, len(legs), k)]
         a = rng.uniform(0, math.tau, k)
         d = np.column_stack([np.cos(a), np.sin(a)])
-        pos = np.column_stack([leg[:, :2] + d * (leg[:, 2:3] + 0.3), rng.uniform(0.5, 2.5, k)])
+        pos = np.column_stack([leg[:, :2] + d * (leg[:, 2:3] + 0.3), rng.uniform(2.0, 4.5, k)])
         up = rng.uniform(4.0, 14.0, k)
         vel = np.column_stack([d * rng.uniform(1.0, 4.0, (k, 1)), up])
         return pos, vel
@@ -158,12 +158,12 @@ class Atmosphere:
         self.embers = atmos.Particles(self.q["embers"], (np.full(3, -1e4), np.full(3, 1e4)), velocity=(0, 0, 9.0),
                                       spread=3.0, gravity=-1.5, drag=0.35, life=(1.2, 3.5), source=flare_source, seed=1)
         self.ember_curves = _curves(stage, "embers", 0.07, self.ember_mat)
-        self.rain = atmos.Particles(self.q["rain"], (np.array([-30, -30, -5.0]), np.array([30, 30, 30.0])),
+        self.rain = atmos.Particles(self.q["rain"], (np.array([-22, -22, -5.0]), np.array([22, 22, 25.0])),
                                     velocity=(0, 0, -11.0), spread=0.6, seed=2)
         self.rain_curves = _curves(stage, "rain", 0.012, self.rain_mat)
         self.spray = atmos.Particles(self.q["spray"], (np.array([-200, -200, -0.5]), np.array([200, 200, 40.0])),
                                      gravity=-9.8, drag=0.25, life=(0.8, 2.4), source=leg_sources(stage), seed=3)
-        self.spray_curves = _curves(stage, "spray", 0.05, self.spray_mat)
+        self.spray_curves = _curves(stage, "spray", 0.14, self.spray_mat)
         self._build_exhaust()
         self.flow = self._build_flow() if (flow if flow is not None else self.q["flow"]) else None
         self.puffs = [] if self.flow is not None else self._build_puffs()
@@ -259,7 +259,7 @@ class Atmosphere:
         colors = np.column_stack([60 * heat + 4, 22 * heat ** 2 + 0.6, 4 * heat ** 4]) * 2
         _set_curves(self.ember_curves, atmos.streak_points(self.embers.pos, self.embers.vel, 0.03), colors)
         if self.w["rain"] > 0 and eye is not None:
-            self.rain.recentre(eye + fwd * 22.0)
+            self.rain.recentre(eye + fwd * 16.0)
             self.rain.step(dt, (wind[0] * 0.6, wind[1] * 0.6))
             k = int(len(self.rain.pos) * self.w["rain"])
             vel = self.rain.vel[:k] + [wind[0] * 0.6, wind[1] * 0.6, 0.0]
@@ -268,7 +268,7 @@ class Atmosphere:
             puff.update(dt, wind, eye)
         self.spray.step(dt, wind)
         k = int(len(self.spray.pos) * min(1.0, 0.15 + self.w["spray"]))
-        _set_curves(self.spray_curves, atmos.streak_points(self.spray.pos[:k], self.spray.vel[:k], 0.05))
+        _set_curves(self.spray_curves, atmos.streak_points(self.spray.pos[:k], self.spray.vel[:k], 0.09))
         tip = self.stage.GetPrimAtPath("/World/Cinematic/Lamps/lamp_400/light")
         if tip:
             base = tip.GetAttribute("spark:baseIntensity")
