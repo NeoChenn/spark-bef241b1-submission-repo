@@ -159,6 +159,12 @@ body.presenter .sub { font-size: 22px; }
 .pip:not(.on) img, .pip.on .pip-none { display: none; }
 .pip img.mist { filter: blur(6px) brightness(1.3); }
 .pip-none { color: var(--label3); font-size: 12px; }
+.pip canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: none; }
+.pip.vid canvas { display: block; }
+.pip.vid img { display: none; }
+.pip-none { padding: 0 14px; text-align: center; }
+.pip-l { position: absolute; left: 8px; bottom: 8px; font-style: normal; font-size: 11px; color: rgba(255,255,255,.85); background: rgba(0,0,0,.45); padding: 2px 7px; border-radius: 6px; }
+.pip-l:empty { display: none; }
 .g-top { display: flex; justify-content: space-between; align-items: center; }
 .chip { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 7px; background: var(--fill); color: var(--label2); white-space: pre; }
 .chip.rust { color: var(--warn); background: rgba(227,179,65,.14); }

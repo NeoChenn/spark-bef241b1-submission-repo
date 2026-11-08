@@ -42,12 +42,16 @@
   H.panel({ id: "pipe", title: "Pipe map", icon: "grid", key: "m", phases: ["DONE", "PAINT"], priority: 30, keys: "heatmap rust grid sprayed painted",
     desc: "Rust across the unrolled pipe surface, with sprayed and painted cells.", hint: (S) => (S.rust == null ? "" : S.rust.toFixed(0) + " %"),
     render(el, S) { drawPipe(q(el, PIPE).c, S); } });
-  const PIP = `<div class="pip"><img data-k="img" alt=""><span class="pip-none">Waiting for the first look</span></div>`;
+  const PIP = `<div class="pip"><img data-k="img" alt=""><canvas data-k="cv"></canvas><span class="pip-none" data-k="none">Waiting for the first look</span><em class="pip-l" data-k="lab"></em></div>`;
   H.panel({ id: "inspect", title: "Inspection camera", icon: "eye", key: "i", phases: (S) => !!S.inspection && SEE.includes(S.state), priority: 40, keys: "pip picture camera detector mask",
-    desc: "What the on-board detector sees, with the rust mask outlined.", hint: (S) => (S.inspection ? "Live" : ""),
+    desc: "What the on-board detector sees, with the rust mask outlined. In a replay it shows the recorded Isaac render nearest the replay clock.", hint: (S) => (S.inspection ? "Live" : H.simcam ? H.simcam(S).label || "" : ""),
     render(el, S) {
-      const x = q(el, PIP), j = S.inspection?.jpg;
-      if (j && x.img._j !== j) { x.img._j = j; x.img.src = "data:image/jpeg;base64," + j; x.img.parentNode.classList.add("on"); }
+      const x = q(el, PIP), j = S.inspection?.jpg, sc = !j && H.simcam ? H.simcam(S) : null, src = j ? "data:image/jpeg;base64," + j : sc?.img;
+      if (src && x.img._j !== src) { x.img._j = src; x.img.src = src; }
+      const vid = sc?.video, pip = x.img.parentNode;
+      if (vid && vid.videoWidth) { const c = x.cv, w = c.clientWidth * 2, h = c.clientHeight * 2; if (c.width !== w) { c.width = w; c.height = h; } const k = Math.max(w / vid.videoWidth, h / vid.videoHeight); c.getContext("2d").drawImage(vid, (w - vid.videoWidth * k) / 2, (h - vid.videoHeight * k) / 2, vid.videoWidth * k, vid.videoHeight * k); }
+      pip.classList.toggle("on", !!src || !!vid); pip.classList.toggle("vid", !!vid);
+      set(x.none, sc?.none || "Waiting for the first look"); set(x.lab, sc?.label || (j ? "On-board detector" : ""));
       x.img.classList.toggle("mist", !!S.mist);
     } });
   const GEM = `<div class="g-top"><span class="chip" data-k="v">No call yet</span><span class="tnum dim" data-k="lat"></span></div><div class="bar"><span data-k="bar"></span></div><div class="thumb"><img data-k="img" alt=""><svg data-k="pts"></svg></div><p class="why" data-k="why"></p>`;

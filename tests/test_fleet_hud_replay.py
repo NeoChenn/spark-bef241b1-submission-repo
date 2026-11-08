@@ -102,3 +102,31 @@ def test_video_route_serves_ranges_under_runs_only(tmp_path):
         r = c.get("/api/video", params={"path": "runs/fleet_isaac/final2/fleet_isaac.mp4"}, headers={"Range": "bytes=10-19"})
         assert r.status_code == 206 and len(r.content) == 10
         assert c.get("/api/video", params={"path": "../x.mp4"}).status_code == 403
+
+
+def _shot(root, name, ts, x):
+    d = root / "runs/film_isaac" / name
+    (d / "frames").mkdir(parents=True)
+    rows = []
+    for i, t in enumerate(ts):
+        (d / "frames" / f"{i:05d}.jpg").write_bytes(b"\xff\xd8jpg")
+        rows.append({"frame": i, "sim_t": t, "shot": name, "robots": {"unit2": {"timeline_pos": [x(t), 0.0]}}})
+    (d / "fleet_isaac_header.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+
+
+def test_replay_offers_rendered_frames_whose_robot_positions_match(tmp_path):
+    d = tmp_path / "runs_sample/film"
+    d.mkdir(parents=True)
+    (d / "hud.jsonl").write_text("".join(json.dumps({"t": t / 2, "robots": [{"id": "unit2", "world_pos": [t / 2, 0.0, 42.5]}]}) + "\n" for t in range(41)))
+    (d / "timeline.jsonl").write_text("")
+    _shot(tmp_path, "unit2_job", [4.0 + k / 10 for k in range(30)], lambda t: t)
+    _shot(tmp_path, "walk_back_u2", [12.0 + k / 10 for k in range(30)], lambda t: t + 6.0)
+    _shot(tmp_path, "rig", [0.0, 0.0, 0.0], lambda t: 0.0)
+    with TestClient(create_app(sim_port=0, root=tmp_path)) as c:
+        cam = c.get("/api/replay", params={"path": "runs_sample/film"}).json()["simcam"]
+        assert [s["shot"] for s in cam["shots"]] == ["unit2_job"] and cam["shots"][0]["robot"] == "unit2"
+        url = cam["shots"][0]["base"] + "/00003.jpg"
+        assert c.get(url).status_code == 200
+        assert c.get("/api/frame", params={"path": "runs_sample/film/hud.jsonl"}).status_code == 404
+        assert c.get("/api/frame", params={"path": "../x.jpg"}).status_code == 403
+        assert c.get("/api/replay", params={"path": "runs_sample/film"}).json()["video"] is None

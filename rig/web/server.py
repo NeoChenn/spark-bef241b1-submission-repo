@@ -3,6 +3,7 @@ import contextlib
 import gzip
 import hashlib
 import json
+import math
 import os
 from collections import deque
 import time
@@ -32,6 +33,8 @@ HEADER_FILES = ("headers.jsonl", "header.jsonl", "hud.jsonl", "frames.jsonl", "l
 TIMELINE_FILES = ("timeline.jsonl", "live_timeline.jsonl")
 VIDEO_DIRS = ("runs/fleet_isaac", "runs_sample/fleet_isaac")
 SPAN_TOL_S = 1.0
+ANCHOR_DT_S = 0.6
+ANCHOR_M = 0.5
 TIMELINE_TYPES = ("finding", "argon_request", "argon_call", "command", "ticket", "vetoed", "object_report", "nav_event", "scenario")
 
 
@@ -84,6 +87,63 @@ def video_info(root: Path, mp4: Path) -> dict | None:
 
 def _sha256(f: Path) -> str:
     return hashlib.sha256(f.read_bytes()).hexdigest()
+
+
+SHOT_ROBOT = {"unit2_walk": "unit2", "unit2_job": "unit2", "walk_back_u2": "unit2", "unit1_walk": "unit1",
+              "unit1_spray": "unit1", "unit1_soak": "unit1", "unit1_scrub": "unit1", "unit1_paint": "unit1",
+              "walk_back_u1": "unit1"}
+
+
+def _shot_frames(d: Path) -> tuple[list[list], list[tuple]]:
+    out, anchors = [], []
+    for line in (d / "fleet_isaac_header.jsonl").read_text().splitlines():
+        try:
+            h = json.loads(line)
+        except ValueError:
+            continue
+        f = d / "frames" / f"{int(h.get('frame', 0)):05d}.jpg"
+        if f.is_file():
+            t = round(float(h.get("sim_t", h.get("t", 0.0))), 3)
+            out.append([t, int(h.get("frame", 0))])
+            anchors.append((t, {k: (r.get("timeline_pos") or r.get("pos")) for k, r in (h.get("robots") or {}).items()}))
+    return out, anchors
+
+
+def _matches(anchors: list[tuple], heads: list[dict]) -> bool:
+    import bisect
+    ts = [float(h["t"]) for h in heads]
+    errs = []
+    for t, pos in anchors[:: max(1, len(anchors) // 6)]:
+        k = bisect.bisect_left(ts, t)
+        k = min(range(max(0, k - 1), min(len(ts), k + 1)), key=lambda i: abs(ts[i] - t), default=None)
+        if k is None or abs(ts[k] - t) > ANCHOR_DT_S:
+            return False
+        for r in heads[k].get("robots") or []:
+            p = pos.get(r.get("id"))
+            if p and r.get("world_pos"):
+                errs.append(math.dist(p[:2], r["world_pos"][:2]))
+    return bool(errs) and sorted(errs)[len(errs) // 2] <= ANCHOR_M
+
+
+def find_simcam(root: Path, replay_dir: Path, timeline: str | None, heads: list[dict]) -> dict | None:
+    base = root / "runs" / f"{replay_dir.name}_isaac"
+    if not base.is_dir():
+        return None
+    meta = base / "fleet_isaac.json"
+    m = json.loads(meta.read_text()) if meta.is_file() else {}
+    if m.get("timeline") and timeline and m["timeline"] != timeline:
+        return None
+    sha_ok = bool(m.get("timeline_sha256")) and timeline is not None and m["timeline_sha256"] == _sha256(root / timeline)
+    shots = []
+    for d in sorted(base.iterdir()):
+        if not (d / "fleet_isaac_header.jsonl").is_file():
+            continue
+        fr, anchors = _shot_frames(d)
+        if len(fr) < 2 or fr[-1][0] - fr[0][0] < 0.1 or not (sha_ok or _matches(anchors, heads)):
+            continue
+        shots.append({"shot": d.name, "robot": SHOT_ROBOT.get(d.name), "base": "/api/frame?path=" + str((d / "frames").relative_to(root)),
+                      "frames": fr})
+    return {"shots": shots} if shots else None
 
 
 def find_video(root: Path, timeline: str | None, t_end: float | None = None) -> dict | None:
@@ -287,6 +347,7 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             v = inside(video) if video else None
             t_end = float(fleet["snapshots"][0]["t"]) + float(fleet["duration"]) if fleet["snapshots"] else None
             fleet["video"] = await asyncio.to_thread(lambda: video_info(root, v) if v else find_video(root, rel, t_end))
+            fleet["simcam"] = await asyncio.to_thread(find_simcam, root, p if p.is_dir() else p.parent, rel, fleet["snapshots"])
             body = await asyncio.to_thread(lambda: json.dumps(fleet, separators=(",", ":")).encode())
             if "gzip" not in request.headers.get("accept-encoding", ""):
                 return Response(body, media_type="application/json")
@@ -297,10 +358,17 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
         return await asyncio.to_thread(lambda: timeline_session(load_timeline(p)))
 
     def inside(rel: str) -> Path:
-        v = (root / rel).resolve()
+        v = Path(os.path.normpath(root / rel))
         if not any(v.is_relative_to(root / d) for d in ("runs", "runs_sample")):
             raise HTTPException(403, "videos must live under runs/ or runs_sample/")
         return v
+
+    @app.get("/api/frame")
+    async def frame_file(path: str) -> FileResponse:
+        v = inside(path)
+        if v.suffix.lower() not in (".jpg", ".jpeg", ".png") or not v.is_file() or not v.is_relative_to(root / "runs"):
+            raise HTTPException(404, f"no {path}")
+        return FileResponse(v, headers={"Cache-Control": "max-age=3600"})
 
     @app.get("/api/video")
     async def video_file(path: str) -> FileResponse:
