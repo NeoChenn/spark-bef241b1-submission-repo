@@ -5,7 +5,7 @@
   const SHOW = { reroute: "warn", blocked: "stop", barrel_stopped: "ok", needs_human: "stop" };
   const pretty = (m) => String(m || "").replace(/ -> /g, " → ").replace(/ deg\b/g, "°").replace(/_/g, " ");
 
-  function toast(kind, title, sub, ms = 5600) {
+  function toast(kind, title, sub, ms = 7000) {
     const box = $("toasts"), el = document.createElement("div");
     el.className = "toast"; el.dataset.k = kind;
     el.innerHTML = `<i></i><div><b></b><span></span></div>`;
@@ -55,6 +55,7 @@
     after?.();
     const log = body.fleet?.log || [];
     const m = log.find((e) => e.kind !== "reroute");
+    if (m?.hazard) S.follow = m.hazard;
     const [head, ...rest] = pretty(m?.message || "").split(" → ");
     toast(name === "clear" || name === "set_weather" ? "ok" : "warn", title, rest.join(" → ") || head || "Sent to the sim");
     log.filter((e) => e.kind === "reroute").forEach(showEvent);
@@ -99,6 +100,8 @@
 
   function onFleet(f) {
     S.fleet = f; S.dirty = true;
+    const fo = S.follow && (f.hazards?.obstacles || []).find((o) => o.id === S.follow);
+    if (fo) { S.follow = null; setDeck(deckOf(fo.xyz[2])); }
     const evs = f.recent_events || [];
     if (!S.seen) S.seen = new Set(evs.map((e) => e.t + e.kind + e.message));
     else evs.forEach(showEvent);
