@@ -1,0 +1,83 @@
+{
+ "control": "edge",
+ "t_end": 78.8,
+ "beats": {
+  "1_unit1_spray": 2.3,
+  "1_unit1_soak": 5.4,
+  "1_unit1_scrub": 11.1,
+  "1_unit1_scrubbing": 11.1,
+  "1_unit2_docked": 0.0,
+  "2_leak_start": 18.0,
+  "2_gf5_amber": 18.8,
+  "2_gf5_red": 20.6,
+  "3_spark_hold": 18.8,
+  "3_unit1_held": 18.9,
+  "3_unverified": 20.6,
+  "3_dispatch_unit2": 20.6,
+  "4_unit2_walks": 20.7,
+  "4_unit2_sniffs": 42.8,
+  "4_leak_confirmed": 36.9,
+  "4_fix_leak": 36.9,
+  "4_retorque": 49.1,
+  "4_gf5_green": 56.4,
+  "5_resume_rust": 56.4,
+  "5_unit1_scrubs_again": 56.5,
+  "5_unit1_verify": 69.0,
+  "5_unit1_paint": 70.6,
+  "5_unit1_done": 75.8,
+  "5_unit2_returns": 57.0,
+  "5_unit2_docked": 78.7,
+  "6_gf6_stuck": 2.0,
+  "6_gf6_fault": 5.0,
+  "6_ticket": 5.0,
+  "6_inbox": 5.0,
+  "6_no_repair_at_f6": 5.0,
+  "6_object_report": null,
+  "6_link_cut": null
+ },
+ "argon": {
+  "model": "edge rules",
+  "prompt": "integration.argon_fleet_prompt",
+  "mode": "edge",
+  "calls": 0,
+  "ok": 0,
+  "latency_ms": {
+   "min": null,
+   "max": null,
+   "mean": null
+  },
+  "cost_usd": 0,
+  "tickets": [
+   {
+    "id": "MT-001",
+    "sensor": "G-F6",
+    "t": 5.0,
+    "source": "edge",
+    "reason": "edge rule PIPE_SENSOR_FAULT: G-F6 14.0%LEL but unit2 reads 2.0%LEL at 2.0 m"
+   }
+  ],
+  "commands": [
+   "5.0s edge:log_sensor_fault:supv:G-F6",
+   "18.8s edge:hold:unit1:F5",
+   "20.6s edge:go_check:unit2:F5",
+   "36.9s edge:fix_leak:unit2:F5",
+   "56.4s edge:resume_rust:unit1:"
+  ]
+ },
+ "nav": "fleet_nav.NavWalker (pure_pursuit)",
+ "inbox": [
+  {
+   "ticket": "MT-001",
+   "job_id": "SENS-001",
+   "sensor": "G-F6",
+   "source": "edge",
+   "status": "WAITING_APPROVAL",
+   "health": "OK",
+   "envelope": null
+  }
+ ],
+ "dock_unit2": [
+  29.6,
+  -9.68
+ ]
+}

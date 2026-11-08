@@ -131,3 +131,24 @@ def test_f5_goal_is_the_retorque_work_pose():
     x = F5[0] + 0.6 * F5_NORMAL[0]
     y = F5[1] + 0.6 * F5_NORMAL[1]
     assert np.allclose(F5_WORK, (x, y, math.atan2(-F5_NORMAL[1], -F5_NORMAL[0])))
+
+
+@pytest.mark.parametrize("beams", [72, 360])
+def test_static_map_never_reads_as_an_object_on_a_straight_dock_to_f5_drive(beams):
+    from integration.fleet_nav import BaseSim, _NAVS
+    from integration.fleet_paths import polyline
+    _NAVS.pop("unit2", None)
+    deck = DeckMap.rig_merged()
+    angles = np.linspace(-math.pi, math.pi, beams, endpoint=False)
+    base = BaseSim(*DOCK["unit2"])
+    path = polyline(DOCK["unit2"], F5_WORK)
+    t = 0.0
+    while t < 25.0 and (t == 0.0 or nav("unit2").state != ARRIVED):
+        scan = (deck.raycast(base.x, base.y, base.yaw, angles, 0.3), angles)
+        vx, wz = drive("unit2", scan, base.pose, base.v, base.w, path, t=t)
+        base.step(vx, wz)
+        assert deck.clearance(*base.pose) > 0.0
+        t += 0.1
+    kinds = [e["type"] for e in nav("unit2").events]
+    assert "object_on_walkway" not in kinds and "blocked" not in kinds
+    assert nav("unit2").state == ARRIVED and math.dist(base.pose[:2], F5_WORK[:2]) < 0.06

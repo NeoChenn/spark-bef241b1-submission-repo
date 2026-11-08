@@ -88,6 +88,8 @@ BOXES = (
     ("barrel", 25.33, 25.97, -1.77, -1.13, 0.0, 0.93),
     ("barrel", 24.54, 25.36, -1.76, -0.94, 0.0, 0.93),
     ("rack", 11.09, 12.01, -10.45, -9.85, 0.0, 1.9),
+    ("detector_g_f5", 20.06, 20.26, -10.5, -10.3, 0.9, 1.1),
+    ("detector_g_f6", 31.1, 31.3, -10.96, -10.76, 0.9, 1.1),
 )
 DISCS = (("crane_pedestal", 31.75, -4.65, 2.0, 0.0, 2.0),)
 
@@ -117,7 +119,7 @@ class DeckMap:
     def raycast(self, x, y, yaw, angles, h, max_range=4.0) -> np.ndarray:
         th = yaw + np.asarray(angles, float)
         dx, dy = np.cos(th)[:, None], np.sin(th)[:, None]
-        b = self.boxes[(self.boxes[:, 4] <= h) & (self.boxes[:, 5] >= h)]
+        b = self.boxes if h is None else self.boxes[(self.boxes[:, 4] <= h) & (self.boxes[:, 5] >= h)]
         r = np.full(len(th), np.inf)
         if len(b):
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -129,7 +131,7 @@ class DeckMap:
             t = np.where(hit, np.maximum(tn, 0), np.inf)
             r = np.minimum(r, t.min(1))
         for cx, cy, rad, z0, z1 in self.discs:
-            if not z0 <= h <= z1:
+            if h is not None and not z0 <= h <= z1:
                 continue
             ox, oy = x - cx, y - cy
             bb = ox * dx[:, 0] + oy * dy[:, 0]

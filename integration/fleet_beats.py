@@ -97,7 +97,7 @@ class Inbox:
 
 
 class StuckSensor:
-    def __init__(self, scenario, at: float, sensor: str = "G-F1", value: float = STUCK_LEL,
+    def __init__(self, scenario, at: float, sensor: str = "G-F6", value: float = STUCK_LEL,
                  inbox: Optional[Inbox] = None, health=None):
         self.det = detector(scenario, sensor)
         self.at, self.sensor, self.value = float(at), sensor, float(value)
@@ -165,17 +165,9 @@ class CutLink:
         want = self.down(t)
         if want == self.link.link_cut:
             return None
-        self.link.cut(want)
+        dropped = self.link.cut(want, t)
         if self.agent is not None:
             self.agent.cut_link(want)
-        dropped = []
-        if want:
-            for r in ([self.link.pending] if self.link.pending else []) + list(self.link.queue):
-                if not isinstance(r.result, EdgeOnly):
-                    r.result, r.due = EdgeOnly(), t
-                    for c in r.fallback:
-                        c.reason = f"link cut -> {c.reason}"
-                    dropped.append(r.key)
         ev = {"t": round(float(t), 2), "event": "link_cut" if want else "link_restored", "banner": self.banner(),
               "dropped": dropped}
         self.events.append(ev)
@@ -190,7 +182,7 @@ def banner(link) -> str:
     return BANNER_OFFLINE if link.link_cut else ""
 
 
-def stuck_sensor(scenario, at: float, sensor: str = "G-F1", value: float = STUCK_LEL, **kw) -> StuckSensor:
+def stuck_sensor(scenario, at: float, sensor: str = "G-F6", value: float = STUCK_LEL, **kw) -> StuckSensor:
     return StuckSensor(scenario, at, sensor, value, **kw)
 
 

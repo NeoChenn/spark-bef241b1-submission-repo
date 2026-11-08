@@ -5,7 +5,7 @@ import math
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Callable, Optional
@@ -16,6 +16,11 @@ CLEAR_LEL = 5.0
 ALARM_LEL = 10.0
 STOP_LEL = 20.0
 NEAR_M = 2.0
+NEAR_EXIT_M = 2.5
+CLOSE_M = 1.0
+CLOSE_CONFIRM_S = 1.0
+ATTRIBUTE_M = 4.0
+FAULT_CONFIRM_S = 3.0
 SPARK_RADIUS_M = 6.0
 
 SCRUBBER = "unit1"
@@ -29,11 +34,12 @@ UNVERIFIED = "UNVERIFIED"
 OK = "OK"
 FINDINGS = (LEAK_CONFIRMED, PIPE_SENSOR_FAULT, LEAK_UNSEEN_BY_FIXED, UNVERIFIED, OK)
 
-GO_CHECK, FIX_LEAK, RETREAT, RESUME_RUST, LOG_SENSOR_FAULT, HOLD = (
-    "go_check", "fix_leak", "retreat", "resume_rust", "log_sensor_fault", "hold")
-COMMANDS = (GO_CHECK, FIX_LEAK, RETREAT, RESUME_RUST, LOG_SENSOR_FAULT, HOLD)
+GO_CHECK, FIX_LEAK, RETREAT, RESUME_RUST, LOG_SENSOR_FAULT, HOLD, ESCALATE = (
+    "go_check", "fix_leak", "retreat", "resume_rust", "log_sensor_fault", "hold", "escalate")
+COMMANDS = (GO_CHECK, FIX_LEAK, RETREAT, RESUME_RUST, LOG_SENSOR_FAULT, HOLD, ESCALATE)
 ROUTE = {GO_CHECK: FIXER, FIX_LEAK: FIXER, HOLD: SCRUBBER, RETREAT: SCRUBBER, RESUME_RUST: SCRUBBER,
-         LOG_SENSOR_FAULT: SUPERVISOR}
+         LOG_SENSOR_FAULT: SUPERVISOR, ESCALATE: SUPERVISOR}
+FLANGE_TARGET = (GO_CHECK, FIX_LEAK, HOLD, RETREAT)
 NEEDS_TARGET = (GO_CHECK, FIX_LEAK, LOG_SENSOR_FAULT)
 
 
@@ -59,6 +65,7 @@ class FixedDetector:
     pos: tuple
     stuck_at: Optional[float] = None
     last: float = 0.0
+    fault: bool = False
 
     def read(self, gas_at: Callable[[np.ndarray], float]) -> float:
         v = self.stuck_at if self.stuck_at is not None else 100.0 * float(gas_at(np.asarray(self.pos, float)))
@@ -86,9 +93,10 @@ class Finding:
 
 
 def fuse(fixed: FixedDetector, robot_lel: Optional[float], robot_dist: Optional[float],
-         near_m: float = NEAR_M, robot: str = "") -> Finding:
+         near_m: float = NEAR_M, robot: str = "", was_near: bool = False) -> Finding:
     f = fixed.last
-    near = robot_dist is not None and robot_dist <= near_m and robot_lel is not None
+    reach = NEAR_EXIT_M if was_near else near_m
+    near = robot_dist is not None and robot_dist <= reach and robot_lel is not None
     who = robot or "robot"
     where = "--" if robot_dist is None else f"{robot_dist:.1f} m"
     rl = "--" if robot_lel is None else f"{robot_lel:.1f}"
@@ -97,18 +105,24 @@ def fuse(fixed: FixedDetector, robot_lel: Optional[float], robot_dist: Optional[
             kind, why = UNVERIFIED, f"{fixed.id} {f:.1f}%LEL, {who} {rl}%LEL at {where}: too far to confirm"
         elif robot_lel >= CLEAR_LEL:
             kind, why = LEAK_CONFIRMED, f"{fixed.id} {f:.1f}%LEL and {who} {rl}%LEL at {where} agree"
+        elif f >= STOP_LEL:
+            kind, why = LEAK_CONFIRMED, (f"{fixed.id} {f:.1f}%LEL >= stop {STOP_LEL:.0f}: treated as real gas although "
+                                         f"{who} reads {rl}%LEL at {where}")
         else:
             kind, why = PIPE_SENSOR_FAULT, f"{fixed.id} {f:.1f}%LEL but {who} reads {rl}%LEL at {where}"
     elif near and robot_lel >= ALARM_LEL:
         kind, why = LEAK_UNSEEN_BY_FIXED, f"{who} {rl}%LEL at {where}, {fixed.id} only {f:.1f}%LEL"
+    elif robot_lel is not None and robot_lel >= ALARM_LEL and robot_dist is not None and robot_dist <= ATTRIBUTE_M:
+        kind, why = UNVERIFIED, f"{who} {rl}%LEL at {where} from {fixed.id} ({f:.1f}%LEL): source not located"
     else:
         kind, why = OK, f"{fixed.id} {f:.1f}%LEL, {who} {rl}%LEL at {where}"
-    hazard = f >= STOP_LEL or (robot_lel is not None and robot_lel >= STOP_LEL)
+    attributed = robot_dist is not None and robot_dist <= ATTRIBUTE_M
+    hazard = f >= STOP_LEL or (attributed and robot_lel is not None and robot_lel >= STOP_LEL)
     return Finding(kind, fixed.id, fixed.flange, f, None if robot_lel is None else round(robot_lel, 2),
                    None if robot_dist is None else round(robot_dist, 2), why, robot, hazard)
 
 
-def fuse_fleet(fixed: FixedDetector, sniffers: dict, near_m: float = NEAR_M) -> Finding:
+def fuse_fleet(fixed: FixedDetector, sniffers: dict, near_m: float = NEAR_M, memory: Optional[dict] = None) -> Finding:
     best = None
     for rid, (lel, pos) in sniffers.items():
         if pos is None:
@@ -118,7 +132,11 @@ def fuse_fleet(fixed: FixedDetector, sniffers: dict, near_m: float = NEAR_M) -> 
             best = (rid, lel, d)
     if best is None:
         return fuse(fixed, None, None, near_m)
-    return fuse(fixed, best[1], best[2], near_m, robot=best[0])
+    key = (fixed.id, best[0])
+    was = bool(memory.get(key)) if memory is not None else False
+    if memory is not None:
+        memory[key] = best[2] <= (NEAR_EXIT_M if was else near_m)
+    return fuse(fixed, best[1], best[2], near_m, robot=best[0], was_near=was)
 
 
 @dataclass
@@ -143,10 +161,15 @@ def command(kind: str, target: str, source: str, reason: str, finding: str = "",
 
 def edge_rule(fd: Finding, robot: Optional[str] = None, crack: bool = False) -> list[Command]:
     why = f"edge rule {fd.kind}: {fd.reason}"
-    if crack or (fd.robot_lel is not None and fd.robot_lel >= STOP_LEL):
+    if crack or fd.hazard:
+        why = f"edge rule HAZARD {fd.kind}: {fd.reason}"
         out = [command(HOLD, fd.flange, "edge", why, fd.kind)]
-        if fd.robot:
+        near = fd.robot_dist is not None and fd.robot_dist <= NEAR_M
+        in_gas = fd.robot_lel is not None and fd.robot_lel >= STOP_LEL
+        if fd.robot and (in_gas or near):
             out.append(command(RETREAT, fd.flange, "edge", why, fd.kind, robot=fd.robot))
+        elif fd.kind == UNVERIFIED:
+            out.append(command(GO_CHECK, fd.flange, "edge", why, fd.kind))
         return out
     if fd.kind == UNVERIFIED:
         return [command(HOLD, fd.flange, "edge", why, fd.kind), command(GO_CHECK, fd.flange, "edge", why, fd.kind)]
@@ -206,10 +229,10 @@ SCHEMA = {
 
 
 def build_prompt(fd: Optional[Finding], robots: dict, detectors: list[FixedDetector], t: float,
-                 event: str = "") -> str:
+                 event: str = "", findings=None, faulted=()) -> str:
     snap = {"t_s": round(t, 1), "event": event, "finding": fd.to_dict() if fd else None, "robots": robots,
             "fixed_detectors": [{"id": d.id, "flange": d.flange, "pos": [round(float(v), 2) for v in d.pos],
-                                 "lel": d.last, "led": led(d.last)} for d in detectors],
+                                 "lel": d.last, "led": led(d.last, d.fault)} for d in detectors],
             "thresholds_lel": {"clear": CLEAR_LEL, "alarm": ALARM_LEL, "stop": STOP_LEL, "near_m": NEAR_M,
                                "spark_radius_m": SPARK_RADIUS_M}}
     return "Snapshot (JSON):\n" + json.dumps(snap, separators=(",", ":"), default=str)
@@ -244,10 +267,13 @@ def parse_reply(text: str, fd: Optional[Finding], ids: set) -> list[Command]:
     return out
 
 
+PROMPT_SOURCE = "integration.dual_argon"
 try:
     from integration.argon_fleet_prompt import SCHEMA, SYSTEM, build_prompt, parse_reply
-except ImportError:
-    pass
+    PROMPT_SOURCE = "integration.argon_fleet_prompt"
+except ImportError as e:
+    if getattr(e, "name", "") != "integration.argon_fleet_prompt":
+        raise
 
 
 def request_body(text: str, model: str, thinking: str) -> dict:
@@ -315,6 +341,7 @@ class Request:
     t: float
     text: str
     fallback: list
+    advisory: bool = False
     future: object = None
     result: object = None
     due: Optional[float] = None
@@ -322,7 +349,9 @@ class Request:
 
 class ArgonLink:
     def __init__(self, mode: str, timeline, caller=None, edge_timeout_s: float = 25.0, today=date.today,
-                 spark_radius_m: float = SPARK_RADIUS_M):
+                 spark_radius_m: float = SPARK_RADIUS_M, fault_confirm_s: float = FAULT_CONFIRM_S):
+        self.fault_confirm_s = fault_confirm_s
+        self.fault_since: dict[str, float] = {}
         self.mode, self.timeline, self.caller = mode, timeline, caller
         self.edge_timeout_s, self.today, self.spark_radius_m = edge_timeout_s, today, spark_radius_m
         self.link_cut = mode == "edge"
@@ -330,10 +359,12 @@ class ArgonLink:
         self.queue: list[Request] = []
         self.pending: Optional[Request] = None
         self.verdict: dict[str, str] = {}
+        self.state: dict[str, tuple] = {}
         self.findings: dict[str, Finding] = {}
         self.faulted: set[str] = set()
         self.tickets: list[dict] = []
         self.held = False
+        self.holds: set[str] = set()
         self.clear_asked = False
         self.spark: list[str] = []
         self.commands: list[Command] = []
@@ -348,25 +379,66 @@ class ArgonLink:
     def cloud(self) -> bool:
         return not self.link_cut and self.caller is not None and self.caller.available
 
-    def cut(self, on: bool) -> None:
+    def cut(self, on: bool, t: float = 0.0) -> list[str]:
         self.link_cut = bool(on)
         self.status = "cut" if on else "idle"
-        self.timeline.log("link", -1.0 if not self.commands else self.commands[-1].t, cut=self.link_cut)
+        self.timeline.log("link", t, cut=self.link_cut)
+        dropped = []
+        if on:
+            for r in ([self.pending] if self.pending is not None else []) + self.queue:
+                if not isinstance(r.result, EdgeOnly):
+                    r.result, r.due = EdgeOnly(), t
+                    for c in r.fallback:
+                        c.reason = f"link cut -> {c.reason}"
+                    dropped.append(r.key)
+        return dropped
 
     def tick(self, t: float, findings: list[Finding], robots: dict, detectors: list[FixedDetector], ids: set,
-             scrubber_pos=None, crack: bool = False, wait: bool = False) -> list[Command]:
-        out = self._collect(t, ids, wait)
+             scrubber_pos=None, crack=False, wait: bool = False) -> list[Command]:
+        out = []
+        dmap = {d.id: d for d in detectors}
+        for d in detectors:
+            d.fault = d.id in self.faulted
         for fd in findings:
             self.findings[fd.sensor] = fd
-            if self.verdict.get(fd.sensor) == fd.kind:
+            cracked = fd.flange in crack if isinstance(crack, (set, frozenset, list, tuple)) else bool(crack)
+            if fd.sensor in self.faulted and fd.kind == UNVERIFIED and not (fd.hazard or cracked):
+                fd = replace(fd, kind=PIPE_SENSOR_FAULT, reason=f"known fault (ticketed): {fd.reason}")
+            if fd.kind == PIPE_SENSOR_FAULT and fd.sensor not in self.faulted:
+                t0 = self.fault_since.setdefault(fd.sensor, t)
+                close = fd.robot_dist is not None and fd.robot_dist <= CLOSE_M and t - t0 >= CLOSE_CONFIRM_S
+                if t - t0 < self.fault_confirm_s and not close:
+                    continue
+            else:
+                self.fault_since.pop(fd.sensor, None)
+            if fd.kind in (LEAK_CONFIRMED, LEAK_UNSEEN_BY_FIXED) and fd.sensor in self.faulted:
+                self.faulted.discard(fd.sensor)
+                self.timeline.log("fault_cleared", t, sensor=fd.sensor, by=fd.kind)
+            state = (fd.kind, fd.hazard or cracked)
+            if self.state.get(fd.sensor) == state:
                 continue
+            self.state[fd.sensor] = state
             self.verdict[fd.sensor] = fd.kind
-            self.timeline.log("finding", t, **fd.to_dict(), led=led(fd.fixed_lel, fd.kind == PIPE_SENSOR_FAULT))
+            self.timeline.log("finding", t, **fd.to_dict(), crack=cracked,
+                              led=led(fd.fixed_lel, fd.kind == PIPE_SENSOR_FAULT))
             if fd.kind == PIPE_SENSOR_FAULT:
                 self.faulted.add(fd.sensor)
+            key = f"{fd.sensor}:{fd.kind}" + (":HAZARD" if state[1] else "")
+            if state[1]:
+                out += self._issue(t, edge_rule(fd, crack=cracked))
+                self._ask(t, key, fd, self._prompt(fd, robots, detectors, t), [], advisory=True)
+                continue
             if fd.kind == OK:
                 continue
-            self._ask(t, f"{fd.sensor}:{fd.kind}", fd, build_prompt(fd, robots, detectors, t), edge_rule(fd, crack=crack))
+            fallback = edge_rule(fd)
+            far = scrubber_pos is not None and fd.sensor in dmap and \
+                dmap[fd.sensor].dist(scrubber_pos) > self.spark_radius_m
+            if far:
+                fallback = [c for c in fallback if not (c.kind == HOLD and c.robot == SCRUBBER)]
+            self._ask(t, key, fd, self._prompt(fd, robots, detectors, t), fallback)
+        for d in detectors:
+            d.fault = d.id in self.faulted
+        out += self._collect(t, ids, wait)
         hot = [] if scrubber_pos is None else spark_hot(scrubber_pos, detectors, self.faulted, self.spark_radius_m)
         self.spark = hot
         if hot and not self.held:
@@ -375,23 +447,31 @@ class ArgonLink:
         quiet = all(v in (OK, PIPE_SENSOR_FAULT) for v in self.verdict.values())
         if self.held and not hot and quiet and not self.clear_asked:
             self.clear_asked = True
-            self._ask(t, "zone:clear", None, build_prompt(None, robots, detectors, t, event="zone clear: every "
+            self._ask(t, "zone:clear", None, self._prompt(None, robots, detectors, t, event="zone clear: every "
                                                           "detector near unit1 green, no open leak"),
                       [command(RESUME_RUST, "", "edge", "zone clear: detectors near unit1 green, no open leak")])
         out += self._pump(t, ids, wait)
         return out
 
-    def _ask(self, t, key, fd, text, fallback) -> None:
+    def _prompt(self, fd, robots, detectors, t, event: str = "") -> str:
+        return build_prompt(fd, robots, detectors, t, event=event, findings=list(self.findings.values()),
+                            faulted=set(self.faulted))
+
+    def _ask(self, t, key, fd, text, fallback, advisory: bool = False) -> None:
         if not self.cloud:
-            self.queue.append(Request(key, fd, t, text, fallback, result=EdgeOnly(), due=t))
+            if not advisory:
+                self.queue.append(Request(key, fd, t, text, fallback, result=EdgeOnly(), due=t))
             return
-        self.queue.append(Request(key, fd, t, text, fallback))
+        self.queue.append(Request(key, fd, t, text, fallback, advisory))
 
     def _pump(self, t, ids, wait) -> list[Command]:
         out = []
         while True:
             if self.pending is None and self.queue:
                 r = self.queue.pop(0)
+                if r.finding is not None and self.verdict.get(r.finding.sensor) != r.finding.kind:
+                    self.timeline.log("stale", t, key=r.key, now=self.verdict.get(r.finding.sensor))
+                    continue
                 if r.result is None:
                     r.t = t
                     r.future = self.pool.submit(self._call, r.text, r.key)
@@ -430,6 +510,9 @@ class ArgonLink:
 
         if isinstance(p.result, EdgeOnly):
             return self._issue(t, p.fallback)
+        if p.finding is not None and self.verdict.get(p.finding.sensor) != p.finding.kind and not p.advisory:
+            self.timeline.log("stale", t, key=p.key, now=self.verdict.get(p.finding.sensor))
+            p.fallback = []
         rec = {"key": p.key, "finding": p.finding.kind if p.finding else None,
                "sensor": p.finding.sensor if p.finding else None, "t_request": round(p.t, 2), "model": self.name,
                "live": bool(getattr(self.caller, "live", False))}
@@ -455,18 +538,29 @@ class ArgonLink:
                 c.reason = f"Argon reply invalid -> {c.reason}"
         self.status = "ok"
         rec["commands"] = [c.to_dict() for c in cmds]
+        rec["advisory"] = p.advisory
         self.calls.append(rec)
         self.timeline.log("argon_call", t, **rec)
+        if p.advisory or (p.finding is not None and self.verdict.get(p.finding.sensor) != p.finding.kind):
+            return []
         return self._issue(t, cmds)
 
     def _issue(self, t: float, cmds: list[Command]) -> list[Command]:
         out = []
         for c in cmds:
             c.t = round(t, 2)
-            if c.kind == HOLD:
+            if c.kind in FLANGE_TARGET and re.fullmatch(r"G-F\d+", c.target or ""):
+                c.target = c.target[2:]
+            if c.kind == HOLD and c.robot != SCRUBBER:
+                if c.robot in self.holds:
+                    continue
+                self.holds.add(c.robot)
+            elif c.kind == HOLD:
                 if self.held:
                     continue
                 self.held, self.clear_asked = True, False
+            elif c.kind == RESUME_RUST and c.robot != SCRUBBER:
+                continue
             elif c.kind == RESUME_RUST:
                 if not self.held:
                     continue
@@ -479,7 +573,6 @@ class ArgonLink:
             elif c.kind == LOG_SENSOR_FAULT:
                 if any(tk["sensor"] == c.target for tk in self.tickets):
                     continue
-                self.faulted.add(c.target)
                 tk = {"id": f"MT-{len(self.tickets) + 1:03d}", "sensor": c.target, "t": c.t, "source": c.source,
                       "reason": c.reason}
                 self.tickets.append(tk)
@@ -495,7 +588,7 @@ class ArgonLink:
 
     def header(self) -> dict:
         last = next((c for c in reversed(self.calls) if c.get("status") == "ok"), None)
-        return {"model": self.name, "link": "CUT" if self.link_cut else "UP", "status": self.status,
+        return {"model": self.name, "prompt": PROMPT_SOURCE, "link": "CUT" if self.link_cut else "UP", "status": self.status,
                 "pending": self.pending is not None, "held": self.held, "spark": list(self.spark),
                 "verdicts": dict(self.verdict), "tickets": [tk["id"] + " " + tk["sensor"] for tk in self.tickets],
                 "last_command": self.commands[-1].to_dict() if self.commands else None,
@@ -505,7 +598,7 @@ class ArgonLink:
     def summary(self) -> dict:
         ok = [c for c in self.calls if c.get("status") == "ok"]
         lat = [c["latency_ms"] for c in ok]
-        return {"model": self.name, "mode": self.mode, "calls": len(self.calls), "ok": len(ok),
+        return {"model": self.name, "prompt": PROMPT_SOURCE, "mode": self.mode, "calls": len(self.calls), "ok": len(ok),
                 "latency_ms": {"min": min(lat, default=None), "max": max(lat, default=None),
                                "mean": round(sum(lat) / len(lat), 1) if lat else None},
                 "cost_usd": round(sum(c.get("cost_usd", 0.0) for c in ok), 5), "tickets": self.tickets,
