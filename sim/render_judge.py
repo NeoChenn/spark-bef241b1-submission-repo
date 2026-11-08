@@ -30,6 +30,8 @@ ap.add_argument("--look", default="offline")
 ap.add_argument("--weather", default="")
 ap.add_argument("--weather-at", type=float, default=0.0)
 ap.add_argument("--set-time", default="")
+ap.add_argument("--zoom-at", default="")
+ap.add_argument("--raw", action="store_true")
 args = ap.parse_args()
 os.environ["RIG_QUALITY"] = args.quality
 
@@ -77,6 +79,11 @@ meta = json.loads((Path("/rig/sim/output") / "rig_merged_meta.json").read_text()
 zoom = ZoomPath(wide_target=tuple(meta["zoom"]["wide_target"]), close_target=tuple(meta["zoom"]["close_target"]))
 VIEWS["repair"] = zoom.at(zoom.orbit_s + zoom.descend_s + 1.0)
 VIEWS["approach"] = zoom.at(zoom.orbit_s + 0.62 * zoom.descend_s)
+for k, f in enumerate((0.0, 0.25, 0.45, 0.65, 0.85)):
+    VIEWS[f"zoom{k}"] = zoom.at(zoom.orbit_s + f * zoom.descend_s)
+VIEWS.update({v: zoom.at(float(v[5:])) for v in args.views.split(",") if v.startswith("zoom@")})
+for zt in filter(None, args.zoom_at.split(",")):
+    VIEWS[f"z{zt}"] = zoom.at(float(zt))
 cam = UsdGeom.Camera.Define(stage, "/World/Judge/Cam")
 cam.CreateClippingRangeAttr(Gf.Vec2f(0.05, 60000))
 cam.CreateHorizontalApertureAttr(20.955)
@@ -133,7 +140,7 @@ rp = rep.create.render_product(cam_path, (args.width, args.height))
 ann = rep.AnnotatorRegistry.get_annotator("rgb")
 ann.attach(rp)
 dist_ann = None
-if beams:
+if beams or tier != "none":
     dist_ann = rep.AnnotatorRegistry.get_annotator("distance_to_camera")
     dist_ann.attach(rp)
 out = Path(args.out)
@@ -151,16 +158,16 @@ if args.weather:
     import weather as weather_mod
 
     wx = weather_mod.Controller(stage, getattr(cine_update, "wave", None), args.preset, atm)
-    wx_level = float(args.weather) if args.weather.replace(".", "", 1).isdigit() else args.weather
+    wx_args = weather_mod.parse_default(args.weather)
 
 
 def tick(t):
     if wx is not None:
         if not wx.args and t >= args.weather_at:
             wx.now = args.weather_at
-            wx.set(wx_level)
+            wx.set(**wx_args)
             if atm is not None:
-                atm.set_weather(level=wx_level)
+                atm.set_weather(level=weather_mod.atmos_kind(args.weather))
         wx.tick(t)
     cine_update(t)
     if atm is not None:
@@ -194,7 +201,14 @@ for t0 in times:
                 rgb = atm.post(rgb, header(), t0, args.lens)
             if lk != "none":
                 depth = np.asarray(dist_ann.get_data()) if dist_ann is not None else None
+                if args.raw:
+                    Image.fromarray(np.ascontiguousarray(rgb)).save(out / f"{args.tag}{tsuf}_{name}_raw.png")
+                    np.save(out / f"{args.tag}{tsuf}_{name}_depth.npy", np.asarray(depth, np.float16))
+                    (out / f"{args.tag}{tsuf}_{name}_cam.json").write_text(json.dumps(header()))
                 rgb = shafts.add(rgb, shafts.layer(header(), beams, t0, depth=depth))
+                now = cinematic.CURRENT["time"]
+                rgb = look.inscatter(rgb, depth, header(), now, look.sun_direction(cinematic.PRESETS[now]["sun_rotation"]),
+                                     0.45 if args.atmos == "offline" else 1.0)
             rgb = look.grade(rgb, lk, t0, cinematic.CURRENT["time"])
             suffix = f"_{lk}" if len(looks) > 1 else ""
             Image.fromarray(np.ascontiguousarray(rgb)).save(out / f"{args.tag}{tsuf}_{name}{suffix}.png")

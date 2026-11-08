@@ -126,7 +126,9 @@ def load_atmosphere(stage, cam_path: str, args):
     import atmos
     from atmos_fx import Atmosphere
 
-    schedule = atmos.parse_schedule(args.weather)
+    import weather as weather_mod
+
+    schedule = atmos.parse_schedule(weather_mod.atmos_kind(args.weather))
     first = atmos.schedule_at(schedule, 0.0)
     atm = Atmosphere(stage, args.cinematic, args.atmos, first, cam_path=cam_path)
     if first is not None:
@@ -415,6 +417,8 @@ def main() -> None:
 
         weather = weather_mod.Controller(ctx.get_stage(), getattr(cine_update, "wave", None), args.cinematic)
         tickers.append(weather.tick)
+        if weather_mod.parse_default(args.weather):
+            weather.set(**weather_mod.parse_default(args.weather))
     else:
         open_scene(app, ctx, args.scene)
         cam_path = args.camera
@@ -469,6 +473,10 @@ def main() -> None:
     rp = rep.create.render_product(cam_path, (args.width, args.height))
     ann = rep.AnnotatorRegistry.get_annotator("rgb")
     ann.attach(rp)
+    dist_ann = None
+    if grade is not None:
+        dist_ann = rep.AnnotatorRegistry.get_annotator("distance_to_camera")
+        dist_ann.attach(rp)
     omni.timeline.get_timeline_interface().play()
     for _ in range(WARMUP_UPDATES):
         app.update()
@@ -509,7 +517,12 @@ def main() -> None:
             if atm is not None:
                 rgb = atm.post(rgb, camera_header(), t, args.lens)
             if grade is not None:
-                rgb = grade(shafts.add(rgb, shafts.layer(camera_header(), beams, t)) if beams else rgb, args.look, t, cinematic.CURRENT["time"])
+                now = cinematic.CURRENT["time"]
+                rgb = shafts.add(rgb, shafts.layer(camera_header(), beams, t)) if beams else rgb
+                if now in look.INSCATTER:
+                    rgb = look.inscatter(rgb, np.asarray(dist_ann.get_data()), camera_header(), now,
+                                         look.sun_direction(cinematic.PRESETS[now]["sun_rotation"]))
+                rgb = grade(rgb, args.look, t, now)
             mean = float(rgb.mean())
             buf = io.BytesIO()
             Image.fromarray(rgb).save(buf, "JPEG", quality=args.quality)

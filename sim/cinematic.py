@@ -77,7 +77,7 @@ PRESETS = {
         "sea_color": (0.01, 0.03, 0.04),
     },
     "dusk": {
-        "sky": ASSETS / "third_party" / "hdris" / "belfast_sunset_puresky.hdr",
+        "sky": ASSETS / "hdris" / "belfast_sunset_puresky.hdr",
         "dome": 180.0,
         "sky_rotation": 333.0,
         "sun": 1200.0,
@@ -89,6 +89,7 @@ PRESETS = {
         "lights": 0.7,
         "windows": 0.8,
         "sea_color": (0.012, 0.024, 0.03),
+        "sun_disc": 1.0,
     },
 }
 
@@ -469,11 +470,67 @@ def _relight(prim, f: dict) -> None:
         shaping.CreateShapingFocusAttr().Set(f["focus"])
     lens = prim.GetChild("lens")
     if lens:
-        glow = emissive_material(prim.GetStage(), f"fixture_glow_{int(f['kelvin'])}", tuple(c * 40 for c in color))
+        glow = emissive_material(prim.GetStage(), f"fixture_glow_{int(f['kelvin'])}", tuple(c * 18 for c in color))
         UsdShade.MaterialBindingAPI.Apply(lens).Bind(glow)
 
 
+BEACON_GAIN = 0.35
+FILL = {"center": (18.75, -5.75, 46.3), "size": (9.0, 6.0), "kelvin": 4200.0, "intensity": 220.0}
+
+
+def tame_beacons(stage) -> None:
+    red = UsdShade.Shader.Get(stage, "/World/Looks/lamp_red/surface")
+    if red:
+        red.GetInput("emissiveColor").Set(Gf.Vec3f(9.0, 0.3, 0.14))
+    for index, _, _, intensity, _ in RED_BEACONS:
+        light = stage.GetPrimAtPath(f"/World/Cinematic/Lamps/lamp_{index:03d}/light")
+        if light:
+            light.GetAttribute("inputs:intensity").Set(intensity * BEACON_GAIN)
+            base = light.GetAttribute("spark:baseIntensity")
+            if base.IsValid():
+                base.Set(intensity * BEACON_GAIN)
+
+
+def add_fill(stage) -> None:
+    path = "/World/Cinematic/Lamps/zone_fill"
+    if stage.GetPrimAtPath(path):
+        return
+    light = UsdLux.RectLight.Define(stage, path)
+    light.CreateWidthAttr(FILL["size"][0])
+    light.CreateHeightAttr(FILL["size"][1])
+    light.CreateIntensityAttr(FILL["intensity"])
+    light.CreateColorAttr(Gf.Vec3f(*kelvin_rgb(FILL["kelvin"])))
+    light.GetPrim().CreateAttribute("primvars:doNotCastShadows", Sdf.ValueTypeNames.Bool).Set(False)
+    UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(*FILL["center"]))
+
+
+def place_sun_disc(stage, preset: dict) -> None:
+    path = "/World/Cinematic/SunDisc"
+    gain = preset.get("sun_disc", 0.0)
+    prim = stage.GetPrimAtPath(path)
+    if not prim and gain <= 0:
+        return
+    if not prim:
+        disc = UsdGeom.Sphere.Define(stage, path)
+        disc.CreateRadiusAttr(look.SUN_DISC["radius"])
+        disc.AddTranslateOp()
+        for flag in ("doNotCastShadows", "invisibleToSecondaryRays"):
+            disc.GetPrim().CreateAttribute(f"primvars:{flag}", Sdf.ValueTypeNames.Bool).Set(True)
+        UsdShade.MaterialBindingAPI.Apply(disc.GetPrim()).Bind(emissive_material(stage, "sun_disc", (0.0, 0.0, 0.0)))
+        prim = disc.GetPrim()
+    d = np.asarray(look.sun_direction(preset["sun_rotation"])) * look.SUN_DISC["distance"]
+    prim.GetAttribute("xformOp:translate").Set(Gf.Vec3d(*(d + np.array(WIDE_CENTER))))
+    UsdShade.Shader.Get(stage, "/World/Looks/sun_disc/surface").GetInput("emissiveColor").Set(
+        Gf.Vec3f(*(c * look.SUN_DISC["gain"] * gain for c in look.SUN_DISC["color"])))
+    UsdGeom.Imageable(prim).GetVisibilityAttr().Set("inherited" if gain > 0 else "invisible")
+
+
+WIDE_CENTER = (4.0, -6.0, 30.0)
+
+
 def relight(stage) -> None:
+    tame_beacons(stage)
+    add_fill(stage)
     lamps = "/World/Cinematic/Lamps"
     for index, (kind, _, kelvin, intensity, _, shape) in enumerate(AREA_LIGHTS):
         _relight(stage.GetPrimAtPath(f"{lamps}/area_{500 + index:03d}"),
@@ -578,6 +635,7 @@ def set_time(stage, name: str, atm=None) -> None:
     sun.GetColorAttr().Set(Gf.Vec3f(*preset["sun_color"]))
     sun_prim.GetAttribute("xformOp:rotateXYZ").Set(Gf.Vec3f(*preset["sun_rotation"]))
 
+    place_sun_disc(stage, preset)
     sea = UsdShade.Shader.Get(stage, "/World/Looks/cinematic_sea/surface")
     sea.GetInput("diffuseColor").Set(Gf.Vec3f(*preset["sea_color"]))
     window = UsdShade.Shader.Get(stage, "/World/Looks/window_glass/surface")

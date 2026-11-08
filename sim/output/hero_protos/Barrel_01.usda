@@ -1,0 +1,18 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/Barrel_01/Barrel_01_1k.usdc@
+    )
+    {
+        double3 xformOp:translate = (2.9802322387695312e-8, 1.043081283569336e-7, 0.006614277604967356)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}
+

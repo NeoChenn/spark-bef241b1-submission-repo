@@ -207,6 +207,9 @@ def footprints() -> list[tuple]:
     items += [("tarp", x, y, 0.0, None) for x, y, _ in TARPED]
     items += [("wet_sign", x, y, 0.0, None) for x, y, _ in WET_SIGNS]
     items += [("puddle", x, y, 0.0, None) for x, y, *_ in puddle_layout()]
+    items += [("puddle", x, y, 0.0, None) for x, y, _ in reflection_sheets()]
+    items += [("practical_" + kind, x, y, z, None) for kind, (x, y, z), _ in PRACTICALS]
+    items += [("framing", FRAMING_POLE[0], FRAMING_POLE[1], 0.0, None)]
     items += [("tubing", x, y, 0.1, None) for x in TUBING_X for y in TUBING_Y]
     items += [("drain", x, y, 0.0, None) for x, y in DRAINS]
     items += [(kind, x, y, 0.0, None) for kind, (x, y), _ in DEBRIS]
@@ -224,7 +227,7 @@ def puddle_layout(seed: int = 11) -> list[tuple]:
     spots += [(x, y, 0.9) for x in (4.4, 6.1) for y in stations(-3.0, 1.0, 1.6)]
     out = []
     for x, y, size in spots:
-        if rng.random() > 0.75:
+        if rng.random() > 0.5:
             continue
         px, py = x + rng.uniform(-0.45, 0.45), y + rng.uniform(-0.35, 0.35)
         if abs(px) > DECK_LIMIT[0] or abs(py) > DECK_LIMIT[1] or in_work_zone(px, py, 0.35):
@@ -232,6 +235,72 @@ def puddle_layout(seed: int = 11) -> list[tuple]:
         out.append((round(px, 3), round(py, 3), round(size * rng.uniform(0.7, 1.3), 3), round(rng.uniform(0, 180), 1),
                     rng.randrange(4)))
     return out
+
+
+PRACTICALS = (
+    ("led", (-1.2, -4.85, 1.9), "+y"), ("led", (-7.55, -0.8, 2.1), "+x"), ("led", (6.6, 4.85, 2.0), "-y"),
+    ("sodium", (6.83, -4.4, 2.6), "-x"), ("sodium", (-6.83, -4.4, 2.6), "+x"),
+    ("red", (3.0, -4.85, 1.0), "+y"), ("red", (4.4, -4.85, 1.0), "+y"), ("green", (-5.2, -4.85, 0.45), "+y"),
+    ("green", (-3.6, -4.85, 0.45), "+y"), ("sign", (-2.75, -4.88, 1.45), "+y"),
+)
+PRACTICAL_LIGHTS = (0, 3)
+SCENE_SOURCES = ((-10.8, -6.8, 4.5), (0.0, -5.2, 10.5), (-19.8, 9.8, 5.5))
+VIEW_EYES = ((3.0055, 7.2214, 2.5819), (6.5, 9.0, 4.5))
+FRAMING_POLE = (2.1, 6.4, 4.6)
+
+
+def mirror_point(eye, src, deck: float = 0.0):
+    ez, sz = eye[2] - deck, src[2] - deck
+    if ez <= 0 or sz <= 0:
+        return None
+    t = ez / (ez + sz)
+    return (eye[0] + (src[0] - eye[0]) * t, eye[1] + (src[1] - eye[1]) * t)
+
+
+def hero_eyes(count: int = 12, max_dist: float = 25.0) -> list:
+    import json
+
+    import sys
+
+    sys.path.insert(0, str(SIM_DIR.parent))
+    from rig.sim.zoom import ZoomPath
+
+    meta = json.loads((SIM_DIR / "output" / "rig_merged_meta.json").read_text())
+    path = ZoomPath(wide_target=tuple(meta["zoom"]["wide_target"]), close_target=tuple(meta["zoom"]["close_target"]))
+    eyes = []
+    for k in range(count + 1):
+        t = path.orbit_s + path.descend_s * (0.45 + 0.55 * k / count)
+        eye, target, _ = path.at(t)
+        if math.dist(eye, target) <= max_dist:
+            eyes.append(tuple(e - z for e, z in zip(eye, ZONE_T)))
+    for k in range(5):
+        eye, target, _ = path.at(path.orbit_s + path.descend_s + path.hold_s * k / 4)
+        eyes.append(tuple(e - z for e, z in zip(eye, ZONE_T)))
+    return eyes
+
+
+def reflection_sheets(eyes=None, merge: float = 0.9, limit: int = 26) -> list[tuple]:
+    eyes = list(VIEW_EYES) + (hero_eyes() if eyes is None else list(eyes))
+    sources = [pos for _, pos, _ in PRACTICALS] + list(SCENE_SOURCES)
+    points = []
+    for eye in eyes:
+        for src in sources:
+            p = mirror_point(eye, src)
+            if p is None or abs(p[0]) > DECK_LIMIT[0] - 0.4 or abs(p[1]) > DECK_LIMIT[1] - 0.3:
+                continue
+            if in_work_zone(p[0], p[1], 0.45):
+                continue
+            points.append(p)
+    sheets = []
+    for p in points:
+        for k, (x, y, n) in enumerate(sheets):
+            if math.dist(p, (x, y)) < merge:
+                sheets[k] = ((x * n + p[0]) / (n + 1), (y * n + p[1]) / (n + 1), n + 1)
+                break
+        else:
+            sheets.append((p[0], p[1], 1))
+    sheets.sort(key=lambda s: -s[2])
+    return [(round(x, 3), round(y, 3), round(min(0.55 + 0.12 * n, 1.1), 3)) for x, y, n in sheets[:limit]]
 
 
 def route_local() -> list[tuple[float, float]]:

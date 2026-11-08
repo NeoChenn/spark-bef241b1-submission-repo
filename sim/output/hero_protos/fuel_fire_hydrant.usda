@@ -1,0 +1,18 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/fuel_fire_hydrant/fuel_fire_hydrant.usdc@
+    )
+    {
+        double3 xformOp:translate = (-0, 7.450580596923828e-9, 0.0021112060640007257)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}
+

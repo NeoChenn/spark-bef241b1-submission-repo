@@ -412,7 +412,72 @@ over "World"
                 }
             }
 
-            def Xform "exterior_aircon_unit_04"
+            def Xform "lifebuoy_04"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (37.35, -1, 43.55)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    prepend references = @../assets/third_party/models/lifebuoy/lifebuoy_1k.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-0.001162111759185791, 0.006846442818641663, 0.041602179408073425)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "_materials"
+                    {
+                        over "lifebuoy"
+                        {
+                            over "Image_Texture"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_diff_1k.jpg@
+                            }
+
+                            over "Image_Texture_001"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_metal_1k.exr@
+                            }
+
+                            over "Image_Texture_002"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_rough_1k.exr@
+                            }
+
+                            over "Image_Texture_003"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_nor_gl_1k.exr@
+                            }
+
+                            over "NodeGraphs"
+                            {
+                                over "bnode__Image_Texture_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_diff_1k.jpg@
+                                }
+
+                                over "bnode__Image_Texture_001_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_metal_1k.exr@
+                                }
+
+                                over "bnode__Image_Texture_002_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_rough_1k.exr@
+                                }
+
+                                over "bnode__Image_Texture_003_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_nor_gl_1k.exr@
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            def Xform "exterior_aircon_unit_05"
             {
                 float xformOp:rotateZ = 0
                 float3 xformOp:scale = (1, 1, 1)
@@ -1346,6 +1411,142 @@ over "World"
                     }
                 }
             }
+
+            def Xform "Dense_nv_eyewash_shower_00"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (35.6, -7.4, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/Safety_EyewashStation_Combo_Shower_A01/sm_safety_eyewashStation_combo_shower_a01_01.usd@
+                    variants = {
+                        string PhysX = "Disabled"
+                    }
+                    prepend variantSets = "PhysX"
+                )
+                {
+                    double3 xformOp:translate = (-0.5664, -0.054599999999999996, -0.0003)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Geometry"
+                    {
+                        over "handle_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "handleBig_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "body_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "lid_02_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "handleSmall_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "lid_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "PhysicsMaterials"
+                    {
+                        over "physics_mat_m_opaque__metal__rough_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__plastic__eyewashStation_combo_shower_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__plastic__yellow_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__metal__chrome_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__plastic__green_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__metal__painted_green_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                        over "joint_handleSmall_01_joint_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "joint_handleBig_01_joint_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "joint_handle_01_joint_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+                }
+            }
         }
 
         def Scope "RepairBackground"
@@ -1510,6 +1711,489 @@ over "World"
                             }
                         }
                     }
+                }
+            }
+        }
+
+        def Scope "Dense"
+        {
+            def Xform "small_lpg_tank_00"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (31.85, 0.55, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/small_lpg_tank.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "small_lpg_tank_01"
+            {
+                float xformOp:rotateZ = 35
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (32.3, 0.57, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/small_lpg_tank.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "small_lpg_tank_02"
+            {
+                float xformOp:rotateZ = 80
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (32.75, 0.53, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/small_lpg_tank.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "small_lpg_tank_03"
+            {
+                float xformOp:rotateZ = 120
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (31.9, 1, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/small_lpg_tank.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "small_lpg_tank_04"
+            {
+                float xformOp:rotateZ = 160
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (32.35, 1.02, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/small_lpg_tank.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "small_lpg_tank_05"
+            {
+                float xformOp:rotateZ = 200
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (32.8, 0.98, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/small_lpg_tank.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "worn_metal_rack_06"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (32.3, 1.7, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/worn_metal_rack.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "metal_tool_chest_07"
+            {
+                float xformOp:rotateZ = 180
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (34, 1.4, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/metal_tool_chest.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "metal_toolbox_08"
+            {
+                float xformOp:rotateZ = 170
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (34.1, 1.4, 43.33)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/metal_toolbox.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "hand_truck_09"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (34, 0.55, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/hand_truck.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "fuel_euro_pallet_10"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (35.1, 1.1, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/fuel_euro_pallet.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "wooden_crate_02_11"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (35.1, 1.1, 42.644)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/wooden_crate_02.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "plastic_crate_01_12"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (35, 0.85, 43.1)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/plastic_crate_01.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "plastic_crate_01_13"
+            {
+                float xformOp:rotateZ = 10
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (35.15, 1.35, 43.1)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/plastic_crate_01.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "fuel_cable_spool_14"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (35, -0.45, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/fuel_cable_spool.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "fuel_euro_pallet_15"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (33, -0.35, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/fuel_euro_pallet.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "Barrel_02_16"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (32.7, -0.35, 42.644)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/Barrel_02.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "Barrel_02_17"
+            {
+                float xformOp:rotateZ = 60
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (33.27, -0.33, 42.644)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/Barrel_02.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "fuel_steel_drum_18"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (34.3, -1.55, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/fuel_steel_drum.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "fuel_steel_drum_19"
+            {
+                float xformOp:rotateZ = 50
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (34.9, -1.6, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/fuel_steel_drum.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "fuel_steel_drum_20"
+            {
+                float xformOp:rotateZ = 100
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (34.6, -2.15, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/fuel_steel_drum.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "Barrel_01_21"
+            {
+                float xformOp:rotateZ = 20
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (35.5, -2, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/Barrel_01.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "fuel_steel_drum_22"
+            {
+                float xformOp:rotateZ = 30
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (35.75, -3.4, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/fuel_steel_drum.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "fuel_steel_drum_23"
+            {
+                float xformOp:rotateZ = 70
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (35.75, -4, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/fuel_steel_drum.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "korean_fire_extinguisher_01_24"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (35.8, -5.2, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/korean_fire_extinguisher_01.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "fuel_fire_hydrant_25"
+            {
+                float xformOp:rotateZ = 200
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (35.85, -6, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/fuel_fire_hydrant.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "fuel_pump_skid_26"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1.5, 1.5, 1.5)
+                double3 xformOp:translate = (29.9, -9.55, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/fuel_pump_skid.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "fuel_pump_skid_27"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1.5, 1.5, 1.5)
+                double3 xformOp:translate = (33, -9.55, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/fuel_pump_skid.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "fuel_gate_valve_28"
+            {
+                float xformOp:rotateZ = 180
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (31.45, -9.2, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/fuel_gate_valve.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "fuel_gate_valve_29"
+            {
+                float xformOp:rotateZ = 180
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (34.75, -9.2, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/fuel_gate_valve.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "fuel_steel_drum_30"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (35.5, -9.6, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/fuel_steel_drum.usda@
+                )
+                {
+                }
+            }
+
+            def Xform "industrial_pastic_container_31"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (28.4, -9.3, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @./hero_protos/industrial_pastic_container.usda@
+                )
+                {
                 }
             }
         }
