@@ -25,7 +25,7 @@ def test_live_advances_and_accepts_hazards(live):
     assert s["hazards"]["obstacles"][0]["kind"] == "crate"
     assert any(e["kind"] == "reroute" for e in live.f.event_log)
     sim = live.for_sim()
-    assert set(sim["robots"][0]) == {"id", "pose", "path", "prev_path", "reroute_t", "state"}
+    assert set(sim["robots"][0]) == {"id", "pose", "path", "prev_path", "reroute_t", "state", "task", "job_state"}
     with pytest.raises(ValueError):
         live.event("drop_obstacle", {"kind": "piano", "at": "R1"})
 
