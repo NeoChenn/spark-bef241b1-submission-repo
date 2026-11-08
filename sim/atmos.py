@@ -168,9 +168,9 @@ def soft_texture(size: int, seed: int = 0, octaves: int = 5) -> np.ndarray:
     return (np.clip(acc * 1.3 - 0.05, 0, 1) * edge * 255).astype(np.uint8)
 
 
-FIRE_MAP = ([(0.01, 0.01, 0.01, 0.0), (0.02, 0.019, 0.018, 0.35), (0.03, 0.028, 0.026, 0.4), (1.0, 0.16, 0.013, 0.8),
+FIRE_MAP = ([(0.012, 0.012, 0.012, 0.0), (0.025, 0.024, 0.022, 0.45), (0.035, 0.033, 0.03, 0.5), (1.0, 0.16, 0.013, 0.8),
              (13.5, 3.0, 0.126, 0.8), (78.0, 39.0, 6.1, 0.7)], [0, 0.05, 0.15, 0.6, 0.85, 1])
-STEAM_MAP = ([(0.3, 0.31, 0.33, 0.0), (0.4, 0.41, 0.43, 0.06), (0.45, 0.46, 0.48, 0.12), (0.5, 0.5, 0.52, 0.16)], [0, 0.2, 0.6, 1])
+STEAM_MAP = ([(0.35, 0.36, 0.38, 0.0), (0.45, 0.46, 0.48, 0.12), (0.5, 0.51, 0.53, 0.22), (0.55, 0.55, 0.57, 0.3)], [0, 0.2, 0.6, 1])
 
 
 def _usd(v) -> str:
@@ -265,16 +265,18 @@ def _layer(layer, cell, colormap, combustion, smoke_fade, scale, cooling=1.5, co
     return sim + off + ren
 
 
-def flow_usda(flare, vents, wind, cell: float, flame_radius: float = 0.9) -> str:
+def flow_usda(flare, vents, wind, cell: float, flame_radius: float = 1.1, fuel: float = 0.8, cooling: float = 2.5,
+              steam: float = 0.8, smoke_fade: float = 0.3) -> str:
     s = flame_radius / 10.0
     lean = (wind[0] * 0.3, wind[1] * 0.3)
-    body = _emitter("flare", 0, flare, flame_radius, (lean[0], lean[1], 0.0), fuel=0.6, temp=2.0)
-    body += "".join(_emitter(f"vent_{i}", 1, p, 0.5, (lean[0], lean[1], 3.0), smoke=0.4, temp=0.0, couple=2.0)
+    body = _emitter("flare", 0, flare, flame_radius, (lean[0], lean[1], 0.0), fuel=fuel, temp=2.0)
+    body += "".join(_emitter(f"vent_{i}", 1, p, 0.5, (lean[0], lean[1], 3.0), smoke=steam, temp=0.0, couple=2.0)
                     for i, p in enumerate(vents))
     v = np.asarray(vents, float).reshape(-1, 3)
     body += _wind(0, wind, np.asarray(flare, float) + [0.0, 0.0, 14.0], (18.0, 18.0, 22.0))
     body += _wind(1, wind, (v.min(0) + v.max(0)) / 2 + [0.0, 0.0, 6.0], np.ptp(v, 0) / 2 + [10.0, 10.0, 8.0])
-    body += _layer(0, cell, FIRE_MAP, True, 0.3, s, cooling=4.0) + _layer(1, cell, STEAM_MAP, False, 1.2, s, colour_scale=1.0)
+    body += _layer(0, cell, FIRE_MAP, True, smoke_fade, s, cooling=cooling)
+    body += _layer(1, cell, STEAM_MAP, False, 1.2, s, colour_scale=1.0)
     return f'#usda 1.0\n(\n    defaultPrim = "Flow"\n    metersPerUnit = 1\n    upAxis = "Z"\n)\ndef Xform "Flow"\n{{\n{body}}}\n'
 
 

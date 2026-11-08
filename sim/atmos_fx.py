@@ -145,9 +145,10 @@ class Puffs:
 
 
 class Atmosphere:
-    def __init__(self, stage, preset: str, tier: str = "live", weather=None, cam_path: str | None = None, flow=None):
+    def __init__(self, stage, preset: str, tier: str = "live", weather=None, cam_path: str | None = None, flow=None,
+                 flow_kw=None):
         self.stage, self.preset, self.tier, self.q = stage, preset, tier, atmos.TIERS[tier]
-        self.cam_path, self.t = cam_path, None
+        self.cam_path, self.t, self.flow_kw = cam_path, None, flow_kw or {}
         self.w = atmos.weather_state(weather or atmos.DEFAULT_KIND.get(preset, "calm"))
         UsdGeom.Scope.Define(stage, ROOT)
         UsdGeom.Scope.Define(stage, f"{ROOT}/Looks")
@@ -196,7 +197,7 @@ class Atmosphere:
             return None
         vents = list(VENTS) + [(EXHAUST[0], EXHAUST[1], EXHAUST[2] + EXHAUST[3] + 0.5)]
         self.flow_layer = Sdf.Layer.CreateAnonymous("atmos_flow.usda")
-        self.flow_layer.ImportFromString(atmos.flow_usda(FLARE_TIP, vents, self.w["wind"], self.q["flow_cell"]))
+        self.flow_layer.ImportFromString(atmos.flow_usda(FLARE_TIP, vents, self.w["wind"], self.q["flow_cell"], **self.flow_kw))
         prim = self.stage.DefinePrim(f"{ROOT}/Flow", "Xform")
         prim.GetReferences().AddReference(self.flow_layer.identifier)
         self._settings({"/rtx/flow/enabled": True, "/rtx/flow/pathTracingEnabled": True,
