@@ -150,3 +150,29 @@ class SolverField:
 
     def leaks(self) -> list[tuple[np.ndarray, float]]:
         return [(np.asarray(self.plume.source, float), self.q)] if self.q > 0 else []
+
+
+def deck_solver_field(geom, key, wind: Wind, speed: float, heading_deg: float, hole_mm: float = 2.0,
+                      bar: float = 10.0, stage=None, dx: float = 0.1, shape=(120, 38, 26),
+                      origin=(-2.5, -0.5, -0.2)) -> SolverField:
+    from sim.plume.release import orifice
+    from sim.plume.solver import Plume, leak_direction
+    from sim.plume.solver import Wind as SolverWind
+    sw = SolverWind(speed, heading_deg, 0.0)
+    jet = leak_direction(geom.normal, sw)
+    src = geom.center + jet * geom.outer_radius
+    origin = np.asarray(origin, float)
+    solid = np.zeros(shape, bool)
+    solid[:, :, : int(round(-origin[2] / dx))] = True
+    if stage is not None:
+        try:
+            from sim.plume.voxelize import obstacles_for
+            vox = obstacles_for(stage, origin, shape, dx)
+            if vox is not None:
+                solid |= vox.astype(bool)
+        except Exception as e:
+            print(f"PLUME obstacles skipped: {e}", flush=True)
+    plume = Plume(origin, shape, dx, src, orifice(hole_mm, bar), sw, jet_dir=jet, solid=solid)
+    print(f"PLUME solver {shape} dx={dx} source={np.round(src, 2).tolist()} "
+          f"q1={plume.release.mass_flow * 1000:.2f} g/s solid={int(solid.sum())}", flush=True)
+    return SolverField(plume, key, wind)

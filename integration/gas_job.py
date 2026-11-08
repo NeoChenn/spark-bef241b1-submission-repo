@@ -18,7 +18,7 @@ from policy.demo_mock import GreedyScrub, MockRustWorld
 from policy.gasbot import deck
 from policy.gasbot.bot import GasBotOrchestrator
 from policy.gasbot.mock import make_leak
-from policy.gasbot.plume import SolverField, Wind
+from policy.gasbot.plume import Wind, deck_solver_field
 from policy.gasbot.sensors import OGI_RAMP, column_density, ogi_view
 from policy.interfaces import camera_from_usd
 from policy.leak.geometry import project
@@ -95,32 +95,6 @@ def plume_tint(rgb: np.ndarray, col: np.ndarray, threshold: float, top: float) -
     colour = ramp[k] * (1 - f) + ramp[k + 1] * f
     a = np.where(col >= threshold, 0.18 + 0.42 * u, 0.0)[..., None]
     return (rgb.astype(np.float32) * (1 - a) + colour * a).clip(0, 255).astype(np.uint8)
-
-
-def solver_field(stage, lw, fid: str, wind: Wind, args):
-    from sim.plume.release import orifice
-    from sim.plume.solver import Plume
-    from sim.plume.solver import Wind as SolverWind
-    from sim.plume.solver import leak_direction
-    g = lw.flanges[fid].geom
-    sw = SolverWind(args.wind_speed, args.wind_dir, 0.0)
-    jet = leak_direction(g.normal, sw)
-    src = g.center + jet * g.outer_radius
-    dx, shape = 0.1, (120, 38, 26)
-    origin = np.array([-2.5, -0.5, -0.2])
-    solid = np.zeros(shape, bool)
-    solid[:, :, :2] = True
-    try:
-        from sim.plume.voxelize import obstacles_for
-        vox = obstacles_for(stage, origin, shape, dx)
-        if vox is not None:
-            solid |= vox.astype(bool)
-    except Exception as e:
-        print(f"PLUME obstacles skipped: {e}", flush=True)
-    plume = Plume(origin, shape, dx, src, orifice(args.hole_mm, args.bar), sw, jet_dir=jet, solid=solid)
-    print(f"PLUME solver {shape} dx={dx} source={np.round(src, 2).tolist()} "
-          f"q1={plume.release.mass_flow * 1000:.2f} g/s solid={int(solid.sum())}", flush=True)
-    return SolverField(plume, fid, wind)
 
 
 def run(app, rep, stage, args, out: Path, hero, hero_size, encode) -> None:
@@ -206,7 +180,8 @@ def run(app, rep, stage, args, out: Path, hero, hero_size, encode) -> None:
         im.save(frames_dir / f"{st['frame']:05d}.jpg", quality=90)
         st["frame"] += 1
 
-    field = solver_field(stage, lw, args.leak_flange, wind, args) if args.plume == "solver" else None
+    field = (deck_solver_field(lw.flanges[args.leak_flange].geom, args.leak_flange, wind, args.wind_speed,
+                               args.wind_dir, args.hole_mm, args.bar, stage) if args.plume == "solver" else None)
     bridge = IsaacGasBot(stage, world, Frames(render, record), lw, prims, wind, seed=args.seed, flow_full=flow_full,
                          h2s_ratio=args.h2s_ratio, start=tuple(args.start), inspection_size=INSPECTION_SIZE,
                          frame_dt=1.0 / args.fps, field=field)
