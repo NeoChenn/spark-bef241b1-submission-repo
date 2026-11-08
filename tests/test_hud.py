@@ -161,7 +161,7 @@ def test_scenario_events_whitelisted():
     assert {"set_weather", "drop_obstacle", "close_walkway", "close_stairs", "clear", "gas_leak",
             "control_action", "battery_fault", "approve", "reject"} <= set(SCENARIO)
     assert {"cut_link", "intent"} <= set(CONTROL_EVENTS)
-    assert set(HOOKS) | {"camera"} | set(SCENARIO) | set(CONTROL_EVENTS) == set(EVENTS)
+    assert set(HOOKS) | {"camera", "views", "force", "select", "scenario", "disturb"} | set(SCENARIO) | set(CONTROL_EVENTS) == set(EVENTS)
 
 
 def test_scenario_event_dispatched_to_bridge_hook():

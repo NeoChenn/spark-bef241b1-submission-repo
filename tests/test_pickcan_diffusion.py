@@ -38,3 +38,25 @@ def test_diffusion_learns_obs_conditioned_chunks():
 def test_mlp_policy_shapes():
     m = MLPPolicy(7, width=32, depth=1)
     assert m.sample(torch.zeros(3, 7)).shape == (3, CHUNK, 5)
+
+
+def test_npz_weights_roundtrip(tmp_path):
+    from policy.pickcan.diffusion import load_weights, save_npz
+
+    m = MLPPolicy(7, width=32, depth=1)
+    save_npz(m, str(tmp_path / "m.npz"))
+    m2 = load_weights(MLPPolicy(7, width=32, depth=1), str(tmp_path / "m.npz"))
+    o = torch.randn(3, 7)
+    assert (m(o) - m2(o)).abs().max() < 1e-2
+
+
+def test_shipped_weights_load():
+    import os
+
+    from policy.pickcan.diffusion import load_weights
+
+    root = os.path.join(os.path.dirname(__file__), "..", "policy", "pickcan", "weights")
+    m = load_weights(MLPPolicy(42), os.path.join(root, "mlp.npz"))
+    d = load_weights(DiffusionPolicy(42), os.path.join(root, "diffusion.npz"))
+    o = torch.zeros(2, 42)
+    assert m.sample(o).shape == (2, CHUNK, 5) and d.sample(o, n_steps=4).shape == (2, CHUNK, 5)
