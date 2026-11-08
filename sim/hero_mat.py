@@ -35,6 +35,7 @@ TARGETS = {
     "/World/RepairZone/Looks/pipe_orange": "zone_pipe_orange",
 }
 WET_PUDDLES = ("deck", "frame", "zone_steel", "rail", "zone_pipe_grey", "zone_pipe_orange")
+DETAIL = WET_PUDDLES
 PATCH_GEOM = "/World/Pipes/damage_patch/geom"
 
 
@@ -139,12 +140,13 @@ def attach(stage) -> bool:
     return True
 
 
-def apply(stage, preset: str) -> dict:
+def apply(stage, preset: str, quality: str | None = None) -> dict:
     from pxr import Sdf, UsdShade
 
     if not attach(stage):
         return {}
     w = weather(preset)
+    detail = (quality or pr.current_quality()) == "offline"
     for path, kind in TARGETS.items():
         shader = UsdShade.Shader.Get(stage, f"{path}/{SHADER}")
         if not shader:
@@ -152,7 +154,9 @@ def apply(stage, preset: str) -> dict:
         shader.CreateInput("wetness", Sdf.ValueTypeNames.Float).Set(w["wetness"])
         if kind in WET_PUDDLES:
             shader.CreateInput("puddles", Sdf.ValueTypeNames.Float).Set(w["puddles"])
-    return w
+        if kind in DETAIL:
+            shader.CreateInput("detail", Sdf.ValueTypeNames.Bool).Set(detail)
+    return {**w, "detail": detail}
 
 
 def stage_inputs(state: str, progress: float = 0.0, base_wetness: float = 0.0) -> dict:

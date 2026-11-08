@@ -150,3 +150,14 @@ def test_tube_recipes_use_seamless_tube_mapping():
         sub, v = r[kind]
         assert sub == "rig_hero_paint" and v["tube"] is True and v["tube_r"] > 0
     assert "/World/Looks/rail" in hm.TARGETS
+
+
+def test_apply_turns_detail_off_for_the_live_tier(monkeypatch):
+    from pxr import Usd, UsdShade
+
+    stage = Usd.Stage.Open(str(hm.LAYER))
+    monkeypatch.setattr(hm, "attach", lambda s: True)
+    live = hm.apply(stage, "night", "live")
+    deck = UsdShade.Shader.Get(stage, f"/World/Looks/deck/{hm.SHADER}")
+    assert live["detail"] is False and deck.GetInput("detail").Get() is False
+    assert hm.apply(stage, "night", "offline")["detail"] is True and deck.GetInput("detail").Get() is True
