@@ -4,7 +4,6 @@ import math
 
 import numpy as np
 
-from policy.gasbot.infotaxis import Infotaxis, ParticleFilter
 from policy.gasbot.locate import CastSurge, SeekConfig, SourceEstimator, unit
 from policy.gasbot.plume import BACKGROUND_PPM, RHO_CH4_G_M3, GaussianPlume, Wind
 from policy.gasbot.sensors import LEL_PPM, PointGasSensor
@@ -146,7 +145,7 @@ class GasLeak:
 
     def begin_seek(self, robot_id: str, xyz, deck_z: float) -> "Seek":
         self.robot_id = robot_id
-        cls = InfoSeek if self.method == "infotaxis" else Seek
+        cls = InfoSeek if self.method == "infotaxis" and INFOTAXIS else Seek
         self.seek = cls(self, np.asarray(xyz, float), deck_z, self.bounds, self.seed)
         return self.seek
 
@@ -237,6 +236,13 @@ class PFView:
         iy = np.clip(np.round((self.pf.p[:, 1] - ys[0]) / res).astype(int), 0, ny - 1)
         p = np.bincount(iy * nx + ix, weights=self.pf.w, minlength=nx * ny)
         return p / max(float(p.sum()), 1e-12)
+
+
+try:
+    from policy.gasbot.infotaxis import Infotaxis, ParticleFilter
+    INFOTAXIS = True
+except ImportError:
+    Infotaxis, ParticleFilter, INFOTAXIS = object, None, False
 
 
 class Planner(Infotaxis):

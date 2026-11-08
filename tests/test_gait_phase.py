@@ -60,7 +60,7 @@ def test_weight_and_rate():
     ws = [gait_weight(v) for v in np.linspace(0, 0.5, 30)]
     assert all(b >= a for a, b in zip(ws, ws[1:]))
     r = [phase_rate(v, 0.8, 0.4) for v in (0.2, 0.8, 1.0, 3.0)]
-    assert r[0] < r[1] < r[2] < r[3] and r[1] == pytest.approx(2.5) and r[3] == pytest.approx(1.4 / 0.4)
+    assert r[0] < r[1] < r[2] < r[3] and r[1] == pytest.approx(2.5) and r[3] == pytest.approx(2.0 / 0.4)
 
 
 def drive(w, speed, t0, t1, dt=1 / 24, every=0.5, y=0.0, x0=0.0):

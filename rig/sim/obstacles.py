@@ -1,5 +1,6 @@
 import math
 import sys
+import time
 from pathlib import Path
 
 SIM = Path(__file__).resolve().parents[2] / "sim"
@@ -21,7 +22,6 @@ CORAL = (1.1, 0.27, 0.11)
 GHOST = (0.32, 0.35, 0.4)
 CLOSED = (1.4, 0.05, 0.03)
 ROBOT_GLOW = [(0.6, 2.2, 9.0), (0.8, 7.0, 2.0), (9.0, 6.0, 0.8), (7.0, 1.2, 6.0)]
-GLOW_SCALE = 0.3
 BEACON_W = 15000.0
 ROBOT_USD = OUTPUT / "robot" / "go2_ur3_lift" / "go2_ur3_lift.usda"
 ROBOT_Z = 0.45
@@ -92,6 +92,7 @@ class ObstacleScene:
         self.selected = None
         self.motion = {"gait": self.gait.source} if self.gait else {}
         self.clips = TaskMotion.load().clips if self.gait else {}
+        self.anim_ms = 0.0
 
     def _roots(self):
         UsdGeom.Scope.Define(self.stage, ROOT)
@@ -174,13 +175,6 @@ class ObstacleScene:
                 vs = body.GetPrim().GetVariantSets()
                 if vs.HasVariantSet("Physics"):
                     vs.GetVariantSet("Physics").SetVariantSelection("none")
-            glow, _ = _emissive(self.stage, f"obst_robot_{rid}", ROBOT_GLOW[k % len(ROBOT_GLOW)], GLOW_SCALE)
-            ring = UsdGeom.Cylinder.Define(self.stage, f"{root}/halo")
-            ring.CreateAxisAttr("Z")
-            ring.CreateRadiusAttr(max(0.75, 6 * self.radius))
-            ring.CreateHeightAttr(0.02)
-            UsdGeom.Xformable(ring).AddTranslateOp().Set(Gf.Vec3d(0, 0, -ROBOT_Z + 0.03))
-            _bind(ring.GetPrim(), glow)
             light = UsdLux.SphereLight.Define(self.stage, f"{root}/beacon")
             light.CreateRadiusAttr(0.15)
             light.CreateIntensityAttr(BEACON_W)
@@ -194,7 +188,6 @@ class ObstacleScene:
                 j.set(LEGS + ARM, [STAND[n] for n in LEGS] + [PARK[n] for n in ARM])
                 self.robots[rid].update(joints=j, walker=Walker(self.gait, (p["x"], p["y"], p["z"], p.get("yaw", 0.0)), self.now),
                                         arm=TaskMotion(self.clips), q=Quantiser(), qy=Quantiser(0.05))
-                ring.GetPrim().GetAttribute("xformOp:translate").Set(Gf.Vec3d(0, 0, -self.gait.zmean + 0.03))
         rb = self.robots[rid]
         rb["r"] = r
         if "walker" in rb:
@@ -209,23 +202,26 @@ class ObstacleScene:
         self.selected = rid
 
     def _animate(self, t: float) -> None:
+        t0 = time.perf_counter()
         motion = {"gait": self.gait.source} if self.gait else {}
-        for rid, rb in self.robots.items():
-            if "walker" not in rb:
-                continue
-            (x, y, z, yaw), q, bob = rb["walker"].step(t)
-            top, rz = rb["ops"]
-            if rb["q"].changed("pos", (x, y, z + bob)):
-                top.Set(Gf.Vec3d(round(x, 3), round(y, 3), round(z + self.gait.zmean + bob, 3)))
-            if rb["qy"].changed("yaw", math.degrees(yaw)):
-                rz.Set(round(math.degrees(yaw), 2))
-            rb["pose"] = (x, y, z)
-            rb["joints"].set(LEGS, q)
-            arm = rb["arm"]
-            rb["joints"].set(ARM, arm.step(rb.get("r") if rid == self.selected else None, t))
-            if rid == self.selected and arm.source:
-                motion[rid] = arm.source
+        with Sdf.ChangeBlock():
+            for rid, rb in self.robots.items():
+                if "walker" not in rb:
+                    continue
+                (x, y, z, yaw), q, bob = rb["walker"].step(t)
+                top, rz = rb["ops"]
+                if rb["q"].changed("pos", (x, y, z + bob)):
+                    top.Set(Gf.Vec3d(round(x, 3), round(y, 3), round(z + self.gait.zmean + bob, 3)))
+                if rb["qy"].changed("yaw", math.degrees(yaw)):
+                    rz.Set(round(math.degrees(yaw), 2))
+                rb["pose"] = (x, y, z)
+                rb["joints"].set(LEGS, q)
+                arm = rb["arm"]
+                rb["joints"].set(ARM, arm.step(rb.get("r") if rid == self.selected else None, t))
+                if rid == self.selected and arm.source:
+                    motion[rid] = arm.source
         self.motion = motion
+        self.anim_ms += ((time.perf_counter() - t0) * 1e3 - self.anim_ms) * 0.05
 
     def _path(self, k, r):
         rid = r["id"]
