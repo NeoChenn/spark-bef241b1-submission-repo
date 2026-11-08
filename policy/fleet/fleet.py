@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import random
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Optional
@@ -15,7 +16,7 @@ from policy.fleet.hazards import OBSTACLES, Hazards, seg_dist
 from policy.fleet.jobs import JobLibrary
 from policy.fleet.reservations import Leg, Reservations, plan_legs
 from policy.fleet.rigmap import DECKS, DOCK_PADS, RigMap
-from policy.fleet.tasks import OPEN, Task, priority
+from policy.fleet.tasks import KIND_BASE, NEEDS, OPEN, URGENT, Task, priority
 
 GAS_ZONE_M = 8.0
 HOT_WORK_M = 15.0
@@ -26,9 +27,11 @@ CREW_HOLD_S = 300.0
 W_PRIO = 30.0
 W_SOC = 60.0
 DOCK_STATES = {"CHARGING", "DOCKED", "DOCK_QUEUE"}
-HAZARD_EVENTS = ("drop_obstacle", "close_walkway", "close_stairs", "clear", "set_weather", "person_at", "drop_can")
+HAZARD_EVENTS = ("drop_obstacle", "drop_can", "close_walkway", "close_stairs", "clear", "set_weather", "person_at")
 BLOCKED = "blocked_by_hazard"
 AHEAD_M = 7.0
+CAN_STANDOFF_M = 0.9
+CAN_SIZES = ("small", "large")
 PERSON_S = 120.0
 
 
@@ -38,6 +41,7 @@ class Robot:
     node: int
     battery: Battery
     pos: np.ndarray
+    caps: frozenset = frozenset()
     state: str = "IDLE"
     task: Optional[Task] = None
     legs: list[Leg] = field(default_factory=list)
@@ -106,10 +110,10 @@ class Fleet:
         self.reroutes: list[dict] = []
         self._rolled: dict[str, list[float]] = {}
 
-    def add_robot(self, rid: str, node: int, soc: float = 1.0, **battery) -> Robot:
+    def add_robot(self, rid: str, node: int, soc: float = 1.0, caps=(), **battery) -> Robot:
         b = Battery(**battery)
         b.wh = soc * b.capacity_wh
-        r = Robot(rid, node, b, self.rm.pos[node].copy())
+        r = Robot(rid, node, b, self.rm.pos[node].copy(), frozenset(caps))
         self.robots.append(r)
         return r
 
@@ -176,8 +180,6 @@ class Fleet:
         self._apply(Event(self.t, name, args))
 
     def _hazard(self, kind: str, d: dict) -> None:
-        if kind == "drop_can":
-            kind, d = "drop_obstacle", {**d, "kind": "barrel" if d.get("size") == "large" else "can"}
         if kind == "person_at":
             if not any(k in d for k in ("xy", "xyz", "at")):
                 return
@@ -186,18 +188,30 @@ class Fleet:
             self._apply(Event(self.t, "person", {"xyz": xyz, "radius": d.get("radius", self.person_radius_m),
                                                  "duration": d.get("duration", PERSON_S)}))
             return
-        if kind == "drop_obstacle":
-            ob_kind = d.get("kind", "crate")
+        if kind in ("drop_obstacle", "drop_can"):
+            ob_kind = "can" if kind == "drop_can" else d.get("kind", "crate")
             if ob_kind not in OBSTACLES:
                 raise ValueError(f"unknown obstacle {ob_kind!r}; expected one of {list(OBSTACLES)}")
-            if d.get("at") is None and not self.robots:
+            if kind == "drop_can" and d.get("size", "small") not in CAN_SIZES:
+                raise ValueError(f"unknown can size {d.get('size')!r}; expected one of {CAN_SIZES}")
+            if d.get("at") is None and not self.robots and kind != "drop_can":
                 raise ValueError("drop needs at: robot id, walkway id or xy/xyz")
-            xyz = self._resolve_at(d["at"] if d.get("at") is not None else self.robots[0].id, d.get("deck"))
-            h = self.hz.drop(ob_kind, xyz, d.get("at") if isinstance(d.get("at"), str) else None)
+            if kind == "drop_can" and d.get("at") is None:
+                xyz = self._random_walkway(d.get("seed", self.hz.n))
+            else:
+                xyz = self._resolve_at(d["at"] if d.get("at") is not None else self.robots[0].id, d.get("deck"))
+            at = d.get("at") if isinstance(d.get("at"), str) else None
+            if kind == "drop_can":
+                h, task = self._drop_can(xyz, at, d)
+                xyz = h["xyz"]
+            else:
+                h = self.hz.drop(ob_kind, xyz, at)
             what = {"block": "walkway blocked", "slow": "trip hazard, slow", "slip": "slippery, avoid stairs", "soft": "soft cost"}
             msg, cause = (f"{ob_kind} {h['id']} dropped at {np.round(xyz, 1).tolist()} -> {what[h['effect']]}",
                           f"{ob_kind} {h['id']}")
-            if ob_kind == "barrel":
+            if kind == "drop_can":
+                msg += f", {task.id} queued for the nearest gripper robot"
+            elif ob_kind == "barrel":
                 at = d.get("at") if d.get("at") is not None else self.robots[0].id
                 rid = at if isinstance(at, str) else at.get("robot") if isinstance(at, dict) else None
                 rob = next((r for r in self.robots if r.id == rid), None)
@@ -213,16 +227,16 @@ class Fleet:
                 cause = f"rolling barrel {h['id']}"
             elif h["effect"] == "soft":
                 self.hz.apply(self.rm)
-                lead = ("small can " + h["id"] + " at " + str(np.round(xyz, 1).tolist())
-                        + " -> pick-up job for a gripper robot; soft cost meanwhile") if ob_kind == "can" else \
-                    f"puddle {h['id']} at {np.round(xyz, 1).tolist()} -> soft cost"
-                msg, cause = f"{lead}; {self._soft_reply()}", f"{ob_kind} {h['id']}"
+                msg = f"{ob_kind} {h['id']} at {np.round(xyz, 1).tolist()} -> soft cost; {self._soft_reply()}"
         elif kind in ("close_walkway", "close_stairs"):
             target = d.get("edge", d.get("id")) or self._default_target(kind == "close_stairs")
             h = self.hz.close(self.rm, target, "stairs" if kind == "close_stairs" else None)
             msg, cause = f"{target} closed ({h['id']}) -> route around", f"{target} closed"
         elif kind == "clear":
             gone = self.hz.clear(d.get("id", "all"))
+            for t in self.tasks.values():
+                if t.kind == "pick_can" and t.poi in gone and t.status in OPEN:
+                    self._drop(t, "cancelled")
             h = {"id": ",".join(gone) or "none"}
             msg, cause = f"cleared {h['id']} -> routes restored", f"cleared {h['id']}"
         else:
@@ -283,7 +297,38 @@ class Fleet:
             self._hz_tick = True
         return True
 
+    def _drop_can(self, xyz, at, d: dict):
+        q, dv = self._snap_edge(xyz)
+        u = np.array([dv[0], dv[1], 0.0]) / max(float(np.linalg.norm(dv[:2])), 1e-9)
+        h = self.hz.drop("can", q, at, size=d.get("size", "small"), colour=d.get("colour", "red"),
+                         lying=bool(d.get("lying", True)))
+        h["yaw"] = round(float(d.get("yaw", random.Random(h["id"]).uniform(-math.pi / 2, math.pi / 2))), 3)
+        sides = [self.rm.add_poi(f"{h['id']}_{k}", q + s * CAN_STANDOFF_M * u, standoff=1e9)
+                 for k, s in (("a", 1.0), ("b", -1.0))]
+        self.hz.apply(self.rm)
+        best = (math.inf, sides[0])
+        for r in self.robots:
+            if r.failed or not NEEDS["pick_can"] <= r.caps:
+                continue
+            a, t0 = self._origin(r)
+            dist, _, _ = self.rm.dijkstra(a, self._blocked - {a})
+            best = min([best] + [(t0 + dist[n], n) for n in sides])
+        self.rm.poi_node[h["id"]], self.rm.poi_pos[h["id"]] = best[1], np.asarray(q, float)
+        task = self.add_task("pick_can", h["id"], scenario=h["id"])
+        h["task"] = task.id
+        return h, task
+
+    def _random_walkway(self, seed) -> list[float]:
+        rng = random.Random(f"can{seed}")
+        cs = [c for c in self.rm.coarse if c["kind"] in ("walk", "catwalk")]
+        c = rng.choice(cs)
+        s = rng.uniform(0.2, 0.8)
+        return [round(float(a + (b - a) * s), 3) for a, b in zip(c["a"], c["b"])]
+
     def _snap(self, xyz) -> list[float]:
+        return [round(float(v), 3) for v in self._snap_edge(xyz)[0]]
+
+    def _snap_edge(self, xyz) -> tuple[np.ndarray, np.ndarray]:
         p = np.asarray(xyz, float)
         best = None
         for a, b, e in self.rm.edges():
@@ -295,10 +340,10 @@ class Fleet:
             q = pa + s * dv
             dist = float(np.linalg.norm(q[:2] - p[:2]))
             if best is None or dist < best[0]:
-                best = (dist, q)
+                best = (dist, q, dv)
         if best is None:
             raise ValueError(f"no walkway near {np.round(p, 1).tolist()}")
-        return [round(float(v), 3) for v in best[1]]
+        return best[1], best[2]
 
     def _ahead(self, r: Robot, m: float) -> list[float]:
         for x in [r] + [o for o in self.robots if o is not r and not o.failed]:
@@ -431,6 +476,9 @@ class Fleet:
         return any(np.linalg.norm(p[:2] - z[:2]) < m and abs(p[2] - z[2]) < 5.0
                    for z in self._gas_zones())
 
+    def _fits(self, r: Robot, t: Task) -> bool:
+        return NEEDS.get(t.kind, frozenset()) <= r.caps
+
     def _assignable(self, t: Task) -> bool:
         return (t.status == "pending" and t.node not in self._blocked
                 and (t.kind == "gas" or not self._in_gas(t.node, self._zone_m(t.kind))))
@@ -560,9 +608,9 @@ class Fleet:
                 self._log("needs_human", f"{t.id} cut off by {why} -> escalate to human crew", task=t.id)
 
     def _preempt_gas(self) -> None:
-        for gas in [t for t in self.tasks.values() if t.kind == "gas" and self._assignable(t)]:
-            cands = [r for r in self.robots if not r.failed and not r.paused
-                     and not (r.task is not None and r.task.kind == "gas")]
+        for gas in [t for t in self.tasks.values() if t.kind in URGENT and self._assignable(t)]:
+            cands = [r for r in self.robots if not r.failed and not r.paused and self._fits(r, gas)
+                     and not (r.task is not None and KIND_BASE[r.task.kind] >= KIND_BASE[gas.kind])]
             if not cands:
                 continue
             eta, need = self._plan_matrix(cands, [gas])
@@ -576,11 +624,16 @@ class Fleet:
                 old.preemptions += 1
                 self.preemptions += 1
                 self._release(r)
-                self._log("preempt", f"{r.id} pre-empted from {old.id} -> gas alarm {gas.poi}", robot=r.id,
-                          task=old.id)
+                what = f"gas alarm {gas.poi}" if gas.kind == "gas" else f"pick up can {gas.poi}"
+                self._log("preempt", f"{r.id} pre-empted from {old.id} -> {what}", robot=r.id, task=old.id)
             r.low = False
-            self._give(r, gas, f"gas pre-emption, ETA {eta[i, 0]:.0f} s")
-            self.alarms[gas.id]["responder"] = r.id
+            if gas.kind == "gas":
+                self._give(r, gas, f"gas pre-emption, ETA {eta[i, 0]:.0f} s")
+                self.alarms[gas.id]["responder"] = r.id
+                continue
+            self._give(r, gas, f"nearest gripper, ETA {eta[i, 0]:.0f} s")
+            self._log("dispatch", f"{r.id} has the nearest gripper (ETA {eta[i, 0]:.0f} s) -> pick up can {gas.poi}",
+                      robot=r.id, task=gas.id)
 
     def _suspend_gas_zone(self) -> None:
         for r in self.robots:
@@ -607,7 +660,7 @@ class Fleet:
     def _assign(self) -> None:
         if self._event_tick:
             for r in self.robots:
-                if r.task is not None and r.task.kind != "gas" and r.task.status == "assigned":
+                if r.task is not None and r.task.kind not in URGENT and r.task.status == "assigned":
                     self._release(r)
         robots = [r for r in self.robots if not r.failed and not r.paused and r.task is None
                   and not (r.low and r.battery.soc < r.battery.resume_frac)]
@@ -619,7 +672,7 @@ class Fleet:
         cost = np.full(eta.shape, INF)
         for i, r in enumerate(robots):
             for j in range(len(tasks)):
-                if math.isfinite(eta[i, j]) and r.battery.can_afford(need[i, j]):
+                if math.isfinite(eta[i, j]) and r.battery.can_afford(need[i, j]) and self._fits(r, tasks[j]):
                     cost[i, j] = eta[i, j] + W_SOC * (1.0 - r.battery.soc) - W_PRIO * prio[j]
         for i, j in assign(cost):
             r = robots[i]
@@ -637,7 +690,7 @@ class Fleet:
                 r.trail = [lg]
             else:
                 r.trail.append(lg)
-            r.dist_m += self.rm.adj[lg.u][lg.v].length
+            r.dist_m += float(np.linalg.norm(self.rm.pos[lg.v] - self.rm.pos[lg.u]))
             r.node = lg.v
             r.arrived_t = lg.t1
         lg = r.legs[0] if r.legs else None
@@ -732,6 +785,8 @@ class Fleet:
             msg = (tr.alerts[-1]["message"] if tr.alerts else tr.segments[-1][2]).replace("F1", task.poi)
             self._log("job_done", f"{r.id} {task.status} {task.id}: {msg}", robot=r.id, task=task.id)
             self._release(r, task.status)
+            if task.kind == "pick_can" and task.status == "done" and task.poi in self.hz.obstacles:
+                self._hazard("clear", {"id": task.poi})
 
     def _energy(self, r: Robot) -> None:
         if r.failed:

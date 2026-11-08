@@ -25,6 +25,8 @@ LIFT = 0.1
 SKIES = {False: GENERATED / "sky_night.hdr", True: GENERATED / "sky_storm.hdr"}
 RAMP_S = 3.0
 REVEAL_S = 1.2
+CAN_SIZE = {"small": (0.085, 0.24), "large": (0.15, 0.42)}
+CAN_PAINT = {"red": (0.62, 0.05, 0.03), "blue": (0.04, 0.16, 0.55), "yellow": (0.78, 0.55, 0.04), "green": (0.06, 0.35, 0.1)}
 WEATHER_KEYS = ("fog_color", "fog_height", "wave_height", "dome", "wind", "sun", "fog_dist")
 
 
@@ -327,22 +329,24 @@ class ObstacleScene:
         self._blob(path, "wet_rim", r * 1.18, seed + 7, 0.004, dark)
 
     def _build_can(self, path, o):
-        paint = self._mat("obst_can_yellow", (0.78, 0.55, 0.04), 0.4, 0.3)
+        r, h = CAN_SIZE.get(o.get("size", "small"), CAN_SIZE["small"])
+        c = o.get("colour", "red")
+        paint = self._mat(f"obst_can_{c}", CAN_PAINT.get(c, CAN_PAINT["red"]), 0.38, 0.35)
         tin = self._mat("obst_can_tin", (0.7, 0.7, 0.68), 0.25, 0.95)
         body = UsdGeom.Cylinder.Define(self.stage, f"{path}/body")
         body.CreateAxisAttr("Z")
-        body.CreateRadiusAttr(0.085)
-        body.CreateHeightAttr(0.24)
-        UsdGeom.Xformable(body).AddTranslateOp().Set(Gf.Vec3d(0, 0, 0.12))
+        body.CreateRadiusAttr(r)
+        body.CreateHeightAttr(h)
+        UsdGeom.Xformable(body).AddTranslateOp().Set(Gf.Vec3d(0, 0, h / 2))
         _bind(body.GetPrim(), paint)
-        for z in (0.005, 0.235):
-            rim = UsdGeom.Cylinder.Define(self.stage, f"{path}/rim_{int(z * 1000)}")
+        for k, z in enumerate((0.006, h - 0.006)):
+            rim = UsdGeom.Cylinder.Define(self.stage, f"{path}/rim_{k}")
             rim.CreateAxisAttr("Z")
-            rim.CreateRadiusAttr(0.088)
+            rim.CreateRadiusAttr(r * 1.04)
             rim.CreateHeightAttr(0.012)
             UsdGeom.Xformable(rim).AddTranslateOp().Set(Gf.Vec3d(0, 0, z))
             _bind(rim.GetPrim(), tin)
-        self.b.tube(path, "handle", (-0.05, 0, 0.25), (0.05, 0, 0.25), 0.008, tin, segments=8)
+        self.b.tube(path, "handle", (-r * 0.6, 0, h + 0.012), (r * 0.6, 0, h + 0.012), 0.008, tin, segments=8)
 
     def _build_barrel(self, path, o):
         paint = self._mat("obst_drum_red", (0.52, 0.05, 0.035), 0.42, 0.55)

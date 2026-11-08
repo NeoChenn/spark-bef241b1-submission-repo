@@ -191,13 +191,13 @@ def test_puddle_is_a_soft_cost_not_a_block():
     assert by_id(f, "R1").legs and not by_id(f, "R1").stuck
 
 
-def test_drop_can_small_is_soft_and_large_is_a_rolling_barrel():
+def test_small_can_goes_to_the_gripper_and_large_can_rolls():
     f, rm = walking_r1()
     f.event("drop_can", size="small", at="R1")
-    f.event("drop_can", size="large", at="R1")
+    f.event("drop_obstacle", kind="barrel", at="R1")
     kinds = {o["kind"]: o for o in f.hz.obstacles.values()}
-    assert kinds["can"]["effect"] == "soft" and kinds["barrel"]["rolling"]
-    assert any("pick-up" in e["message"] for e in f.event_log)
+    assert kinds["can"]["size"] == "small" and kinds["barrel"]["rolling"]
+    assert any("gripper" in e["message"] for e in f.event_log)
 
 
 def test_weather_carries_time_of_day():
