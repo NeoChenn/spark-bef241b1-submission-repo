@@ -44,3 +44,30 @@ class Demand:
 
     def captured(self, now: float) -> None:
         self.next = now + self.period
+
+
+class Guard:
+    def __init__(self, threshold: float = 22.0, hold: float = 5.0, window: float = 2.0, top: int = 2):
+        self.threshold, self.hold, self.window, self.top = threshold, hold, window, top
+        self.times: list[float] = []
+        self.low = None
+        self.level = 0
+        self.hz = 0.0
+
+    def tick(self, now: float, active: bool):
+        self.times.append(now)
+        while self.times and now - self.times[0] > self.window:
+            self.times.pop(0)
+        span = self.times[-1] - self.times[0] if len(self.times) > 1 else 0.0
+        self.hz = (len(self.times) - 1) / span if span > 0 else 0.0
+        if not active or span < self.window * 0.9 or self.hz >= self.threshold or self.level >= self.top:
+            self.low = None if (not active or self.hz >= self.threshold) else self.low
+            return None
+        if self.low is None:
+            self.low = now
+            return None
+        if now - self.low < self.hold:
+            return None
+        self.level += 1
+        self.low = None
+        return self.level
