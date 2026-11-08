@@ -112,8 +112,7 @@ class Atmosphere:
         self.ember_mat = _material(stage, "ember", (0.0, 0.0, 0.0), primvar_emissive=True)
         self.rain_mat = _material(stage, "rain", (0.6, 0.65, 0.7), (0.05, 0.06, 0.07), opacity=0.5, roughness=0.1)
         self.spray_mat = _material(stage, "spray", (0.85, 0.9, 0.92), (0.02, 0.025, 0.03), opacity=0.7, roughness=0.3)
-        fog = FOG_COLOR[preset]
-        self.fog_mat = _material(stage, "fog", fog, tuple(c * 0.15 for c in fog), texture=_texture(), roughness=1.0)
+        self.fog = FOG_COLOR[preset]
         self.embers = atmos.Particles(self.q["embers"], (np.full(3, -1e4), np.full(3, 1e4)), velocity=(0, 0, 9.0),
                                       spread=3.0, gravity=-1.5, drag=0.35, life=(1.2, 3.5), source=flare_source, seed=1)
         self.ember_curves = _curves(stage, "embers", 0.07, self.ember_mat)
@@ -123,6 +122,8 @@ class Atmosphere:
         self.spray = atmos.Particles(self.q["spray"], (np.array([-200, -200, -0.5]), np.array([200, 200, 40.0])),
                                      gravity=-9.8, drag=0.25, life=(0.8, 2.4), source=leg_sources(stage), seed=3)
         self.spray_pts = UsdGeom.Points.Define(stage, f"{ROOT}/spray")
+        self.spray_pts.CreatePointsAttr()
+        self.spray_pts.CreateWidthsAttr()
         _bind(self.spray_pts, self.spray_mat)
         self.cards = self._build_cards(self.q["fog_cards"])
         self._build_exhaust()
@@ -143,8 +144,11 @@ class Atmosphere:
             UsdGeom.PrimvarsAPI(m).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex).Set(
                 [(0, 0), (1, 0), (1, 1), (0, 1)])
             x = UsdGeom.Xformable(m)
-            cards.append((x.AddTranslateOp(), x.AddRotateZOp(), x.AddScaleOp()))
-            _bind(m, self.fog_mat)
+            mat = _material(self.stage, f"fog_{i:02d}", self.fog, tuple(c * 0.15 for c in self.fog), texture=_texture(),
+                            roughness=1.0)
+            fade = UsdShade.Shader.Get(self.stage, f"{ROOT}/Looks/fog_{i:02d}/tex").CreateInput("scale", Sdf.ValueTypeNames.Float4)
+            cards.append((x.AddTranslateOp(), x.AddRotateZOp(), x.AddScaleOp(), fade))
+            _bind(m, mat)
         return cards
 
     def _build_exhaust(self):
@@ -235,7 +239,10 @@ class Atmosphere:
         size = 0.12 + 0.5 * np.clip(self.spray.age[:k] / 2.0, 0, 1)
         self.spray_pts.GetWidthsAttr().Set(Vt.FloatArray.FromNumpy(size.astype(np.float32)))
         layout = atmos.fog_cards(len(self.cards), 320.0, (1.0, 10.0), seed=7, t=t, wind=wind)
-        for (tr, rz, sc), c, s in zip(self.cards, layout["centre"], layout["size"]):
+        for (tr, rz, sc, fade), c, s in zip(self.cards, layout["centre"], layout["size"]):
+            d = float(np.hypot(*(c[:2] - eye[:2]))) if eye is not None else 1e3
+            a = float(np.clip((d - 0.25 * s) / (0.5 * s), 0, 1)) * (0.35 + 0.65 * self.w["fog"])
+            fade.Set(Gf.Vec4f(1, 1, 1, a))
             tr.Set(Gf.Vec3d(*c))
             yaw = math.degrees(math.atan2(eye[1] - c[1], eye[0] - c[0])) - 90 if eye is not None else 0.0
             rz.Set(yaw)
