@@ -1,0 +1,15 @@
+{
+ "ckpt": "/repo/runs/v2/model.pt",
+ "episodes": 513,
+ "meta": true,
+ "success_rate": 0.9824561403508771,
+ "mean_fraction_removed": 0.952037927119123,
+ "mean_time_to_clean_s": 6.4182543028441685,
+ "max_force_N": 42.43288040161133,
+ "mean_episode_max_force_N": 30.106740148443926,
+ "p95_episode_max_force_N": 35.757171630859375,
+ "frac_episodes_over_40N": 0.007797270955165692,
+ "episodes_with_new_patch": 513,
+ "new_patch_handled_rate": 0.9824561403508771,
+ "wall_s": 278.9
+}
