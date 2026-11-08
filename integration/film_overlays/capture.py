@@ -23,6 +23,8 @@ DECISIONS = (("scrubber", ("hold",), 'Rust on the F5 line → <i class="dot u1">
              ("fixer", ("go_check", "fix_leak"), 'Leak at F5 → <i class="dot u2"></i>Unit 2, Fixer', "Leak at F5 → Unit 2"))
 NOTE = ("scrubber", ("resume_rust",), 'Leak fixed → <i class="dot u1"></i>Unit 1, Scrubber, dispatched')
 DEFAULT_RUN = REPO / "runs_sample/film"
+SCRUB_TRACK = "scrub_track.json"
+SCRUB_HZ = 15
 FALLBACK_RUN = REPO / "runs_sample/fleet_demo"
 
 
@@ -192,6 +194,7 @@ def readout_data(R: dict, stub: dict, mode: str, sim_span, span: float) -> dict:
         return copy.deepcopy(stub["readout"][mode]) | {"mode": mode}
     kn = _knots(R, span, sim_span)
     rid = KEYS["fixer" if mode == "gas" else "scrubber"]
+    scrub = scrub_source(R) if mode == "rust" else None
     hs = [h for h in R["heads"] if kn[0][1] - 0.5 <= float(h["t"]) <= kn[-1][1] + 0.5]
     out = {"mode": mode, "series": [], "force": [], "states": []}
     last = None
@@ -201,7 +204,7 @@ def readout_data(R: dict, stub: dict, mode: str, sim_span, span: float) -> dict:
             d = _det(h, KEYS["leak"])
             if d:
                 out["series"].append([t, float(d[KEYS["lel"]])])
-        else:
+        elif scrub is None:
             if h.get(KEYS["rust"]) is not None:
                 out["series"].append([t, float(h[KEYS["rust"]])])
             if h.get(KEYS["force"]) is not None:
@@ -211,7 +214,51 @@ def readout_data(R: dict, stub: dict, mode: str, sim_span, span: float) -> dict:
         if st and st != last:
             out["states"].append([t, st])
             last = st
+    if scrub is not None:
+        out["source"] = scrub[0]
+        s0, s1 = kn[0][1], kn[-1][1]
+        n = max(2, int((s1 - s0) * SCRUB_HZ) + 1)
+        for i in range(n):
+            sim = s0 + (s1 - s0) * i / (n - 1)
+            frac, force = scrub[1](sim)
+            out["series"].append([_u(kn, sim), round(frac, 4)])
+            out["force"].append([_u(kn, sim), round(force, 2)])
     return out
+
+
+def _track_fn(path: Path):
+    import numpy as np
+    d = json.loads(path.read_text())
+    rows = d if isinstance(d, list) else d.get("samples") or [dict(zip(d, v)) for v in zip(*d.values())]
+    t = np.array([float(r["t"]) for r in rows])
+    fr = np.array([float(r.get("rust_fraction", 0.0)) for r in rows])
+    fo = np.array([float(r.get("force_N", (r.get("brush_contact") or {}).get("force_N", 0.0))) for r in rows])
+    return lambda x: (float(np.interp(x, t, fr)), float(np.interp(x, t, fo)))
+
+
+_SCRUB = {}
+
+
+def scrub_source(R: dict):
+    run = Path(R["dir"]) if R["dir"] else None
+    if run is None:
+        return None
+    track = run / SCRUB_TRACK
+    if track.is_file():
+        return "scrub_track", _track_fn(track)
+    tl = _find(run, "timeline")
+    if tl is None:
+        return None
+    if str(tl) not in _SCRUB:
+        try:
+            from integration.scrub_motion import film_job
+            _SCRUB[str(tl)] = film_job(tl)
+        except (ImportError, AttributeError, KeyError, ValueError):
+            _SCRUB[str(tl)] = None
+    job = _SCRUB[str(tl)]
+    if job is None:
+        return None
+    return "scrub_motion", lambda x: (lambda a: (float(a["rust_fraction"]), float(a["brush_contact"]["force_N"])))(job.at(x))
 
 
 def edl_shot(name: str, length=None) -> dict:
