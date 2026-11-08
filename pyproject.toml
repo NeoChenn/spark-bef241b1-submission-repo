@@ -28,6 +28,7 @@ dev = [
     "numpy>=2.5.4",
     "onnx>=1.23.2",
     "onnxruntime>=1.31.1",
+    "opencv-python-headless>=5.0.0.93",
     "peft>=0.21.2",
     "pytest>=9.2.0",
     "scikit-learn>=1.9.1",
