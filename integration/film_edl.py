@@ -151,7 +151,9 @@ def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE
     plan = [
         ("rig", 6.0, (0.0, 0.0), lambda u, t: rig_orbit(u), "fade", "xfade", False),
         ("control_push", 4.0, (0.0, 0.0), lambda u, t: control_push(u), "xfade", "xfade", False),
-        ("board", 10.0, (0.0, b.dispatch_u2), lambda u, t: control_room(u), "xfade", "xfade", True),
+        ("board", 8.5, (0.0, b.dispatch_u2 + 0.3), lambda u, t: control_room(u * 0.85), "xfade", "cut", True),
+        ("board_hold", 1.5, (b.dispatch_u2 + 0.3, b.dispatch_u2 + 0.3), lambda u, t: control_room(0.85 + 0.15 * u),
+         "cut", "xfade", True),
         ("unit2_walk", 1.5, (b.u2_arrive - 1.5, b.u2_arrive), p2, "xfade", "cut", False),
         ("unit2_job", 10.5, (b.u2_engage - 2.5, b.gf5_green + 0.8), j2, "cut", "cut", False),
         ("unit1_walk", 1.5, (b.u1_arrive - 1.5, b.u1_arrive), p1, "cut", "cut", False),
