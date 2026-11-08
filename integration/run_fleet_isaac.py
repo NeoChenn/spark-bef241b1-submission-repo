@@ -1387,6 +1387,25 @@ def main(argv=None):
                       f"t0={retq[2]:.2f} dur={traj.duration:.2f}", flush=True)
         except Exception as exc:
             print(f"[fleet] retorque skill unavailable: {exc}", flush=True)
+    sjob = None
+    if args.film:
+        try:
+            from integration import scrub_motion as smo
+
+            w_ = smo.windows_from_timeline(scn.rows)
+            p_ = scn.pose("unit1", w_.get("spray", w_.get("deploy", 0.0)))
+            sjob = smo.ScrubJob(patch=smo.first_rust_grid(scn.rows), scrub_pose=(p_[0], p_[1], 0.0))
+            sjob.plan(t_deploy=w_["deploy"], t_spray=w_["spray"], t_soak=w_["soak"], t_scrub=w_["scrub"],
+                      t_verify=w_["verify"], t_paint=w_["paint"], t_done=w_["stow"])
+            if brush is not None:
+                from policy.brush_squish import BrushPad
+
+                brush.pad = BrushPad(4000.0, eps=smo.FACE_GAP)
+            print(f"[fleet] scrub motion {w_} plan {sjob.plan_.t[0]:.2f}-{sjob.plan_.t[-1]:.2f}", flush=True)
+        except Exception as exc:
+            print(f"[fleet] scrub motion unavailable: {exc}", flush=True)
+            sjob = None
+    hold1 = 0.0
     motion = None
     if args.film and tools["unit2"] == "socket_tip":
         try:
@@ -1454,16 +1473,30 @@ def main(argv=None):
         elif f2 is not None:
             fix_pose = fixer_stance(f2, (u2.x, u2.y))
         shown = {}
+        s1 = None
+        if sjob is not None and sjob.plan_.t[0] <= t <= sjob.plan_.t[-1]:
+            s1 = sjob.at(t)
+            still1 = abs(units["unit1"].v) < 0.05 and abs(units["unit1"].w) < 0.15
+            hold1 = min(1.0, hold1 + 2.0 * dt) if still1 else max(0.0, hold1 - 2.0 * dt)
+        else:
+            hold1 = max(0.0, hold1 - 2.0 * dt)
         for rid, u in units.items():
             model = models[rid]
             moving = abs(u.v) > 0.05 or abs(u.w) > 0.15
             bx, by, byaw = u.x, u.y, u.yaw
+            if rid == "unit1" and s1 is not None and hold1 > 0:
+                sb = s1["base"]
+                s3 = hold1 * hold1 * (3 - 2 * hold1)
+                syaw_ = math.atan2(sb[1, 0], sb[0, 0])
+                bx, by = bx + s3 * (sb[0, 3] - bx), by + s3 * (sb[1, 3] - by)
+                byaw = wrap(byaw + s3 * wrap(syaw_ - byaw))
+                moving = moving or 0 < hold1 < 1
             if rid == "unit2" and fix_w > 0 and fix_pose is not None:
                 s3 = fix_w * fix_w * (3 - 2 * fix_w)
                 bx, by = bx + s3 * (fix_pose[0] - bx), by + s3 * (fix_pose[1] - by)
                 byaw = wrap(byaw + s3 * wrap(fix_pose[2] - byaw))
                 moving = moving or 0 < fix_w < 1
-            if rid == "unit1" and work_w > 0:
+            if rid == "unit1" and work_w > 0 and sjob is None:
                 sx, sy, syaw = scrub_stance(pipe, (u.x, u.y))
                 s3 = work_w * work_w * (3 - 2 * work_w)
                 bx, by, byaw = bx + s3 * (sx - bx), by + s3 * (sy - by), wrap(byaw + s3 * wrap(syaw - byaw))
@@ -1483,7 +1516,13 @@ def main(argv=None):
             goal = arm_target(rid, acts[rid], u if rid == "unit1" else NavUnit(rid, bx, by, byaw), t) \
                 if not moving else None
             skill_q = None
-            if rid == "unit2" and motion is not None:
+            if rid == "unit1" and s1 is not None:
+                skill_q = dict(s1["q"])
+                goal = None
+                if hold1 >= 1.0:
+                    base = np.array(s1["base"], float)
+                    shown[rid] = (float(base[0, 3]), float(base[1, 3]), byaw, float(base[2, 3]))
+            elif rid == "unit2" and motion is not None:
                 skill_q = motion.at(t)
                 goal = None
             elif rid == "unit2" and in_rt and retq[2] <= t:
@@ -1520,7 +1559,16 @@ def main(argv=None):
                 else:
                     q[rid][j] = q[rid].get(j, v) + blend * (v - q[rid].get(j, v))
             posers[rid].set(base, q[rid])
-            if rid == "unit1":
+            if rid == "unit1" and s1 is not None:
+                T1 = model.tool_pose(base, q[rid], "brush_tip")
+                nz = s1["nozzle"]
+                set_spray(cone, cone_op, np.asarray(nz["xyz"]), np.asarray(nz["dir"]), nz["length"], bool(nz["on"]))
+                if brush is not None:
+                    o_, a_ = np.asarray(pipe["origin"]), np.asarray(pipe["axis"])
+                    f_ = float(s1["brush_contact"]["force_N"])
+                    brush._set("sponge", brush.pad.sponge(T1[:3, 3], T1[:3, :3], o_, a_, pipe["radius"], f_))
+                    brush._set("hub", brush.pad.hub(T1[:3, 3], T1[:3, :3], o_, a_, pipe["radius"]))
+            elif rid == "unit1":
                 tip = model.tool_pose(base, q[rid], "brush_tip")
                 act = acts["unit1"]
                 live = scn.masks_at(t) or {}
@@ -1531,7 +1579,11 @@ def main(argv=None):
                     o_, a_ = np.asarray(pipe["origin"]), np.asarray(pipe["axis"])
                     brush._set("sponge", brush.pad.sponge(tip[:3, 3], tip[:3, :3], o_, a_, pipe["radius"], force))
                     brush._set("hub", brush.pad.hub(tip[:3, 3], tip[:3, :3], o_, a_, pipe["radius"]))
-        masks = scn.masks_at(t) or rust_masks(geom.shape, pipe_c, side0, 0.0, prog, length=seg_len, full=full)
+        if sjob is not None:
+            sm_ = sjob.at(t)
+            masks = {"rust_grid": sm_["rust"], "sprayed": sm_["sprayed"], "painted": sm_["painted"]}
+        else:
+            masks = scn.masks_at(t) or rust_masks(geom.shape, pipe_c, side0, 0.0, prog, length=seg_len, full=full)
         painted = resample(masks.get("painted", np.zeros(geom.shape)), geom.shape) > 0.5
         overlay.wet.update((resample(masks.get("sprayed", np.zeros(geom.shape)), geom.shape) > 0.5) & ~painted)
         overlay.rust.update(np.clip(resample(masks.get("rust_grid", np.zeros(geom.shape)), geom.shape) / 0.1, 0, 1)
