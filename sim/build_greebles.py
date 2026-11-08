@@ -875,15 +875,13 @@ QUARTERS = (((0, 0.5), (0.5, 1)), ((0.5, 0.5), (1, 1)), ((0, 0), (0.5, 0.5)), ((
 
 def puddles(root):
     mask = g.TEXTURES / "puddles_mask.png"
-    water = decal_look("standing_water", None, mask, roughness=0.02, tint=(0.012, 0.013, 0.014), strength=1.0)
     damp = decal_look("damp_patch", None, mask, roughness=0.22, tint=(0.03, 0.03, 0.03), strength=0.75)
     for k, (x, y, size, rot, shape) in enumerate(g.puddle_layout()):
         a = math.radians(rot)
         u, v = (math.cos(a), math.sin(a), 0), (-math.sin(a), math.cos(a), 0)
         write_mesh(f"{root}/damp_{k:02d}", quad_mesh((x, y, 0.0028 + 0.00002 * k), u, v, size * 0.8, size * 0.8,
                                                      QUARTERS[(shape + 1) % 4]), damp)
-        write_mesh(f"{root}/water_{k:02d}", quad_mesh((x, y, 0.0045 + 0.00002 * k), u, v, size / 2, size / 2, QUARTERS[shape]),
-                   water)
+        pr.make_puddle(S(), f"{root}/water_{k:02d}", (x, y, 0.0), size * 0.42, seed=k, mdl_path=rel(pr.PUDDLE_MDL))
 
 
 def drip_streaks(root):

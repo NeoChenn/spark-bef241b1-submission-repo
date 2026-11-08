@@ -24,6 +24,8 @@ ap.add_argument("--times", default="")
 ap.add_argument("--warm", type=int, default=24)
 ap.add_argument("--lens", action="store_true")
 ap.add_argument("--set", action="append", default=[])
+ap.add_argument("--spawn-puddles", action="store_true")
+ap.add_argument("--rain", type=float, default=None)
 ap.add_argument("--look", default="offline")
 args = ap.parse_args()
 os.environ["RIG_QUALITY"] = args.quality
@@ -84,6 +86,17 @@ def aim(eye, target, focal):
     cam_op.Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*map(float, eye)), Gf.Vec3d(*map(float, target)), Gf.Vec3d(0, 0, 1)).GetInverse())
 
 
+if args.spawn_puddles:
+    import photoreal
+
+    zt = meta["zone_to_world"]["translation"]
+    UsdGeom.Scope.Define(stage, "/World/JudgePuddles")
+    for k, (x, y, r) in enumerate(((0.9, 2.9, 0.45), (-0.6, 2.75, 0.35), (2.0, 3.6, 0.55))):
+        photoreal.make_puddle(stage, f"/World/JudgePuddles/p{k}", (zt[0] + x, zt[1] + y, zt[2]), r, seed=40 + k)
+if args.rain is not None:
+    import photoreal
+
+    photoreal.set_rain(stage, args.rain)
 atm = None
 if args.atmos != "none":
     from atmos_fx import Atmosphere
