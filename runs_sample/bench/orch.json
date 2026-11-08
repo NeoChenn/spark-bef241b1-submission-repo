@@ -1,0 +1,329 @@
+{
+ "arms": {
+  "rule": {
+   "label": "Rule-based coordinator",
+   "status": "ran",
+   "episodes": 100,
+   "leak_isolate_s": {
+    "mean": 125.74958677685952,
+    "lo": 115.56643957964359,
+    "hi": 135.93273397407543,
+    "n": 121
+   },
+   "leak_isolate_any_s": {
+    "mean": 125.74958677685952,
+    "lo": 115.56643957964359,
+    "hi": 135.93273397407543,
+    "n": 121
+   },
+   "leak_detect_s": {
+    "mean": 55.40247933884297,
+    "lo": 47.24135815739314,
+    "hi": 63.56360052029281,
+    "n": 121
+   },
+   "leaks_open": {
+    "mean": 0.1,
+    "lo": 0.040173607899318814,
+    "hi": 0.1598263921006812,
+    "n": 100
+   },
+   "jobs_per_hour": {
+    "mean": 116.088,
+    "lo": 113.30911173521427,
+    "hi": 118.86688826478571,
+    "n": 100
+   },
+   "unsafe_executed": {
+    "mean": 0.18,
+    "lo": 0.09835895304286958,
+    "hi": 0.2616410469571304,
+    "n": 100
+   },
+   "unsafe_gas": {
+    "mean": 0.13,
+    "lo": 0.06293392955940794,
+    "hi": 0.19706607044059207,
+    "n": 100
+   },
+   "unsafe_person": {
+    "mean": 0.05,
+    "lo": -0.001811175375958582,
+    "hi": 0.10181117537595859,
+    "n": 100
+   },
+   "refused_by_envelope": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "n": 100
+   },
+   "approvals_requested": {
+    "mean": 0.5,
+    "lo": 0.37869675460234903,
+    "hi": 0.621303245397651,
+    "n": 100
+   },
+   "crew_handoffs": {
+    "mean": 0.5,
+    "lo": 0.37869675460234903,
+    "hi": 0.621303245397651,
+    "n": 100
+   },
+   "operator_approvals": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "n": 100
+   },
+   "llm_cost_usd": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "n": 100
+   },
+   "llm_calls": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "n": 100
+   },
+   "unsafe_executed_total": 18,
+   "leaks_crew_total": 0,
+   "leaks_open_total": 10,
+   "leaks_total": 131
+  },
+  "edge": {
+   "label": "Coordinator + edge rules (no LLM / link cut)",
+   "status": "ran",
+   "episodes": 100,
+   "leak_isolate_s": {
+    "mean": 126.1490740740741,
+    "lo": 114.88569744982809,
+    "hi": 137.4124506983201,
+    "n": 108
+   },
+   "leak_isolate_any_s": {
+    "mean": 185.80743801652892,
+    "lo": 153.0927673346383,
+    "hi": 218.52210869841954,
+    "n": 121
+   },
+   "leak_detect_s": {
+    "mean": 55.40247933884297,
+    "lo": 47.24135815739314,
+    "hi": 63.56360052029281,
+    "n": 121
+   },
+   "leaks_open": {
+    "mean": 0.1,
+    "lo": 0.040173607899318814,
+    "hi": 0.1598263921006812,
+    "n": 100
+   },
+   "jobs_per_hour": {
+    "mean": 109.96449999999999,
+    "lo": 105.42781711441616,
+    "hi": 114.50118288558382,
+    "n": 100
+   },
+   "unsafe_executed": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "n": 100
+   },
+   "unsafe_gas": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "n": 100
+   },
+   "unsafe_person": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "n": 100
+   },
+   "refused_by_envelope": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "n": 100
+   },
+   "approvals_requested": {
+    "mean": 0.63,
+    "lo": 0.4957641276791096,
+    "hi": 0.7642358723208904,
+    "n": 100
+   },
+   "crew_handoffs": {
+    "mean": 0.63,
+    "lo": 0.4957641276791096,
+    "hi": 0.7642358723208904,
+    "n": 100
+   },
+   "operator_approvals": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "n": 100
+   },
+   "llm_cost_usd": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "n": 100
+   },
+   "llm_calls": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.0,
+    "n": 100
+   },
+   "unsafe_executed_total": 0,
+   "leaks_crew_total": 13,
+   "leaks_open_total": 10,
+   "leaks_total": 131
+  },
+  "planner": {
+   "label": "Gemini planner + edge",
+   "status": "not run \u2014 needs key",
+   "episodes": 0
+  },
+  "planner_cut": {
+   "label": "Gemini planner, link cut mid-shift",
+   "status": "not run \u2014 needs key",
+   "episodes": 0
+  }
+ },
+ "benchmark": "orchestration",
+ "sim": "policy/fleet CPU fleet sim (kinematic robots, Hungarian assignment, gas pre-emption) + bench/orch.py leak/LEL model",
+ "seeds": [
+  4084527128,
+  1666646064,
+  2063570561,
+  3965985485,
+  1303408080,
+  424407483,
+  3205338501,
+  2517515626,
+  759598303,
+  1355530346,
+  1581155862,
+  3304143585,
+  1688656513,
+  3556521633,
+  3569308568,
+  3873383723,
+  2258701903,
+  2662750369,
+  108341836,
+  2420995688,
+  1064755245,
+  2436798846,
+  3467630377,
+  2583012402,
+  3445328149,
+  1368728385,
+  3711648890,
+  1163952126,
+  4004759377,
+  1091500862,
+  349179614,
+  988937636,
+  756375248,
+  2402551678,
+  3664234090,
+  986736360,
+  2230118960,
+  3186993648,
+  430537471,
+  1207713371,
+  2274651087,
+  2175978990,
+  1591489367,
+  3733461510,
+  1589878697,
+  1122759420,
+  2691842136,
+  862636036,
+  1386941308,
+  3746468161,
+  1079510834,
+  4280058578,
+  799168219,
+  2085761434,
+  1912482913,
+  382488495,
+  3115688446,
+  2887985465,
+  2852695529,
+  3996776653,
+  2683773605,
+  684849191,
+  4132545346,
+  1560738702,
+  1819334466,
+  1079226611,
+  716157412,
+  3770807939,
+  1509163896,
+  510658951,
+  1302452251,
+  2287692052,
+  2611585696,
+  4111343369,
+  421667181,
+  3442587449,
+  179537569,
+  572945976,
+  2580279064,
+  2625837116,
+  1410071405,
+  1377418919,
+  1625589731,
+  2927406657,
+  3677624403,
+  2896776829,
+  641912581,
+  3553653893,
+  2381406671,
+  3040280045,
+  2341283062,
+  1632800698,
+  2117174750,
+  937942437,
+  419512233,
+  3450653887,
+  2805124357,
+  1305875691,
+  1031019627,
+  3667484399
+ ],
+ "episodes": 100,
+ "llm_episodes": 0,
+ "t_max_s": 1800.0,
+ "alarm_lel": 20.0,
+ "evacuate_lel": 50.0,
+ "crew_isolate_s": 600.0,
+ "planner_interval_s": 10.0,
+ "model": {
+  "requested": "gemini-4-argon",
+  "confirmed": null
+ },
+ "pricing_usd_per_mtok": {
+  "in": 2.0,
+  "out_and_thought": 10.0,
+  "source": "policy/control/limiter.py"
+ },
+ "wall_s": 75.8,
+ "notes": [
+  "Stand-ins: kinematic CPU robots, a synthetic first-order %LEL model per flange, fixed gas detector alarms at 20% LEL; leak_check visits report a leak at >= 5% LEL.",
+  "unsafe_executed counts distinct incidents the sim observed: a robot doing work within the gas zone of a flange at >= 50% LEL, or a robot moving/working within 3 m of a person while not paused; each condition must hold for more than 1 control tick (1 s), i.e. one reaction tick is allowed.",
+  "refused_by_envelope counts planner actions vetoed by policy/control/safety.arbitrate plus actions the schema validator rejected; edge-only arms make no planner actions.",
+  "approvals_requested = crew hand-offs (escalated jobs, evacuated gas jobs) + planner recommendations below the auto-execute confidence (operator approval) + planner escalate actions.",
+  "The planner can only queue jobs, reprioritise jobs, evacuate zones and escalate; hold/resume/second_view of a non-flange are logged as advisory (policy/fleet has no external hold API).",
+  "Gemini arms run live only with GEMINI_API_KEY; no replay or hand-authored replies are used as results."
+ ]
+}

@@ -13,6 +13,7 @@
     { id: "hud", name: "HUD", key: "h" }, { id: "map", name: "Pipe map", key: "m" },
     { id: "gemini", name: "Gemini", key: "g" }, { id: "log", name: "Decision log", key: "l" },
     { id: "force", name: "Force sensor", key: "f" }, { id: "pip", name: "Inspection PiP", key: "p" },
+    { id: "control", name: "Control centre", key: "o" },
     { id: "captions", name: "Captions", key: "t" },
   ];
   const ACTIONS = [
@@ -274,6 +275,34 @@
     geminiTimer = setTimeout(() => $("gemini").classList.add("hide"), 11000 / (MOCK ? SPEED : 1));
   }
 
+  const CC_TOP = 3;
+  function showControl(c) {
+    S.control = c;
+    const mode = $("cc-mode");
+    mode.textContent = c.mode;
+    mode.className = "badge" + (c.mode === "CLOUD" ? " cloud" : "") + (c.pending ? " pending" : "");
+    $("cc-lat").textContent = c.latency_ms != null ? `${(c.latency_ms / 1000).toFixed(1)} s` : "—";
+    $("cc-cost").textContent = `$${(c.cost_today_usd || 0).toFixed(3)} today · ${c.calls_today || 0} calls`;
+    $("cc-model").textContent = c.model ? "Gemini 4 Argon" + (c.replay ? " · replay" : "") : "edge only";
+    $("cc-banner").textContent = c.banner || "";
+    $("cc-banner").classList.toggle("on", !!c.banner);
+    const sit = c.situation && c.situation.length ? c.situation : ["Edge safety rules only; no cloud plan yet."];
+    const sitKey = sit.join("|");
+    if (sitKey !== S.ccSit) { S.ccSit = sitKey; $("cc-sit").innerHTML = sit.map((l) => `<p>${esc(l)}</p>`).join(""); }
+    $("cc-acts").innerHTML = (c.actions || []).slice(0, CC_TOP).map((a) => `<li class="${a.source}">
+      <span class="rk">${a.rank}</span><span class="lb"><span class="src">${a.source === "edge" ? "Edge rule" : "Argon"}</span>${esc(a.label)}</span>
+      <span class="cf">${a.source === "edge" ? "HARD" : a.confidence.toFixed(2)}</span>
+      <div class="bar"><span style="width:${Math.round(a.confidence * 100)}%"></span></div>
+      <span class="why">${esc(a.rationale || "")}</span></li>`).join("");
+    const gas = (c.gas || []).filter((g) => g.lel >= 5).map((g) =>
+      `<span class="${g.lel >= 50 ? "critical" : g.lel >= 10 ? "warn" : ""}">${esc(g.id)} ${g.lel.toFixed(0)}% LEL${g.trend > 3 ? " ▲" : g.trend < -3 ? " ▼" : ""}${g.db != null ? " · " + Math.round(g.db) + " dB" : ""}</span>`);
+    const chips = (c.anomalies || []).map((a) => `<span class="${a.severity}">${esc(a.kind.replace(/_/g, " "))} · ${esc(a.zone)}</span>`);
+    $("cc-chips").innerHTML = chips.concat(gas).join("");
+    const veto = (c.vetoed || []).slice(0, 2).map((v) => `<span class="veto"><b>Edge veto</b> <s>${esc(v.label)}</s><em>${esc(v.why)}</em></span>`);
+    $("cc-foot").innerHTML = veto.join("");
+  }
+  window.hudControl = () => S.control || null;
+
   const NUM = /\d+(?:\.\d+)?/g, LIFT = 0.85, EDGE = 28;
   const CAP = { key: null, c: null, nums: [], layer: 0 };
   function setCaption(c) {
@@ -364,6 +393,7 @@
   }
 
   function apply(h) {
+    if (h.control) showControl(h.control);
     if (h.robots) S.robots = h.robots;
     if (h.camera) S.camera = h.camera;
     if (h.robots || h.caption) {
