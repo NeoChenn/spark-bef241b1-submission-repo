@@ -19,7 +19,8 @@ def main():
     for r in rows:
         carry += r["events"]
         if r["t"] + 1e-9 >= next_t or r["state"] in ("BACK_OFF",) or r["events"]:
-            r = dict(r, events=carry)
+            grid = [[0 if v < 0.005 else round(v, 2) for v in row] for row in r["rust_grid"]]
+            r = dict(r, events=carry, rust_grid=grid)
             carry = []
             out.append(r)
             next_t = r["t"] + 1.0 / a.hz
