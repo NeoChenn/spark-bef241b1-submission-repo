@@ -160,7 +160,7 @@ if args.video_seconds:
             rep.orchestrator.step(rt_subframes=1, delta_time=1.0 / args.fps, pause_timeline=False)
             continue
         rgb = frame(t, args.video_subframes or SUB)
-        Image.fromarray(rgb).save(frames / f"{i:05d}.png")
+        Image.fromarray(rgb).save(frames / f"{i:05d}.jpg", quality=95)
         if i % 24 == 0:
             print(f"FRAME {i}/{n} mean={rgb.mean():.1f} s/frame={(time.monotonic() - t_start) / (i + 1):.2f}", flush=True)
 print("DONE", flush=True)
