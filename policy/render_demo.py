@@ -92,6 +92,42 @@ class RustPainter:
         self.provider.set_data_array(rgba, [TEX_W, TEX_H])
 
 
+def make_brush(stage, base, spring_k: float):
+    from pxr import Usd, UsdGeom
+
+    from policy import night_look
+    from policy.brush_squish import BrushPad, UsdBrush
+
+    root = stage.GetPrimAtPath("/World/envs/env_0/Robot")
+    while True:
+        inst = [p for p in Usd.PrimRange(root) if p.IsInstanceable()]
+        if not inst:
+            break
+        for prim in inst:
+            prim.SetInstanceable(False)
+    hidden = 0
+    for prim in Usd.PrimRange(root):
+        if "scrubber_link" in str(prim.GetPath()) and prim.IsA(UsdGeom.Gprim):
+            UsdGeom.Imageable(prim).MakeInvisible()
+            hidden += 1
+    sponge = night_look._material(stage, "/World/Looks/brush_sponge", night_look.CORAL_LIN, 0.85, 0.0, 0.0,
+                                  emissive=tuple(c * 0.015 for c in night_look.CORAL_LIN))
+    hub = night_look._material(stage, "/World/Looks/brush_hub", (0.05, 0.05, 0.055), 0.4, 0.6, 0.3)
+    UsdGeom.Scope.Define(stage, "/World/Brush")
+    brush = UsdBrush(stage, "/World/Brush", BrushPad(spring_k), sponge, hub)
+    print(f"[demo] squish brush: pad {1000 * brush.pad.thickness:.1f} mm, hid {hidden} scrubber prims", flush=True)
+    update_brush(brush, base)
+    return brush
+
+
+def update_brush(brush, base):
+    d = base._robot.data
+    o = base.scene.env_origins[0]
+    brush.update(d.body_pos_w[0, base.ee_idx].cpu().numpy(), d.body_quat_w[0, base.ee_idx].cpu().numpy(),
+                 (base.pipe_o[0] + o).cpu().numpy(), base.pipe_a[0].cpu().numpy(), float(base.pipe_r[0]),
+                 float(base.force[0]))
+
+
 def seed_rust(base, seed: int, abrasion: float):
     import torch
 
@@ -131,6 +167,10 @@ def worker(argv):
     p.add_argument("--lamp_gain", type=float, default=1.0)
     p.add_argument("--rig_gain", type=float, default=0.1)
     p.add_argument("--still_at", type=float, default=0.0)
+    p.add_argument("--spring_k", type=float, default=4000.0)
+    p.add_argument("--no_squish", action="store_true")
+    p.add_argument("--no_detectors", action="store_true")
+    p.add_argument("--detector_still", default="", help="flange ids to frame after the shots, e.g. F5:alarm,F6:ok")
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -163,6 +203,8 @@ def worker(argv):
     env_cfg.prob_new_patch = 0.0
     env_cfg.prob_not_soaked = 0.0
     env_cfg.init_joint_noise = 0.0
+    if args.spring_k > 0:
+        env_cfg.spring_k_range = (args.spring_k, args.spring_k)
     env_cfg.episode_length_s = 120.0
     env_cfg.viz = False
     env_cfg.spawn_pipe_visual = False
@@ -219,6 +261,14 @@ def worker(argv):
     stage = omni.usd.get_context().get_stage()
     tex_dir = os.path.join(ROOT, "sim/assets/third_party/textures/rust_coarse_01")
     painter = RustPainter(build_overlay(stage, base, tex_dir), tex_dir, flip_v=not args.no_flip_v)
+    brush = None if args.no_squish else make_brush(stage, base, args.spring_k if args.spring_k > 0 else 4000.0)
+    detectors = None
+    if not args.no_detectors:
+        from integration.gas_detectors import GasDetectors
+
+        detectors = GasDetectors(stage, translation=env_cfg.backdrop_translation)
+        print("[demo] gas detectors", {k: [round(float(c), 3) for c in v] for k, v in detectors.positions().items()},
+              flush=True)
     cam = stage.GetPrimAtPath(env_cfg.viewer.cam_prim_path)
     settings = carb.settings.get_settings()
     for key, val in env_cfg.sim.render.carb_settings.items():
@@ -286,6 +336,8 @@ def worker(argv):
             with torch.inference_mode():
                 obs, _, _, _ = env.step(act)
             painter.update(base.rust.rust[0].cpu().numpy())
+            if brush is not None:
+                update_brush(brush, base)
             eye, look = camera_path(spec["keys"], t)
             base.sim.set_camera_view((eye + origin).tolist(), (look + origin).tolist())
             rgb = render_frame()
@@ -307,6 +359,19 @@ def worker(argv):
                        "size": list(frames[0].shape[1::-1]), "renderer": args.renderer, "spp": args.spp,
                        "subframes": args.subframes, "look": args.look, "log": info}, f)
         print(f"[demo] {shot}: {len(frames)} frames in {wall:.0f}s -> {path}", flush=True)
+    for item in filter(None, args.detector_still.split(",")):
+        fid, state = (item.split(":") + ["alarm"])[:2]
+        det = detectors.detectors[f"G-{fid}"]
+        detectors.set_detector_state(fid, state)
+        f = det.frame
+        hub = f[:3, 3]
+        eye = hub + 0.55 * f[:3, 0] - 0.25 * f[:3, 1] + 0.05 * f[:3, 2]
+        cam.GetAttribute("focalLength").Set(24.0)
+        base.sim.set_camera_view(eye.tolist(), (hub - 0.08 * f[:3, 1] - 0.05 * f[:3, 2]).tolist())
+        for _ in range(12):
+            rgb = render_frame()
+        imageio.imwrite(os.path.join(args.out_dir, f"detector_{fid}_{state}.png"), rgb[..., :3])
+        print(f"[demo] detector still {fid} {state}", flush=True)
     print(f"[demo] settings rendermode={settings.get('/rtx/rendermode')}", flush=True)
     sys.stdout.flush()
     os._exit(0)
