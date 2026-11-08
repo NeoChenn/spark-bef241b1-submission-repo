@@ -213,6 +213,14 @@ class Scenario:
         return out
 
 
+def grid(v):
+    if isinstance(v, list) and v and isinstance(v[0], str):
+        return np.array([[c == "1" for c in row] for row in v], float)
+    if isinstance(v, list) and v and isinstance(v[0], list):
+        return np.asarray(v, float)
+    return None
+
+
 def parse_rows(rows) -> Scenario:
     scn = Scenario(rows=list(rows))
     for r in rows:
@@ -232,11 +240,13 @@ def parse_rows(rows) -> Scenario:
             p = _xyyaw(r)
             if p:
                 scn.add_pose(rid, t, *p, _first(r, STATE_KEYS))
-        src = r.get("rust") if isinstance(r.get("rust"), dict) else (robots or {}).get("unit1", {}) \
-            if isinstance(robots, dict) else r
-        m = {k: src.get(k, r.get(k)) for k in MASK_KEYS if isinstance(src, dict)}
-        m = {k: np.asarray(v, float) for k, v in m.items() if isinstance(v, list) and v and isinstance(v[0], list)}
+        u1 = robots.get("unit1", {}) if isinstance(robots, dict) else {}
+        src = u1.get("surface") if isinstance(u1.get("surface"), dict) else u1 if isinstance(u1, dict) else {}
+        m = {k: grid(src.get(k)) for k in MASK_KEYS}
+        m = {k: v for k, v in m.items() if v is not None}
         if m:
+            if "nozzle_on" in src:
+                m["nozzle_on"] = bool(src["nozzle_on"])
             scn.masks.append((t, m))
         dets = r.get("detectors")
         if isinstance(dets, dict):
@@ -600,6 +610,14 @@ def beat_times(scn: Scenario, start: float = 0.0) -> dict:
     return out
 
 
+def summary_for(timeline: str) -> str:
+    q = Path(timeline)
+    for name in (q.name.replace("timeline.jsonl", "summary.json"), "live_summary.json", "summary.json"):
+        if (q.parent / name).exists():
+            return str(q.parent / name)
+    return ""
+
+
 def camera_source(args, scn: Scenario, meta: dict):
     wide = wide_shot(scn, meta, args.focal)
     if args.camera in UNITS:
@@ -624,10 +642,9 @@ def camera_source(args, scn: Scenario, meta: dict):
             if fn is not None and hasattr(fc, "Beats"):
                 try:
                     try:
-                        from integration.run_fleet_demo import beats as cpu_beats
-
-                        beats = fc.Beats.from_events({"beats": cpu_beats(scn.rows)})
-                    except Exception:
+                        beats = fc.Beats.from_events(json.loads(Path(summary_for(args.timeline_path)).read_text()))
+                    except Exception as exc:
+                        print(f"[fleet] summary beats unusable ({exc}), using timeline beats", flush=True)
                         beats = fc.Beats.from_events(beat_times(scn, args.start))
                     base_fn = fn
                     fn = lambda t: base_fn(t, beats)
@@ -686,6 +703,7 @@ def main(argv=None):
         print(f"[fleet] wrote {out}", flush=True)
         return
     tl = pick_timeline(args.timeline)
+    args.timeline_path = tl
     scn = load_scenario(tl, meta, flanges)
     end = args.start + args.duration if args.duration > 0 else scn.end
     n_frames = int(round((end - args.start) * args.fps))
@@ -802,7 +820,10 @@ def main(argv=None):
     pipe_c = dict(pipe)
     pipe_c["origin"] = (np.asarray(pipe["origin"]) + z_rust * np.asarray(pipe["axis"])).tolist()
     pipe_c["z"] = 0.0
-    geom = PipeGeometry(pipe_c["origin"], pipe["axis"], pipe["ref"], pipe["radius"], seg_len, 32, 64)
+    shape0 = next((m["rust_grid"].shape for _, m in scn.masks if "rust_grid" in m), (40, 64))
+    if scn.masks:
+        pipe_c = dict(pipe)
+    geom = PipeGeometry(pipe_c["origin"], pipe["axis"], pipe["ref"], pipe["radius"], seg_len, *shape0)
     overlay = RustOverlay(stage, geom)
     cone, cone_op = add_spray_cone(stage)
     brush = None
@@ -850,6 +871,9 @@ def main(argv=None):
     out = resolve(args.out)
     frames_dir = out / "frames"
     frames_dir.mkdir(parents=True, exist_ok=True)
+    import omni.timeline
+
+    omni.timeline.get_timeline_interface().play()
     rp = rep.create.render_product(cam_path, (args.width, args.height))
     ann = rep.AnnotatorRegistry.get_annotator("rgb")
     ann.attach(rp)
@@ -941,7 +965,8 @@ def main(argv=None):
             if rid == "unit1":
                 tip = model.tool_pose(base, q[rid], "brush_tip")
                 act = acts["unit1"]
-                on = act in ("spray", "paint") and goal is not None and work_w >= 1.0
+                live = scn.masks_at(t) or {}
+                on = bool(live.get("nozzle_on", act in ("spray", "paint"))) and goal is not None and work_w >= 1.0
                 set_spray(cone, cone_op, tip[:3, 3], tip[:3, 0], 0.22 if act == "spray" else 0.14, on)
                 if brush is not None:
                     force = 25.0 if act == "scrub" and goal is not None and work_w >= 1.0 else 0.0
@@ -971,9 +996,15 @@ def main(argv=None):
         if at_frames is None and k % max(1, args.every):
             continue
         warm = args.warmup if rendered == 0 else 1
-        for _ in range(warm):
-            rep.orchestrator.step(rt_subframes=args.subframes, delta_time=0.0)
-        rgb = np.asarray(ann.get_data())[..., :3].astype(np.uint8)
+        rgb = None
+        for i_ in range(warm + 20):
+            rep.orchestrator.step(rt_subframes=args.subframes, pause_timeline=False, wait_for_render=True)
+            data = np.asarray(ann.get_data())
+            if i_ >= warm - 1 and data.size and data.ndim == 3:
+                rgb = np.ascontiguousarray(data[..., :3].astype(np.uint8))
+                break
+        if rgb is None:
+            raise RuntimeError(f"annotator stayed empty at t={t:.2f}")
         Image.fromarray(rgb).save(frames_dir / f"{rendered:05d}.jpg", quality=args.jpeg)
         if writer is not None:
             writer.append_data(rgb)
