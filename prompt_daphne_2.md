@@ -1,4 +1,4 @@
-# prompt_daphe_2: Mission Control, orchestration agent, benchmarks and the pitch
+# prompt_daphne_2: Mission Control, orchestration agent, benchmarks and the pitch
 
 Hand this file to a Claude session in this repo. Everything below the line is the prompt. It continues
 `prompt_daphe_1.md` (the game-style HUD).
