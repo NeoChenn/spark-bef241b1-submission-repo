@@ -244,6 +244,23 @@ def backdrop_layer(scene: str, out: str):
     return out, n
 
 
+def dress(stage, work, args):
+    from pxr import UsdGeom, UsdLux
+
+    UsdGeom.Imageable(stage.GetPrimAtPath("/World/ground")).MakeInvisible()
+    sky = stage.GetPrimAtPath("/World/Backdrop/Environment/sky")
+    if sky.IsValid():
+        lux = UsdLux.DomeLight(sky)
+        lux.GetIntensityAttr().Set(lux.GetIntensityAttr().Get() * args.dome_gain)
+    try:
+        from policy import night_look
+    except ImportError:
+        return {}
+    info = night_look.apply(stage, "/World/Backdrop/RepairZone", work, full=True, lamp_gain=args.lamp_gain,
+                            robot_root="/World/envs/env_0/Robot", robot_color=args.robot_color)
+    return info
+
+
 def chase_camera(p, yaw, back=2.6, side=1.5, up=1.1):
     import numpy as np
 
@@ -276,27 +293,27 @@ def render(args, meta, full):
     cfg.sim.render = RenderCfg(rendering_mode="quality", antialiasing_mode="DLAA", carb_settings={
         "/rtx/rendermode": args.renderer, "/rtx/post/motionblur/enabled": False, "/rtx/post/dof/enabled": False,
         "/rtx/post/histogram/enabled": False})
-    env, policy = load_policy(make_env(cfg, render=True), args.ckpt)
-    base = env.unwrapped
-    stage = omni.usd.get_context().get_stage()
-    from pxr import UsdGeom
-
-    UsdGeom.Imageable(stage.GetPrimAtPath("/World/ground")).MakeInvisible()
     gx, gy, gyaw = stance_from_meta(meta)
     work = (float(meta["damage"]["position_m"][0]), float(meta["main_pipe"]["y_m"]) + 0.08, 1.2)
-    look_info = None
+    look_info = {}
+
+    from isaaclab.scene import InteractiveScene
+
+    scene_init = InteractiveScene.__init__
+
+    def dressed_init(self, scene_cfg):
+        scene_init(self, scene_cfg)
+        look_info.update(dress(omni.usd.get_context().get_stage(), work, args))
+
+    InteractiveScene.__init__ = dressed_init
     try:
-        from pxr import Usd
-
-        from policy import night_look
-
-        look_info = night_look.apply(stage, "/World/Backdrop/RepairZone", work, full=True)
-        for prim in Usd.PrimRange(stage.GetPrimAtPath("/World/envs/env_0/Robot")):
-            if prim.GetName() == "visuals":
-                for k, v in night_look.paint_robot(stage, str(prim.GetPath()), args.robot_color).items():
-                    look_info[k] = look_info.get(k, 0) + v
+        from policy.night_look import grade
     except ImportError:
-        pass
+        def grade(x):
+            return x
+
+    env, policy = load_policy(make_env(cfg, render=True), args.ckpt)
+    base = env.unwrapped
     print("[walk] colliders off", n_off, "look", look_info, "origin", base.scene.env_origins[0].tolist(), flush=True)
     settings = carb.settings.get_settings()
     for key, val in cfg.sim.render.carb_settings.items():
@@ -351,7 +368,7 @@ def render(args, meta, full):
         base.sim.set_camera_view(cam_eye.tolist(), cam_look.tolist())
         rgb = base.render()
         if rgb is not None and rgb.size and rgb[..., :3].mean() > 1:
-            frames.append(np.ascontiguousarray(rgb[..., :3]))
+            frames.append(grade(np.ascontiguousarray(rgb[..., :3])))
         v = base.scene["robot"].data.root_lin_vel_b[0]
         log.append({"t": round(t, 3), "state": state, "x": x, "y": y, "z": z, "yaw": yaw, "cmd": [vx, vy, wz],
                     "v": [float(v[0]), float(v[1])], "alpha": alpha})
@@ -399,6 +416,8 @@ def main(argv):
     p.add_argument("--max_s", type=float, default=30.0)
     p.add_argument("--renderer", default="RaytracedLighting")
     p.add_argument("--robot_color", default="graphite")
+    p.add_argument("--dome_gain", type=float, default=0.25)
+    p.add_argument("--lamp_gain", type=float, default=1.0)
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
