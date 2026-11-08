@@ -758,7 +758,8 @@ DECK_TOP, RAISED = 42.5, 51.25
 TRIM = (
     ((-1.0, 9.0), (11.0, 25.5), 42.6), ((0.5, -1.0), (9.5, 9.0), 42.6), ((9.0, 0.0), (21.0, 8.0), 42.6),
     ((22.0, 1.0), (32.0, 8.0), 42.6), ((11.0, 9.0), (22.0, 16.0), 42.6), ((17.5, 17.5), (22.5, 22.5), 42.6),
-    ((-25.5, 4.5), (-4.5, 25.5), 51.4),
+    ((-25.5, 4.5), (-4.5, 25.5), 51.4), ((-7.6, -25.1), (0.1, -19.9), 42.6), ((2.4, -25.1), (7.6, -19.9), 42.6),
+    ((3.2, -18.6), (7.3, -9.2), 42.6),
 )
 
 
@@ -864,11 +865,8 @@ def build_separator(stage, looks, kit, okit):
     for pos, a in lad["hoops"]:
         kit.add("crane_yellow", "hoop", pos, zquat(a))
     for x, look, r_ in ((cx - 3.2, "pipe_grey", 0.2), (cx + 1.6, "pipe_green", 0.22), (cx + 3.4, "pipe_yellow", 0.12)):
-        a = np.array((x, cy, top + 0.5))
-        b = np.array((x, cy, 47.2))
-        c = np.array((x, 9.0 - 0.6, 47.2))
-        kit.tube(look, a, b, r_)
-        kit.tube(look, b, c, r_)
+        pipe_run(stage, looks, f"sep_{look}", [(x, cy, top + 0.5), (x, cy, 47.3), (x, 7.2, 47.3), (x, 7.2, 46.6 + r_),
+                                                 (x + 0.8, 7.9, 46.6 + r_)], r_, look)
 
 
 def build_scrubbers(stage, looks, kit, okit):
@@ -892,8 +890,10 @@ def build_scrubbers(stage, looks, kit, okit):
             okit.tube("crane_yellow", p, q, 0.02)
         for pos, a in lad["hoops"]:
             kit.add("crane_yellow", "hoop", pos, zquat(a))
-        kit.tube("pipe_grey", (x, y, topz + 0.45), (x, y, 48.0 if n else 49.0), 0.15)
-        kit.tube("pipe_grey", (x, y, 48.0 if n else 49.0), (x, 9.0 + 0.6 * (1 - 2 * n), 48.0 if n else 49.0), 0.15)
+        zt = 49.4 if n else 50.0
+        pipe_run(stage, looks, f"scrub_{n}", [(x, y, topz + 0.45), (x, y, zt), (x, 9.0 + 0.6 * (1 - 2 * n), zt),
+                                              (x, 9.0 + 0.6 * (1 - 2 * n), 48.55), (x + 1.2, 9.0 + 0.6 * (1 - 2 * n), 48.55)],
+                 0.15, "pipe_grey")
     vessel(stage, looks, "ko_drum", (15.0, 1.7, DECK_TOP + 1.4), (1, 0, 0), 3.2, 0.7, "proc_grey")
     for x in (14.0, 16.0):
         kit.add("proc_grey", "box", (x, 1.7, DECK_TOP + 0.35), scale=(0.3, 1.3, 0.7))
@@ -1028,6 +1028,115 @@ def build_gensets(stage, looks, kit, okit):
     kit.tube("pipe_yellow", (cx - 4.9, cy, DECK_TOP + 1.5), (cx - 4.9, -13.0, DECK_TOP + 1.5), 0.1)
 
 
+def pipe_run(stage, looks, name, points, r, look):
+    path = sg.route(points, max(3.0 * r, 0.45))
+    write_mesh(stage, f"{s.ROOT}/Process/pipe_{name}", dg.tube(path, r, 12), looks[look])
+
+
+def basket(kit, okit, centre, size, angle=0.0):
+    c = np.asarray(centre, float)
+    u = np.array((math.cos(math.radians(angle)), math.sin(math.radians(angle)), 0.0))
+    v = np.array((-u[1], u[0], 0.0))
+    lx, ly, h = size
+    corners = [c + u * sx * lx / 2 + v * sy * ly / 2 for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+    kit.add("proc_grey", "box", c + (0, 0, 0.08), zquat(angle), (lx, ly, 0.16))
+    for k, p in enumerate(corners):
+        q = corners[(k + 1) % 4]
+        kit.tube("crane_yellow", p, p + (0, 0, h), 0.06)
+        kit.tube("crane_yellow", p + (0, 0, h), q + (0, 0, h), 0.05)
+        mid, quat, length = tf.segment_pose(p + (0, 0, h / 2), q + (0, 0, h / 2))
+        kit.add("grating", "box", mid, quat, (length, 0.03, h))
+        kit.tube("cable", p + (0, 0, h), c + (0, 0, h + 2.2), 0.015)
+    kit.add("crane_yellow", "box", c + (0, 0, h + 2.25), scale=(0.18, 0.08, 0.25))
+    for k in range(5):
+        y = (k - 2) * ly / 6
+        kit.tube("pipe_grey", c - u * lx * 0.42 + v * y + (0, 0, 0.35 + 0.18 * (k % 2)),
+                 c + u * lx * 0.42 + v * y + (0, 0, 0.35 + 0.18 * (k % 2)), 0.09)
+    kit.add("box_white", "box", c + v * ly * 0.25 + (0, 0, 0.6), zquat(angle), (lx * 0.35, ly * 0.3, 0.7))
+
+
+def container10(kit, okit, centre, angle, look):
+    c = np.asarray(centre, float)
+    q = zquat(angle)
+    u = np.array((math.cos(math.radians(angle)), math.sin(math.radians(angle)), 0.0))
+    kit.add(look, "box", c + (0, 0, 1.295), q, (2.99, 2.44, 2.59))
+    kit.add("proc_grey", "box", c + u * 1.5 + (0, 0, 1.295), q, (0.04, 2.3, 2.45))
+    for dy in (-0.5, 0.5):
+        okit.add("galv", "box", c + u * 1.53 + np.array((-u[1], u[0], 0.0)) * dy + (0, 0, 1.3), q, (0.05, 0.05, 2.3))
+
+
+def fire_pump_house(stage, kit, okit):
+    cx, cy, w, d, h = 4.8, -22.5, 4.4, 5.0, 3.2
+    z = DECK_TOP
+    kit.add("fire_red", "box", (cx, cy, z + h / 2), scale=(w, d, h))
+    kit.add("proc_grey", "box", (cx, cy, z + h + 0.08), scale=(w + 0.4, d + 0.4, 0.16))
+    for x in np.arange(cx - w / 2 + 0.4, cx + w / 2, 0.8):
+        for side in (-1, 1):
+            kit.add("fire_red", "box", (x, cy + side * (d / 2 + 0.03), z + h / 2), scale=(0.08, 0.06, h - 0.2))
+    kit.add("proc_grey", "box", (cx + 0.4, cy - d / 2 - 0.06, z + 1.25), scale=(2.2, 0.06, 2.5))
+    for zz in np.arange(z + 0.2, z + 2.5, 0.12):
+        okit.add("galv", "box", (cx + 0.4, cy - d / 2 - 0.1, zz), scale=(2.15, 0.03, 0.05))
+    kit.add("proc_grey", "box", (cx - w / 2 - 0.04, cy + 1.2, z + 1.05), scale=(0.06, 0.95, 2.1))
+    kit.add("lamp", "box", (cx - w / 2 - 0.12, cy + 1.2, z + 2.4), scale=(0.12, 0.35, 0.12))
+    kit.add("mark_white", "box", (cx - 1.2, cy - d / 2 - 0.05, z + 2.75), scale=(1.4, 0.03, 0.45))
+    kit.add("proc_grey", "box", (cx + w / 2 + 0.05, cy, z + 2.0), scale=(0.08, 2.4, 1.4))
+    for zz in np.arange(z + 1.4, z + 2.7, 0.18):
+        okit.add("galv", "box", (cx + w / 2 + 0.1, cy, zz), (math.cos(0.26), 0.0, math.sin(0.26), 0.0), (0.03, 2.3, 0.15))
+    kit.tube("proc_grey", (cx + 1.2, cy + 1.4, z + h), (cx + 1.2, cy + 1.4, z + h + 2.2), 0.18)
+    kit.tube("soot", (cx + 1.2, cy + 1.4, z + h + 2.2), (cx + 1.2, cy + 1.4, z + h + 2.5), 0.24)
+    for dx in (-1.0, 0.0):
+        kit.tube("galv", (cx + dx, cy - 1.0, z + h), (cx + dx, cy - 1.0, z + h + 0.55), 0.3)
+    add_light(stage, light_path("pumphouse", 0, False), (cx - w / 2 - 0.6, cy + 1.2, z + 2.5), 20000.0, 4200, 80.0)
+
+
+def gas_annex_roof(kit, okit):
+    z = 40.0
+    rails_around(kit, [(25.5, -37.35), (37.35, -37.35), (37.35, -27.9), (25.5, -27.9)], z)
+    kit.add("grating", "box", (31.4, -30.2, z + 0.05), scale=(11.4, 0.9, 0.06))
+    kit.add("grating", "box", (35.4, -33.7, z + 0.05), scale=(0.9, 6.0, 0.06))
+    for x, y in ((27.6, -34.8), (30.8, -34.8), (27.6, -32.0)):
+        kit.add("proc_white", "box", (x, y, z + 0.6), scale=(2.4, 1.6, 1.1))
+        kit.tube("galv", (x + 0.5, y, z + 1.15), (x + 0.5, y, z + 1.25), 0.55)
+        okit.add("black", "box", (x + 0.5, y, z + 1.27), scale=(1.0, 0.05, 0.03))
+        okit.add("black", "box", (x + 0.5, y, z + 1.27), scale=(0.05, 1.0, 0.03))
+        kit.tube("galv", (x - 1.2, y, z + 0.4), (x - 1.2, -30.6, z + 0.4), 0.12)
+    for y in (-35.8, -33.4):
+        kit.add("proc_grey", "box", (33.4, y, z + 0.75), scale=(1.2, 1.2, 1.5))
+        for zz in np.arange(z + 0.3, z + 1.4, 0.15):
+            okit.add("galv", "box", (32.77, y, zz), (math.cos(0.26), 0.0, math.sin(0.26), 0.0), (0.03, 1.1, 0.12))
+    mast = sg.rect_lattice((36.4, -36.4, z), (36.4, -36.4, z + 10.0), 0.9, 0.45, panel=1.0, cross=True)
+    for p, q in mast["chords"]:
+        kit.tube("proc_grey", p, q, 0.05)
+    for p, q in mast["girts"] + mast["diagonals"]:
+        okit.tube("proc_grey", p, q, 0.02)
+    top = np.array((36.4, -36.4, z + 10.0))
+    kit.tube("proc_grey", top, top + (0, 0, 2.2), 0.03)
+    kit.tube("proc_grey", top + (0.0, 0.0, -1.5), top + (0.9, 0.0, -1.5), 0.04)
+    kit.add("mark_white", "dome", top + (1.0, 0.0, -1.5), (0.7071, 0.0, 0.7071, 0.0), (2.5, 2.5, 2.5))
+    kit.add("nav_red", "sphere", top + (0, 0, 2.3), scale=(0.15, 0.15, 0.15))
+    for k in range(3):
+        kit.tube("proc_grey", top + (0, 0, -0.5 - 2.5 * k), top + (-0.6, 0.3, -0.5 - 2.5 * k), 0.03)
+
+
+def build_laydown(stage, looks, kit, okit):
+    container10(kit, okit, (5.3, -17.1, DECK_TOP), 90.0, "box_blue")
+    container10(kit, okit, (5.3, -13.8, DECK_TOP), 90.0, "box_orange")
+    basket(kit, okit, (5.3, -10.75, DECK_TOP), (2.2, 2.6, 1.1), 0.0)
+    for (x, y), look in (((-4.0, -23.55), "box_green"), ((-4.0, -21.1), "box_white")):
+        kit.add(look, "box", (x, y, DECK_TOP + 1.295), scale=(6.06, 2.44, 2.59))
+        kit.add("proc_grey", "box", (x - 3.05, y, DECK_TOP + 1.295), scale=(0.04, 2.3, 2.45))
+    kit.add("box_red", "box", (-4.0, -22.3, DECK_TOP + 2.59 + 1.295), scale=(6.06, 2.44, 2.59))
+    basket(kit, okit, (-1.8, -18.9, DECK_TOP), (2.4, 1.8, 1.0), 0.0)
+    fire_pump_house(stage, kit, okit)
+    gas_annex_roof(kit, okit)
+    pipe_run(stage, looks, "firemain", [(2.6, -23.6, DECK_TOP + 0.9), (1.4, -23.6, DECK_TOP + 0.9),
+                                               (1.4, -26.2, DECK_TOP + 0.9), (1.4, -26.2, DECK_TOP + 0.05)], 0.16, "pipe_red")
+    pipe_run(stage, looks, "tank_out", [(3.89, 14.08, 43.0), (3.89, 12.3, 43.0), (12.5, 12.3, 43.0),
+                                               (12.5, 10.4, 43.0), (12.5, 10.4, 46.45), (13.4, 9.8, 46.45)], 0.18,
+             "pipe_grey")
+
+
+
 def build_process(stage, looks, kit, okit):
     dropped = trim_stl(stage)
     build_tank(stage, looks, kit, okit)
@@ -1040,6 +1149,7 @@ def build_process(stage, looks, kit, okit):
     ehouse(stage, kit, okit, (-9.5, 9.0, RAISED), 90.0, "box_white", 2)
     dropped += hide_topside_utilities(stage)
     build_gensets(stage, looks, kit, okit)
+    build_laydown(stage, looks, kit, okit)
     return dropped
 
 

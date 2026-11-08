@@ -250,3 +250,15 @@ def test_spiral_stair_climbs():
 def test_pipe_rack_bents():
     r = sg.pipe_rack_bents(0.0, 18.0, 9.0, 2.4, (46.0, 48.0), 42.5)
     assert len(r["xs"]) == 4 and len(r["columns"]) == 8 and len(r["beams"]) == 8 and len(r["ties"]) == 4
+
+
+def test_route_rounds_corners():
+    pts = [(0, 0, 0), (0, 0, 2), (3, 0, 2), (3, 2, 2)]
+    r = sg.route(pts, 0.5)
+    assert np.allclose(r[0], pts[0]) and np.allclose(r[-1], pts[-1])
+    seg = np.diff(r, axis=0)
+    seg = seg[np.linalg.norm(seg, axis=1) > 1e-9]
+    seg /= np.linalg.norm(seg, axis=1, keepdims=True)
+    turn = np.degrees(np.arccos(np.clip((seg[1:] * seg[:-1]).sum(1), -1, 1)))
+    assert turn.max() < 30.0
+    assert np.linalg.norm(r - (0, 0, 2), axis=1).min() > 0.1
