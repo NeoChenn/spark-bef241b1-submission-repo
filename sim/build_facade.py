@@ -37,7 +37,7 @@ FLOODS = (
     ((2.9, -33.5, 41.6), (0.62, -33.5, 33.0), 4000.0), ((2.0, -31.0, 29.6), (0.62, -31.0, 22.0), 4000.0),
     ((-19.9, -32.5, 29.6), (-18.42, -32.5, 22.0), 2100.0), ((-26.8, -30.0, 41.6), (-25.32, -30.0, 33.0), 4000.0),
 )
-FLOOD_POWER = 260000.0
+FLOOD_POWER = 900000.0
 SIGNS = {"muster": 0, "boat1": 1, "boat2": 2, "refuge": 3, "exit": 4, "smoking": 5, "deck": 6, "fire": 7}
 
 
@@ -236,7 +236,7 @@ def build_wall(b, w, lamps, extra_signs):
             b.box("frame", *fl.wall_box(w, o["along"] - 0.22, lz + 0.16, o["along"] + 0.22, lz + 0.22, D, D + 0.3))
             b.box("lamp", *fl.wall_box(w, o["along"] - 0.16, lz, o["along"] + 0.16, lz + 0.16, D + 0.02, D + 0.2))
             taken.append((o["along"] - 0.3, lz - 0.05, o["along"] + 0.3, lz + 0.3))
-            lamps.append(fl.to_world(w, o["along"], lz - 0.05, D + 0.12))
+            lamps.append(fl.to_world(w, o["along"], lz - 0.18, D + 0.15))
             tile = SIGNS["exit"] if fl.unit(w["name"] + "d") < 0.5 else SIGNS["muster"]
             for side in (1, -1):
                 if add_sign(b, w, o["along"] + side * 1.05, hole[1] + 1.6, (0.8, 0.4), tile, taken):
@@ -340,7 +340,7 @@ def floods(stage, b):
         w, x, y, z = tf.aim_from_down(d)
         ops.AddOrientOp().Set(Gf.Quatf(float(w), float(x), float(y), float(z)))
         light = UsdLux.SphereLight.Define(stage, f"{root.GetPath()}/light")
-        light.CreateRadiusAttr(0.12)
+        light.CreateRadiusAttr(0.18)
         light.CreateIntensityAttr(FLOOD_POWER)
         light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(kelvin)))
         shaping = UsdLux.ShapingAPI.Apply(light.GetPrim())
