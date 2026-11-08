@@ -67,6 +67,7 @@ def parse_args(argv=None):
     p.add_argument("--lidar-height", type=float, default=0.28)
     p.add_argument("--scrub-log", default="", help="render_demo raw_*.json with recorded PPO brush positions")
     p.add_argument("--bolt", type=int, default=-1, help="bolt to re-torque; -1 = the timeline's, else 3")
+    p.add_argument("--retorque-t0", type=float, default=-1.0, help="film: RetorqueMotion start; -1 = from the timeline")
     p.add_argument("--unit2-usd", default="")
     p.add_argument("--unit2-urdf", default="")
     p.add_argument("--camera", default="auto", choices=["auto", "wide", "unit1", "unit2"])
@@ -558,6 +559,14 @@ class NavUnit:
     min_range: float = float("inf")
 
 
+def motion_t0(scn: Scenario, t_torque_local: float):
+    done = scenario_rows(scn, "retorque_done") or scenario_rows(scn, "torque_done")
+    if done:
+        return float(done[0]["t"]) - t_torque_local
+    rt = [t for t, st in scn.states.get("unit2", []) if activity("unit2", st) == "retorque"]
+    return (rt[0] if rt else 0.0) - 4.6
+
+
 def scenario_rows(scn: Scenario, name: str) -> list:
     return [r for r in scn.rows if r.get("type") == "scenario" and r.get("name") == name]
 
@@ -638,7 +647,7 @@ class FleetFx:
     def __init__(self, stage, flanges, leak, crate, deck: float, n_puffs: int = 16, n_rays: int = 25):
         from pxr import UsdGeom
 
-        self.stage, self.leak, self.crate, self.deck = stage, leak, crate, deck
+        self.stage, self.leak, self.crate, self.deck, self.gas_fn = stage, leak, crate, deck, None
         self.root = "/World/Fleet/fx"
         for sub in ("", "/gas", "/lidar"):
             UsdGeom.Xform.Define(stage, self.root + sub)
@@ -736,7 +745,9 @@ class FleetFx:
         return Gf.Matrix4d(*[float(v) for v in (*x, 0, *y, 0, *z, 0, *c, 1)])
 
     def update(self, t: float, u2_pose, u2_moving: bool) -> dict:
-        out = {"leak_strength": round(leak_strength(self.leak, t), 3), "crate_z": None, "lidar_fan": False}
+        base_ = leak_strength(self.leak, t) if self.gas_fn is None else leak_strength(self.leak and dict(self.leak, t_off=None), t)
+        out = {"leak_strength": round(base_ * (1.0 if self.gas_fn is None else self.gas_fn(t)), 3), "crate_z": None,
+               "lidar_fan": False}
         if self.puffs:
             st = out["leak_strength"]
             self._show("gas", st > 0.01)
@@ -1325,6 +1336,25 @@ def main(argv=None):
                       f"t0={retq[2]:.2f} dur={traj.duration:.2f}", flush=True)
         except Exception as exc:
             print(f"[fleet] retorque skill unavailable: {exc}", flush=True)
+    motion = None
+    if args.film and tools["unit2"] == "socket_tip":
+        try:
+            from integration import retorque_motion as rm
+
+            lk = leak_info(scn) or {"flange": "F5", "bolt": 3}
+            try:
+                motion = rm.from_timeline(str(resolve(tl)))
+            except Exception as exc:
+                print(f"[fleet] from_timeline failed ({exc}), fixed t0", flush=True)
+                motion = rm.RetorqueMotion(flange=rm.flange_from_meta(lk["flange"]), bolt=lk["bolt"])
+                motion.t0 = motion_t0(scn, motion.t_torque_done)
+            if args.retorque_t0 >= 0:
+                motion.t0 = args.retorque_t0
+            retq = None
+            fx.gas_fn = motion.gas_scale
+            print(f"[fleet] retorque motion {motion.summary()}", flush=True)
+        except Exception as exc:
+            print(f"[fleet] retorque motion unavailable: {exc}", flush=True)
     seeds = {rid: dict(q[rid]) for rid in UNITS}
 
     def arm_target(rid, act, u, t):
@@ -1363,11 +1393,12 @@ def main(argv=None):
         working = acts["unit1"] in ("scrub", "spray", "paint") or any(k in st1 for k in AT_PIPE)
         work_w = min(1.0, work_w + dt) if working else max(0.0, work_w - dt)
         u2 = units["unit2"]
-        in_rt = retq is not None and retq[2] - 1.0 <= t <= retq[2] + retq[0].duration
+        in_rt = (retq is not None and retq[2] - 1.0 <= t <= retq[2] + retq[0].duration) or \
+            (motion is not None and motion.t0 - 1.0 <= t <= motion.t_end)
         f2 = nearest_flange(flanges, (u2.x, u2.y)) if acts["unit2"] in ("inspect", "retorque") else None
         fix_w = min(1.0, fix_w + dt) if (f2 is not None or in_rt) else max(0.0, fix_w - dt)
         if in_rt:
-            wb = retq[1]
+            wb = motion.base if motion is not None else retq[1]
             fix_pose = (float(wb[0, 3]), float(wb[1, 3]), math.atan2(wb[1, 0], wb[0, 0]))
         elif f2 is not None:
             fix_pose = fixer_stance(f2, (u2.x, u2.y))
@@ -1401,7 +1432,10 @@ def main(argv=None):
             goal = arm_target(rid, acts[rid], u if rid == "unit1" else NavUnit(rid, bx, by, byaw), t) \
                 if not moving else None
             skill_q = None
-            if rid == "unit2" and in_rt and retq[2] <= t:
+            if rid == "unit2" and motion is not None:
+                skill_q = motion.at(t)
+                goal = None
+            elif rid == "unit2" and in_rt and retq[2] <= t:
                 skill_q = retq[0].at(t - retq[2])
                 goal = None
             if skill_q is not None:
@@ -1495,7 +1529,11 @@ def main(argv=None):
         if args.film:
             row.update(shot=task[0], film_t=task[2], sim_t=round(t, 4))
         row["fx"] = fx_state
-        if in_rt and retq[2] <= t:
+        if motion is not None:
+            row["retorque"] = {"phase": motion.phase(t), "bolt": motion.bolt, "flange": motion.flange.id,
+                               "socket_angle": round(motion.socket_angle(t), 4), "gas_scale": round(motion.gas_scale(t), 4),
+                               "socket_tip": [round(float(v), 4) for v in motion.tool_pose(t)[:3, 3]]}
+        elif in_rt and retq[2] <= t:
             ph = retq[0].phase[min(int(np.searchsorted(retq[0].t, t - retq[2])), len(retq[0].phase) - 1)]
             row["retorque"] = {"phase": ph, "bolt": retq[0].bolt, "flange": retq[0].flange_id,
                                "socket_tip": [round(float(v), 4) for v in
