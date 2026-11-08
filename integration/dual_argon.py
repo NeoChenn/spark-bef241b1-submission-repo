@@ -45,6 +45,13 @@ def led(lel: Optional[float], fault: bool = False) -> str:
     return "red" if lel >= ALARM_LEL else "amber" if lel >= CLEAR_LEL else "green"
 
 
+DETECTOR_STATE = {"green": "ok", "amber": "warn", "red": "alarm", "grey": "fault"}
+
+
+def detector_state(lel: Optional[float], fault: bool = False) -> str:
+    return DETECTOR_STATE[led(lel, fault)]
+
+
 @dataclass
 class FixedDetector:
     id: str
