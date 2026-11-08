@@ -73,10 +73,11 @@ def test_usd_cones_update_and_hide():
     fx = shafts_fx.Shafts(stage, "offline", AREA, SEA)
     assert len(fx.items) == len(shafts.PICKS)
     fx.update((200.0, -200.0, 10.0), 0.5)
-    glow = np.array(fx.items[3][5].Get())
-    assert glow.max() > 0 and glow.min() >= 0
+    st = np.array(fx.items[3][5].Get())
+    assert 0 < st[:, 0].max() <= 1 and not st[:, 1].any()
     fx.update(np.add(fx.items[3][1]["apex"], np.multiply(fx.items[3][1]["aim"], 5.0)), 0.5)
     assert not np.array(fx.items[3][5].Get()).any()
+    assert shafts_fx.MDL.exists()
     fx.show(False)
     assert UsdGeom.Imageable(fx.items[0][0]).ComputeVisibility() == "invisible"
     assert shafts_fx.Shafts(Usd.Stage.CreateInMemory(), "none", AREA, SEA).items == []

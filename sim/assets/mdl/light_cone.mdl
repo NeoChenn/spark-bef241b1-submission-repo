@@ -1,0 +1,24 @@
+mdl 1.7;
+
+import ::anno::*;
+import ::df::*;
+import ::math::*;
+import ::state::*;
+
+export material light_cone(
+    color tint = color(1.0),
+    float gain = 1.0,
+    float presence = 0.3
+) = let {
+    float a = math::clamp(state::texture_coordinate(0).x, 0.0, 1.0);
+    color e = tint * gain;
+} in material(
+    thin_walled: true,
+    surface: material_surface(
+        emission: material_emission(emission: df::diffuse_edf(), intensity: e * math::PI, mode: intensity_radiant_exitance)
+    ),
+    backface: material_surface(
+        emission: material_emission(emission: df::diffuse_edf(), intensity: e * math::PI, mode: intensity_radiant_exitance)
+    ),
+    geometry: material_geometry(cutout_opacity: math::clamp(a * presence, 0.0, 1.0))
+);
