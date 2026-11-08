@@ -17,7 +17,8 @@ SKIP = ("/World/Looks/HeroRustOverlay", "/World/RepairZone/Looks/rust_coarse_01"
 ATM_EVERY_S = 0.25
 ROLL_EVERY_S = 0.25
 RAIN_ROOT = "/World/Weather/rain"
-RAIN_COUNT, RAIN_BOX, RAIN_STREAK, RAIN_WIDTH, RAIN_SPEED, RAIN_BELOW = 1400, (18.0, 30.0), 0.9, 0.012, 9.0, 20.0
+RAIN_COUNT, RAIN_BOX, RAIN_STREAK, RAIN_WIDTH, RAIN_SPEED, RAIN_BELOW = 2600, (14.0, 24.0), 0.55, 0.007, 9.0, 14.0
+RAIN_CLEAR = 3.5
 
 _flare = {"wind": None}
 
@@ -213,7 +214,10 @@ class Controller:
         st = carb.settings.get_settings()
         if w["fog"] > 0.05 and t - self.roll_at >= ROLL_EVERY_S:
             self.roll_at = t
+            st.set_bool("/rtx/fog/enabled", True)
             st.set_float("/rtx/fog/fogHeightDensity", float(w["fog_height"]) * roll(t, w["fog"]))
+            st.set_float("/rtx/fog/fogDistanceDensity", float(w["fog_dist"]))
+            st.set_float_array("/rtx/fog/fogColor", [float(c) for c in w["fog_color"]])
         if not self.live:
             return
         if self.wave is not None:
@@ -248,10 +252,10 @@ def rain_curtain(stage, count: int = RAIN_COUNT, seed: int = 5) -> dict:
     op = root.AddTranslateOp()
     curves = UsdGeom.BasisCurves.Define(stage, f"{RAIN_ROOT}/streaks")
     curves.CreateTypeAttr("linear")
-    p = rng.uniform((-RAIN_BOX[0], -RAIN_BOX[0], 0.0), (RAIN_BOX[0], RAIN_BOX[0], RAIN_BOX[1]), (count, 3))
+    p = shell(rng, count)
     p = np.concatenate([p, p + (0.0, 0.0, RAIN_BOX[1])])
     pts = np.repeat(p, 2, axis=0)
-    pts[1::2] += (0.12, 0.07, -RAIN_STREAK)
+    pts[1::2] += (0.07, 0.04, -RAIN_STREAK)
     curves.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
     curves.CreateCurveVertexCountsAttr(Vt.IntArray.FromNumpy(np.full(len(p), 2, np.int32)))
     curves.CreateWidthsAttr(Vt.FloatArray([RAIN_WIDTH]))
@@ -259,12 +263,20 @@ def rain_curtain(stage, count: int = RAIN_COUNT, seed: int = 5) -> dict:
     mat = UsdShade.Material.Define(stage, f"{RAIN_ROOT}/look")
     sh = UsdShade.Shader.Define(stage, f"{RAIN_ROOT}/look/surface")
     sh.CreateIdAttr("UsdPreviewSurface")
-    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.45, 0.48, 0.5))
-    sh.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.03, 0.033, 0.036))
+    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.7, 0.74, 0.78))
+    sh.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.16, 0.17, 0.19))
     sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.2)
     mat.CreateSurfaceOutput().ConnectToSource(sh.CreateOutput("surface", Sdf.ValueTypeNames.Token))
     UsdShade.MaterialBindingAPI.Apply(curves.GetPrim()).Bind(mat)
     return {"prim": root.GetPrim(), "op": op, "vis": "inherited"}
+
+
+def shell(rng, count: int, half: float = RAIN_BOX[0], height: float = RAIN_BOX[1], clear: float = RAIN_CLEAR):
+    import numpy as np
+
+    r = clear + (half - clear) * rng.uniform(0.0, 1.0, count) ** 1.5
+    a = rng.uniform(0.0, 2 * np.pi, count)
+    return np.column_stack([r * np.cos(a), r * np.sin(a), rng.uniform(0.0, height, count)])
 
 
 def curtain_offset(eye, t: float) -> tuple[float, float, float]:
