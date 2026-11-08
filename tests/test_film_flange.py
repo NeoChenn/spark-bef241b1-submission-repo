@@ -8,7 +8,7 @@ from integration import film_flange as F
 def test_flange_sits_on_the_pipe_and_valve():
     c = F.joint_center()
     assert c[1] == F.PIPE_Y and c[2] == F.PIPE_Z and F.FLANGE_X[0] == F.VALVE_X[1]
-    assert F.FLANGE_X[1] - F.FLANGE_X[0] == 2 * F.FLANGE_THICKNESS
+    assert abs(F.FLANGE_X[1] - F.FLANGE_X[0] - 2 * F.FLANGE_THICKNESS) < 1e-9
     assert F.BOLT_CIRCLE - F.HEAD_RADIUS > F.PIPE_RADIUS and F.BOLT_CIRCLE + F.HEAD_RADIUS < F.FLANGE_OUTER
 
 
