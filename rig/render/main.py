@@ -250,7 +250,7 @@ def run_live(args) -> None:
     stats_at = start + STATS_EVERY_S
     head = msg
     seq = frames = stale = 0
-    acc = {"apply": 0.0, "render": 0.0, "encode": 0.0, "kb": 0.0, "lat": 0.0}
+    acc = {"apply": 0.0, "render": 0.0, "post": 0.0, "encode": 0.0, "kb": 0.0, "lat": 0.0}
     snap_at = start if args.snapshot else None
     import threading
 
@@ -258,10 +258,10 @@ def run_live(args) -> None:
 
     from rig.render.state import Latest
 
-    outbox = Latest()
+    outbox, jpegbox = Latest(), Latest()
     pub = {"seq": 0, "frames": 0, "snap": snap_at}
 
-    def publish() -> None:
+    def finish() -> None:
         while True:
             item = outbox.get(1.0)
             if item is None:
@@ -271,6 +271,16 @@ def run_live(args) -> None:
             if post is not None:
                 cam = camera_header(hd["view"], rgb.shape[1], rgb.shape[0]) if hd.get("view") else None
                 rgb = post(rgb, cam, hd.get("t", 0.0), depth)
+            acc["post"] += time.perf_counter() - t2
+            jpegbox.put((np.asarray(rgb), hd, at, render_ms))
+
+    def publish() -> None:
+        while True:
+            item = jpegbox.get(1.0)
+            if item is None:
+                continue
+            rgb, hd, at, render_ms = item
+            t2 = time.perf_counter()
             mean = float(rgb[::8, ::8].mean())
             jpeg = encode(rgb)
             t3 = time.perf_counter()
@@ -294,6 +304,7 @@ def run_live(args) -> None:
                 print(f"snapshot saved to {path}", flush=True)
                 pub["snap"] = at + args.snapshot_every if args.snapshot_every else None
 
+    threading.Thread(target=finish, daemon=True).start()
     threading.Thread(target=publish, daemon=True).start()
     print(f"rig render: {args.renderer} {args.width}x{args.height} spp={args.spp} subframes={args.subframes} -> {args.relay}", flush=True)
     while app.is_running():
@@ -332,7 +343,7 @@ def run_live(args) -> None:
             frames = pub["frames"]
             n = max(frames, 1)
             print(f"t={now - start:.0f}s fps={frames / span:.1f} render={acc['render'] / n * 1000:.1f}ms "
-                  f"encode={acc['encode'] / n * 1000:.1f}ms apply={acc['apply'] / n * 1000:.1f}ms jpeg={acc['kb'] / n:.0f}KB "
+                  f"post={acc['post'] / n * 1000:.1f}ms encode={acc['encode'] / n * 1000:.1f}ms apply={acc['apply'] / n * 1000:.1f}ms jpeg={acc['kb'] / n:.0f}KB "
                   f"state_to_send={acc['lat'] / n * 1000:.0f}ms states={inbox.received} applied={applier.applied} "
                   f"failed={applier.failed} sent={sender.sent} dropped={sender.dropped} connected={sender.connected.is_set()}",
                   flush=True)

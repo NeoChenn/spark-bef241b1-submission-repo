@@ -4,13 +4,13 @@ import json
 import os
 import re
 import time
-import urllib.error
-import urllib.request
+from collections import deque
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from policy.control.backend import API_REVISION, API_URL, MODEL
+from policy.control.backend import (API_REVISION, API_URL, MODEL, THOUGHTS_KEEP, Thoughts, clip, post_json,
+                                    post_stream, streaming, summary_texts)
 from policy.control.envelope import AGENT, LEVELS, Envelope
 from policy.control.limiter import cost_usd
 from policy.control.prompt import MAX_OUTPUT_TOKENS
@@ -59,32 +59,33 @@ KEEP = 8
 ARM_REPLAY = ("paint", "rust_repair")
 
 
-def agent_body(history: list, model: str, thinking: str = "low", max_output_tokens: int = MAX_OUTPUT_TOKENS) -> dict:
+def agent_body(history: list, model: str, thinking: str = "high", max_output_tokens: int = MAX_OUTPUT_TOKENS) -> dict:
     return {"model": model, "store": False, "system_instruction": AGENT_SYSTEM, "input": history, "tools": TOOLS,
-            "generation_config": {"thinking_level": thinking, "max_output_tokens": max_output_tokens}}
+            "generation_config": {"thinking_level": thinking, "thinking_summaries": "auto",
+                                  "max_output_tokens": max_output_tokens}}
 
 
 class ArgonAgentBackend:
     live = True
 
-    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, thinking: str = "low",
-                 timeout: float = 30.0, transport=None):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, thinking: str = "high",
+                 timeout: float = 60.0, transport=None):
         self.api_key = api_key or load_api_key()
         self.model = model or os.environ.get("GEMINI_CONTROL_MODEL") or MODEL
-        self.thinking = os.environ.get("GEMINI_CONTROL_THINKING", thinking)
-        self.timeout, self.transport, self.name = timeout, transport or self._post, self.model
+        self.thinking = os.environ.get("GEMINI_AGENT_THINKING") or thinking
+        self.on_thought = None
+        self.timeout, self.name = timeout, self.model
+        self.transport = transport or (self._stream if streaming() else self._post)
 
     @property
     def available(self) -> bool:
         return bool(self.api_key)
 
     def _post(self, url, body, headers):
-        req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), method="POST", headers=headers)
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            raise RuntimeError(f"HTTP {e.code}: {' '.join(e.read().decode('utf-8', 'replace').split())[:240]}") from None
+        return post_json(url, body, headers, self.timeout)
+
+    def _stream(self, url, body, headers):
+        return post_stream(url, body, headers, self.timeout, self.on_thought)
 
     def call(self, history: list) -> dict:
         headers = {"Content-Type": "application/json", "x-goog-api-key": self.api_key, "Api-Revision": API_REVISION}
@@ -196,6 +197,17 @@ class OrchestrationAgent:
         self.last: dict = {"status": "idle", "calls": [], "text": "", "intent": None}
         self.history: list[dict] = []
         self.spent = 0.0
+        self.thoughts = Thoughts()
+        self.refusals: deque = deque(maxlen=THOUGHTS_KEEP)
+        self.turn: list[dict] = []
+        if backend is not None and hasattr(backend, "on_thought"):
+            backend.on_thought = self._thought
+
+    def _thought(self, text: str) -> None:
+        self.turn.append(self.thoughts.add(text))
+
+    def refused(self) -> list[dict]:
+        return list(self.refusals)
 
     def cut_link(self, on: bool) -> None:
         if bool(on) == self.link_cut:
@@ -222,13 +234,19 @@ class OrchestrationAgent:
         history = [{"type": "user_input", "content": self.prompt(intent, findings)}]
         tin = tout = tthought = 0
         latency = 0.0
+        summarised = False
         for turn in range(self.max_turns):
             started = time.perf_counter()
+            self.turn = []
             try:
                 reply = self.backend.call(history)
             except Exception as e:
                 rec.update(status="offline", error=f"{type(e).__name__}: {e}")
                 break
+            if not reply.pop("_streamed", False):
+                for p in summary_texts(reply.get("steps")):
+                    self._thought(p)
+            summarised = summarised or bool(self.turn)
             latency += reply.pop("_latency_ms", None) or (time.perf_counter() - started) * 1000.0
             u = reply.get("usage") or {}
             tin += int(u.get("total_input_tokens") or 0)
@@ -241,11 +259,15 @@ class OrchestrationAgent:
                            for c in s.get("content") or [] if c.get("type") == "text")
             rec["text"] = text or rec["text"]
             calls = [s for s in steps if s.get("type") == "function_call"]
+            self.thoughts.tag(self.turn, calls[0].get("id") if calls else None)
             if not calls:
                 break
             for s in calls:
                 out = self.envelope.call(self.port, s.get("name", ""), s.get("arguments") or {})
+                out["id"] = s.get("id", "")
                 rec["calls"].append(out)
+                if not out["ok"]:
+                    self.refusals.append({"t": round(time.time(), 1), "label": _label(out), "why": out["refused"]})
                 brief = {"ok": out["ok"], "refused": out["refused"], "note": out["note"], "result": out["result"]}
                 history.append({"type": "function_result", "name": s.get("name", ""), "call_id": s.get("id", ""),
                                 "result": [{"type": "text", "text": json.dumps(brief, default=str)}]})
@@ -263,9 +285,14 @@ class OrchestrationAgent:
             with self.log_path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
                                     **rec, "decision": decision}, default=str) + "\n")
-        self.history = (self.history + [{"t": now, "label": _label(c), "ok": c["ok"], "why": c["args"].get("why", ""),
-                                         "refused": c["refused"], "note": c["note"]}
-                                        for c in rec["calls"] if c["name"] != "read_fleet_state"])[-KEEP:]
+        made = [{"t": now, "id": c.get("id", ""), "label": _label(c), "ok": c["ok"],
+                 "why": clip(str(c["args"].get("why") or "")), "refused": c["refused"], "note": c["note"]}
+                for c in rec["calls"] if c["name"] != "read_fleet_state"]
+        if not summarised:
+            for c in made:
+                self.thoughts.add(c["label"] + (f" \u2014 {c['why']}" if c["why"] else "")
+                                  + (f" (refused: {c['refused']})" if c["refused"] else ""), "decision", c["id"])
+        self.history = (self.history + made)[-KEEP:]
         self.last = {**rec, "intent": intent or self.last.get("intent")}
         return rec
 

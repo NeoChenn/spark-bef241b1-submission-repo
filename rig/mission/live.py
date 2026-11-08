@@ -15,7 +15,9 @@ from rig.captions import caption, fleet_robots
 from rig.mission.gas import ALARM_LEL, FLOW_GS, SUB_S, WALK_MS, GasLeak, wind_from_weather
 from rig.mission.jobs import MissionPort
 from rig.mission.obsviews import ObsViews
+from rig.mission.scenarios import Scenarios, gust_force, highlight, shielded
 
+SCEN_EVENTS = ("scenario", "disturb", "select")
 FLEET_EVENTS = ("drop_obstacle", "drop_can", "close_walkway", "close_stairs", "clear", "set_weather", "weld_job")
 ROLE = {"pick_can": "pick-up", "weld": "weld", "rust": "rust", "gas": "gas", "leak_check": "leak check", "inspect": "inspection", "crack": "crack"}
 RUST = ("DETECT", "SPRAY", "SOAK", "SCRUB", "VERIFY", "PAINT", "APPROACH", "BACK_OFF", "GRIND", "WELD", "INSPECT_WELD")
@@ -78,6 +80,13 @@ class MissionLive:
         self._flash = None
         self.plan_key = None
         self.agent_key = None
+        self.sim_out: list[dict] = []
+        self.valve_by = self.valve_ft = None
+        self.wait_isolation = False
+        self.valves: dict = {}
+        self.gusts: list = []
+        self.flow_gs = FLOW_GS
+        self.scen = Scenarios(self)
 
     @property
     def t(self) -> float:
@@ -105,6 +114,7 @@ class MissionLive:
                 self._walk_back(gdt / n)
             self._gas_logic()
             self.port.sync()
+            self.scen.tick()
             self._fleet_events()
 
     def _fleet_events(self) -> None:
@@ -130,10 +140,29 @@ class MissionLive:
         segs = [s[0] for s in tr.segments if s[0] > 0]
         return max(0.0, SETUP_S.get("gas", 0.0) + (segs[0] if segs else 10.0) - HOLD_MARGIN)
 
+    def _iso_hold(self) -> float:
+        tr = self.fleet.jobs.get("gas", "loose")
+        seg = next((s[0] for s in tr.segments if s[1] == "RETORQUE"), None)
+        return self._hold() if seg is None else max(0.0, SETUP_S.get("gas", 0.0) + seg - HOLD_MARGIN)
+
     def _gas_logic(self) -> None:
         lk = self.leak
         f = self.fleet.f
+        if not lk.on and lk.queued:
+            fid = lk.promote()
+            self.note("Fleet", "NEXT_LEAK", f"{fid} is next -> {unit_name('R2')} localises it")
+        if self.valve_ft is not None:
+            vt = f.tasks.get(self.valve_ft)
+            if vt is None or vt.status == "done":
+                self.valve_ft = None
+                if lk.on:
+                    lk.stop("isolated")
+                    self.note(unit_name(self.valve_by), "ISOLATED", f"isolation valve upstream of {lk.fid} closed, leak starved")
+                self._close_valve_job("DONE")
         task = self._gas_task()
+        if task is not None and self.wait_isolation and lk.on and lk.found is not None:
+            with self.fleet.lock:
+                task.progress = min(task.progress, self._iso_hold())
         if lk.on and lk.found is None and task is not None and task.robot:
             r = self._robot(task.robot)
             src = lk.source()
@@ -232,7 +261,13 @@ class MissionLive:
     def event(self, name: str, args: dict | None = None) -> dict:
         args = dict(args or {})
         with self.lock:
+            if name in SCEN_EVENTS:
+                out = self.scen.start(str(args.get("id") or "")) if name == "scenario" else \
+                    self.scen.disturb() if name == "disturb" else self.scen.select(args.get("robot"))
+                self._fleet_events()
+                return out
             out = self._event(name, args)
+            self.scen.toast(name, args)
             self._fleet_events()
             self._react(name, args, out)
             return out
@@ -358,8 +393,11 @@ class MissionLive:
             ok = self.port.approve_request(jid, "operator", "approved by the operator in the HUD") if name == "approve" \
                 else self.port.reject(jid)
             if ok and name == "approve" and jid == self.valve_job:
-                self.isolate_at = self.t + ISOLATE_S
                 self.port.extra[jid]["status"] = "RUNNING"
+                if self.valve_by:
+                    self._valve_task(jid)
+                else:
+                    self.isolate_at = self.t + ISOLATE_S
             if ok:
                 self.note("Operator", name.upper(), jid)
             return {name: jid, "ok": ok}
@@ -384,8 +422,27 @@ class MissionLive:
             return {"intent": "planning" if self._agent(lambda: c.intent(text, now=self.t)) else "busy"}
         return {}
 
+    def _valve_task(self, jid: str) -> None:
+        fid = self.leak.fid
+        xyz = self.valves.get(fid) or self.leak.flanges[fid].tolist()
+        with self.fleet.lock:
+            t = self.fleet.f.add_task("valve", f"valve_{fid}", xyz, only=self.valve_by)
+            self.fleet.snap = self.fleet.f.snapshot()
+        self.valve_ft = t.id
+        self.note("Coordinator", "VALVE", f"{unit_name(self.valve_by)} sent to close the isolation valve upstream of {fid}")
+
+    def take_sim(self) -> list[dict]:
+        with self.lock:
+            out, self.sim_out = self.sim_out, []
+            return out
+
+    def brush_force(self, rid: str, t: float | None = None) -> float:
+        t = self.t if t is None else t
+        raw = 30.5 + 2.5 * math.sin(3.1 * t) + float(gust_force([t], self.gusts)[0])
+        return float(shielded([raw])[0])
+
     def leak_flow(self) -> float:
-        return FLOW_GS
+        return self.flow_gs
 
     def _pick(self, rid, ids) -> str:
         if rid in (None, ""):
@@ -415,7 +472,7 @@ class MissionLive:
         u, tt = info.get("u", 0.0), self.t
         ev = {"job": "gas" if info.get("kind") in ("gas", "leak_check") else info.get("kind")}
         if state == "SCRUB":
-            ev.update(force=round(30.5 + 2.5 * math.sin(3.1 * tt), 1), rust_fraction=round(max(0.04, 0.62 * (1 - u)), 3))
+            ev.update(force=round(self.brush_force(r.id, tt), 1), rust_fraction=round(max(0.04, 0.62 * (1 - u)), 3))
         elif state == "SOAK":
             ev["soak_left"] = round(info.get("left", 0.0), 1)
         elif state == "DETECT":
@@ -511,7 +568,7 @@ class MissionLive:
             out = {"t": fl["t"], "fleet": {k: v for k, v in fl.items() if k not in ("events", "views")},
                    "robots": robots, "views": views,
                    "gas": gas, "sensors": self.sensors(fl), "orchestrator": self.orchestrator(),
-                   "caption": self.caption(robots, gas),
+                   "caption": self.caption(robots, gas), **self.scen.header(),
                    "mission": {"t": fl["t"], "rounds": self.fleet.rounds, "speed": self.fleet.speed,
                                "leak": {"on": self.leak.on, "flange": self.leak.fid, "found": self.leak.found}}}
             if self.ctl is not None:
@@ -544,7 +601,8 @@ class MissionLive:
                             "gas_lel": round(float(d.get("gas_lel") or 0.0), 3),
                             "thermal_c": round(31.0 + 4 * k + 0.6 * math.sin(0.7 * self.t + k) + (6.0 if st == "SCRUB" else 0.0), 1),
                             "battery": round(float((d.get("battery") or {}).get("soc") or 0.0), 3),
-                            "reach": round(0.35 + 0.3 * float(st in ("SCRUB", "RETORQUE", "SPRAY", "PAINT")), 2)}
+                            "reach": round(0.35 + 0.3 * float(st in ("SCRUB", "RETORQUE", "SPRAY", "PAINT")), 2),
+                            "highlight": highlight(d)}
         return out
 
     def caption(self, robots: list[dict], gas: dict) -> dict | None:
@@ -558,7 +616,8 @@ class MissionLive:
             hot = 2.5 if gas.get("alarm") and any(k in r["state"] for k in ("GAS", "LEAK", "RETORQUE")) else 0.0
             return RANK.get(c.get("tone"), 0) + hot - (1.5 if any(k in r["state"] for k in ("DOCK", "CHARG")) else 0.0) \
                 + (0.5 if r["state"] in RUST else 0.0)
-        r = max(robots, key=rank)
+        focus = self.scen.focus()
+        r = next((x for x in robots if x["id"] == focus), None) or max(robots, key=rank)
         c = dict(r["caption"])
         c["lead"] = f"{unit_name(r['id'])} · {c['lead']}"
         c["text"] = c["lead"] + c["rest"]
@@ -621,7 +680,7 @@ class MissionLive:
     def for_sim(self) -> dict:
         s = self.snapshot_fleet()
         return {"t": s["t"], "hazards": s["hazards"],
-                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state")}
+                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state", "task", "job_state")}
                            for r in s["robots"]]}
 
     def state(self) -> dict:

@@ -4,7 +4,7 @@ import random
 import threading
 
 from policy.fleet import barrel
-from policy.fleet.jobs import JobLibrary, JobTrace, run_orchestrator
+from policy.fleet.jobs import SIMPLE, JobLibrary, JobTrace, run_orchestrator
 from policy.fleet.scenario import SCENARIOS
 
 LOG_KEEP = 300
@@ -22,7 +22,8 @@ QUICK = {"rust": [(0, "DETECT", "rust confirmed"), (6, "SPRAY", "spray converter
                       (3.6, "GRASP", "close gripper on the can"), (5.85, "LIFT", "lift clear of the grating"),
                       (7.2, "STOW", "drop the can in the bin"), (9.0, "DONE", "can stowed, walkway clear")],
          "weld": [(0, "INSPECT", "eddy + laser seam scan"), (16, "GRIND", "grind out crack"),
-                  (37, "WELD", "seam-tracked weld"), (68, "INSPECT_WELD", "verify weld"), (77, "DONE", "weld verified")]}
+                  (37, "WELD", "seam-tracked weld"), (68, "INSPECT_WELD", "verify weld"), (77, "DONE", "weld verified")],
+         **SIMPLE}
 
 
 def quick_run(kind: str, scenario: str) -> JobTrace:
@@ -104,5 +105,5 @@ class FleetLive:
     def for_sim(self) -> dict:
         s = self.state()
         return {"t": s["t"], "hazards": s["hazards"],
-                "robots": [{k: r[k] for k in ("id", "pose", "path", "prev_path", "reroute_t", "state")}
+                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state", "task", "job_state")}
                            for r in s["robots"]]}

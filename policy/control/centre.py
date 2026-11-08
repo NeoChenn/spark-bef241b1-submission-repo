@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from policy.control.adapters import TrendTracker
+from policy.control.backend import THOUGHTS_KEEP, Thoughts
 from policy.control.limiter import Budget, RateLimiter, cost_usd
 from policy.control.prompt import build, prompt_hash
 from policy.control.safety import arbitrate, edge_rules
@@ -68,6 +69,17 @@ class ControlCentre:
         self.latched: set[str] = set()
         self.pending = None
         self.pool = None if sync else ThreadPoolExecutor(1, thread_name_prefix="argon")
+        self.thoughts = Thoughts()
+        self.streamed: list[dict] = []
+        self.plan_key = None
+        self.veto_t: dict[str, float] = {}
+        if agent is not None:
+            agent.thoughts = self.thoughts
+        if backend is not None and hasattr(backend, "on_thought"):
+            backend.on_thought = self._thought
+
+    def _thought(self, text: str) -> None:
+        self.streamed.append(self.thoughts.add(text))
 
     @property
     def cloud(self) -> bool:
@@ -131,6 +143,7 @@ class ControlCentre:
             self.pending = job
 
     def _run(self, job):
+        self.streamed = []
         try:
             return self.backend.call(job["prompt"], job["snap"])
         except Exception as e:
@@ -178,9 +191,34 @@ class ControlCentre:
             self._log(rec)
             return
         self.plan, self.plan_t, self.status, self.error = plan, now, "ok", None
+        self._remember(plan, result)
         rec.update(status="ok", situation=plan.situation, decision=[a.id for a in plan.actions],
                    anomalies=[f"{a.kind}:{a.zone}" for a in plan.anomalies], rejected=plan.rejected)
         self._log(rec)
+
+    def _remember(self, plan: Plan, result) -> None:
+        top = next((a for a in plan.actions if a.source != "edge"), None)
+        call = top.id if top else None
+        items = list(self.streamed)
+        if not result.streamed:
+            items += [self.thoughts.add(t) for t in result.thoughts]
+        self.thoughts.tag(items, call)
+        key = tuple(a.id for a in plan.actions)
+        if not items and key != self.plan_key:
+            text = f"{top.label} \u2014 {top.rationale}" if top and top.rationale else \
+                (top.label if top else (plan.situation[0] if plan.situation else ""))
+            if text:
+                self.thoughts.add(text, "decision", call)
+        self.plan_key = key
+
+    def _refused(self, vetoed) -> list[dict]:
+        wall = round(time.time(), 1)
+        live = {v["id"]: v for v in vetoed}
+        self.veto_t = {k: self.veto_t.get(k, wall) for k in live}
+        out = [{"t": self.veto_t[k], "label": v["label"], "why": v["why"]} for k, v in live.items()]
+        if self.agent is not None and hasattr(self.agent, "refused"):
+            out += self.agent.refused()
+        return sorted(out, key=lambda r: r["t"])[-THOUGHTS_KEEP:]
 
     def _log(self, rec: dict) -> None:
         if self.log_path is None:
@@ -215,6 +253,9 @@ class ControlCentre:
             "anomalies": [a.to_dict() for a in plan.anomalies] if plan else [],
             "edge": [a.to_dict() for a in edge],
             "vetoed": vetoed,
+            "refused": self._refused(vetoed),
+            "thoughts": self.thoughts.view(),
+            "thoughts_mode": self.thoughts.mode(),
             "rejected": len(plan.rejected) if plan else 0,
             "plan_age_s": None if self.plan_t is None else round(now - self.plan_t, 1),
             "latency_ms": self.last.get("latency_ms"),

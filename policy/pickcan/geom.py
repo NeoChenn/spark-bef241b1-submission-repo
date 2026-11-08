@@ -4,7 +4,7 @@ import math
 
 import torch
 
-GEOM_DIM = 14
+GEOM_DIM = 15
 
 
 def ray_grid(n_side: int, fov: float, device) -> torch.Tensor:
@@ -87,7 +87,7 @@ def fit_cylinder(pts: torch.Tensor, hit: torch.Tensor, deck_z: float = 0.0):
     side = (((pts - centre[:, None, :]) * axis[:, None, :]).sum(-1).abs() < length[:, None] / 2 - 0.005) & hit
     resid = ((rho - radius[:, None]).abs() * side).sum(1) / side.float().sum(1).clamp_min(1.0)
     conf = (n / 30.0).clamp(max=1.0) * torch.exp(-resid / 0.01) * (w.sum(1) > 5)
-    return {"centre": centre, "axis": axis, "radius": radius, "length": length, "lying": lying, "grasp": grasp,
+    return {"centre": centre, "axis": axis, "radius": radius, "length": length, "lying": lying, "grasp": grasp, "top": top,
             "residual": resid, "conf": conf, "n": w.sum(1)}
 
 
@@ -96,4 +96,5 @@ def geom_obs(fit: dict, tip: torch.Tensor) -> torch.Tensor:
     return torch.cat([(fit["centre"] - tip) * 4.0, (fit["grasp"] - tip) * 4.0,
                       ax[:, :1] ** 2 - ax[:, 1:2] ** 2, 2.0 * ax[:, :1] * ax[:, 1:2], ax[:, 2:].abs(),
                       fit["radius"][:, None] * 20.0, fit["length"][:, None] * 5.0, fit["lying"][:, None].float(),
-                      (fit["residual"][:, None] * 100.0).clamp(max=5.0), fit["conf"][:, None]], -1)
+                      (fit["residual"][:, None] * 100.0).clamp(max=5.0), fit["conf"][:, None],
+                      ((fit["top"] - tip[:, 2]) * 4.0).clamp(-4.0, 4.0)[:, None]], -1)

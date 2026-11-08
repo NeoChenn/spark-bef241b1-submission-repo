@@ -83,6 +83,8 @@ def load_cinematic(app, ctx, preset: str, args=None):
     import ocean
     from pxr import Gf, UsdGeom
 
+    from rig.sim.herocam import HeroCam
+
     merged = bool(args is not None and args.merged)
     scene_path = cinematic.SCENE_PATH.with_name("rig_merged.usda") if merged else cinematic.SCENE_PATH
     open_scene(app, ctx, str(scene_path))
@@ -99,21 +101,24 @@ def load_cinematic(app, ctx, preset: str, args=None):
     view = merged_camera(args, scene_path) if merged else None
 
     remote = args is not None and getattr(args, "render_mode", "local") == "remote"
+    hero = HeroCam()
 
     def update(t: float) -> None:
         if not remote:
             cinematic.animate_ocean(stage, rest, distance, t, wave["height"])
         cinematic.animate_effects(stage, t)
-        if view is None:
+        shot = hero.at(t)
+        if view is None and shot is None:
             cinematic.set_camera(stage, path, t % cinematic.SEQUENCE_SECONDS)
             update.eye_target = cinematic.camera_at(t % cinematic.SEQUENCE_SECONDS)[:2]
             return
-        eye, target, focal = view(t)
+        eye, target, focal = shot or view(t)
         update.eye_target = (eye, target)
         cam.GetFocalLengthAttr().Set(focal)
         op.Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*eye), Gf.Vec3d(*target), Gf.Vec3d(0, 0, 1)).GetInverse())
 
     update.wave = wave
+    update.hero = hero
     update(0.0)
     print(f"rig sim: cinematic preset {preset} scene {scene_path.name}", flush=True)
     return path, update
@@ -182,8 +187,11 @@ def weather_kw(fn, args: dict) -> dict:
     return {k: args[k] for k in ("level", "wind_dir", "gust", "time", "rain", "fog") if k in args and (anykw or k in ps)}
 
 
-def handle_event(scene, event: dict, atm=None, weather=None) -> None:
+def handle_event(scene, event: dict, atm=None, weather=None, hero=None) -> None:
     name, args = event.get("name"), event.get("args") or {}
+    if hero is not None and hero.event(name, args):
+        print(f"rig sim: camera {hero.meta()}", flush=True)
+        return
     if weather is not None and name == "set_weather":
         weather.set(**weather_kw(weather.set, args))
     if atm is not None and name == "set_weather" and "level" in args:
@@ -193,6 +201,8 @@ def handle_event(scene, event: dict, atm=None, weather=None) -> None:
         return
     if scene is not None and name == "set_weather" and "level" in args:
         scene.set_weather(**{k: args[k] for k in ("level", "wind_dir", "gust") if k in args})
+    if scene is not None and name == "select" and hasattr(scene, "select"):
+        scene.select(args.get("robot"))
     print(f"rig sim: event {name} {args}", flush=True)
 
 
@@ -275,7 +285,14 @@ def wave_of(tickers: list):
     return None
 
 
-def drain(sender, leak, obstacles, atm, sensors, weather=None) -> None:
+def hero_of(tickers: list):
+    for tick in tickers:
+        if getattr(tick, "hero", None) is not None:
+            return tick.hero
+    return None
+
+
+def drain(sender, leak, obstacles, atm, sensors, weather=None, hero=None) -> None:
     while not sender.inbox.empty():
         ev = sender.inbox.get_nowait()
         if sensors is not None and sensors.event(ev):
@@ -283,7 +300,7 @@ def drain(sender, leak, obstacles, atm, sensors, weather=None) -> None:
         if leak and ev["name"] == "gas_leak":
             print(f"rig sim: gas_leak {ev['args']} -> {leak.event(ev['args'])}", flush=True)
         else:
-            handle_event(obstacles, ev, atm, weather)
+            handle_event(obstacles, ev, atm, weather, hero)
 
 
 def make_sensors(stage, obstacles, leak, args):
@@ -305,6 +322,7 @@ def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, l
     from rig.sim.sender import FrameSender
 
     disable_viewport()
+    hero = hero_of(tickers)
     omni_timeline().play()
     for _ in range(WARMUP_UPDATES):
         app.update()
@@ -326,7 +344,7 @@ def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, l
     while app.is_running():
         now = time.monotonic()
         t = now - start
-        drain(sender, leak, obstacles, atm, sensors, weather)
+        drain(sender, leak, obstacles, atm, sensors, weather, hero)
         for tick in tickers:
             tick(t)
         app.update()
@@ -336,6 +354,8 @@ def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, l
             connects = sender.connects
             delta, changed = capture.keyframe(), settings.all()
         msg = {"type": "state", "seq": seq, "t": t, "ts": time.time(), "scene": scene, "view": view(), **delta}
+        if hero is not None:
+            msg["camera_mode"] = hero.meta()
         if changed:
             msg["settings"] = changed
         if wave is not None:
@@ -348,6 +368,8 @@ def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, l
         views = sensors.take() if sensors is not None else None
         if views:
             msg["views"] = views
+        if getattr(obstacles, "motion", None):
+            msg["motion"] = obstacles.motion
         sender.send(msg, b"")
         seq += 1
         steps += 1
@@ -413,6 +435,10 @@ def main() -> None:
         tickers.append(cine_update)
         obstacles, obstacle_tick = make_obstacles(ctx.get_stage(), cine_update, args)
         tickers.append(obstacle_tick)
+        from rig.sim.herocam import first_hit, physx_ray, robot_poses, stage_ray
+
+        cine_update.hero.poses = robot_poses(ctx.get_stage())
+        cine_update.hero.blocked = first_hit(physx_ray(), stage_ray(ctx.get_stage()))
         import weather as weather_mod
 
         weather = weather_mod.Controller(ctx.get_stage(), getattr(cine_update, "wave", None), args.cinematic)
@@ -481,6 +507,7 @@ def main() -> None:
     for _ in range(WARMUP_UPDATES):
         app.update()
 
+    hero = hero_of(tickers)
     host, port = args.sim.rsplit(":", 1)
     sender = FrameSender(host, int(port)).start()
     period = 1.0 / args.fps
@@ -502,7 +529,7 @@ def main() -> None:
     while app.is_running():
         now = time.monotonic()
         t = now - start
-        drain(sender, leak, obstacles, atm, sensors, weather)
+        drain(sender, leak, obstacles, atm, sensors, weather, hero)
         for tick in tickers:
             tick(t)
         rep.orchestrator.step(rt_subframes=args.subframes, pause_timeline=False, wait_for_render=args.wait_render)
@@ -530,6 +557,8 @@ def main() -> None:
             jpeg_kb = buf.tell() / 1024
             head = {"type": "frame", "w": rgb.shape[1], "h": rgb.shape[0], "seq": seq, "t": t, "mean": round(mean, 1),
                     "camera": camera_header()}
+            if hero is not None:
+                head["camera_mode"] = hero.meta()
             plume = leak.header(t) if leak else None
             if plume:
                 head["plume"] = plume

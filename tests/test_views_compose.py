@@ -23,10 +23,10 @@ def test_roles_by_index():
 def test_rust_views_have_boxes_and_three_insets():
     rgb, depth, cam = frame()
     v = robot_views("R1", "rust", rgb, depth, cam, (0.0, 0.0, 20.0, 0.0), path=[(0, 0, 20), (5, 0, 20)], bev=Bev(), seq=3)
-    assert set(v) == {"fpv", "policy", "bev", "info"}
-    assert v["policy"]["seq"] == 3 and "rust" in v["policy"]["caption"]
+    assert set(v) == {"fpv", "boxes", "bev", "info"}
+    assert v["boxes"]["seq"] == 3 and "rust" in v["boxes"]["caption"]
     assert v["info"]["role"] == "rust" and v["info"]["rust_boxes"] >= 1
-    assert all(len(v[k]["jpg"]) < 25_000 for k in ("fpv", "policy", "bev"))
+    assert all(len(v[k]["jpg"]) < 25_000 for k in ("fpv", "boxes", "bev"))
 
 
 def test_gas_views_report_peak_column():
@@ -35,7 +35,7 @@ def test_gas_views_report_peak_column():
     c[8:12, 8:12, 2:6] = 0.04
     f = Field(c, (1.0, -5.0, 19.0), 0.5)
     v = robot_views("R2", "gas", rgb, np.full((48, 64), 30.0, np.float32), cam, (0.0, 0.0, 20.0, 0.0), field=f, bev=Bev())
-    assert "OGI" in v["policy"]["caption"]
+    assert "OGI" in v["boxes"]["caption"]
     assert v["info"]["gas_column"] > 0
 
 
@@ -44,7 +44,7 @@ def test_gas_views_without_field_and_inspection_with_force():
     v = robot_views("R2", "gas", rgb, depth, cam, (0.0, 0.0, 20.0, 0.0), bev=Bev())
     assert v["info"]["gas_column"] == 0
     w = robot_views("R3", "inspection", rgb, depth, cam, (0.0, 0.0, 20.0, 0.0), bev=Bev(), force=[5, 20, 30])
-    assert "depth" in w["policy"]["caption"]
+    assert "depth" in w["boxes"]["caption"]
 
 
 def test_schedule_round_robin_at_rate():
@@ -78,3 +78,64 @@ def test_agc_gain_is_capped_on_near_black_frames():
     from rig.views.draw import agc
     black = np.full((48, 64, 3), 3, np.uint8)
     assert agc(black).max() < 40
+
+
+def test_demand_one_robot_keepalive_and_rate():
+    from rig.views.schedule import Demand
+    d = Demand(rate=4.0, keepalive=45.0, warmup=0.5)
+    assert d.active is None and not d.due(0.0)
+    assert d.request("R2", True, 0.0) == "start"
+    assert not d.due(0.2) and d.due(0.6)
+    d.captured(0.6)
+    assert not d.due(0.7) and d.due(0.86)
+    assert d.request("R2", True, 30.0) is None
+    assert not d.expire(70.0) and d.active == "R2"
+    assert d.request("R1", True, 71.0) == "switch" and d.active == "R1"
+    assert not d.due(71.2)
+    assert d.expire(117.0) and d.active is None
+    d.request("R3", True, 120.0)
+    assert d.request("R1", False, 121.0) is None and d.active == "R3"
+    assert d.request(None, False, 122.0) == "stop" and d.active is None
+
+
+def test_depth_views_from_ray_cast():
+    from rig.views.compose import depth_views
+    _, _, cam = frame()
+    depth = np.full((72, 96), 6.0, np.float32)
+    depth[:20] = np.inf
+    v = depth_views("R3", "inspection", depth, cam, (0.0, 0.0, 20.0, 0.0), path=None, bev=Bev(), seq=2)
+    assert set(v) == {"depth", "bev", "info"}
+    assert v["depth"]["w"] == 256 and "ray cast" in v["depth"]["caption"]
+    assert v["info"]["points"] > 0
+
+
+def test_rust_views_emit_boxes_kind():
+    rgb, depth, cam = frame()
+    v = robot_views("R1", "rust", rgb, depth, cam, (0.0, 0.0, 20.0, 0.0), bev=Bev())
+    assert "boxes" in v and "policy" not in v
+
+
+def test_guard_escalates_after_hold_below_threshold():
+    from rig.views.schedule import Guard
+    g = Guard(threshold=22.0, hold=5.0, window=2.0)
+    t = 0.0
+    for _ in range(24 * 4):
+        t += 1 / 24
+        assert g.tick(t, True) is None
+    assert abs(g.hz - 24) < 1.5
+    ups = []
+    for _ in range(15 * 14):
+        t += 1 / 15
+        ups.append(g.tick(t, True))
+    assert [u for u in ups if u] == [1, 2]
+    assert g.level == 2
+
+
+def test_guard_ignores_slow_ticks_without_cam():
+    from rig.views.schedule import Guard
+    g = Guard()
+    t = 0.0
+    for _ in range(200):
+        t += 1 / 10
+        assert g.tick(t, False) is None
+    assert g.level == 0

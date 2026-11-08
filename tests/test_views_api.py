@@ -51,3 +51,9 @@ def test_router_wraps_hub_and_serves_jpgs():
     assert r.status_code == 200 and r.content == JPG + bytes([4]) and r.headers["content-type"] == "image/jpeg"
     assert c.get("/api/views/R9/fpv.jpg").status_code == 404
     assert c.get("/api/views").json()["R1"]["fpv"]["seq"] == 4
+
+
+def test_boxes_aliased_as_policy():
+    s = ViewStore()
+    h = s.take({"views": {"R1": {"boxes": inset(5, "rust")}}})
+    assert h["views"]["R1"]["policy"]["url"] == "/api/views/R1/boxes.jpg?s=5"

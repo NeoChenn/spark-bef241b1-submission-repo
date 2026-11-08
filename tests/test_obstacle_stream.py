@@ -45,3 +45,15 @@ def test_captions_hold_recent_hazard_events():
              {"t": 40.0, "events": []}]
     c = captions(ticks)
     assert c[0] == [] and [e["kind"] for e in c[1]] == ["drop_obstacle", "reroute"] and c[2] == []
+
+
+def test_handle_event_routes_select():
+    class Sel(FakeScene):
+        def select(self, rid):
+            self.calls.append(("select", rid))
+
+    s = Sel()
+    handle_event(s, {"name": "select", "args": {"robot": "R1"}})
+    handle_event(s, {"name": "select", "args": {"robot": None}})
+    handle_event(FakeScene(), {"name": "select", "args": {"robot": "R1"}})
+    assert s.calls == [("select", "R1"), ("select", None)]
