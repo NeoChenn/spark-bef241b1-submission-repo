@@ -25,6 +25,8 @@ ap.add_argument("--warm", type=int, default=24)
 ap.add_argument("--lens", action="store_true")
 ap.add_argument("--set", action="append", default=[])
 ap.add_argument("--look", default="offline")
+ap.add_argument("--weather", default="")
+ap.add_argument("--weather-at", type=float, default=0.0)
 args = ap.parse_args()
 os.environ["RIG_QUALITY"] = args.quality
 
@@ -130,7 +132,22 @@ def header():
                     cam.GetHorizontalApertureAttr().Get(), args.width, args.height)
 
 
+wx = None
+if args.weather:
+    import weather as weather_mod
+
+    wx = weather_mod.Controller(stage, getattr(cine_update, "wave", None), args.preset, atm)
+    wx_level = float(args.weather) if args.weather.replace(".", "", 1).isdigit() else args.weather
+
+
 def tick(t):
+    if wx is not None:
+        if not wx.args and t >= args.weather_at:
+            wx.now = args.weather_at
+            wx.set(wx_level)
+            if atm is not None:
+                atm.set_weather(level=wx_level)
+        wx.tick(t)
     cine_update(t)
     if atm is not None:
         atm.update(t)
