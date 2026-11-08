@@ -69,6 +69,8 @@ def probe(path):
 def test_waits_come_from_request_to_call_spans():
     _, rows = scenario()
     assert av.waits_from_timeline(rows) == [(10.0, 22.0), (32.0, 41.0), (52.0, 67.0)]
+    rows.append({"type": "argon_request", "key": "G-F1:PIPE_SENSOR_FAULT", "t": 70.0})
+    assert av.waits_from_timeline(rows)[-1] == (70.0, float("inf"))
 
 
 def test_key_beats_play_at_one_x_and_waits_ramp_to_four():

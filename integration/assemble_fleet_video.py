@@ -79,6 +79,7 @@ def waits_from_timeline(rows: list[dict]) -> list[tuple[float, float]]:
             t0 = open_.pop(r["key"])
             t0 = float(r.get("t_request", t0))
             spans.append((t0, float(r["t"])))
+    spans += [(t0, float("inf")) for t0 in open_.values()]
     return sorted(spans)
 
 
