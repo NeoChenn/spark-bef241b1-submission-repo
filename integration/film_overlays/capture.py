@@ -237,7 +237,7 @@ def readout_data(R: dict, stub: dict, mode: str, sim_span, span: float) -> dict:
 def _track_fn(path: Path):
     import numpy as np
     d = json.loads(path.read_text())
-    rows = d if isinstance(d, list) else d.get("samples") or [dict(zip(d, v)) for v in zip(*d.values())]
+    rows = d if isinstance(d, list) else d.get("samples") or d.get("rows") or [dict(zip(d, v)) for v in zip(*d.values())]
     t = np.array([float(r["t"]) for r in rows])
     fr = np.array([float(r.get("rust_fraction", 0.0)) for r in rows])
     fo = np.array([float(r.get("force_N", (r.get("brush_contact") or {}).get("force_N", 0.0))) for r in rows])
