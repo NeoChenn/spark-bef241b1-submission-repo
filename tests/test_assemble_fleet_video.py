@@ -77,7 +77,7 @@ def test_key_beats_play_at_one_x_and_waits_ramp_to_four():
     headers, rows = scenario()
     p = av.plan(headers, 30, rows)
     ts = av.times(headers, 30)
-    assert p.top == 4.0 and p.mode == "waits"
+    assert p.top == 4.0 and p.mode == "lapse"
     for t in (10.0, 22.0, 32.0, 41.0, 52.0, 67.0):
         assert p.speed[int(t * 30)] == 1.0
     assert p.speed[int(16 * 30)] == 4.0 and p.speed[int(60 * 30)] == 4.0
@@ -89,7 +89,7 @@ def test_key_beats_play_at_one_x_and_waits_ramp_to_four():
 def test_budget_escalates_speed_then_compresses_idle():
     headers, rows = scenario()
     p = av.plan(headers, 30, rows, budget_s=52.0)
-    assert p.mode == "waits" and p.top > 4.0 and p.seconds + av.TITLE_S + av.END_S <= 52.0
+    assert p.mode == "lapse" and p.top > 4.0 and p.seconds + av.TITLE_S + av.END_S <= 52.0
     p = av.plan(headers, 30, rows, budget_s=45.0)
     assert p.mode == "idle" and p.seconds + av.TITLE_S + av.END_S <= 45.0
     assert all(p.speed[int(t * 30)] == 1.0 for t in (10.0, 22.0, 41.0, 67.0))
@@ -183,3 +183,28 @@ def test_camera_adapter_and_overlay_header_shape(monkeypatch):
                                                                             "unit2": (4.0, 5.0, 6.0)},
                     "size": (1920, 1080)}
     assert set(av.for_overlay(h)["robots"]) == {"unit1", "unit2"} and isinstance(h["robots"], list)
+
+
+def rust_and_walks(fps=30):
+    hs = []
+    for i in range(40 * fps):
+        t = i / fps
+        s1 = "SPRAY" if t < 3 else "SOAK" if t < 15 else "SCRUB" if t < 25 else "PAINT" if t < 32 else "DONE"
+        s2 = ("DOCKED" if t < 5 else "TRANSIT" if t < 17 else "RETORQUE" if t < 20 else "RETURN" if t < 23
+              else "DOCKED")
+        hs.append({"t": round(t, 4), "robots": [{"id": "unit1", "state": s1}, {"id": "unit2", "state": s2}],
+                   "detectors": [{"id": "G-F2", "led": "red" if t < 16 else "green"}]})
+    return hs
+
+
+def test_soak_and_long_walks_lapse_while_rust_beats_and_retorque_stay_at_one_x():
+    hs = rust_and_walks()
+    p = av.plan(hs, 30, [], budget_s=200.0)
+    sp = lambda t: p.speed[int(t * 30)]
+    assert p.mode == "lapse" and sp(9.0) == 4.0 and sp(12.0) == 4.0
+    assert p.why["soak"] > 0 and p.why["walk"] > 0 and p.why["wait"] == 0
+    for t in (0.0, 1.5, 3.0, 15.0, 16.0, 17.0, 18.5, 21.5, 20.0, 25.0, 28.0, 31.9):
+        assert sp(t) == 1.0, t
+    walk_only = [{**h, "robots": [h["robots"][1]]} for h in hs]
+    q = av.plan(walk_only, 30, [], budget_s=200.0)
+    assert q.speed[int(11 * 30)] == 4.0 and q.speed[int(21.5 * 30)] == 1.0
