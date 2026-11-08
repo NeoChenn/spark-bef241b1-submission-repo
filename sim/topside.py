@@ -364,7 +364,7 @@ def add_cladding(builder, module, face, lo, hi, material):
         "+y": (((x0 + x1) / 2, y1 + t, zc), (x1 - x0, t, h)),
     }
     center, size = sizes[face]
-    builder.box(f"{ROOT}/Cladding", f"{module['name']}_{face}", center, size, material, tile=3.0, collide=None)
+    builder.box(f"{ROOT}/Cladding", f"{module['name']}_{face.replace('+', 'p').replace('-', 'n')}", center, size, material, tile=3.0, collide=None)
 
 
 def add_rack(kit, start, end, z0, tiers, width, count, seed):
