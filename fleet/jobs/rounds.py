@@ -1,23 +1,3 @@
-"""Operator-rounds jobs for the quadruped (Go2 + lift + UR3): the walk an offshore operator does every shift.
-
-  gauge_read               Q  AUTO    read the 7 process gauges two ways (OpenCV needle angle + Gemini vision)
-  thermal_acoustic_survey  Q  AUTO    temperature / vibration per asset, trended over rounds (drift, steps)
-  escape_route_check       Q  AUTO    walk the patrol / escape route, find blockages and dropped objects
-  spill_response           Q  SUPV    ring a small spill with absorbent socks once the operator approves
-  fg_optics_clean          Q  AUTO    wipe a salt-fouled fire & gas detector window, then ASSIST bump test
-
-World.state keys these jobs read (all optional; synthetic defaults are made when missing):
-  gauge_values      {gauge_id: 0..1}        simulated truth, overrides reading_bar from the rig meta
-  gauge_frames      {gauge_id: RGB array}   real camera crops (e.g. from Isaac); else synthetic crops are rendered
-  condition_history {asset_id: {"temp_c": [...], "vib_mm_s": [...]}}  one value per past round
-  condition_now     {asset_id: {"temp_c": x, "vib_mm_s": y}}          this round's measurement (appended)
-  dropped_objects   [{"id", "label", "position": [x, y(, z)], "size_m", "mass_kg"}]
-  route_blocked_samples [[x, y], ...]  or  deck_triangles (N, 3, 3) -> sim route_blockages
-  spills            {spill_id: {"position", "radius_m", "fluid"}}
-  absorbent_socks   int (robot's sock inventory, default 8)
-  fg_detectors      {det_id: {"position", "type", "salt": 0..1}}
-Jobs write back: gauge_log, condition_history, spills[...]["contained"], fg_detectors[...]["salt"].
-"""
 from __future__ import annotations
 
 import math
@@ -34,8 +14,8 @@ from fleet.perception.lens import lens_obscuration, render_lens
 from fleet.perception.trend import detect_change, rounds_to_limit, synth_condition_history
 
 Q = {RobotKind.QUADRUPED}
-DISAGREE_FRACTION = 0.05          # readers further apart than 5 % of full scale -> second look
-NORMAL_BAND = (0.15, RED_ZONE[0])  # dial fraction; below = low alarm, red band = high alarm
+DISAGREE_FRACTION = 0.05
+NORMAL_BAND = (0.15, RED_ZONE[0])
 
 
 def _xyz(p) -> tuple[float, float, float]:
@@ -65,14 +45,12 @@ def _follow(job: Job, kind: str, level: Level, suffix: str, *, target: Optional[
                params=params, parent=job.id)
 
 
-# ------------------------------------------------------------------------------------------------ gauge_read
-
 class GaugeReadJob:
     kind = "gauge_read"
     level = Level.AUTO
     needs = {"camera"}
     robot_kinds = Q
-    est_duration_s = 300.0      # 7 gauges on two pipe racks ~30 m apart, ~20 s per gauge at the dial
+    est_duration_s = 300.0
 
     def __init__(self, classical: Optional[ClassicalGaugeReader] = None, gemini: Any = "auto"):
         self.classical = classical or ClassicalGaugeReader()
@@ -91,7 +69,6 @@ class GaugeReadJob:
         rng = np.random.default_rng(1000 * index + int(world.t) % 997)
         view = world.state.get("gauge_views", {}).get(gauge["id"])
         if second_look:
-            # Robot steps square to the dial and shades the lens: small tilt, no glare.
             params = CropParams(yaw_deg=float(rng.uniform(-8, 8)), pitch_deg=float(rng.uniform(-8, 8)),
                                 blur_sigma=0.4, noise_std=3.0)
         elif isinstance(view, CropParams):
@@ -192,10 +169,8 @@ class GaugeReadJob:
                        kinds=Q, priority=2, est=60.0, second_look=True)
 
 
-# ---------------------------------------------------------------------------------- thermal_acoustic_survey
-
 TEMP_RISE_CRITICAL_C = 10.0
-VIB_CRITICAL_MM_S = 7.1           # ISO 10816-3 group 2 rigid: above 7.1 mm/s is "unacceptable"
+VIB_CRITICAL_MM_S = 7.1
 VIB_ALERT_MM_S = 4.5
 
 
@@ -204,7 +179,7 @@ class ThermalAcousticSurveyJob:
     level = Level.AUTO
     needs = {"thermal"}
     robot_kinds = Q
-    est_duration_s = 360.0        # 6 valves, ~40 s each (thermal frame + 30 s acoustic/vibration capture)
+    est_duration_s = 360.0
 
     asset_types = ("valve", "pump", "compressor", "motor")
 
@@ -265,11 +240,9 @@ class ThermalAcousticSurveyJob:
         return Finding(f"{what}_{tr.kind}", sev, summary, pos, ev, follow)
 
 
-# ---------------------------------------------------------------------------------------- escape_route_check
-
-ROUTE_HALF_WIDTH_M = 0.6          # 1.2 m escape-route width
+ROUTE_HALF_WIDTH_M = 0.6
 LOOSE_MAX_SIZE_M = 0.6
-LOOSE_MAX_MASS_KG = 10.0          # what the UR3 gripper may pick up and carry (payload 3 kg at full reach x lift)
+LOOSE_MAX_MASS_KG = 10.0
 
 
 class EscapeRouteCheckJob:
@@ -277,7 +250,7 @@ class EscapeRouteCheckJob:
     level = Level.AUTO
     needs = {"camera"}
     robot_kinds = Q
-    est_duration_s = 150.0        # ~115 m top-deck loop at 1 m/s plus corners
+    est_duration_s = 150.0
 
     def run(self, job: Job, robot: Robot, world: World) -> JobResult:
         route = [tuple(p[:2]) for p in world.state.get("patrol_route") or route_mod.patrol_route()]
@@ -335,8 +308,6 @@ class EscapeRouteCheckJob:
         return _result(job, robot, world, duration, findings, log)
 
 
-# -------------------------------------------------------------------------------------------- spill_response
-
 SOCK_LENGTH_M = 1.2
 SOCK_OVERLAP_M = 0.15
 MAX_ROBOT_SPILL_RADIUS_M = 1.5
@@ -347,7 +318,7 @@ class SpillResponseJob:
     level = Level.SUPV
     needs = {"arm"}
     robot_kinds = Q
-    est_duration_s = 240.0        # ~6 socks at ~25 s each plus approach
+    est_duration_s = 240.0
 
     def run(self, job: Job, robot: Robot, world: World) -> JobResult:
         spills = world.state.get("spills") or {}
@@ -391,15 +362,13 @@ class SpillResponseJob:
         return _result(job, robot, world, approach + 25.0 * n + 20.0, [f], log)
 
 
-# ------------------------------------------------------------------------------------------- fg_optics_clean
-
 DEFAULT_FG_DETECTORS = {
     "fg_ir_01": {"position": [-14.0, 22.6, 44.6], "type": "IR flame", "salt": 0.35},
     "fg_ogd_02": {"position": [21.0, -9.9, 44.7], "type": "open-path gas", "salt": 0.22},
     "fg_ir_03": {"position": [30.0, -9.9, 44.7], "type": "IR flame", "salt": 0.08},
 }
-CLEAN_OBSCURATION = 0.05          # window is fit for duty below 5 % covered
-WIPE_EFFICIENCY = 0.75            # fresh-water spray + microfibre removes ~75 % of the crust per pass
+CLEAN_OBSCURATION = 0.05
+WIPE_EFFICIENCY = 0.75
 MAX_WIPES = 3
 
 

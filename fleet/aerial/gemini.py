@@ -1,12 +1,3 @@
-"""Gemini vision for the aerial jobs: ISO 4628-3 rust grading and a thermal second opinion.
-
-Built on policy/gemini_verifier.py (key loading, JPEG encoding, reply parsing). Every call is optional:
-with no key, no network or an unusable reply the methods return None and the job uses the on-board
-classical result (edge autonomy is kept).
-
-Replies can be recorded to / replayed from a JSON file keyed by the image hash, so tests and demos run
-offline on real Gemini answers:  ReplayTransport(path)  /  GeminiVision(record=path).
-"""
 from __future__ import annotations
 
 import base64
@@ -53,7 +44,7 @@ THERMAL_PROMPT = (
 THERMAL_SCHEMA = {
     "type": "OBJECT",
     "properties": {
-        "anomalous_nozzle": {"type": "INTEGER"},       # nozzle number, or -1 if none
+        "anomalous_nozzle": {"type": "INTEGER"},
         "kind": {"type": "STRING", "enum": ["hot", "cold", "none"]},
         "confidence": {"type": "NUMBER"},
         "reason": {"type": "STRING"},
@@ -84,7 +75,6 @@ def image_key(image: np.ndarray) -> str:
 
 
 class ReplayTransport:
-    """Serves recorded Gemini replies (by image hash + task) instead of calling the API."""
 
     def __init__(self, path: Path):
         self.path = Path(path)
@@ -136,7 +126,7 @@ class GeminiVision:
             text = _extract_text(raw)
             m = re.search(r"\{.*\}", text, re.S)
             reply = json.loads(m.group(0) if m else text)
-        except Exception as e:   # network, HTTP, bad JSON: caller falls back to the classical result
+        except Exception as e:
             self.last_error = f"{type(e).__name__}: {str(e)[:200]}"
             self.calls.append({"task": task, "error": self.last_error})
             return None

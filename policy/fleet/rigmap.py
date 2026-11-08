@@ -46,6 +46,9 @@ class RigMap:
         self.inspection: list[dict] = []
         self.speed = dict(SPEED)
         self.dock = -1
+        self.closed: set[tuple[int, int]] = set()
+        self.factor: dict[tuple[int, int], float] = {}
+        self.kind_factor: dict[str, float] = {}
 
     def node(self, deck: str, xy, z: float | None = None) -> int:
         k = (deck, round(float(xy[0]), 3), round(float(xy[1]), 3))
@@ -78,7 +81,8 @@ class RigMap:
 
     def edge(self, deck_a: str, a, deck_b: str, b, kind: str, corridor: str | None = None):
         na, nb = self.node(deck_a, a), self.node(deck_b, b)
-        self.coarse.append({"a": self.pos[na].round(3).tolist(), "b": self.pos[nb].round(3).tolist(), "kind": kind,
+        self.coarse.append({"id": corridor or f"w{len(self.coarse)}",
+                            "a": self.pos[na].round(3).tolist(), "b": self.pos[nb].round(3).tolist(), "kind": kind,
                             "narrow": corridor is not None, "corridor": corridor,
                             "deck": deck_a if deck_a == deck_b else f"{deck_a}/{deck_b}"})
         self._link(na, nb, kind, corridor)
@@ -141,7 +145,8 @@ class RigMap:
         if dist > standoff + 0.05:
             w = xyz[:2] + (q - xyz[:2]) / dist * standoff
             n = self.node(deck, w)
-            self.coarse.append({"a": self.pos[j].round(3).tolist(), "b": self.pos[n].round(3).tolist(), "kind": "spur",
+            self.coarse.append({"id": f"spur_{pid}", "a": self.pos[j].round(3).tolist(),
+                                "b": self.pos[n].round(3).tolist(), "kind": "spur",
                                 "narrow": True, "corridor": f"spur_{pid}", "deck": deck})
             self._link(j, n, "spur", f"spur_{pid}")
             j = n
@@ -163,7 +168,9 @@ class RigMap:
             for v, e in self.adj[u].items():
                 if v in blocked:
                     continue
-                dt = e.length / self.speed[e.kind]
+                dt = self.edge_time(u, v, e)
+                if dt == math.inf:
+                    continue
                 if d + dt < dist[v] - 1e-12:
                     dist[v] = d + dt
                     stair[v] = stair[u] + (dt if e.kind == "stairs" else 0.0)
@@ -183,9 +190,47 @@ class RigMap:
             path.append(int(prev[path[-1]]))
         return float(dist[b]), path[::-1]
 
+    def is_closed(self, a: int, b: int) -> bool:
+        return ((a, b) if a < b else (b, a)) in self.closed
+
+    def edge_time(self, a: int, b: int, e: Edge | None = None) -> float:
+        k = (a, b) if a < b else (b, a)
+        if k in self.closed:
+            return math.inf
+        e = e or self.adj[a][b]
+        return e.length / (self.speed[e.kind] * self.kind_factor.get(e.kind, 1.0) * self.factor.get(k, 1.0))
+
     def travel_s(self, a: int, b: int) -> float:
+        k = (a, b) if a < b else (b, a)
         e = self.adj[a][b]
-        return e.length / self.speed[e.kind]
+        return e.length / (self.speed[e.kind] * self.kind_factor.get(e.kind, 1.0) * self.factor.get(k, 1.0))
+
+    def trapped(self, a: int) -> bool:
+        return bool(self.adj[a]) and all(self.is_closed(a, b) for b in self.adj[a])
+
+    def escape(self, a: int) -> list[int]:
+        dist, prev, pq = {a: 0.0}, {a: -1}, [(0.0, a)]
+        while pq:
+            d, u = heapq.heappop(pq)
+            if d > dist[u]:
+                continue
+            if not self.trapped(u):
+                path = [u]
+                while path[-1] != a:
+                    path.append(prev[path[-1]])
+                return path[::-1]
+            for v in self.adj[u]:
+                nd = d + self.travel_s(u, v)
+                if nd < dist.get(v, math.inf):
+                    dist[v], prev[v] = nd, u
+                    heapq.heappush(pq, (nd, v))
+        return []
+
+    def edges(self):
+        for a, nb in enumerate(self.adj):
+            for b, e in nb.items():
+                if a < b:
+                    yield a, b, e
 
     def to_json(self) -> dict:
         xy = np.array([p[:2] for p in self.pos])

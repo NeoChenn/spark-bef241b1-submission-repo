@@ -1,8 +1,3 @@
-"""Patrol / escape route geometry without importing Isaac or pxr.
-
-sim/rig_details.py imports pxr at module level, so we pull PATROL_ROUTE, TOP_DECK_Z and route_blockages out of
-its source with ``ast`` and run just those definitions. The code that runs is the sim's own.
-"""
 from __future__ import annotations
 
 import ast
@@ -21,7 +16,6 @@ _NS: Optional[dict] = None
 
 
 def rig_details_symbols() -> dict:
-    """{'PATROL_ROUTE', 'TOP_DECK_Z', 'route_blockages'} executed from sim/rig_details.py."""
     global _NS
     if _NS is None:
         tree = ast.parse(RIG_DETAILS.read_text(encoding="utf-8"))
@@ -39,7 +33,6 @@ def rig_details_symbols() -> dict:
 
 
 def patrol_route(meta_path: Path = RIG_META) -> list[tuple[float, float]]:
-    """Top-deck patrol loop (x, y) in metres: the rig meta copy if present, else rig_details.PATROL_ROUTE."""
     if meta_path.exists():
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         if meta.get("patrol_route_m"):
@@ -62,7 +55,6 @@ def route_length(route: Sequence) -> float:
 
 
 def project_on_route(route: Sequence, point: Sequence[float]) -> tuple[float, float]:
-    """(distance from the route centreline, chainage along the route) for an (x, y) point."""
     p = np.asarray(point[:2], float)
     best, chain, walked = (math.inf, 0.0), 0.0, 0.0
     for a, b in zip(route, route[1:]):
@@ -78,7 +70,6 @@ def project_on_route(route: Sequence, point: Sequence[float]) -> tuple[float, fl
 
 
 def cluster_samples(samples: Sequence[Sequence[float]], gap: float = 1.0) -> list[list[list[float]]]:
-    """Group blocked route samples that lie within ``gap`` metres of each other (single linkage)."""
     groups: list[list[list[float]]] = []
     for s in samples:
         s = [float(s[0]), float(s[1])]

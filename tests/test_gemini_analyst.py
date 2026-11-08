@@ -1,4 +1,3 @@
-"""Scenario runner metrics and the Gemini analyst loop with a fake Gemini (no network)."""
 import json
 
 import numpy as np
@@ -61,7 +60,7 @@ def test_closed_loop_with_fake_gemini(tmp_path):
     results = [run_scenario(s) | {"round": 1} for s in r1]
     r2, src2 = ga.design(g, 3, 2, rng, results)
     assert src1 == src2 == "gemini" and len(r1) == len(r2) == 3
-    assert "Round 1 results" in calls[1]                 # round 2 is told what failed in round 1
+    assert "Round 1 results" in calls[1]
     analysis, src = ga.analyse(g, results)
     assert src == "gemini" and analysis["failure_modes"][0]["name"] == "faint rust"
 

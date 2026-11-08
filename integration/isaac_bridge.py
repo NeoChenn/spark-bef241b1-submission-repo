@@ -11,17 +11,17 @@ from detection.localize import pixel_rays, ray_cylinder
 from integration import repair_scene as rs
 from integration.kinematics import ARM_STOWED, TRUNK_HEIGHT, RobotModel, pose, spring_force
 from policy.interfaces import CameraModel, PipeGeometry, Waypoint, camera_from_usd
+from policy.storm import Lens, Weather, wet_factor
 
 TWO_PI = 2 * math.pi
-STIFFNESS = 2500.0          # N/m, ScrubEnvCfg.spring_k_nominal
-NOMINAL_FORCE = 25.0        # N at press = 1 (INTERFACE.md: admittance gives ~25 * press N)
-SLIDE_SPEED = 0.3           # m/s rotary brush
-CONTACT_RADIUS = 0.03       # m brush footprint
-# Stance at the pipe: both inside ScrubLiftEnvCfg's training ranges (axis 0.45-0.55 m, lift 0.38-0.45 m). An IK
-# reach map over the patch (theta 0.3-1.7, z +-0.3) gave 76/105 points here vs 64/105 at 0.5 m / 0.42 m.
-AXIS_DISTANCE = 0.45        # m, trunk centreline to pipe axis
+STIFFNESS = 2500.0
+NOMINAL_FORCE = 25.0
+SLIDE_SPEED = 0.3
+CONTACT_RADIUS = 0.03
+AXIS_DISTANCE = 0.45
 WORK_LIFT = 0.45
-CONTACT_TOLERANCE = 0.003   # m: at k = 2500 N/m, 1 cm of IK error is 25 N, so contact poses must be tight
+CONTACT_TOLERANCE = 0.003
+GUST_GAIN = 0.9
 
 
 @dataclass
@@ -79,6 +79,10 @@ class IsaacRigBridge:
         self.occluded_until = -1.0
         self.parked = True
         self.unpark_q = self.model.default_q()
+        self.storm = Weather(seed=0)
+        self.lens = Lens(seed=0)
+        self.base_coef = None
+        self._rain_t = 0.0
         self._sync()
 
     def log(self, msg: str) -> None:
@@ -95,7 +99,11 @@ class IsaacRigBridge:
     def _render(self, record: bool = True) -> dict:
         self._sync()
         images = self.frames.render()
+        w = self.weather()
+        self.lens.rain(self.state.t - self._rain_t, w["rain"])
+        self._rain_t = self.state.t
         if images.get("inspection") is not None:
+            images["inspection"] = self.lens.apply(images["inspection"], 0.6 * w["rain"])
             self.last_inspection = images["inspection"]
             self.last_camera = self._camera_model()
         if record and images.get("hero") is not None:
@@ -128,8 +136,6 @@ class IsaacRigBridge:
         result = self.model.solve_ik(self.state.base, seed, target, approach, iterations=120)
         converged = result.position_error < CONTACT_TOLERANCE and result.axis_error < 0.05
         if not converged:
-            # DLS can get stuck from an awkward seed (e.g. after spraying a second patch); retry from the
-            # working pose before declaring the target unreachable.
             nominal = self.model.default_q()
             nominal["lift_joint"] = seed.get("lift_joint", WORK_LIFT)
             retry = self.model.solve_ik(self.state.base, nominal, target, approach, iterations=120)
@@ -137,8 +143,6 @@ class IsaacRigBridge:
                 result, converged = retry, True
         q_new = result.q
         if not converged:
-            # An unconverged solve can leave the tip partway through the pipe (huge spring force). Like a real
-            # controller, reject infeasible targets and hold the last good pose.
             q_new = dict(seed)
         if self.parked:
             self.parked = False
@@ -146,6 +150,8 @@ class IsaacRigBridge:
         self.state.q = q_new
         tip = self.tool()[:3, 3]
         self.state.force = spring_force(tip, self._pipe, STIFFNESS, self.bumps)
+        if self.state.force > 0:
+            self.state.force += GUST_GAIN * self.weather()["gust_n"]
         return converged
 
     def sim_time(self) -> float:
@@ -341,8 +347,23 @@ class IsaacRigBridge:
         rs.add_weld_bead(self.stage, f"{rs.PIPE_SCOPE}/weld_bead_{len(self.bumps)}", self._pipe, theta, z, height, radius)
 
     def set_shot(self, shot: int) -> None:
-        """Hero-video camera choice (web HUD 'camera' event). Not Perception.camera(), which the orchestrator calls."""
         self.state.shot = int(shot)
+
+    def weather(self) -> dict:
+        return self.storm.at(self.state.t)
+
+    def storm_level(self, level: float) -> None:
+        self.set_weather(float(level))
+
+    def set_weather(self, level="storm", wind_dir=None, gust=None):
+        lv = self.storm.set_weather(level, self.state.t, wind_dir, gust)
+        coef = getattr(self.world, "abrasion_coef", None)
+        if coef is not None:
+            self.base_coef = coef.clone() if self.base_coef is None else self.base_coef
+            coef[:] = self.base_coef * wet_factor(lv * self.storm.rain_scale)
+
+    def wipe_lens(self) -> None:
+        self.lens.wipe()
 
     def person_at(self, distance: Optional[float]) -> None:
         if distance is None:

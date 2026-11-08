@@ -39,14 +39,13 @@ def events(c, name):
     return [e for e in c.timeline if e["event"] == name]
 
 
-# ---------------------------------------------------------------- assignment
 def test_nearest_capable_robot_wins_the_auction():
     robots = [Robot("q1", Q, {"camera"}, (0, 0, 0)), Robot("q2", Q, {"camera"}, (50, 0, 0)),
               Robot("c1", C, {"camera"}, (10, 0, 0)), Robot("q3", Q, {"thermal"}, (10, 0, 0))]
     c = Coordinator(robots, World(), {"look": Exec("look")})
     c.submit(job("j1", pos=(40, 0, 0)))
     c.tick()
-    assert c.assigned_to["j1"] == "q2"                     # nearest Q with a camera (c1 is the wrong kind)
+    assert c.assigned_to["j1"] == "q2"
     bids = events(c, "assigned")[0]["detail"]["bids"]
     assert set(bids) == {"q1", "q2"}
 
@@ -56,12 +55,12 @@ def test_battery_penalty_and_reserve():
     c = Coordinator(robots, World(), {"look": Exec("look")})
     c.submit(job("j1", pos=(1, 0, 0)))
     c.tick()
-    assert c.assigned_to["j1"] == "q2"                     # 4 m further but 72 s less battery penalty
+    assert c.assigned_to["j1"] == "q2"
     low = Robot("q3", Q, {"camera"}, (0, 0, 0), battery=0.21)
     c2 = Coordinator([low], World(), {"look": Exec("look")})
     c2.submit(job("j2", pos=(200, 0, 0), est_duration_s=600))
     c2.tick()
-    assert "j2" not in c2.assigned_to                      # would drop under the reserve
+    assert "j2" not in c2.assigned_to
 
 
 def test_priority_order_and_urgent_preemption():
@@ -92,7 +91,6 @@ def test_explainer_failure_falls_back():
     assert e["detail"]["explanation"] and not c.used_gemini
 
 
-# ---------------------------------------------------------------- deconfliction
 def test_one_robot_per_asset_and_zone():
     robots = [Robot("q1", Q, {"camera"}, (0, 0, 0)), Robot("q2", Q, {"camera"}, (1, 0, 0))]
     c = Coordinator(robots, World(), {"look": Exec("look", duration=30), "other": Exec("other", duration=30)})
@@ -116,7 +114,6 @@ def test_duplicate_job_is_skipped():
 
 def test_no_two_quadrupeds_on_one_walkway_segment():
     w = Walkways(patrol_route())
-    # both start at the west end and head east along the same corridor
     q1 = Robot("q1", Q, {"camera"}, (-21.0, 20.5, 42.5), speed_mps=1.0)
     q2 = Robot("q2", Q, {"camera"}, (-20.0, 20.5, 42.5), speed_mps=1.0)
     c = Coordinator([q1, q2], World(), {"look": Exec("look", duration=5)}, planner=WalkwayPlanner(w))
@@ -130,7 +127,6 @@ def test_no_two_quadrupeds_on_one_walkway_segment():
     assert c.status["a"] == JobStatus.DONE and c.status["b"] == JobStatus.DONE
 
 
-# ---------------------------------------------------------------- levels
 def test_supv_waits_for_approval_then_runs():
     ex = Exec("isolate", level=Level.SUPV, needs=("arm",))
     c = Coordinator([Robot("q1", Q, {"arm"})], World(), {"isolate": ex})
@@ -191,7 +187,6 @@ def test_missing_executor_routes_to_crew_and_crash_is_failed():
     assert c.status["x"] == JobStatus.FAILED and c.status["y"] == JobStatus.HANDED_TO_HUMAN
 
 
-# ---------------------------------------------------------------- safety
 def test_person_within_radius_pauses_robot():
     world = World()
     q = Robot("q1", Q, {"camera"}, (0, 0, 0), speed_mps=1.0)
@@ -209,6 +204,68 @@ def test_person_within_radius_pauses_robot():
     assert events(c, "person_pause") and events(c, "person_clear")
 
 
+def _paused(jobs=("j",)):
+    world = World()
+    q = Robot("q1", Q, {"camera"}, (0, 0, 0), speed_mps=1.0)
+    c = Coordinator([q], world, {"look": Exec("look", duration=5)})
+    c.submit(job("j", pos=(20, 0, 0), priority=4, params={"standoff": 0.0}))
+    run(c, 5)
+    world.people = [(q.position[0] + PERSON_RADIUS_M - 0.5, 0, 0)]
+    c.tick()
+    assert c.rt["q1"].state == "PAUSED_PERSON"
+    return c, q, world
+
+
+def test_urgent_preemption_never_moves_a_robot_paused_for_a_person():
+    c, q, world = _paused()
+    held = q.position
+    c.submit(job("urgent", target="b", pos=(-20, 0, 0), priority=1, params={"standoff": 0.0}))
+    run(c, 10)
+    assert c.rt["q1"].state == "PAUSED_PERSON" and q.position == held
+    assert c.rt["q1"].job == "urgent"
+    world.people = []
+    run(c, 60)
+    assert c.status["urgent"] == JobStatus.DONE
+
+
+def test_released_job_while_paused_keeps_robot_paused():
+    c, q, world = _paused()
+    held = q.position
+    c.cancel("j", by="operator", reason="test")
+    assert c.rt["q1"].state == "PAUSED_PERSON"
+    c.submit(job("next", target="b", pos=(-20, 0, 0), params={"standoff": 0.0}))
+    c.assign()
+    assert c.rt["q1"].state == "PAUSED_PERSON"
+    run(c, 10)
+    assert c.rt["q1"].state == "PAUSED_PERSON" and q.position == held
+    world.people = []
+    run(c, 60)
+    assert c.status["next"] == JobStatus.DONE
+
+
+def test_person_at_the_edge_of_the_radius_does_not_release_the_pause():
+    c, q, world = _paused()
+    held = q.position
+    world.people = [(q.position[0] + PERSON_RADIUS_M + 0.2, 0, 0)]
+    run(c, 5)
+    assert c.rt["q1"].state == "PAUSED_PERSON" and q.position == held
+    world.people = [(q.position[0] + PERSON_RADIUS_M + 1.5, 0, 0)]
+    c.tick()
+    assert c.rt["q1"].state != "PAUSED_PERSON"
+
+
+def test_robot_never_steps_into_the_person_radius():
+    world = World()
+    q = Robot("q1", Q, {"camera"}, (0, 0, 0), speed_mps=1.5)
+    c = Coordinator([q], world, {"look": Exec("look", duration=5)})
+    c.submit(job("j", pos=(30, 0, 0), params={"standoff": 0.0}))
+    for k in range(30):
+        world.people = [(min(4.2 + 1.2 * k, 12.0), 0.0, 0.0)]
+        c.tick()
+        assert math.dist(q.position, world.people[0]) >= PERSON_RADIUS_M
+    assert events(c, "person_pause")
+
+
 def test_low_battery_docks_and_requeues():
     q = Robot("q1", Q, {"camera"}, (0, 0, 0), battery=0.95)
     c = Coordinator([q], World(), {"look": Exec("look", duration=500)}, docks={"q1": (0, 0, 0)})
@@ -221,7 +278,6 @@ def test_low_battery_docks_and_requeues():
     assert c.rt["q1"].state in ("CHARGING", "IDLE") and events(c, "docked")
 
 
-# ---------------------------------------------------------------- sim and timeline
 def test_walkway_graph_and_kind_motion():
     w = Walkways(patrol_route())
     assert any(n[:2] == (9.0, -4.5) for n in w.nodes)
@@ -232,7 +288,7 @@ def test_walkway_graph_and_kind_motion():
         assert math.dist(a.end, b.start) < 1e-6
     assert all(l.start[2] == 42.5 and l.end[2] == 42.5 for l in route.legs)
     on = [l for l in route.legs if l.segment]
-    assert on and all(l.start[0] == l.end[0] or l.start[1] == l.end[1] for l in on)   # axis-aligned walkways
+    assert on and all(l.start[0] == l.end[0] or l.start[1] == l.end[1] for l in on)
     air = plan.route(Robot("a", A, set(), (0, 0, 45)), (10, 10, 43))
     assert max(l.end[2] for l in air.legs) >= 60.0 and air.legs[-1].end[2] == 47
     sub = plan.route(Robot("r", R, set(), (0, 0, -10)), (30, 0, 5))
@@ -262,7 +318,6 @@ def test_timeline_file_format(tmp_path):
     assert leak["detail"]["position"] == [1.0, 2.0, 3.0] and leak["t"] == 3
 
 
-# ---------------------------------------------------------------- rust repair executor
 def _result(**kw):
     base = {"outcome": "DONE", "label": "success", "unsafe": False, "true_rust_left": 0.01, "sim_time_s": 70.0,
             "final_reason": "ok", "trace": []}

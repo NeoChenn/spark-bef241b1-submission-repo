@@ -1,7 +1,4 @@
 import json
-from dataclasses import dataclass, field
-from enum import Enum
-from types import SimpleNamespace
 
 import pytest
 
@@ -139,81 +136,53 @@ def test_cut_link_keeps_last_plan_and_skips_calls(tmp_path):
     assert p.timeline[-1]["event"] == "link_restored" and agent.summary()["link"] == "UP"
 
 
-class Level(str, Enum):
-    AUTO = "AUTO"
-    SUPV = "SUPV"
-    HUMAN = "HUMAN"
+class Exec:
+    def __init__(self, kind, level, needs=("camera",)):
+        from fleet.contract import RobotKind
+        self.kind, self.level, self.needs, self.robot_kinds, self.seen = kind, level, set(needs), {RobotKind.QUADRUPED}, []
+
+    def run(self, job, robot, world):
+        from fleet.contract import JobResult, JobStatus
+        self.seen.append(dict(job.params))
+        return JobResult(job.id, robot.id, JobStatus.DONE, world.t, world.t + 5.0)
 
 
-class JobStatus(str, Enum):
-    QUEUED = "QUEUED"
-    WAITING_APPROVAL = "WAITING_APPROVAL"
-    RUNNING = "RUNNING"
-    FAILED = "FAILED"
+def real_coordinator(auto_approve=False):
+    from fleet.contract import Level, Robot, RobotKind, World
+    from fleet.coordinator import Coordinator
+    world = World(assets={"F3": {"id": "F3", "position_m": [4.0, 5.0, 6.0]}, "deck-2": {"position_m": [1.0, 0, 0]},
+                          "P-1": {"position_m": [2.0, 0, 0]}})
+    ex = {"valve_isolate": Exec("valve_isolate", Level.SUPV, ("arm",)), "paint": Exec("paint", Level.SUPV, ("arm",)),
+          "inspection": Exec("inspection", Level.AUTO)}
+    robot = Robot("Q1", RobotKind.QUADRUPED, {"camera", "arm"}, (1.0, 2.0, 3.0), battery=0.8)
+    return Coordinator([robot], world, ex, auto_approve=auto_approve), ex
 
 
-@dataclass
-class Job:
-    id: str
-    kind: str
-    target: str
-    position: tuple
-    level: Level
-    priority: int = 3
-    params: dict = field(default_factory=dict)
-
-
-class FakeCoordinator:
-    def __init__(self):
-        self.jobs, self.status, self.approvals, self.timeline, self.n = {}, {}, [], [], 0
-        self.rt = {"Q1": SimpleNamespace(state="IDLE", job=None, robot=SimpleNamespace(battery=0.8, position=(1, 2, 3)))}
-        self.world = SimpleNamespace(t=5.0, state={}, assets={"F3": {"position_m": [4, 5, 6]}})
-        self.t = 5.0
-
-    def emit(self, event, job=None, robot=None, **detail):
-        e = {"t": self.t, "event": event, "job": job, "robot": robot, "detail": detail}
-        self.timeline.append(e)
-        return e
-
-    def new_id(self, kind):
-        self.n += 1
-        return f"{kind}-{self.n:03d}"
-
-    def submit(self, job):
-        self.jobs[job.id] = job
-        if job.level == Level.SUPV:
-            self.status[job.id] = JobStatus.WAITING_APPROVAL
-            self.approvals.append(job.id)
-        else:
-            self.status[job.id] = JobStatus.QUEUED
-        return self.status[job.id]
-
-    def approve(self, job_id, by="operator"):
-        if self.status.get(job_id) != JobStatus.WAITING_APPROVAL:
-            return False
-        self.approvals.remove(job_id)
-        self.status[job_id] = JobStatus.QUEUED
-        return True
-
-    def reject(self, job_id, reason=""):
-        if self.status.get(job_id) != JobStatus.WAITING_APPROVAL:
-            return False
-        self.approvals.remove(job_id)
-        self.status[job_id] = JobStatus.FAILED
-        return True
-
-
-def test_contract_adapter_wraps_fleet_coordinator():
-    c = FakeCoordinator()
-    a = ContractAdapter(c, SimpleNamespace(Job=Job, Level=Level, JobStatus=JobStatus))
+def test_contract_adapter_wraps_the_real_fleet_coordinator():
+    from fleet.contract import Job, Level
+    from policy.control.envelope import Envelope
+    c, ex = real_coordinator(auto_approve=True)
+    a = ContractAdapter(c)
     jid = a.queue("valve_isolate", "F3", "SUPV", 1, by="gemini", why="leak at F3")
-    assert c.jobs[jid].position == (4, 5, 6) and a.job(jid)["requested_by"] == "gemini"
+    assert c.jobs[jid].position == (4.0, 5.0, 6.0) and a.job(jid)["requested_by"] == "gemini"
     st = a.fleet_state()
-    assert st["approvals"] == [jid] and st["robots"][0]["id"] == "Q1"
+    assert st["approvals"] == [jid] and st["robots"][0]["id"] == "Q1" and a.job(jid)["status"] == "WAITING_APPROVAL"
     assert a.reprioritise(jid, 2, "gemini", "x") and c.jobs[jid].priority == 2
-    assert a.cancel(jid, "operator", "duplicate") and a.job(jid)["status"] == "FAILED"
+    assert not Envelope().call(a, "approve_request", {"job_id": jid, "why": "ok"})["ok"]
+    assert not a.approve_request(jid, "gemini", "self") and "approved" not in c.jobs[jid].params
+    assert a.cancel(jid, "operator", "duplicate") and a.job(jid)["status"] == "CANCELLED"
     q = a.queue("inspection", "deck-2", "AUTO", 3, by="gemini", why="round")
     assert a.cancel(q, "gemini", "superseded") and c.timeline[-1]["event"] == "cancelled"
-    from policy.control.envelope import Envelope
     s = a.queue("paint", "P-1", "SUPV", 3, by="gemini", why="clean")
     assert not Envelope().call(a, "approve_request", {"job_id": s, "why": "ok"})["ok"]
+    c.submit(Job("op-1", "paint", "P-2", (3.0, 0, 0), Level.SUPV, params={"requested_by": "coordinator"}), allow_auto=False)
+    out = Envelope().call(a, "approve_request", {"job_id": "op-1", "why": "repair verified clean, paint is safe"})
+    assert out["ok"] and "approved" not in c.jobs["op-1"].params and "operator" in out["note"]
+    assert a.approve_request("op-1", "operator", "verified") and c.jobs["op-1"].params["approved"] is True
+    assert a.approve_request(s, "operator", "ok")
+    for _ in range(60):
+        c.tick()
+    assert a.job("op-1")["status"] == "DONE" and a.job(s)["status"] == "DONE"
+    assert all(p.get("approved") for p in ex["paint"].seen)
+    assert a.queue("inspection", "nowhere", "AUTO", 3, {"position": [9, 9, 9]}, by="gemini", why="x")
+    assert a.cancel("missing", "gemini", "x") is False and a.reprioritise("missing", 2, "gemini", "x") is False

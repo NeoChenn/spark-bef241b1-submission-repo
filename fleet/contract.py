@@ -1,19 +1,3 @@
-"""Shared contract for the multi-robot fleet: robots, jobs, autonomy levels, results.
-
-Every job module (fleet/jobs/*.py) and the coordinator (fleet/coordinator.py) build on these types only,
-so they can be written in parallel and still fit together. Pure Python; no Isaac, no network.
-
-Autonomy levels follow the team's job table:
-  AUTO    robot does it end to end and logs the result
-  SUPV    robot does it after the operator approves (the coordinator holds the job until approved)
-  ASSIST  robot finds and prepares, a person fixes
-  HUMAN   stays manual (the fleet only records and routes it to the crew)
-
-Robot kinds: Q quadruped (Go2 + lift + UR3), C crawler (magnetic, vessels/piping), A aerial drone,
-R subsea ROV. World coordinates are metres, Z up, as in sim/output/full_rig_meta.json.
-
-Change this file only by agreement: other branches import it. Add new optional fields with defaults.
-"""
 from __future__ import annotations
 
 import json
@@ -45,48 +29,49 @@ class JobStatus(str, Enum):
     WAITING_APPROVAL = "WAITING_APPROVAL"
     ASSIGNED = "ASSIGNED"
     RUNNING = "RUNNING"
-    DONE = "DONE"                  # finished, nothing wrong found or fixed
-    FINDING = "FINDING"            # finished, found something (see findings)
+    DONE = "DONE"
+    FINDING = "FINDING"
     HANDED_TO_HUMAN = "HANDED_TO_HUMAN"
     FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
 
 
 @dataclass
 class Robot:
     id: str
     kind: RobotKind
-    capabilities: set[str]                      # e.g. {"camera", "thermal", "arm", "gas_sensor", "spray"}
+    capabilities: set[str]
     position: tuple[float, float, float] = (0.0, 0.0, 0.0)
-    battery: float = 1.0                        # 0..1
+    battery: float = 1.0
     speed_mps: float = 1.0
-    busy_with: Optional[str] = None             # job id
-    deck: Optional[float] = None                # z of the deck it is on (Q/C); None for A/R
+    busy_with: Optional[str] = None
+    deck: Optional[float] = None
 
 
 @dataclass
 class Job:
     id: str
-    kind: str                                   # e.g. "gauge_read", "gas_survey", "valve_isolate"
-    target: str                                 # asset id from the rig meta, e.g. "gauge_03", or a free label
+    kind: str
+    target: str
     position: tuple[float, float, float]
     level: Level
-    needs: set[str] = field(default_factory=set)         # capabilities the robot must have
-    robot_kinds: set[RobotKind] = field(default_factory=set)  # allowed kinds; empty = any with `needs`
-    priority: int = 3                           # 1 = urgent (safety), 5 = routine
+    needs: set[str] = field(default_factory=set)
+    robot_kinds: set[RobotKind] = field(default_factory=set)
+    priority: int = 3
     est_duration_s: float = 60.0
     params: dict[str, Any] = field(default_factory=dict)
     created_t: float = 0.0
-    parent: Optional[str] = None                # job that spawned this one (e.g. leak found -> isolate)
+    parent: Optional[str] = None
 
 
 @dataclass
 class Finding:
-    kind: str                                   # e.g. "gauge_out_of_range", "gas_leak", "corrosion_Ri3"
-    severity: str                               # "info" | "warning" | "critical"
+    kind: str
+    severity: str
     summary: str
     position: Optional[tuple[float, float, float]] = None
-    evidence: dict[str, Any] = field(default_factory=dict)   # numbers, image paths, Gemini verdicts
-    follow_up: list[Job] = field(default_factory=list)       # jobs the coordinator should queue next
+    evidence: dict[str, Any] = field(default_factory=dict)
+    follow_up: list[Job] = field(default_factory=list)
 
 
 @dataclass
@@ -99,6 +84,7 @@ class JobResult:
     findings: list[Finding] = field(default_factory=list)
     log: list[str] = field(default_factory=list)
     used_gemini: bool = False
+    phases: list[tuple[float, str, str]] = field(default_factory=list)
 
     def to_json(self) -> dict:
         d = _plain(asdict(self))
@@ -107,7 +93,6 @@ class JobResult:
 
 
 def _plain(x):
-    """asdict() output -> JSON-safe: sets become sorted lists, enums their values."""
     if isinstance(x, dict):
         return {k: _plain(v) for k, v in x.items()}
     if isinstance(x, (list, tuple)):
@@ -121,7 +106,6 @@ def _plain(x):
 
 @runtime_checkable
 class JobExecutor(Protocol):
-    """One job type. `run` is called by the coordinator once a robot is assigned (and approved for SUPV)."""
     kind: str
     level: Level
     needs: set[str]
@@ -132,10 +116,9 @@ class JobExecutor(Protocol):
 
 @dataclass
 class World:
-    """What the fleet knows about the rig. `assets` comes from full_rig_meta.json (gauges, valves, ...)."""
     t: float = 0.0
-    assets: dict[str, dict] = field(default_factory=dict)        # id -> {"type", "position_m", ...}
-    state: dict[str, Any] = field(default_factory=dict)          # simulated truth for mock runs (leaks, ...)
+    assets: dict[str, dict] = field(default_factory=dict)
+    state: dict[str, Any] = field(default_factory=dict)
     people: list[tuple[float, float, float]] = field(default_factory=list)
 
     @classmethod
@@ -157,6 +140,5 @@ REGISTRY: dict[str, JobExecutor] = {}
 
 
 def register(executor: JobExecutor) -> JobExecutor:
-    """Job modules call this at import time: `register(GaugeReadJob())`."""
     REGISTRY[executor.kind] = executor
     return executor

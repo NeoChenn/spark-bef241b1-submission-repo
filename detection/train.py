@@ -254,6 +254,8 @@ def report_with_subsets(logits: dict, labels: dict, items: dict) -> dict:
     for s in logits:
         if syn[s].any():
             for tag, m in (("real", ~syn[s]), ("synth", syn[s])):
+                if not m.any():
+                    continue
                 rep["subsets"][f"{s}_{tag}"] = {"at_0.5": metrics_at(logits[s][m], labels[s][m], 0.0),
                                                 "at_thr": metrics_at(logits[s][m], labels[s][m], rep["threshold_logit"])}
                 mt = rep["subsets"][f"{s}_{tag}"]["at_thr"]

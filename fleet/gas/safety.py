@@ -1,15 +1,3 @@
-"""Deterministic safety supervisor, ported from `gas-leak-detection` flange_robot/safety.py and config.py.
-
-Rules, not learning; they override every job. Precedence, highest first:
-1. Gas at or above the stop limit, or an invalid reading -> STOP_AND_RETREAT
-2. A person closer than the minimum distance              -> PAUSE
-3. Detection confidence below the minimum                  -> FLAG_HUMAN
-4. Actuation without an approved permit                    -> HOLD_FOR_APPROVAL
-5. Otherwise                                               -> ALLOW
-
-Limits are the gas branch's ILLUSTRATIVE placeholders. `gas_approach_fraction_lel` is new here: the
-survey robot stops climbing the plume at this level, well below the stop limit.
-"""
 from __future__ import annotations
 
 import math

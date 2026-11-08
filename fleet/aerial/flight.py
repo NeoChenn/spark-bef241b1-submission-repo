@@ -1,17 +1,3 @@
-"""Drone flight planner around the rig: standoff box, flare no-fly cylinder, wind and battery limits.
-
-Geometry
-  * Rig volume: `bounds_m` from sim/output/full_rig_meta.json (x, y as given; z from sea level to the top).
-    The drone keeps `standoff_m` from that box; survey rings run on the box inflated by the standoff.
-  * Flare: the tip and flame blobs are read from `build_flare` in sim/cinematic.py with `ast` (that module
-    imports Isaac, so it is parsed, not imported). If the source changes shape, `flare_geometry` raises
-    instead of falling back to a hard-coded tip.
-  * No-fly volume: a vertical cylinder over the flare tip that covers the flame, a radiant-heat margin and
-    the plume drift downwind. With wind the cylinder centre moves downwind by half the drift and the radius
-    grows by half the drift, so it encloses the tilted plume (conservative).
-
-All coordinates are metres, Z up, as in the rig meta. Pure Python + numpy.
-"""
 from __future__ import annotations
 
 import ast
@@ -30,13 +16,12 @@ RIG_META = REPO / "sim/output/full_rig_meta.json"
 Vec3 = tuple[float, float, float]
 
 
-# ---------------------------------------------------------------- flare geometry from sim/cinematic.py
 @dataclass(frozen=True)
 class FlareGeometry:
     base: Vec3
     tip: Vec3
-    flame_top_z: float           # highest point of the flame blobs
-    flame_reach_xy: float        # largest horizontal reach of a flame blob from the tip axis
+    flame_top_z: float
+    flame_reach_xy: float
     source: str
 
 
@@ -49,7 +34,6 @@ def _literal_tuple(node) -> Optional[tuple]:
 
 
 def flare_geometry(path: Path = CINEMATIC) -> FlareGeometry:
-    """Read `base`, `tip` and the flame blob table from `build_flare` in sim/cinematic.py."""
     tree = ast.parse(path.read_text(encoding="utf-8"))
     fn = next((n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "build_flare"), None)
     if fn is None:
@@ -70,7 +54,7 @@ def flare_geometry(path: Path = CINEMATIC) -> FlareGeometry:
                             nums = [float(ast.literal_eval(e)) for e in row.elts[:4]]
                         except Exception:
                             continue
-                        blobs.append(tuple(nums))                         # dx, dz, radius, stretch
+                        blobs.append(tuple(nums))
     if "tip" not in names or "base" not in names:
         raise ValueError(f"build_flare in {path} no longer defines literal base/tip tuples")
     tip = names["tip"]
@@ -83,7 +67,6 @@ def flare_geometry(path: Path = CINEMATIC) -> FlareGeometry:
 
 
 def rig_bounds(path: Path = RIG_META) -> tuple[np.ndarray, np.ndarray]:
-    """Rig box (min, max). Topsides only: z from sea level (0) up; the jacket below the sea is the ROV's."""
     meta = json.loads(path.read_text(encoding="utf-8"))
     lo, hi = np.array(meta["bounds_m"]["min"], float), np.array(meta["bounds_m"]["max"], float)
     lo[2] = max(lo[2], 0.0)
@@ -95,11 +78,10 @@ def deck_heights(path: Path = RIG_META) -> list[float]:
     return sorted(float(v) for v in meta.get("deck_heights_m", {}).values())
 
 
-# ---------------------------------------------------------------- wind, drone, no-fly
 @dataclass
 class Wind:
     speed_mps: float = 0.0
-    toward_deg: float = 0.0          # direction the air moves TO, degrees from +x toward +y
+    toward_deg: float = 0.0
     gust_mps: float = 0.0
 
     @property
@@ -115,19 +97,17 @@ class Wind:
 
 @dataclass
 class DroneSpec:
-    """Industrial inspection quad (Matrice 30T-class numbers; nominal, not measured)."""
     airspeed_mps: float = 6.0
     climb_mps: float = 3.0
     descend_mps: float = 2.0
     battery_wh: float = 262.0
     hover_w: float = 380.0
     reserve_frac: float = 0.25
-    max_wind_mps: float = 12.0       # operating limit near structure (airframe is rated 15 m/s)
+    max_wind_mps: float = 12.0
     max_gust_mps: float = 15.0
     max_airspeed_mps: float = 17.0
 
     def power_w(self, airspeed_mps: float) -> float:
-        """Electrical power at a given airspeed (hover plus a parasitic-drag term; nominal fit)."""
         return self.hover_w + 1.2 * airspeed_mps ** 2
 
 
@@ -142,7 +122,6 @@ class NoFlyCylinder:
         return self.z_min <= p[2] <= self.z_max and float(np.hypot(*(np.asarray(p[:2]) - self.center_xy))) < self.radius
 
     def clearance(self, p: Sequence[float]) -> float:
-        """Signed distance to the cylinder surface (negative inside)."""
         radial = float(np.hypot(*(np.asarray(p[:2]) - self.center_xy))) - self.radius
         below = self.z_min - p[2]
         above = p[2] - self.z_max
@@ -156,22 +135,20 @@ class NoFlyCylinder:
 
 def flare_no_fly(wind: Wind, geom: Optional[FlareGeometry] = None, heat_margin_m: float = 12.0,
                  plume_height_m: float = 20.0, plume_rise_mps: float = 8.0, below_tip_m: float = 10.0) -> NoFlyCylinder:
-    """Cylinder over the flare: flame reach + radiant-heat margin, widened and shifted for plume drift."""
     geom = geom or flare_geometry()
     tip = np.array(geom.tip, float)
-    drift = wind.vec * (plume_height_m / plume_rise_mps)          # m the plume top moves downwind
+    drift = wind.vec * (plume_height_m / plume_rise_mps)
     radius = geom.flame_reach_xy + heat_margin_m + 0.5 * float(np.linalg.norm(drift))
     return NoFlyCylinder(tip[:2] + 0.5 * drift, radius, tip[2] - below_tip_m)
 
 
-# ---------------------------------------------------------------- planning
 @dataclass
 class FlightPlan:
     waypoints: list[Vec3]
     length_m: float
     time_s: float
     energy_wh: float
-    battery_needed: float            # fraction of a full battery, reserve not included
+    battery_needed: float
     feasible: bool
     reasons: list[str] = field(default_factory=list)
     min_nofly_clearance_m: float = math.inf
@@ -187,7 +164,6 @@ class FlightPlan:
 
 
 def box_clearance(p: Sequence[float], lo: np.ndarray, hi: np.ndarray) -> float:
-    """Signed distance from a point to the rig box (negative inside)."""
     p = np.asarray(p, float)
     d = np.maximum(lo - p, p - hi)
     outside = np.linalg.norm(np.maximum(d, 0.0))
@@ -206,9 +182,6 @@ def sample_path(waypoints: Sequence[Vec3], step: float = 0.5) -> np.ndarray:
 
 def check_path(waypoints: Sequence[Vec3], nofly: NoFlyCylinder, lo: np.ndarray, hi: np.ndarray,
                skip_first: int = 0) -> tuple[float, float]:
-    """(min no-fly clearance, min rig-box clearance) along the path, sampled every 0.5 m.
-
-    `skip_first` waypoints are excluded from the box check (take-off column from a deck inside the box)."""
     pts = sample_path(waypoints)
     nf = min(nofly.clearance(p) for p in pts)
     start = 0
@@ -233,12 +206,9 @@ def _arc(c: np.ndarray, r: float, a0: float, a1: float, ccw: bool, z: float, ste
 
 def avoid_no_fly(waypoints: list[Vec3], nofly: NoFlyCylinder, lo: np.ndarray, hi: np.ndarray,
                  margin_m: float = 3.0, standoff_m: float = 8.0) -> tuple[list[Vec3], int]:
-    """Replace segments that cross the no-fly cylinder with an arc around it (the arc side that stays clear of
-    the rig box), or, if no arc fits, a dip under the cylinder. Segments are assumed level when they cross."""
     detours = 0
     r_safe = nofly.radius + margin_m
     z_under = nofly.z_min - margin_m
-    # waypoints that sit inside the cylinder footprint drop below it (e.g. a ring corner under a drifting plume)
     lowered = []
     for p in waypoints:
         inside = float(np.hypot(p[0] - nofly.center_xy[0], p[1] - nofly.center_xy[1])) < r_safe
@@ -267,12 +237,10 @@ def avoid_no_fly(waypoints: list[Vec3], nofly: NoFlyCylinder, lo: np.ndarray, hi
                 if best is None or length < best[0]:
                     best = (length, arc)
         if best is not None and np.hypot(*(A[:2] - c)) >= r_safe - 1e-6 and np.hypot(*(B[:2] - c)) >= r_safe - 1e-6:
-            # radial legs from the endpoints onto the arc, then the arc
             out.append(best[1][0])
             out.extend(best[1][1:])
             out.append(tuple(b))
             continue
-        # fall back: dip under the cylinder for this leg
         out.extend([(A[0], A[1], z_under), (B[0], B[1], z_under), tuple(b)])
     return out, detours
 
@@ -283,7 +251,6 @@ def ring_waypoints(lo: np.ndarray, hi: np.ndarray, standoff: float, z: float) ->
 
 
 def _perimeter_param(p: Sequence[float], x0, y0, x1, y1) -> tuple[float, tuple[float, float]]:
-    """Project a point onto the rectangle perimeter; return (arc-length parameter, projected xy)."""
     w, h = x1 - x0, y1 - y0
     x, y = float(np.clip(p[0], x0, x1)), float(np.clip(p[1], y0, y1))
     dists = {"s": abs(y - y0), "e": abs(x1 - x), "n": abs(y1 - y), "w": abs(x - x0)}
@@ -301,7 +268,6 @@ def _perimeter_param(p: Sequence[float], x0, y0, x1, y1) -> tuple[float, tuple[f
 
 
 def perimeter_route(a: Vec3, b: Vec3, lo: np.ndarray, hi: np.ndarray, standoff: float) -> list[Vec3]:
-    """Waypoints from a to b along the standoff rectangle (shorter way round), level at the higher z."""
     x0, y0, x1, y1 = lo[0] - standoff, lo[1] - standoff, hi[0] + standoff, hi[1] + standoff
     w, h = x1 - x0, y1 - y0
     L = 2 * (w + h)
@@ -331,11 +297,6 @@ def perimeter_route(a: Vec3, b: Vec3, lo: np.ndarray, hi: np.ndarray, standoff: 
 
 
 def estimate(waypoints: Sequence[Vec3], spec: DroneSpec, wind: Wind, dwell_s: float = 0.0) -> tuple[float, float, float]:
-    """(length m, time s, energy Wh).
-
-    The drone holds `airspeed_mps` of ground speed along track; the airspeed this needs against the wind
-    (vector difference) sets the power. If that airspeed exceeds `max_airspeed_mps`, ground speed drops.
-    Hovering for photos also fights the wind: hover dwell is charged at airspeed = wind speed."""
     w = wind.vec
     length = time_s = energy_j = 0.0
     for a, b in zip(waypoints[:-1], waypoints[1:]):
@@ -347,7 +308,7 @@ def estimate(waypoints: Sequence[Vec3], spec: DroneSpec, wind: Wind, dwell_s: fl
             u = d[:2] / horiz
             ground = spec.airspeed_mps
             air = float(np.linalg.norm(u * ground - w))
-            if air > spec.max_airspeed_mps:       # solve |u g - w| = max for the largest g
+            if air > spec.max_airspeed_mps:
                 along = float(np.dot(w, u))
                 cross2 = float(np.dot(w, w)) - along ** 2
                 ground = max(along + math.sqrt(max(spec.max_airspeed_mps ** 2 - cross2, 0.0)), 0.5)
@@ -382,7 +343,6 @@ def finalize(waypoints: list[Vec3], spec: DroneSpec, wind: Wind, nofly: NoFlyCyl
 
 
 def _takeoff(start: Vec3, lo, hi, standoff: float) -> list[Vec3]:
-    """From a deck inside the rig box: climb straight up above the box first."""
     if box_clearance(start, lo, hi) < standoff:
         return [tuple(start), (start[0], start[1], float(hi[2] + standoff))]
     return [tuple(start)]
@@ -391,7 +351,6 @@ def _takeoff(start: Vec3, lo, hi, standoff: float) -> list[Vec3]:
 def plan_survey(start: Vec3, wind: Wind, spec: DroneSpec = DroneSpec(), battery: float = 1.0,
                 standoff_m: float = 8.0, ring_spacing_m: float = 12.0, z_low: Optional[float] = None,
                 nofly: Optional[NoFlyCylinder] = None, bounds=None) -> FlightPlan:
-    """Full topsides survey: stacked rings around the standoff box from the lower deck to the top."""
     lo, hi = bounds or rig_bounds()
     nofly = nofly or flare_no_fly(wind)
     z_low = z_low if z_low is not None else min(deck_heights() or [20.0]) + 4.0
@@ -407,7 +366,7 @@ def plan_survey(start: Vec3, wind: Wind, spec: DroneSpec = DroneSpec(), battery:
         pts.append(tuple(start))
     pts, detours = avoid_no_fly(pts, nofly, lo, hi, standoff_m=standoff_m)
     plan = finalize(pts, spec, wind, nofly, lo, hi, battery, detours=detours, skip_first=skip)
-    if skip:      # landing column is the same as the take-off column
+    if skip:
         nf, bx = check_path(pts[:-1], nofly, lo, hi, skip)
         plan.min_box_clearance_m = bx
         plan.reasons = [r for r in plan.reasons if r != "path enters the rig volume"] + (
@@ -419,7 +378,6 @@ def plan_survey(start: Vec3, wind: Wind, spec: DroneSpec = DroneSpec(), battery:
 def plan_visit(start: Vec3, targets: Sequence[Vec3], wind: Wind, spec: DroneSpec = DroneSpec(),
                battery: float = 1.0, standoff_m: float = 8.0, dwell_s: float = 20.0,
                nofly: Optional[NoFlyCylinder] = None, bounds=None, return_home: bool = True) -> FlightPlan:
-    """Visit viewpoints (already outside the standoff box) in nearest-neighbour order along the perimeter."""
     lo, hi = bounds or rig_bounds()
     nofly = nofly or flare_no_fly(wind)
     pts = _takeoff(start, lo, hi, standoff_m)
@@ -448,7 +406,6 @@ def plan_visit(start: Vec3, targets: Sequence[Vec3], wind: Wind, spec: DroneSpec
 
 
 def viewpoint_for(target: Vec3, standoff_m: float = 8.0, bounds=None) -> Vec3:
-    """Camera position for a point on the rig: straight out from the nearest box face, at the standoff."""
     lo, hi = bounds or rig_bounds()
     p = np.asarray(target, float)
     faces = {(0, -1): p[0] - lo[0], (0, 1): hi[0] - p[0], (1, -1): p[1] - lo[1], (1, 1): hi[1] - p[1]}
@@ -460,7 +417,6 @@ def viewpoint_for(target: Vec3, standoff_m: float = 8.0, bounds=None) -> Vec3:
 
 def flare_viewpoint(nofly: NoFlyCylinder, geom: FlareGeometry, wind: Wind, margin_m: float = 6.0,
                     bounds=None, standoff_m: float = 8.0) -> Vec3:
-    """Thermal camera spot level with the tip, just outside the no-fly cylinder, upwind if possible."""
     lo, hi = bounds or rig_bounds()
     r = nofly.radius + margin_m
     up = math.atan2(-wind.vec[1], -wind.vec[0]) if wind.speed_mps > 0.1 else math.pi / 2

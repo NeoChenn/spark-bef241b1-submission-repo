@@ -1,7 +1,3 @@
-"""Measure gas_survey localization on the seeded scenarios (the same ones the tests use).
-
-    python -m fleet.gas.measure [n_seeds]          # offline (no Gemini)
-"""
 from __future__ import annotations
 
 import copy
@@ -10,7 +6,6 @@ import sys
 
 import numpy as np
 
-# name -> (source xy, wind m/s, process flow direction, expected upstream valve)
 SCENARIOS = {
     "north_rack_east_wind": ((-12.0, 23.0), (2.0, 0.5), (1.0, 0.0), "valve_03"),
     "south_rack_ne_wind": ((22.0, -8.0), (-1.0, 1.0), (1.0, 0.0), "valve_05"),

@@ -1,16 +1,3 @@
-"""Find a gas leak from point samples: patrol round -> plume climb -> model fit -> information-driven samples.
-
-1. Round: sample every `spacing_m` along the patrol route. Detection = an averaged sample above background
-   by more than `detect_excess` (about 7 sigma of the averaged sensor noise).
-2. Climb: from the strongest sample, estimate the local gradient from four probes 0.5 m away and step
-   along it (blended with upwind, as a moth surges upwind in a plume). Stop climbing at the safety
-   approach limit; back off at once at the stop limit. The robot never walks into the source.
-3. Fit: grid search over source xy (0.1 m), amplitude solved in closed form, weighted least squares with the
-   sensor's noise model. The 95% region is delta-chi2 <= 5.99 (2 dof); the uncertainty radius is the
-   farthest point of that region from the estimate.
-4. Infotaxis-lite: while the radius is above target, sample next where the plausible sources disagree
-   most about the reading (largest predicted variance / noise), among safe points 1-3 m from the estimate.
-"""
 from __future__ import annotations
 
 import math
@@ -22,14 +9,14 @@ from .plume import GAS_BASE, GasSensor, shape
 from .safety import SafetyLimits
 
 CHI2_95_2DOF = 5.99
-A_MAX = 1.0         # prior: source amplitude at most 2.5x the gas branch full-strength leak (0.4 of LEL)
+A_MAX = 1.0
 
 
 @dataclass
 class Sample:
     xy: tuple[float, float]
     lel: float
-    phase: str          # "round" | "climb" | "probe" | "info"
+    phase: str
 
 
 @dataclass
@@ -61,7 +48,6 @@ class Seeker:
         self.decay_m = decay_m
         self.s = Survey()
 
-    # --- motion and sensing -------------------------------------------------
     def goto(self, xy):
         xy = np.asarray(xy, float)
         d = float(np.linalg.norm(xy - self.pos))
@@ -76,7 +62,6 @@ class Seeker:
         self.s.peak_lel = max(self.s.peak_lel, v)
         return v
 
-    # --- 1. round -----------------------------------------------------------
     def round(self, route, spacing_m: float = 2.0, detect_excess: float = 0.015) -> bool:
         pts = [np.asarray(p, float)[:2] for p in route]
         prev = self.pos.copy()
@@ -97,7 +82,6 @@ class Seeker:
                 prev = self.pos.copy()
         return self.s.detected
 
-    # --- 2. climb -----------------------------------------------------------
     def climb(self, steps: int = 12, step_m: float = 1.0, probe_m: float = 0.5):
         safe = [q for q in self.s.samples if q.lel < self.limits.gas_approach_fraction_lel] or self.s.samples
         best = max(safe, key=lambda q: q.lel)
@@ -126,8 +110,6 @@ class Seeker:
             else:
                 d = g / np.linalg.norm(g) + 0.3 * upwind
                 d /= np.linalg.norm(d)
-            # Predictive step: the plume grows about exponentially toward the source, so with local excess e and
-            # slope |g| the reading after a step s is about e * exp(|g| s / e). Keep it under the approach limit.
             e = max(here - GAS_BASE, 1e-4)
             k = float(np.linalg.norm(g)) / e
             room = math.log(max((self.limits.gas_approach_fraction_lel - GAS_BASE) / e, 1.0))
@@ -145,7 +127,6 @@ class Seeker:
                 self.goto(prev)
                 break
 
-    # --- 3. fit -------------------------------------------------------------
     def fit(self, half_m: float = 8.0, res_m: float = 0.1):
         P, c = self.s.arrays()
         centre = P[np.argmax(c)]
@@ -159,14 +140,14 @@ class Seeker:
         amp = np.empty(len(cand))
         wind = self.state.get("wind")
         for i0 in range(0, len(cand), 4096):
-            S = shape(P[None, :, :], cand[i0:i0 + 4096, None, :], wind, self.decay_m)   # (M, N)
+            S = shape(P[None, :, :], cand[i0:i0 + 4096, None, :], wind, self.decay_m)
             A = np.clip((S * y * wts).sum(1) / np.maximum((S * S * wts).sum(1), 1e-12), 0.0, A_MAX)
             chi[i0:i0 + 4096] = (((y - A[:, None] * S) ** 2) * wts).sum(1)
             amp[i0:i0 + 4096] = A
         k = int(np.argmin(chi))
         dof = max(len(y) - 3, 1)
         red = float(chi[k] / dof)
-        scale = max(1.0, red)                         # inflate the region if the model under-fits
+        scale = max(1.0, red)
         region = cand[(chi - chi[k]) / scale <= CHI2_95_2DOF]
         est = cand[k]
         radius = float(np.max(np.linalg.norm(region - est, axis=1))) + res_m
@@ -178,7 +159,6 @@ class Seeker:
         self._region = region
         return est, radius
 
-    # --- 4. information-driven samples ---------------------------------------
     def refine(self, target_radius_m: float = 0.5, budget: int = 12, rng=None):
         rng = rng or np.random.default_rng(0)
         for _ in range(budget):
@@ -194,8 +174,6 @@ class Seeker:
             cands = np.concatenate([c + r * ring for c in centres for r in (1.0, 1.75, 2.5, 3.5)])
             pred_est = GAS_BASE + self.s.amplitude * shape(cands, est, self.state.get("wind"), self.decay_m)
             S = shape(cands[None, :, :], region[:, None, :], self.state.get("wind"), self.decay_m)
-            # Safe if, with 1.5x the fitted amplitude, both the best-fit source and the median plausible source keep
-            # the reading under the approach limit (half the stop limit, so a 2x misprediction still stops short).
             s_est = (pred_est - GAS_BASE) / max(self.s.amplitude, 1e-9)
             worst = np.maximum(s_est, np.median(S, axis=0))
             safe = GAS_BASE + 1.5 * self.s.amplitude * worst < self.limits.gas_approach_fraction_lel
@@ -203,7 +181,7 @@ class Seeker:
                 self.s.events.append("no safe information sample left")
                 break
             cands, pred_est, S = cands[safe], pred_est[safe], S[:, safe]
-            pred = self.s.amplitude * S                                   # (M, C)
+            pred = self.s.amplitude * S
             noise = np.array([self.sensor.sigma(v - GAS_BASE) for v in pred_est]) ** 2
             gain = pred.var(0) / noise
             travel = np.linalg.norm(cands - self.pos, axis=1)

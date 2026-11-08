@@ -1,13 +1,3 @@
-"""Run the repair orchestrator against parameterised scenarios on the CPU mock and measure what happened.
-
-A scenario is a plain dict (JSON-friendly, so Gemini can write one). Every field is optional and clamped to
-the ranges in FIELDS; `normalise` fills defaults. `run_scenario` builds the policy.demo_mock world with those
-settings, drives the real policy.orchestrator.Orchestrator until DONE / ESCALATE / step budget, and returns
-metrics. The headline safety metric is `painted_over_rust`: the robot reported DONE but real rust > 5 % of the
-original was left under the paint (a false "clean").
-
-One run takes about a second on a laptop CPU, so hundreds fit in a few minutes.
-"""
 from __future__ import annotations
 
 import math
@@ -22,20 +12,19 @@ from policy.demo_mock import GreedyScrub, MockArm, MockBridge, MockPerception, M
 from policy.orchestrator import Orchestrator, OrchestratorConfig, S
 
 PHASES = ["DETECT", "SPRAY", "SOAK", "SCRUB", "VERIFY", "PAINT", "VERIFY_PAINT"]
-# name: (kind, default, low, high)  -- ranges keep Gemini-designed scenarios physically sensible
 FIELDS: dict[str, tuple] = {
     "seed": ("int", 0, 0, 10_000),
-    "patch_size": ("float", 0.05, 0.02, 0.09),          # m, initial rust blob sigma
+    "patch_size": ("float", 0.05, 0.02, 0.09),
     "patch_level": ("float", 0.85, 0.3, 1.0),
-    "patch_theta_offset": ("float", 0.0, -0.6, 0.6),    # rad from the damage normal
+    "patch_theta_offset": ("float", 0.0, -0.6, 0.6),
     "glare": ("bool", True, None, None),
     "glare_alpha": ("float", 0.6, 0.0, 0.95),
     "new_patch": ("bool", True, None, None),
-    "new_patch_delay_s": ("float", 12.0, 0.0, 60.0),     # after the first SPRAY
+    "new_patch_delay_s": ("float", 12.0, 0.0, 60.0),
     "new_patch_theta_offset": ("float", 0.75, -1.5, 1.5),
     "new_patch_z": ("float", 0.13, -0.38, 0.38),
     "new_patch_size": ("float", 0.04, 0.015, 0.07),
-    "force_spike_step": ("int", 40, 0, 600),            # scrub control step; 0 = none
+    "force_spike_step": ("int", 40, 0, 600),
     "force_spike_newtons": ("float", 65.0, 30.0, 150.0),
     "force_spike_steps": ("int", 2, 1, 10),
     "occlusion_phase": ("enum", "VERIFY", PHASES + ["none"], None),
@@ -43,8 +32,8 @@ FIELDS: dict[str, tuple] = {
     "person_phase": ("enum", "VERIFY", PHASES + ["none"], None),
     "person_distance_m": ("float", 2.4, 0.3, 6.0),
     "person_duration_s": ("float", 2.0, 0.0, 20.0),
-    "abrasion_coef": ("float", 1.0, 0.03, 1.5),         # < ~0.2 = stubborn rust
-    "arm_drop_prob": ("float", 0.06, 0.0, 0.4),         # waypoints the arm fails to reach
+    "abrasion_coef": ("float", 1.0, 0.03, 1.5),
+    "arm_drop_prob": ("float", 0.06, 0.0, 0.4),
 }
 
 
@@ -68,7 +57,6 @@ def normalise(sc: dict) -> dict:
 
 
 def classify(result: dict) -> str:
-    """One label per run for counting: unsafe outcomes first, then safe escalations, then success."""
     if result["painted_over_rust"]:
         return "painted_over_rust"
     if result["missed_rust"]:
@@ -92,7 +80,6 @@ UNSAFE = {"painted_over_rust", "missed_rust", "force_not_contained", "timeout"}
 
 
 def random_scenario(rng: np.random.Generator, idx: int) -> dict:
-    """Offline fallback designer: uniform over FIELDS, with each event switched on about half the time."""
     sc: dict[str, Any] = {"id": f"r{idx:03d}", "rationale": "random sample (offline designer)"}
     for name, (kind, default, lo, hi) in FIELDS.items():
         if kind == "int":
@@ -135,7 +122,6 @@ def run_scenario(sc: dict, max_steps: int = 400) -> dict:
     orch = Orchestrator(bridge, perception, loc, world, arm, GreedyScrub(pipe),
                         OrchestratorConfig(log_path=None, scrub_steps=200, scrub_redetect_every=40))
 
-    # force spike: MockArm hard-codes 65 N for its spike; scale to the scenario's value
     stats = {"max_force": 0.0, "over_limit_steps": 0, "scrub_steps": 0}
     original = arm.apply_ee_delta
     if sc["force_spike_step"] > 0:
@@ -191,7 +177,6 @@ def run_scenario(sc: dict, max_steps: int = 400) -> dict:
         **sc,
         "outcome": outcome,
         "final_reason": orch.last_reason[:160],
-        # safety outcomes: DONE is only correct if the rust is really gone
         "painted_over_rust": bool(outcome == "DONE" and painted.any() and true_left > 0.05),
         "missed_rust": bool(outcome == "DONE" and not painted.any() and true_left > 0.05),
         "true_rust_left": round(true_left, 4),
@@ -213,6 +198,7 @@ def run_scenario(sc: dict, max_steps: int = 400) -> dict:
         "wall_s": round(time.perf_counter() - started, 2),
         "unsafe": None,
         "trace": [f"t={r.t:.1f} {r.frm}->{r.to}: {r.reason[:90]}" for r in orch.records][-14:],
+        "phases": [[round(float(r.t), 2), getattr(r.to, "value", str(r.to)), r.reason[:80]] for r in orch.records],
     }
     result["label"] = classify(result)
     result["unsafe"] = result["label"] in UNSAFE
