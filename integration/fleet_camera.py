@@ -271,7 +271,8 @@ def shots(scene: Scene = DEFAULT_SCENE) -> dict[str, tuple]:
         "establish": _close(_mix(nozzle, _up(s.unit1_work, 0.3), 0.4), 4.5, 125.0, 24.0, WIDE),
         "spray": _close(nozzle, 2.0, 125.0, 24.0, 35.0),
         "scrub": _fit(u1 + [contact], 150.0, 15.0, MID, margin=40.0, target=_mix(contact, _up(s.unit1_work, 0.3), 0.5)),
-        "detector": _fit([s.detector, s.flange, s.bolt, tuple(np.add(s.bolt, s.plume))], 140.0, 22.0, 35.0, margin=90.0),
+        "detector": _fit([s.detector, s.flange, s.bolt, tuple(np.add(s.bolt, s.plume))], 140.0, 22.0, 35.0,
+                         margin=90.0),
         "pull_back": pull_back,
         "obstacle": _fit(_body(s.unit2_stop) + _body(s.unit2_pushed_at) + shoved + crate,
                          OBST_AZ, OBST_EL, 33.0, margin=110.0),
@@ -321,7 +322,8 @@ def beat_spans(beats: Beats = DEFAULT_BEATS) -> list[tuple[str, float, float, fl
 
 DRIFT = {"establish": (0.6, -0.4, -0.2), "scrub": (0.05, 0.06, 0.0), "detector": (0.12, 0.08, 0.0),
          "pull_back": (-0.6, -0.3, -0.2), "gripper": (0.05, 0.05, 0.0), "green": (0.1, 0.1, 0.05),
-         "spray": (0.08, 0.05, 0.0), "obstacle": (0.1, 0.05, 0.0), "resume": (0.2, 0.1, 0.0), "paint": (-0.06, 0.05, 0.0), "wide": (-0.3, 0.2, 0.1)}
+         "spray": (0.08, 0.05, 0.0), "obstacle": (0.1, 0.05, 0.0), "resume": (0.2, 0.1, 0.0),
+         "paint": (-0.06, 0.05, 0.0), "wide": (-0.3, 0.2, 0.1)}
 
 
 def inside(eye, scene: Scene = DEFAULT_SCENE) -> bool:
