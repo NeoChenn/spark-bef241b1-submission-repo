@@ -127,3 +127,32 @@ def test_sun_direction_points_at_sky_source():
 def test_bloom_threshold_raised():
     b = look.bloom(0.1)
     assert b["/rtx/post/lensFlares/cutoffPoint"] == [look.BLOOM_CUTOFF] * 3
+
+
+def _cam(eye, target, w=320, h=180):
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from rig.camera import look_at
+
+    return look_at(eye, target, 24.0, 20.955, w, h)
+
+
+def test_inscatter_glows_toward_sun_and_with_distance():
+    img = np.full((180, 320, 3), 20, np.uint8)
+    sun = look.sun_direction((85.0, 0.0, 205.0))
+    eye = (0.0, 0.0, 10.0)
+    toward = _cam(eye, np.add(eye, np.multiply(sun, 100.0)))
+    away = _cam(eye, np.subtract(eye, np.multiply(sun, 100.0)))
+    far = np.full((180, 320), 800.0, np.float32)
+    near = np.full((180, 320), 3.0, np.float32)
+    a = look.inscatter(img, far, toward, "dusk", sun)
+    b = look.inscatter(img, far, away, "dusk", sun)
+    c = look.inscatter(img, near, toward, "dusk", sun)
+    assert a.shape == img.shape and a.dtype == np.uint8
+    assert a.mean() > b.mean() > img.mean()
+    assert c.mean() < a.mean()
+    assert a[..., 0].mean() > a[..., 2].mean()
+    assert look.inscatter(img, far, toward, "night", sun) is img
+    assert look.inscatter(img, None, toward, "dusk", sun) is img

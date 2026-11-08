@@ -136,7 +136,7 @@ rp = rep.create.render_product(cam_path, (args.width, args.height))
 ann = rep.AnnotatorRegistry.get_annotator("rgb")
 ann.attach(rp)
 dist_ann = None
-if beams:
+if beams or tier != "none":
     dist_ann = rep.AnnotatorRegistry.get_annotator("distance_to_camera")
     dist_ann.attach(rp)
 out = Path(args.out)
@@ -198,6 +198,8 @@ for t0 in times:
             if lk != "none":
                 depth = np.asarray(dist_ann.get_data()) if dist_ann is not None else None
                 rgb = shafts.add(rgb, shafts.layer(header(), beams, t0, depth=depth))
+                now = cinematic.CURRENT["time"]
+                rgb = look.inscatter(rgb, depth, header(), now, look.sun_direction(cinematic.PRESETS[now]["sun_rotation"]))
             rgb = look.grade(rgb, lk, t0, cinematic.CURRENT["time"])
             suffix = f"_{lk}" if len(looks) > 1 else ""
             Image.fromarray(np.ascontiguousarray(rgb)).save(out / f"{args.tag}{tsuf}_{name}{suffix}.png")

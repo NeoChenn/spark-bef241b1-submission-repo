@@ -44,6 +44,41 @@ def sun_direction(rotate_xyz) -> tuple:
     return tuple(float(v) for v in -travel)
 
 
+INSCATTER = {
+    "dusk": {"color": (1.0, 0.6, 0.32), "density": 1.0 / 260.0, "height": 45.0, "g": 0.72, "sun": 1.0, "ambient": 0.38,
+             "max": 0.8, "sky": 1500.0, "scale": 4},
+}
+
+
+def inscatter(rgb: np.ndarray, depth, cam: dict, preset: str, sun_dir) -> np.ndarray:
+    p = INSCATTER.get(preset)
+    if not p or depth is None:
+        return rgb
+    h, w = rgb.shape[:2]
+    s = p["scale"]
+    d = np.asarray(depth, np.float32).reshape(depth.shape[0], depth.shape[1])[s // 2::s, s // 2::s]
+    d = np.where(np.isfinite(d) & (d > 0), np.minimum(d, p["sky"]), p["sky"])
+    hs, ws = d.shape
+    K, T = np.asarray(cam["K"], np.float32), np.asarray(cam["T"], np.float32)
+    fy = K[1, 1] * hs / h
+    fx = K[0, 0] * ws / w
+    v, u = np.mgrid[0:hs, 0:ws].astype(np.float32)
+    rays = np.stack([(u + 0.5 - ws / 2) / fx, (v + 0.5 - hs / 2) / fy, np.ones_like(u)], -1) @ T[:3, :3].T
+    rays /= np.linalg.norm(rays, axis=-1, keepdims=True)
+    k = rays[..., 2] * d / p["height"]
+    safe = np.where(np.abs(k) > 1e-4, k, 1.0)
+    ratio = np.where(np.abs(k) > 1e-4, (1 - np.exp(-np.clip(k, -30, 30))) / safe, 1.0)
+    tau = p["density"] * d * np.exp(-max(float(T[2, 3]), 0.0) / p["height"]) * ratio
+    f = np.clip(1 - np.exp(-np.clip(tau, 0, 50)), 0, p["max"])
+    g = p["g"]
+    cos = rays @ np.asarray(sun_dir, np.float32)
+    phase = (1 - g * g) / (1 + g * g - 2 * g * cos) ** 1.5 * (1 - g) ** 3 / (1 - g * g)
+    col = np.clip(np.asarray(p["color"], np.float32) * (p["ambient"] + p["sun"] * phase)[..., None], 0, 1)
+    fog = Image.fromarray((col * 255).astype(np.uint8)).resize((w, h), Image.BILINEAR)
+    mask = Image.fromarray((f * 255).astype(np.uint8)).resize((w, h), Image.BILINEAR)
+    return np.asarray(Image.composite(fog, Image.fromarray(np.ascontiguousarray(rgb[..., :3])), mask))
+
+
 def bloom(scale: float) -> dict:
     return {"/rtx/post/lensFlares/enabled": True, "/rtx/post/lensFlares/physicalSettings": False,
             "/rtx/post/lensFlares/flareScale": scale, "/rtx/post/lensFlares/anisoFlareWeight": 0.0,
