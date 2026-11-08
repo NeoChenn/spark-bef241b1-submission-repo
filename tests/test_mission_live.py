@@ -269,3 +269,13 @@ def test_argon_plan_change_reaches_the_caption_and_the_log():
     h = m.header()
     assert h["caption"]["lead"] == "Argon" and "battery fault" in h["caption"]["rest"]
     assert any(e["from"] == "Argon" for e in h["events"])
+
+
+def test_planner_requests_for_a_fixed_leak_are_superseded(m):
+    m.event("gas_leak", {"flange": "F5"})
+    assert run(m, 400, until=lambda x: x.leak.found is not None and not x.leak.on)
+    jid = m.port.queue("re_torque", "F5", "SUPV", 1, by="gemini", why="seal F5")
+    other = m.port.queue("paint", "rust_mid_east", "SUPV", 3, by="gemini", why="paint")
+    run(m, 1)
+    assert m.port.job(jid)["status"] == "CANCELLED"
+    assert m.port.job(other)["status"] == "WAITING_APPROVAL"

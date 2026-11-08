@@ -25,6 +25,7 @@ FAULT_SOC = 0.12
 PERSON_M = 2.0
 ISOLATE_S = 6.0
 FLASH_S = 7.0
+GAS_KINDS = ("torque", "valve", "isolat", "gas", "leak", "flange")
 ARGON_S = 6.0
 LOG_KEEP = 300
 HOLD_MARGIN = 1.0
@@ -161,12 +162,22 @@ class MissionLive:
             lk.stop("fixed")
             self.note("Fleet", "LEAK_FIXED", f"{lk.fid} re-torqued, gas falling back to background")
             self._close_valve_job("DONE")
+        if not lk.on and lk.fid is not None:
+            self._supersede(lk.fid)
         if self.isolate_at is not None and self.t >= self.isolate_at:
             self.isolate_at = None
             if lk.on:
                 lk.stop("isolated")
                 self.note("Operator", "ISOLATED", f"valve upstream of {lk.fid} closed, leak starved")
             self._close_valve_job("DONE")
+
+    def _supersede(self, fid: str) -> None:
+        for j in self.port.extra.values():
+            if j["target"] == fid and j["status"] in ("WAITING_APPROVAL", "QUEUED") and not j.get("fleet_task") \
+                    and any(k in j["kind"].lower() for k in GAS_KINDS):
+                j["status"] = "CANCELLED"
+                self.port.log("superseded", j["id"], None, why=f"{fid} leak already stopped")
+                self.note("Coordinator", "SUPERSEDED", f"{j['id']} {j['kind']} {fid}: leak already stopped")
 
     def _close_valve_job(self, status: str) -> None:
         j = self.port.extra.get(self.valve_job or "")
