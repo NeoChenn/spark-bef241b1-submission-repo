@@ -2578,6 +2578,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "numpy" },
     { name = "pillow" },
+    { name = "scipy" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -2612,6 +2613,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.162.2" },
     { name = "numpy", specifier = ">=2.5.4" },
     { name = "pillow", specifier = ">=13.0.0" },
+    { name = "scipy", specifier = ">=1.18.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]
 

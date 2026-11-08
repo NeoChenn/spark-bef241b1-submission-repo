@@ -13,7 +13,9 @@
     { id: "hud", name: "HUD", key: "h" }, { id: "map", name: "Pipe map", key: "m" },
     { id: "gemini", name: "Gemini", key: "g" }, { id: "log", name: "Decision log", key: "l" },
     { id: "force", name: "Force sensor", key: "f" }, { id: "pip", name: "Inspection PiP", key: "p" },
+    { id: "fleet", name: "Fleet map", key: "n" },
   ];
+  const COMMANDS = window.RIG_COMMANDS || [];
   const ACTIONS = [
     { id: "rust", label: "New rust", key: "1", ev: () => ({ name: "spawn_patch", args: {} }) },
     { id: "glare", label: "Glare", key: "2", toggle: true, ev: (on) => ({ name: "set_glare", args: { on } }) },
@@ -73,6 +75,13 @@
       b.innerHTML = `<span>${a.label}</span><kbd>⇧${a.key}</kbd>`;
       b.onclick = () => fire(a, b);
       a.btn = b;
+      body.appendChild(b);
+    });
+    COMMANDS.filter((c) => c.group === "Scenario" && c.shortcut).forEach((c) => {
+      const b = document.createElement("button");
+      b.className = "cmd";
+      b.innerHTML = `<span>${c.label}</span>${c.shortcut ? `<kbd>${c.shortcut.replace("Shift+", "⇧")}</kbd>` : ""}`;
+      b.onclick = () => c.run();
       body.appendChild(b);
     });
     $("u-toggle").onclick = () => $("unscripted").classList.toggle("open");
@@ -407,7 +416,8 @@
   function buildHelp() {
     const rows = [["Space", "Start demo"], ["?  /  K", "Show / hide controls"], ["Tab", "Module list"], ["C", "Cinematic mode (hide all)"],
       ["U", "Unscripted change panel"], ["1  2  3", "Wide rig / hero deck / close-up"],
-      ...MODS.map((m) => [m.key.toUpperCase(), m.name]), ...ACTIONS.map((a) => ["Shift+" + a.key, a.label])];
+      ...MODS.map((m) => [m.key.toUpperCase(), m.name]), ...ACTIONS.map((a) => ["Shift+" + a.key, a.label]),
+      ...COMMANDS.filter((c) => c.shortcut).map((c) => [c.shortcut, c.label]), ["⌘K", "All scenario commands"]];
     $("help-list").innerHTML = rows.map(([k, v]) => `<li><kbd>${k}</kbd><span>${v}</span></li>`).join("");
   }
 
@@ -420,6 +430,8 @@
     if (k === "tab") { e.preventDefault(); $("mods").classList.toggle("open"); return; }
     if (k === "c") { document.body.classList.toggle("cine"); return; }
     if (k === "u") { $("unscripted").classList.toggle("open"); return; }
+    const cmd = window.RIG_SHORTCUT && window.RIG_SHORTCUT(e);
+    if (cmd) { cmd.run(); return; }
     const m = MODS.find((x) => x.key === k);
     if (m) { setMod(m.id, !modsOn[m.id]); return; }
     if (["1", "2", "3"].includes(k) && !e.shiftKey) { shot(+k); return; }

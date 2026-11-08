@@ -219,3 +219,19 @@ kbd { font-family: var(--mono); letter-spacing: 0.02em; color: var(--faint); bor
 #help-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 #help-list li { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--dim); }
 #help-list kbd { min-width: 64px; text-align: center; color: var(--fg); }
+
+.fleet { top: 92px; left: 50%; transform: translateX(-50%); width: 572px; padding: 12px 16px 10px; }
+.mod.fleet.off, body.cine .fleet, body.intro .fleet { transform: translateX(-50%) translateY(4px); }
+.fleet header { display: flex; justify-content: space-between; align-items: center; }
+#fleet-canvas { display: block; width: 540px; height: 170px; margin-top: 8px; cursor: crosshair; }
+.fleet-wx { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); }
+.fleet-wx.warn { color: var(--warn); background: rgba(227,179,65,.12); }
+.fleet-wx.stop { color: var(--stop); background: rgba(248,81,73,.14); }
+.fleet-msg { margin-top: 6px; font-family: var(--mono); font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fleet-msg.re { color: var(--accent); }
+.fleet-msg.stop { color: var(--stop); }
+.u-body .cmd { opacity: .92; }
+@media (max-width: 1400px) {
+  .fleet { width: 480px; top: 84px; }
+  #fleet-canvas { width: 448px; height: 142px; }
+}

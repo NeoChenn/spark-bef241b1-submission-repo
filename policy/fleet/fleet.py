@@ -222,11 +222,12 @@ class Fleet:
         return [round(float(v), 3) for v in best[1]]
 
     def _ahead(self, r: Robot, m: float) -> list[float]:
-        pts = [r.pos] + [self.rm.pos[lg.v] for lg in r.legs]
-        L = sum(float(np.linalg.norm(b - a)) for a, b in zip(pts, pts[1:]))
-        if L < 3.0:
-            raise ValueError(f"{r.id} has no route ahead to drop onto")
-        return [round(float(v), 3) for v in walk_along(pts, min(m, L - 2.0))]
+        for x in [r] + [o for o in self.robots if o is not r and not o.failed]:
+            pts = [x.pos] + [self.rm.pos[lg.v] for lg in x.legs]
+            L = plen(pts)
+            if L >= 3.0:
+                return [round(float(v), 3) for v in walk_along(pts, min(m, L - 2.0))]
+        raise ValueError(f"no robot is moving right now; {r.id} has no route ahead to drop onto")
 
     def _resolve_at(self, at, deck=None) -> list[float]:
         if isinstance(at, dict):

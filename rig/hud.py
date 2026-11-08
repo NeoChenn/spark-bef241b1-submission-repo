@@ -8,6 +8,7 @@ import numpy as np
 
 HOOKS = ("spawn_patch", "set_glare", "occlude_camera", "force_spike", "person_at")
 EXTRA = ("camera",)
+FLEET = ("drop_obstacle", "close_walkway", "close_stairs", "clear", "set_weather")
 RATES = {"SOAK": 0.15, "SCRUB": 0.35}
 DWELL = 1.3
 THUMB_W = 320
@@ -103,11 +104,22 @@ def _plain(o):
     return str(o)
 
 
-def apply_event(bridge, event: dict) -> None:
+def is_fleet_event(name: str, args: dict) -> bool:
+    return name in FLEET or (name == "person_at" and any(k in args for k in ("xy", "xyz", "at")))
+
+
+def apply_event(bridge, event: dict, fleet=None) -> None:
     name = event.get("name")
-    if name not in HOOKS + EXTRA:
+    if name not in HOOKS + EXTRA + FLEET:
         raise ValueError(f"unknown event {name!r}")
     args = dict(event.get("args") or {})
+    if is_fleet_event(name, args):
+        if fleet is not None:
+            fleet.event(name, args)
+        hook = getattr(bridge, name, None) if name == "set_weather" else None
+        if hook is not None:
+            hook(**{k: v for k, v in args.items() if k in ("level", "wind_dir", "gust")})
+        return
     if name == "spawn_patch" and ("theta" not in args or "z" not in args):
         theta, z = bridge.ee_theta_z()
         args.setdefault("theta", float(theta) + PATCH_OFFSET[0])

@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from rig.frames import encode, read_message_async
-from rig.hud import EXTRA, HOOKS
+from rig.hud import EXTRA, FLEET, HOOKS, is_fleet_event
 
 STATIC = Path(__file__).parent / "static"
 REPO = Path(__file__).resolve().parents[2]
@@ -23,6 +23,8 @@ REPLAY_EVENTS = 20
 FPS_WINDOW_S = 2.0
 STALE_AFTER_S = 2.0
 BLACK_MEAN = 3.0
+FLEET_TICK_S = 0.25
+FLEET_SIM_EVERY = 2
 
 
 class FrameHub:
@@ -68,8 +70,9 @@ class FrameHub:
         return end, self.log[max(0, idx - self.log_base):]
 
 
-def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Path = MOCK_PATH) -> FastAPI:
+def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Path = MOCK_PATH, fleet=None) -> FastAPI:
     hub = FrameHub()
+    fleet_seq = {"n": 0, "event": asyncio.Event()}
     current: dict[str, asyncio.StreamWriter | None] = {"writer": None}
     pending: deque = deque()
 
@@ -98,13 +101,33 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
                 hub.sim_connected = False
             writer.close()
 
+    def fleet_changed() -> None:
+        fleet_seq["n"] += 1
+        event, fleet_seq["event"] = fleet_seq["event"], asyncio.Event()
+        event.set()
+
+    async def fleet_loop() -> None:
+        last = time.monotonic()
+        while True:
+            await asyncio.sleep(FLEET_TICK_S)
+            now = time.monotonic()
+            await asyncio.to_thread(fleet.advance, now - last)
+            last = now
+            fleet_changed()
+            writer = current["writer"]
+            if writer is not None and fleet_seq["n"] % FLEET_SIM_EVERY == 0:
+                writer.write(encode({"type": "event", "name": "fleet", "args": fleet.for_sim()}))
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         server = await asyncio.start_server(handle_sim, sim_host, sim_port)
         app.state.sim_port = server.sockets[0].getsockname()[1]
+        loop = asyncio.create_task(fleet_loop()) if fleet is not None else None
         try:
             yield
         finally:
+            if loop is not None:
+                loop.cancel()
             server.close()
             if current["writer"] is not None:
                 current["writer"].close()
@@ -146,14 +169,44 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
     @app.post("/api/event")
     async def post_event(body: dict) -> dict:
         name = body.get("name")
-        if name not in HOOKS + EXTRA:
-            raise HTTPException(400, f"unknown event {name!r}; expected one of {HOOKS + EXTRA}")
-        pending.append({"name": name, "args": body.get("args") or {}})
+        args = body.get("args") or {}
+        if name not in HOOKS + EXTRA + FLEET:
+            raise HTTPException(400, f"unknown event {name!r}; expected one of {HOOKS + EXTRA + FLEET}")
+        out = {}
+        if fleet is not None and is_fleet_event(name, args):
+            try:
+                out["fleet"] = fleet.event(name, args)
+            except (ValueError, TypeError) as e:
+                raise HTTPException(400, str(e))
+            fleet_changed()
+        pending.append({"name": name, "args": args})
         queued = len(pending)
         flush()
         if current["writer"] is not None:
             await current["writer"].drain()
-        return {"queued": queued, "delivered": not pending}
+        return {"queued": queued, "delivered": not pending, **out}
+
+    @app.get("/api/fleet")
+    async def fleet_state() -> dict:
+        if fleet is None:
+            raise HTTPException(404, "fleet planner not running")
+        return fleet.state()
+
+    @app.get("/api/fleet/map")
+    async def fleet_map() -> dict:
+        if fleet is None:
+            raise HTTPException(404, "fleet planner not running")
+        return fleet.map
+
+    @app.websocket("/ws/fleet")
+    async def ws_fleet(ws: WebSocket) -> None:
+        await ws.accept()
+        try:
+            while fleet is not None:
+                await ws.send_json(fleet.state())
+                await fleet_seq["event"].wait()
+        except (WebSocketDisconnect, RuntimeError):
+            pass
 
     @app.get("/api/mock")
     async def mock() -> Response:
@@ -202,4 +255,16 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
     return app
 
 
-app = create_app(os.environ.get("SIM_HOST", "127.0.0.1"), int(os.environ.get("SIM_PORT", "9000")))
+def default_fleet():
+    name = os.environ.get("RIG_FLEET", "judges")
+    if name in ("", "0", "off"):
+        return None
+    try:
+        from policy.fleet.live import FleetLive
+        return FleetLive(name, float(os.environ.get("RIG_FLEET_SPEED", "4")))
+    except (ImportError, OSError) as e:
+        print(f"rig web: fleet planner off ({e})", flush=True)
+        return None
+
+
+app = create_app(os.environ.get("SIM_HOST", "127.0.0.1"), int(os.environ.get("SIM_PORT", "9000")), fleet=default_fleet())

@@ -79,6 +79,12 @@
       <div class="axis"><span>0°</span><span>θ around pipe</span><span>360°</span></div>
     </section>
 
+    <section class="mod panel fleet" data-mod="fleet" id="fleet">
+      <header><i>Fleet route planner</i><span class="fleet-wx" id="fleet-wx">calm</span></header>
+      <canvas id="fleet-canvas" width="540" height="170"></canvas>
+      <div class="fleet-msg" id="fleet-msg">click a walkway to drop a crate · shift-click to close it</div>
+    </section>
+
     <section class="panel unscripted" id="unscripted">
       <button class="u-head" id="u-toggle"><i>Unscripted change</i><kbd>U</kbd></button>
       <div class="u-body" id="u-body"></div>
@@ -97,6 +103,8 @@
   </div>
 
   <script src="/static/viewer.js"></script>
+  <script src="/static/commands.js"></script>
+  <script src="/static/fleetmap.js"></script>
   <script src="/static/hud.js"></script>
 </body>
 </html>
