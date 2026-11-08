@@ -208,7 +208,8 @@ for t0 in times:
                 rgb = shafts.add(rgb, shafts.layer(header(), beams, t0, depth=depth))
                 now = cinematic.CURRENT["time"]
                 rgb = look.inscatter(rgb, depth, header(), now, look.sun_direction(cinematic.PRESETS[now]["sun_rotation"]),
-                                     0.45 if args.atmos == "offline" else 1.0)
+                                     0.45 if args.atmos == "offline" else 1.0, tier=lk,
+                                     mist=look.mist_level(settings.get("/rtx/fog/fogDistanceDensity")))
             rgb = look.grade(rgb, lk, t0, cinematic.CURRENT["time"])
             suffix = f"_{lk}" if len(looks) > 1 else ""
             Image.fromarray(np.ascontiguousarray(rgb)).save(out / f"{args.tag}{tsuf}_{name}{suffix}.png")

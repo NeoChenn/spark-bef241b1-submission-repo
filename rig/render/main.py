@@ -18,10 +18,14 @@ class Post:
         self.grade = self.atm = None
         self.stage, self.cinematic = stage, cinematic
         self.beams, self.weather, self.lens = [], None, bool(scene.get("lens"))
+        import carb
+
+        self.settings = carb.settings.get_settings()
         import weather
 
         weather.rain_curtain(stage)
-        tier = scene.get("look") or "none"
+        self.due: dict = {}
+        tier = self.tier = scene.get("look") or "none"
         if tier != "none":
             import carb
             import look
@@ -52,6 +56,9 @@ class Post:
             self.atm.set_weather(w)
         self.atm.update(head.get("t", 0.0))
 
+    def look_due(self, cam: dict) -> bool:
+        return self.grade is not None and self.look.depth_due(self.due, cam)
+
     def __call__(self, rgb, cam, t: float, depth=None):
         if self.atm is not None and cam is not None:
             rgb = self.atm.post(rgb, cam, t, self.lens)
@@ -59,8 +66,10 @@ class Post:
             if self.beams and cam is not None:
                 rgb = self.shafts.add(rgb, self.shafts.layer(cam, self.beams, t))
             now = self.cinematic.CURRENT["time"]
-            if cam is not None and depth is not None and now in self.look.INSCATTER:
-                rgb = self.look.inscatter(rgb, depth, cam, now, self.look.sun_direction(self.cinematic.PRESETS[now]["sun_rotation"]))
+            mist = self.look.mist_level(self.settings.get("/rtx/fog/fogDistanceDensity"))
+            if cam is not None and (now in self.look.INSCATTER or mist > 0.0):
+                rgb = self.look.inscatter(rgb, depth, cam, now, self.look.sun_direction(self.cinematic.PRESETS[now]["sun_rotation"]),
+                                          tier=self.tier, mist=mist)
             rgb = self.grade(rgb, t)
         return rgb
 
@@ -169,12 +178,15 @@ class Renderer:
         self.rp = rep.create.render_product(CAMERA, (args.width, args.height))
         self.ann = rep.AnnotatorRegistry.get_annotator("rgb")
         self.ann.attach(self.rp)
-        self.dist = rep.AnnotatorRegistry.get_annotator("distance_to_camera")
-        self.dist.attach(self.rp)
+        self.dist = None
 
     def depth(self):
         import numpy as np
 
+        if self.dist is None:
+            self.dist = self.rep.AnnotatorRegistry.get_annotator("distance_to_camera")
+            self.dist.attach(self.rp)
+            return None
         return np.asarray(self.dist.get_data())
 
     def frame(self, wait: bool):
@@ -238,7 +250,7 @@ def run_live(args) -> None:
     stats_at = start + STATS_EVERY_S
     head = msg
     seq = frames = stale = 0
-    acc = {"apply": 0.0, "render": 0.0, "encode": 0.0, "kb": 0.0, "lat": 0.0}
+    acc = {"apply": 0.0, "render": 0.0, "post": 0.0, "encode": 0.0, "kb": 0.0, "lat": 0.0}
     snap_at = start if args.snapshot else None
     import threading
 
@@ -246,10 +258,10 @@ def run_live(args) -> None:
 
     from rig.render.state import Latest
 
-    outbox = Latest()
+    outbox, jpegbox = Latest(), Latest()
     pub = {"seq": 0, "frames": 0, "snap": snap_at}
 
-    def publish() -> None:
+    def finish() -> None:
         while True:
             item = outbox.get(1.0)
             if item is None:
@@ -259,6 +271,16 @@ def run_live(args) -> None:
             if post is not None:
                 cam = camera_header(hd["view"], rgb.shape[1], rgb.shape[0]) if hd.get("view") else None
                 rgb = post(rgb, cam, hd.get("t", 0.0), depth)
+            acc["post"] += time.perf_counter() - t2
+            jpegbox.put((np.asarray(rgb), hd, at, render_ms))
+
+    def publish() -> None:
+        while True:
+            item = jpegbox.get(1.0)
+            if item is None:
+                continue
+            rgb, hd, at, render_ms = item
+            t2 = time.perf_counter()
             mean = float(rgb[::8, ::8].mean())
             jpeg = encode(rgb)
             t3 = time.perf_counter()
@@ -282,6 +304,7 @@ def run_live(args) -> None:
                 print(f"snapshot saved to {path}", flush=True)
                 pub["snap"] = at + args.snapshot_every if args.snapshot_every else None
 
+    threading.Thread(target=finish, daemon=True).start()
     threading.Thread(target=publish, daemon=True).start()
     print(f"rig render: {args.renderer} {args.width}x{args.height} spp={args.spp} subframes={args.subframes} -> {args.relay}", flush=True)
     while app.is_running():
@@ -303,7 +326,11 @@ def run_live(args) -> None:
         if msg is not None or now - last_render >= args.keepalive:
             t1 = time.perf_counter()
             rgb = renderer.frame(args.wait_render)
-            depth = np.array(renderer.depth()) if (rgb is not None and post is not None) else None
+            depth = None
+            if rgb is not None and post is not None and head.get("view"):
+                cam = camera_header(head["view"], rgb.shape[1], rgb.shape[0])
+                if post.tier == "offline" or post.look_due(cam):
+                    depth = np.array(renderer.depth())
             t2 = time.perf_counter()
             if rgb is not None:
                 outbox.put((rgb, depth, head, now, (t2 - t1) * 1000))
@@ -316,7 +343,7 @@ def run_live(args) -> None:
             frames = pub["frames"]
             n = max(frames, 1)
             print(f"t={now - start:.0f}s fps={frames / span:.1f} render={acc['render'] / n * 1000:.1f}ms "
-                  f"encode={acc['encode'] / n * 1000:.1f}ms apply={acc['apply'] / n * 1000:.1f}ms jpeg={acc['kb'] / n:.0f}KB "
+                  f"post={acc['post'] / n * 1000:.1f}ms encode={acc['encode'] / n * 1000:.1f}ms apply={acc['apply'] / n * 1000:.1f}ms jpeg={acc['kb'] / n:.0f}KB "
                   f"state_to_send={acc['lat'] / n * 1000:.0f}ms states={inbox.received} applied={applier.applied} "
                   f"failed={applier.failed} sent={sender.sent} dropped={sender.dropped} connected={sender.connected.is_set()}",
                   flush=True)
@@ -388,7 +415,7 @@ def run_offline(args) -> None:
         if rgb is None:
             continue
         if post is not None and state.get("view"):
-            rgb = post(rgb, camera_header(state["view"], rgb.shape[1], rgb.shape[0]), t, renderer.depth())
+            rgb = post(rgb, camera_header(state["view"], rgb.shape[1], rgb.shape[0]), t, renderer.depth)
         Image.fromarray(rgb).save(out / f"frame_{n:05d}.png")
         print(f"offline frame {n} t={t:.2f}s {time.perf_counter() - t0:.2f}s/frame", flush=True)
         n += 1

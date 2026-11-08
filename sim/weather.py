@@ -18,7 +18,7 @@ ATM_EVERY_S = 0.25
 ROLL_EVERY_S = 0.25
 RAIN_ROOT = "/World/Weather/rain"
 RAIN_LOCAL = (f"{RAIN_ROOT}/streaks", f"{RAIN_ROOT}/look")
-RAIN_COUNT, RAIN_BOX, RAIN_STREAK, RAIN_WIDTH, RAIN_SPEED, RAIN_BELOW = 2600, (14.0, 24.0), 0.55, 0.007, 9.0, 14.0
+RAIN_COUNT, RAIN_BOX, RAIN_STREAK, RAIN_WIDTH, RAIN_SPEED, RAIN_BELOW = 4200, (14.0, 24.0), (0.25, 0.8), 0.006, 9.0, 14.0
 RAIN_CLEAR = 3.5
 
 _flare = {"wind": None}
@@ -240,6 +240,18 @@ class Controller:
             self.live = False
 
 
+def streaks(rng, count: int):
+    import numpy as np
+
+    top = shell(rng, count)
+    length = rng.uniform(*RAIN_STREAK, count)
+    drift = np.array([0.12, 0.07, -1.0])
+    pts = np.stack([top, top + 0.5 * length[:, None] * drift, top + length[:, None] * drift], 1).reshape(-1, 3)
+    widths = np.tile(np.array([0.15, 1.0, 0.35]) * RAIN_WIDTH, count) * np.repeat(rng.uniform(0.6, 1.3, count), 3)
+    shade = rng.uniform(0.3, 0.75, count)
+    return pts, widths, shade
+
+
 def rain_curtain(stage, count: int = RAIN_COUNT, seed: int = 5) -> dict:
     import numpy as np
     from pxr import Gf, Sdf, UsdGeom, UsdShade, Vt
@@ -251,20 +263,24 @@ def rain_curtain(stage, count: int = RAIN_COUNT, seed: int = 5) -> dict:
     op = root.AddTranslateOp()
     curves = UsdGeom.BasisCurves.Define(stage, f"{RAIN_ROOT}/streaks")
     curves.CreateTypeAttr("linear")
-    p = shell(rng, count)
-    p = np.concatenate([p, p + (0.0, 0.0, RAIN_BOX[1])])
-    pts = np.repeat(p, 2, axis=0)
-    pts[1::2] += (0.07, 0.04, -RAIN_STREAK)
+    pts, widths, shade = streaks(rng, count)
+    pts = np.concatenate([pts, pts + (0.0, 0.0, RAIN_BOX[1])])
     curves.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
-    curves.CreateCurveVertexCountsAttr(Vt.IntArray.FromNumpy(np.full(len(p), 2, np.int32)))
-    curves.CreateWidthsAttr(Vt.FloatArray([RAIN_WIDTH]))
-    curves.SetWidthsInterpolation(UsdGeom.Tokens.constant)
+    curves.CreateCurveVertexCountsAttr(Vt.IntArray.FromNumpy(np.full(2 * count, 3, np.int32)))
+    curves.CreateWidthsAttr(Vt.FloatArray.FromNumpy(np.tile(widths, 2).astype(np.float32)))
+    curves.SetWidthsInterpolation(UsdGeom.Tokens.vertex)
+    tint = np.repeat(np.tile(shade, 2)[:, None], 3, 1) * np.array([0.95, 0.98, 1.0])
+    UsdGeom.PrimvarsAPI(curves).CreatePrimvar("displayColor", Sdf.ValueTypeNames.Color3fArray, UsdGeom.Tokens.uniform).Set(
+        Vt.Vec3fArray.FromNumpy(tint.astype(np.float32)))
     mat = UsdShade.Material.Define(stage, f"{RAIN_ROOT}/look")
     sh = UsdShade.Shader.Define(stage, f"{RAIN_ROOT}/look/surface")
     sh.CreateIdAttr("UsdPreviewSurface")
-    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.7, 0.74, 0.78))
-    sh.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.16, 0.17, 0.19))
-    sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.2)
+    rd = UsdShade.Shader.Define(stage, f"{RAIN_ROOT}/look/tint")
+    rd.CreateIdAttr("UsdPrimvarReader_float3")
+    rd.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("displayColor")
+    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(rd.CreateOutput("result", Sdf.ValueTypeNames.Float3))
+    sh.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.035, 0.037, 0.04))
+    sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.35)
     mat.CreateSurfaceOutput().ConnectToSource(sh.CreateOutput("surface", Sdf.ValueTypeNames.Token))
     UsdShade.MaterialBindingAPI.Apply(curves.GetPrim()).Bind(mat)
     UsdGeom.Imageable(root).CreateVisibilityAttr().Set("invisible")

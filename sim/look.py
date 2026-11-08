@@ -35,7 +35,7 @@ TONEMAP = {
     "/rtx/post/histogram/enabled": False,
 }
 BLOOM_CUTOFF = 6.0
-SUN_DISC = {"distance": 5000.0, "radius": 70.0, "color": (1.0, 0.62, 0.32), "gain": 60.0}
+SUN_DISC = {"distance": 2000.0, "radius": 30.0, "color": (1.0, 0.7, 0.42), "gain": 400.0}
 
 
 def sun_direction(rotate_xyz) -> tuple:
@@ -46,37 +46,119 @@ def sun_direction(rotate_xyz) -> tuple:
 
 INSCATTER = {
     "dusk": {"color": (1.0, 0.64, 0.38), "density": 1.0 / 90.0, "height": 30.0, "g": 0.72, "sun": 1.0, "ambient": 0.3,
-             "max": 0.5, "sky": 1500.0, "scale": 4},
+             "max": 0.5, "sky": 1500.0, "scale": 4, "dark": 0.3},
 }
 
 
-def inscatter(rgb: np.ndarray, depth, cam: dict, preset: str, sun_dir, strength: float = 1.0) -> np.ndarray:
-    p = INSCATTER.get(preset)
-    if not p or depth is None:
-        return rgb
+LIVE_HAZE = True
+LIVE_EVERY = 4
+LIVE_SCALE = 8
+_LIVE: dict = {"n": 0}
+
+
+def _field(rgb, depth, cam: dict, p: dict, sun_dir, strength: float, s: int):
     h, w = rgb.shape[:2]
-    s = p["scale"]
     d = np.asarray(depth, np.float32).reshape(depth.shape[0], depth.shape[1])[s // 2::s, s // 2::s]
     d = np.where(np.isfinite(d) & (d > 0), np.minimum(d, p["sky"]), p["sky"])
     hs, ws = d.shape
     K, T = np.asarray(cam["K"], np.float32), np.asarray(cam["T"], np.float32)
-    fy = K[1, 1] * hs / h
-    fx = K[0, 0] * ws / w
     v, u = np.mgrid[0:hs, 0:ws].astype(np.float32)
-    rays = np.stack([(u + 0.5 - ws / 2) / fx, (v + 0.5 - hs / 2) / fy, np.ones_like(u)], -1) @ T[:3, :3].T
+    rays = np.stack([(u + 0.5 - ws / 2) / (K[0, 0] * ws / w), (v + 0.5 - hs / 2) / (K[1, 1] * hs / h),
+                     np.ones_like(u)], -1) @ T[:3, :3].T
     rays /= np.linalg.norm(rays, axis=-1, keepdims=True)
     k = rays[..., 2] * d / p["height"]
     safe = np.where(np.abs(k) > 1e-4, k, 1.0)
     ratio = np.where(np.abs(k) > 1e-4, (1 - np.exp(-np.clip(k, -30, 30))) / safe, 1.0)
     tau = p["density"] * d * np.exp(-max(float(T[2, 3]), 0.0) / p["height"]) * ratio
     f = np.clip(1 - np.exp(-np.clip(tau, 0, 50)), 0, p["max"]) * strength
+    lum = np.asarray(rgb[s // 2::s, s // 2::s, :3], np.float32).mean(-1)[:hs, :ws] / 255.0
+    f *= p.get("dark", 1.0) + (1 - p.get("dark", 1.0)) * np.clip(lum / 0.35, 0, 1)
     g = p["g"]
     cos = rays @ np.asarray(sun_dir, np.float32)
     phase = (1 - g * g) / (1 + g * g - 2 * g * cos) ** 1.5 * (1 - g) ** 3 / (1 - g * g)
-    col = np.clip(np.asarray(p["color"], np.float32) * (p["ambient"] + p["sun"] * phase)[..., None], 0, 1)
-    fog = Image.fromarray((col * 255).astype(np.uint8)).resize((w, h), Image.BILINEAR)
-    mask = Image.fromarray((f * 255).astype(np.uint8)).resize((w, h), Image.BILINEAR)
-    return np.asarray(Image.composite(fog, Image.fromarray(np.ascontiguousarray(rgb[..., :3])), mask))
+    return f, p["ambient"] + p["sun"] * phase
+
+
+def _moved(cam: dict, last) -> bool:
+    if last is None:
+        return True
+    T, L = np.asarray(cam["T"], np.float32), np.asarray(last, np.float32)
+    return float(np.linalg.norm(T[:3, 3] - L[:3, 3])) > 2.0 or float(T[:3, 2] @ L[:3, 2]) < 0.9986
+
+
+MIST = {"color": (0.32, 0.34, 0.36), "glow": 0.9, "dist": 28.0, "max": 0.55, "blur": 5, "fog_ref": 0.064, "sky": 1500.0}
+
+
+def mist_level(fog_distance_density) -> float:
+    return float(np.clip((fog_distance_density or 0.0) / MIST["fog_ref"], 0.0, 1.0))
+
+
+def mist_layer(rgb_small: np.ndarray, d: np.ndarray, mist: float) -> tuple[np.ndarray, np.ndarray]:
+    from PIL import ImageFilter
+
+    f = mist * MIST["max"] * (1 - np.exp(-d / MIST["dist"]))
+    glow = np.asarray(Image.fromarray(rgb_small).filter(ImageFilter.BoxBlur(MIST["blur"])), np.float32) / 255.0
+    col = np.clip(np.asarray(MIST["color"], np.float32) * (0.35 + 0.65 * mist) + MIST["glow"] * glow ** 1.5, 0, 1)
+    return f.astype(np.float32), col
+
+
+def depth_due(state: dict, cam: dict) -> bool:
+    state["n"] = state.get("n", 0) + 1
+    due = "T" not in state or state["n"] % LIVE_EVERY == 0 or _moved(cam, state["T"])
+    if due:
+        state["T"] = cam["T"]
+    return due
+
+
+def _layers(rgb, depth, cam: dict, p, sun_dir, strength: float, s: int, mist: float):
+    h, w = rgb.shape[:2]
+    dep = np.asarray(depth, np.float32).reshape(depth.shape[0], depth.shape[1])
+    d = dep[s // 2::s, s // 2::s]
+    d = np.where(np.isfinite(d) & (d > 0), np.minimum(d, MIST["sky"]), MIST["sky"])
+    hs, ws = d.shape
+    f = np.zeros((hs, ws), np.float32)
+    col = np.zeros((hs, ws, 3), np.float32)
+    if p:
+        fh, glow = _field(rgb, dep, cam, p, sun_dir, strength, s)
+        col = np.clip(np.asarray(p["color"], np.float32) * glow[..., None], 0, 1)[:hs, :ws]
+        f = fh[:hs, :ws]
+    if mist > 0.0:
+        small = np.asarray(Image.fromarray(np.ascontiguousarray(rgb[..., :3])).resize((ws, hs), Image.BILINEAR))
+        m, mcol = mist_layer(small, d, mist)
+        total = 1 - (1 - f) * (1 - m)
+        col = (col * f[..., None] + mcol * m[..., None]) / np.maximum(f + m, 1e-6)[..., None]
+        f = total
+    color = Image.fromarray((np.clip(col, 0, 1) * 255).astype(np.uint8)).resize((w, h), Image.BILINEAR)
+    mask = Image.fromarray((np.clip(f, 0, 1) * 255).astype(np.uint8)).resize((w, h), Image.BILINEAR)
+    return color, mask
+
+
+def inscatter(rgb, depth, cam: dict, preset: str, sun_dir, strength: float = 1.0, tier: str = "offline",
+              mist: float = 0.0):
+    p = INSCATTER.get(preset)
+    if depth is None and tier != "live":
+        return rgb
+    if (not p and mist <= 0.0) or (tier == "live" and not LIVE_HAZE):
+        return rgb
+    h, w = rgb.shape[:2]
+    if tier == "live":
+        st = _LIVE
+        st["n"] += 1
+        key = (h, w, preset, round(mist, 2))
+        if callable(depth):
+            due = st.get("key") != key or st["n"] % LIVE_EVERY == 0 or _moved(cam, st.get("T"))
+            depth = depth() if due else None
+        if depth is not None or st.get("key") != key:
+            if depth is None:
+                return rgb
+            color, mask = _layers(rgb, depth, cam, p, sun_dir, strength, LIVE_SCALE, mist)
+            st.update(key=key, T=cam["T"], color=color, mask=mask)
+        return Image.composite(st["color"], Image.fromarray(np.ascontiguousarray(rgb[..., :3])), st["mask"])
+    depth = depth() if callable(depth) else depth
+    if depth is None:
+        return rgb
+    color, mask = _layers(rgb, depth, cam, p, sun_dir, strength, p["scale"] if p else 4, mist)
+    return np.asarray(Image.composite(color, Image.fromarray(np.ascontiguousarray(rgb[..., :3])), mask))
 
 
 def bloom(scale: float) -> dict:
@@ -183,12 +265,13 @@ def _lut(p: dict) -> list:
     return _CACHE[key]
 
 
-def grade(rgb: np.ndarray, tier: str, t: float = 0.0, preset: str = "night") -> np.ndarray:
+def grade(rgb, tier: str, t: float = 0.0, preset: str = "night") -> np.ndarray:
     p = TIERS[tier]["grade"]
     if not p:
-        return rgb
+        return np.asarray(rgb) if isinstance(rgb, Image.Image) else rgb
     p = {**p, **PRESET_GRADE.get(preset, {})}
-    img = Image.fromarray(np.ascontiguousarray(rgb[..., :3])).point(_lut(p))
+    src = rgb if isinstance(rgb, Image.Image) else Image.fromarray(np.ascontiguousarray(rgb[..., :3]))
+    img = src.point(_lut(p))
     if p["vignette"]:
         img = ImageChops.multiply(img, vignette(img.height, img.width, p["vignette"]))
     out = np.asarray(img)

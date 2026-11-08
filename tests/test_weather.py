@@ -95,6 +95,19 @@ def test_rain_shell_keeps_streaks_off_the_lens():
     assert np.median(r) < (wx.RAIN_CLEAR + wx.RAIN_BOX[0]) / 2
 
 
+def test_streaks_taper_and_vary():
+    import numpy as np
+
+    pts, widths, shade = wx.streaks(np.random.default_rng(2), 500)
+    assert pts.shape == (1500, 3) and widths.shape == (1500,)
+    w = widths.reshape(-1, 3)
+    assert np.all(w[:, 1] > w[:, 0]) and np.all(w[:, 1] > w[:, 2])
+    seg = pts.reshape(-1, 3, 3)
+    length = np.linalg.norm(seg[:, 2] - seg[:, 0], axis=1)
+    assert length.min() > 0.2 and length.max() < 1.0 and length.std() > 0.1
+    assert 0.3 <= shade.min() and shade.max() <= 0.75
+
+
 def test_rain_curtain_counts_match_points_and_is_local_only():
     from pxr import Usd, UsdGeom
 
@@ -104,7 +117,7 @@ def test_rain_curtain_counts_match_points_and_is_local_only():
     c = wx.rain_curtain(stage, count=50)
     curves = UsdGeom.BasisCurves(stage.GetPrimAtPath(f"{wx.RAIN_ROOT}/streaks"))
     counts = list(curves.GetCurveVertexCountsAttr().Get())
-    assert sum(counts) == len(curves.GetPointsAttr().Get())
+    assert sum(counts) == len(curves.GetPointsAttr().Get()) == len(curves.GetWidthsAttr().Get())
     assert c["vis"] == "invisible"
     assert all(skipped(p) for p in wx.RAIN_LOCAL) and not skipped(wx.RAIN_ROOT)
     wx.rain_curtain(stage, count=50)
