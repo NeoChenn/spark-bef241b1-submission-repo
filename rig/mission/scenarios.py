@@ -8,7 +8,7 @@ import numpy as np
 from policy.fleet.jobs import SETUP_S
 from policy.fleet.reservations import Reservations
 from policy.fleet.scenario import JUDGES_ROBOTS, JUDGES_RUST, JUDGES_WELD, CHECK_DEADLINE_S, nearest_node
-from rig.mission.gas import ALARM_LEL, FLOW_GS, METHODS, GasLeak
+from rig.mission.gas import ALARM_LEL, FLOW_GS, INFOTAXIS, METHODS, GasLeak
 
 IDS = ("gas", "patrol", "repair", "flyby")
 NAMES = {"gas": "Gas leak", "patrol": "Deck patrol", "repair": "Pipe repair", "flyby": "Fly-by"}
@@ -98,7 +98,7 @@ class Gas(Script):
     def setup(self) -> None:
         m = self.m
         m.valve_by, m.wait_isolation, m.flow_gs = "R1", True, GAS_FLOW_GS
-        m.leak.method = "infotaxis"
+        m.leak.method = "infotaxis" if INFOTAXIS else "cast"
         m.valves = {self.flange: self.valve_xyz, self.second: [27.0, -9.0, 42.5]}
         tr = m.fleet.jobs.get("weld", "crack")
         start = next((s[0] for s in tr.segments if s[1] == "WELD"), 0.0)
