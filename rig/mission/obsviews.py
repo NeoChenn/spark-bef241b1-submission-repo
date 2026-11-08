@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from policy.gasbot.locate import SeekConfig, SourceEstimator
+from rig.mission.scenarios import gust_force, shielded
 from rig.views.draw import encode, font, label
 
 W, H = 256, 192
@@ -279,7 +280,7 @@ RUST_C = np.array((196, 92, 48), np.float32)
 PAINT_C = np.array((104, 116, 112), np.float32)
 
 
-def rust_obs(rid, job, state, u, force, rust_fraction=None, left=None):
+def rust_obs(rid, job, state, u, force, rust_fraction=None, left=None, raw=None):
     r0 = _rust_field(job)
     r = r0.copy()
     order = _order()
@@ -328,7 +329,7 @@ def rust_obs(rid, job, state, u, force, rust_fraction=None, left=None):
     d.text((tx, oy + 41), state.lower(), font=f10, fill=FG)
     if left is not None and state == "SOAK":
         d.text((tx, oy + 60), f"{left:.0f} s left", font=f9, fill=DIM)
-    vals = [min(float(x), FORCE_CLAMP) for x in (force or [])][-80:]
+    vals = [min(float(x), 40.0) for x in (force or [])][-80:]
     bx0, by0, bx1, by1 = 8, 140, W - 8, H - 6
     d.rectangle([bx0, by0, bx1, by1], fill=(16, 19, 24))
     lo, hi = 15.0, 45.0
@@ -336,6 +337,11 @@ def rust_obs(rid, job, state, u, force, rust_fraction=None, left=None):
     for xx in range(bx0, bx1, 6):
         d.line([xx, yc, min(xx + 3, bx1), yc], fill=GAS)
     d.text((bx1 - 32, yc - 11), "38 N", font=f9, fill=GAS)
+    rv = [min(float(x), hi) for x in (raw or [])][-80:]
+    if len(rv) > 1 and max(rv) > FORCE_CLAMP:
+        d.line([(bx0 + i * (bx1 - bx0) / (len(rv) - 1), by1 - (v - lo) / (hi - lo) * (by1 - by0)) for i, v in enumerate(rv)],
+               fill=FAINT, width=1)
+        d.text((bx0 + 3, by0 + 13), f"gust, unshielded {max(rv):.0f} N", font=f9, fill=DIM)
     if len(vals) > 1:
         pts = [(bx0 + i * (bx1 - bx0) / (len(vals) - 1), by1 - (v - lo) / (hi - lo) * (by1 - by0)) for i, v in enumerate(vals)]
         d.line(pts, fill=CORAL, width=1)
@@ -345,13 +351,13 @@ def rust_obs(rid, job, state, u, force, rust_fraction=None, left=None):
     return im, {"rust": round(frac, 3), "brush": brush, "force_n": round(fn, 1)}
 
 
-def force_trace(job: str, t0: float, t1: float, window: float = 15.0, dt: float = 0.1) -> list[float]:
+def force_trace(job: str, t0: float, t1: float, window: float = 15.0, dt: float = 0.1, gusts=(), raw=False) -> list[float]:
     ts = np.arange(max(t0, t1 - window), t1 + 1e-9, dt)
     noise = np.random.default_rng(zlib.crc32(job.encode())).normal(0.0, 1.0, 4096)
     k = (np.floor(ts / dt).astype(np.int64)) % 4096
     jit = 0.5 * noise[k] + 0.3 * noise[(k + 1) % 4096] + 0.2 * noise[(k + 2) % 4096]
-    f = 30.5 + 2.5 * np.sin(3.1 * ts) + 1.6 * np.sin(0.55 * ts + 1.3) + 1.2 * jit
-    return np.round(f, 2).tolist()
+    f = 30.5 + 2.5 * np.sin(3.1 * ts) + 1.6 * np.sin(0.55 * ts + 1.3) + 1.2 * jit + gust_force(ts, gusts)
+    return np.round(f if raw else shielded(f), 2).tolist()
 
 
 class ObsViews:
@@ -442,8 +448,10 @@ class ObsViews:
                 inf = mission._jobinfo(r) if r is not None else {}
                 ev = d.get("evidence") or {}
                 w = self.force.get(rid)
-                im, info = rust_obs(rid, task, st, float(inf.get("u", 0.0)), force_trace(task, *w) if w else [],
-                                    ev.get("rust_fraction"), inf.get("left"))
+                g = getattr(mission, "gusts", ())
+                im, info = rust_obs(rid, task, st, float(inf.get("u", 0.0)), force_trace(task, *w, gusts=g) if w else [],
+                                    ev.get("rust_fraction"), inf.get("left"),
+                                    force_trace(task, *w, gusts=g, raw=True) if w and g else None)
                 self._put(out, rid, "obs", im, f"{rid} · scrub obs · {st.lower()} · rust {info['rust'] * 100:.0f} %")
         lk = mission.leak
         sk = lk.seek

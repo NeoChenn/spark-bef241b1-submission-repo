@@ -3,8 +3,10 @@ from __future__ import annotations
 import bisect
 from dataclasses import dataclass, field
 
-SETUP_S = {"rust": 20.0, "gas": 15.0, "crack": 15.0, "leak_check": 15.0, "inspect": 10.0, "weld": 20.0, "pick_can": 3.0}
+SETUP_S = {"valve": 5.0, "rust": 20.0, "gas": 15.0, "crack": 15.0, "leak_check": 15.0, "inspect": 10.0, "weld": 20.0, "pick_can": 3.0}
 FLANGE_KINDS = {"gas", "crack", "leak_check"}
+SIMPLE = {"valve": [(0, "VALVE_APPROACH", "reach the isolation valve"), (4, "VALVE_CLOSE", "turn the valve shut"),
+                   (12, "DONE", "isolation valve closed")]}
 LEAK_SCENARIO = {"clean": "none", "loose": "loose", "crack": "crack", "big": "big"}
 
 
@@ -49,6 +51,9 @@ def pick_trace(scenario: str) -> JobTrace:
 
 
 def run_orchestrator(kind: str, scenario: str) -> JobTrace:
+    if kind in SIMPLE:
+        segs = SIMPLE[kind]
+        return JobTrace(kind, scenario, float(segs[-1][0]), segs[-1][1], segs)
     if kind == "weld":
         from policy.weld.job import weld_trace
         return weld_trace(scenario)

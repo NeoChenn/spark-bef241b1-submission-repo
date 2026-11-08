@@ -25,6 +25,7 @@ WALK_MS = 0.6
 SUB_S = 0.25
 ALARM_LEL = 0.10
 MARGIN_M = 1.0
+FADE_S = 90.0
 
 
 def wind_from_weather(w: dict | None) -> tuple[float, float]:
@@ -49,14 +50,42 @@ class GasLeak:
         self.robot_id = None
         self.found = None
         self.lel = {}
+        self.fading: list = []
+        self.queued: list = []
 
-    def start(self, fid: str, flow_gs: float = FLOW_GS) -> None:
+    def _plume(self, fid: str, flow_gs: float) -> GaussianPlume:
         if fid not in self.flanges:
             raise ValueError(f"unknown flange {fid!r}; expected one of {sorted(self.flanges)}")
         src = self.flanges[fid]
+        p = GaussianPlume(src, flow_gs, self.wind, deck_z=src[2] - 1.1, seed=self.seed)
+        p.t = self.t
+        return p
+
+    def start(self, fid: str, flow_gs: float = FLOW_GS) -> None:
+        self._take(fid, self._plume(fid, flow_gs))
+
+    def _take(self, fid: str, plume) -> None:
+        if self.plume is not None and not self.plume.quiet():
+            self.fading.append(self.plume)
         self.fid, self.on, self.isolated, self.found, self.seek, self.robot_id = fid, True, False, None, None, None
-        self.plume = GaussianPlume(src, flow_gs, self.wind, deck_z=src[2] - 1.1, seed=self.seed)
-        self.plume.t = self.t
+        self.plume = plume
+
+    def add(self, fid: str, flow_gs: float = FLOW_GS) -> str:
+        if not self.on:
+            self.start(fid, flow_gs)
+            return "now"
+        self.queued.append((fid, self._plume(fid, flow_gs)))
+        return "queued"
+
+    def promote(self) -> str | None:
+        if self.on or not self.queued:
+            return None
+        fid, p = self.queued.pop(0)
+        self._take(fid, p)
+        return fid
+
+    def others(self) -> list:
+        return self.fading + [p for _, p in self.queued]
 
     def stop(self, why: str = "fixed") -> None:
         self.on = False
@@ -84,9 +113,9 @@ class GasLeak:
         f = self.field() if self.field is not None else None
         if f is not None and self.on:
             return BACKGROUND_PPM + np.asarray(f.sample(p), float)
-        if self.plume is None:
-            return np.full(len(p), BACKGROUND_PPM)
-        return BACKGROUND_PPM + self.plume.concentration(p) * self.plume.fluct / RHO_CH4_G_M3 * 1e6
+        ps = ([self.plume] if self.plume is not None else []) + self.others()
+        c = sum((q.concentration(p) * q.fluct for q in ps), np.zeros(len(p)))
+        return BACKGROUND_PPM + c / RHO_CH4_G_M3 * 1e6
 
     def lel_at(self, points) -> np.ndarray:
         return self.ppm(points) / LEL_PPM
@@ -104,6 +133,9 @@ class GasLeak:
         self.wind.step(dt)
         if self.plume is not None:
             self.plume.step(dt)
+        for q in self.others():
+            q.step(dt)
+        self.fading = [q for q in self.fading if q.q > 0 or self.t - q.hist[-1][0] < FADE_S]
         if self.seek is not None:
             self.seek.step(self, dt)
 
