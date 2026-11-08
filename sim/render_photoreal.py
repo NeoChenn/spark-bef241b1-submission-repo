@@ -47,7 +47,7 @@ VIEWS = {
     "deck_mid": ((25.25, 3.25, 47.0), (18.25, -5.75, 43.5), 22.0),
     "waterline": ((75.0, -105.0, 4.0), (2.0, -8.0, 24.0), 18.0),
     "topdeck": ((30.0, -36.0, 52.0), (-6.0, 4.0, 44.0), 20.0),
-    "laydown": ((31.0, -9.6, 44.6), (17.5, -12.0, 43.1), 22.0),
+    "laydown": ((29.0, -15.5, 44.8), (18.0, -11.8, 43.0), 22.0),
 }
 
 settings = carb.settings.get_settings()
@@ -99,14 +99,23 @@ def look(eye, target, focal):
     op.Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*map(float, eye)), Gf.Vec3d(*map(float, target)), Gf.Vec3d(0, 0, 1)).GetInverse())
 
 
+last_shot = [None]
+
+
 def shoot(tag, name):
     start = clock.monotonic()
-    if args.renderer == "PathTracing":
-        rep.orchestrator.step(rt_subframes=max(args.spp // 16, 1) + 2, pause_timeline=False)
-    else:
-        for _ in range(40):
-            rep.orchestrator.step(rt_subframes=1, pause_timeline=False)
-    data = np.asarray(annotator.get_data())
+    for _ in range(3):
+        if args.renderer == "PathTracing":
+            rep.orchestrator.step(rt_subframes=2, pause_timeline=False)
+            rep.orchestrator.step(rt_subframes=max(args.spp // 16, 1) + 2, pause_timeline=False)
+        else:
+            for _ in range(40):
+                rep.orchestrator.step(rt_subframes=1, pause_timeline=False)
+        data = np.asarray(annotator.get_data())
+        sample = data[::16, ::16, :3].tobytes()
+        if sample != last_shot[0]:
+            break
+    last_shot[0] = sample
     out = f"{args.out}/{tag}_{name}.png"
     Image.fromarray(np.ascontiguousarray(data[:, :, :3], dtype=np.uint8)).save(out)
     print(f"VIEW {tag} {name} mean={data[:, :, :3].mean():.1f} s={clock.monotonic() - start:.1f}", flush=True)

@@ -39,7 +39,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.6
                 float inputs:porosity = 0.6
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.08
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -98,7 +98,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.08
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -157,7 +157,7 @@ over "World"
                 )
                 float inputs:paint_scale = 3
                 float inputs:porosity = 1
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.08
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -216,7 +216,7 @@ over "World"
                 )
                 float inputs:paint_scale = 2
                 float inputs:porosity = 1
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.25
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -275,7 +275,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.35
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -334,7 +334,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.4
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -393,7 +393,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.5
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -452,7 +452,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.3
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -511,7 +511,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.22
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -570,7 +570,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.85
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -629,7 +629,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.1
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -688,7 +688,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.3
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -747,7 +747,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.25
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -806,7 +806,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.3
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -865,7 +865,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.3
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -924,7 +924,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.1
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -983,7 +983,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.3
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1042,7 +1042,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.18
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1101,7 +1101,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.15
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1160,7 +1160,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.2
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1219,7 +1219,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.2
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1278,7 +1278,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.22
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1337,7 +1337,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.2
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1396,7 +1396,7 @@ over "World"
                 )
                 float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.25
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1455,7 +1455,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.2
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1514,7 +1514,7 @@ over "World"
                 )
                 float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.3
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1573,7 +1573,7 @@ over "World"
                 )
                 float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.3
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1632,7 +1632,7 @@ over "World"
                 )
                 float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.3
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1691,7 +1691,7 @@ over "World"
                 )
                 float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.3
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1750,7 +1750,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.05
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1809,7 +1809,7 @@ over "World"
                 )
                 float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.3
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1868,7 +1868,7 @@ over "World"
                 )
                 float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.3
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1927,7 +1927,7 @@ over "World"
                 )
                 float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.3
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -1986,7 +1986,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.25
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2045,7 +2045,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.2
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2104,7 +2104,7 @@ over "World"
                 )
                 float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.3
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2163,7 +2163,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.25
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2222,7 +2222,7 @@ over "World"
                 )
                 float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.3
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2335,7 +2335,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1
                 float inputs:porosity = 1
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.25
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2398,7 +2398,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1
                 float inputs:porosity = 1
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.45
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2457,7 +2457,7 @@ over "World"
                 )
                 float inputs:paint_scale = 3
                 float inputs:porosity = 1
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.1
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2516,7 +2516,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.6
                 float inputs:porosity = 0.6
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.25
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2575,7 +2575,7 @@ over "World"
                 )
                 float inputs:paint_scale = 1.5
                 float inputs:porosity = 1
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2634,7 +2634,7 @@ over "World"
                 )
                 float inputs:paint_scale = 2
                 float inputs:porosity = 1
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2693,7 +2693,7 @@ over "World"
                 )
                 float inputs:paint_scale = 2
                 float inputs:porosity = 1
-                float inputs:puddle_scale = 9
+                float inputs:puddle_scale = 4.5
                 float inputs:puddles = 0
                 float inputs:rust_amount = 0.15
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2757,7 +2757,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.6
                     float inputs:porosity = 0.6
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.08
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2816,7 +2816,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.08
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2875,7 +2875,7 @@ over "World"
                     )
                     float inputs:paint_scale = 3
                     float inputs:porosity = 1
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.08
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2934,7 +2934,7 @@ over "World"
                     )
                     float inputs:paint_scale = 2
                     float inputs:porosity = 1
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.25
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -2993,7 +2993,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.35
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3052,7 +3052,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.4
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3111,7 +3111,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.5
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3170,7 +3170,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3229,7 +3229,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.22
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3288,7 +3288,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.85
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3347,7 +3347,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.1
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3406,7 +3406,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3465,7 +3465,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.25
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3524,7 +3524,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3583,7 +3583,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3642,7 +3642,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.1
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3701,7 +3701,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3760,7 +3760,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.18
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3819,7 +3819,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.15
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3878,7 +3878,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.2
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3937,7 +3937,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.2
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -3996,7 +3996,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.22
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4055,7 +4055,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.2
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4114,7 +4114,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.25
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4173,7 +4173,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.2
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4232,7 +4232,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4291,7 +4291,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4350,7 +4350,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4409,7 +4409,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4468,7 +4468,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.05
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4527,7 +4527,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4586,7 +4586,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4645,7 +4645,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4704,7 +4704,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.25
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4763,7 +4763,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.2
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4822,7 +4822,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4881,7 +4881,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.25
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -4940,7 +4940,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5053,7 +5053,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1
                     float inputs:porosity = 1
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.25
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5116,7 +5116,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1
                     float inputs:porosity = 1
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.45
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5175,7 +5175,7 @@ over "World"
                     )
                     float inputs:paint_scale = 3
                     float inputs:porosity = 1
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.1
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5234,7 +5234,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.6
                     float inputs:porosity = 0.6
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.25
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5293,7 +5293,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.5
                     float inputs:porosity = 1
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5352,7 +5352,7 @@ over "World"
                     )
                     float inputs:paint_scale = 2
                     float inputs:porosity = 1
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5411,7 +5411,7 @@ over "World"
                     )
                     float inputs:paint_scale = 2
                     float inputs:porosity = 1
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.15
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5512,7 +5512,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.4
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5571,7 +5571,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.4
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5630,7 +5630,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.4
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5689,7 +5689,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.4
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5816,7 +5816,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.4
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5875,7 +5875,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.3
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5934,7 +5934,7 @@ over "World"
                     )
                     float inputs:paint_scale = 0.25
                     float inputs:porosity = 1
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -5993,7 +5993,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.2
                     float inputs:porosity = 0.35
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
@@ -6247,7 +6247,7 @@ over "World"
                     )
                     float inputs:paint_scale = 1.6
                     float inputs:porosity = 0.6
-                    float inputs:puddle_scale = 9
+                    float inputs:puddle_scale = 4.5
                     float inputs:puddles = 0
                     float inputs:rust_amount = 0.08
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (

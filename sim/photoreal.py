@@ -110,7 +110,7 @@ COMMON = {
     "masks": GENERATED / "rig_masks.png",
     "streaks": GENERATED / "rig_streaks.png",
     "macro_scale": 23.0,
-    "puddle_scale": 9.0,
+    "puddle_scale": 4.5,
     "wetness": 0.0,
     "puddles": 0.0,
     "triplanar": False,

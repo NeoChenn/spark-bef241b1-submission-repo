@@ -178,8 +178,9 @@ surface_sample weathered(
     float soak = math::lerp(1.0, porosity, paint);
     albedo *= 1.0 - 0.6 * wet * soak;
     albedo *= 1.0 - 0.35 * puddle;
-    rough = math::lerp(rough, rough * 0.3 + 0.05, wet);
-    float3 shading = math::normalize(math::lerp(nd, n, math::saturate(puddle + 0.5 * wet * up)));
+    rough = math::lerp(rough, rough * 0.45 + 0.08, wet);
+    rough = math::lerp(rough, 0.06, puddle);
+    float3 shading = math::normalize(math::lerp(nd, n, 0.85 * puddle));
 
     float opacity = use_opacity ? tri3(opacity_tex, p, wd, opacity_scale).x : 1.0;
 
@@ -188,8 +189,8 @@ surface_sample weathered(
         rough,
         metallic * paint * (1.0 - 0.6 * wet),
         to_internal(shading),
-        math::saturate(math::max(wet * (0.35 + 0.55 * up), puddle)),
-        math::lerp(0.07, 0.012, puddle),
+        math::saturate(math::max(wet * (0.2 + 0.35 * up), 0.85 * puddle)),
+        math::lerp(0.2, 0.05, puddle),
         opacity);
 }
 
