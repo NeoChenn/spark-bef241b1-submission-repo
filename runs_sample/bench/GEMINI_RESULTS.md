@@ -47,3 +47,15 @@ Same GeminiVerifier "rust" prompt; score = confidence if rust, 1-confidence if c
 | gemini-robotics-er-2-preview | 0.62 (n=12) | 0.86 | 0.59 (n=46) | 0.93 | 25% / 15% | 3.5 s API | 15 of 73 calls failed |
 
 Gemini ranks well (AUROC 0.93-0.97) but abstains often ("cannot_tell"), which pulls F1 down; the on-robot MNv4 is better on both sets and ~3,000x faster. The deployed LoRA checkpoint was not available here (published: real-photo F1 0.977, 13/13 held-out sim).
+
+## Gemini planner arm (orchestration, `orch.json`, `orch.png`)
+
+fleet/ coordinator + CPU sim, seeded 15-min shifts (leak, worker walk-up, SUPV approvals); planner = OrchestrationAgent on gemini-4-argon (thinking low) re-planning at t=0 and on every finding; agent calls block the sim clock. Rule-based n=100, Gemini arms n=10 shifts each (first 10 rule seeds), total API spend $1.08. Mean [95% CI].
+
+| arm | n | leak onset to isolated s | all work done at s | jobs/h | approvals requested | unsafe executed | LLM requests/shift | LLM latency/request | API cost/shift |
+|---|---|---|---|---|---|---|---|---|---|
+| Rule-based coordinator + operator | 100 | 398.9 [387.1, 410.6] | 788.6 [776.0, 801.2] | 88.1 | 2.0 | 0 | - | - | $0 |
+| Gemini planner + coordinator | 10 | 418.0 [352.5, 483.5] | 812.1 [773.0, 851.2] | 85.2 | 3.6 | 0 | 6.7 | 17.1 s | $0.073 |
+| Gemini planner, link cut mid-shift | 10 | 413.8 [349.7, 477.9] | 797.5 [755.5, 839.5] | 85.2 | 2.2 | 0 | 3.4 | 22.3 s | $0.035 |
+
+On the same 10 seeds the rule-based arm isolates the leak in 428.4 s mean and finishes all work at 805.4 s, so the Gemini planner is within noise of the coordinator alone (10 s faster isolation, 7 s later finish), never executes an unsafe action, and asks for more approvals. With the link cut the coordinator carries on. Without a key the planner arm reproduces the rule-based arm exactly (20/20 shifts).

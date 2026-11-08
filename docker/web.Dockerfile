@@ -16,5 +16,6 @@ COPY sim/output/full_rig_meta.json sim/output/leak_flanges_meta.json ./sim/outpu
 COPY runs_sample/fleet/fleet_state.json runs_sample/fleet/fleet_map.json ./runs_sample/fleet/
 COPY runs_sample/bench/*.json ./runs_sample/bench/
 COPY runs_sample/hud ./runs_sample/hud
+COPY runs_sample/loop/replay.jsonl runs_sample/loop/summary.json ./runs_sample/loop/
 RUN uv sync --frozen --no-dev
 CMD ["/app/.venv/bin/uvicorn", "rig.web.server:app", "--host", "127.0.0.1", "--port", "8080"]

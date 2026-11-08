@@ -281,8 +281,9 @@ def chart(summary: dict, path: str) -> str:
               {"title": "Refused by safety envelope / shift", "values": vals("refused_by_envelope"), "fmt": "{:.2f}"},
               {"title": "All queued work finished at (s)", "values": vals("makespan_s"), "fmt": "{:.0f}"}]
     n = summary["arms"]["rule"]["episodes"]
+    g = summary["arms"].get("planner", {}).get("episodes")
     note = (f"fleet/ coordinator + CPU sim, {n} seeded 15-min shifts (leak, worker walk-up, SUPV approvals), identical "
-            "per arm; mean with 95% CI.")
+            f"per arm{f' (Gemini arms: first {g})' if g else ''}; mean with 95% CI.")
     return bar_panels(path, "Orchestration: Gemini planner vs rule-based coordinator", methods, panels, note=note)
 
 
