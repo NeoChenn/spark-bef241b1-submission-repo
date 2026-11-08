@@ -3,47 +3,43 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Rig Camera</title>
+  <title>Mission Control</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="/static/hud.css">
 </head>
-<body>
-  <div id="stage">
-    <div id="backdrop"><div class="shot" id="shotA"></div><div class="shot" id="shotB"></div></div>
-    <canvas id="view" width="640" height="360"></canvas>
-    <div id="flash"></div>
-  </div>
+<body class="flyby">
+  <div id="stage"><div id="backdrop"></div><canvas id="view" width="640" height="360"></canvas></div>
+  <div id="shade"></div>
   <div id="labels"></div>
 
-  <div id="island" class="glass hl" role="button" aria-label="Status, opens the command palette">
-    <div class="cmp"><span class="dot"></span><b id="i-state">Ready</b><span class="tnum" id="i-time">0.0</span><span class="u">s</span><span class="sep"></span><span class="tnum" id="i-key"></span><span class="u" id="i-unit"></span><span class="edge" id="i-edge"></span></div>
-    <div class="ban"><span class="b-icon" id="b-icon"></span><div><b id="b-title"></b><p id="b-sub"></p></div></div>
-  </div>
-  <div id="subtitle"><span class="sub"></span><span class="sub"></span></div>
+  <div id="capsule" class="glass" aria-live="polite"></div>
+  <div id="caption" aria-live="polite"><span class="cap"></span><span class="cap"></span></div>
+  <div id="hint"></div>
 
-  <div class="dock" id="dock-left"><div class="dglass"></div></div>
-  <div class="dock" id="dock-right"><div class="dglass"></div></div>
-  <div class="dock" id="dock-bottom"><div class="dglass"></div></div>
-  <div id="sheet" class="glass hl" role="dialog" aria-label="View"></div>
+  <aside id="left" class="glass"></aside>
+  <aside id="card" class="glass">
+    <header><b data-k="t"></b><kbd data-k="k"></kbd></header>
+    <div class="img" data-k="box"><img data-k="img" alt=""><svg data-k="svg"></svg><p class="none" data-k="none"></p></div>
+    <p class="cap2" data-k="cap"></p>
+  </aside>
+  <div id="strip" class="glass"></div>
+  <div id="toasts"></div>
+  <div id="pulse"></div>
 
-  <div id="palette" class="glass hl" role="dialog" aria-label="Command palette">
-    <label class="p-search">
+  <div id="spot" class="glass" role="dialog" aria-label="Spotlight">
+    <label class="s-search">
       <svg viewBox="0 0 24 24"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M20 20l-3.6-3.6"/></svg>
-      <input id="p-input" placeholder="Search panels, views, cameras, changes" autocomplete="off" spellcheck="false" role="combobox" aria-controls="p-list">
+      <input id="s-input" placeholder="Scenarios, views, disturbances" autocomplete="off" spellcheck="false" role="combobox" aria-controls="s-list">
     </label>
-    <div class="p-body"><ul id="p-list" role="listbox"></ul><div id="p-preview"></div></div>
-    <div class="p-foot">
-      <span><span class="dot"></span><span id="status">connecting…</span><span class="sep">·</span><span id="fps">–</span> fps<span class="sep">·</span><span id="age"></span></span>
-      <span class="p-keys"><kbd>↑↓</kbd><kbd>↵</kbd>run<kbd id="p-keep">⌘↵</kbd>run, keep open<kbd>esc</kbd></span>
-    </div>
+    <ul id="s-list" role="listbox"></ul>
+    <div class="s-foot"><span><i class="dot"></i><span id="status">connecting…</span> · <span id="fps">–</span> fps · <span id="age"></span></span><span><kbd>↑↓</kbd> <kbd>↵</kbd> <kbd>esc</kbd></span></div>
   </div>
+  <div id="help" class="glass" role="dialog" aria-label="Keyboard shortcuts"></div>
+  <div id="sheet" class="glass" role="dialog"></div>
 
   <script src="/static/viewer.js"></script>
-  <script src="/static/core.js"></script>
-  <script src="/static/panels.js"></script>
-  <script src="/static/views.js"></script>
+  <script src="/static/mc.js"></script>
   <script src="/static/bench.js"></script>
-  <script src="/static/fleetlive.js"></script>
   <script src="/static/sound.js"></script>
 </body>
 </html>
