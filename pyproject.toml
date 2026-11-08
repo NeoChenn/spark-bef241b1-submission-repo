@@ -25,6 +25,7 @@ pythonpath = [".", "sim/tools"]
 dev = [
     "fvcore>=0.1.5.post20221221",
     "httpx2>=2.16.0",
+    "matplotlib>=3.11.2",
     "numpy>=2.5.4",
     "onnx>=1.23.2",
     "onnxruntime>=1.31.1",
