@@ -195,7 +195,7 @@ def louvre():
     n = 256
     y = np.arange(n)[:, None] / n
     slat = (0.5 + 0.5 * np.cos(y * 2 * np.pi * 12)) ** 3
-    img = np.repeat(0.15 + 0.5 * slat, n, axis=1)
+    img = np.repeat(0.38 + 0.5 * slat, n, axis=1)
     Image.fromarray((img * 255).astype(np.uint8)).save(OUT / "louvre.png")
 
 

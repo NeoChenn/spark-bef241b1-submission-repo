@@ -240,3 +240,8 @@ def helideck_lights(polygon, spacing: float = 3.0) -> list[tuple[float, float]]:
         n = max(1, math.ceil(math.dist(p, q) / spacing - 1e-9))
         out += [(p[0] + (q[0] - p[0]) * i / n, p[1] + (q[1] - p[1]) * i / n) for i in range(n)]
     return out
+
+
+def inside_box(points, lo, hi):
+    p = np.asarray(points, dtype=float)
+    return np.all((p >= np.asarray(lo)) & (p <= np.asarray(hi)), axis=-1)
