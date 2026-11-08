@@ -252,12 +252,24 @@ def dress(stage, work, args):
     if sky.IsValid():
         lux = UsdLux.DomeLight(sky)
         lux.GetIntensityAttr().Set(lux.GetIntensityAttr().Get() * args.dome_gain)
+    for k in range(300, 303):
+        lamp = stage.GetPrimAtPath(f"/World/Backdrop/Cinematic/Lamps/lamp_{k}/light")
+        if lamp.IsValid():
+            a = lamp.GetAttribute("inputs:intensity")
+            a.Set(a.Get() * args.flood_gain)
     try:
         from policy import night_look
     except ImportError:
         return {}
     info = night_look.apply(stage, "/World/Backdrop/RepairZone", work, full=True, lamp_gain=args.lamp_gain,
                             robot_root="/World/envs/env_0/Robot", robot_color=args.robot_color)
+    from pxr import Usd, UsdShade
+
+    for prim in Usd.PrimRange(stage.GetPrimAtPath("/World/envs/env_0/Robot"), Usd.TraverseInstanceProxies()):
+        if prim.IsA(UsdGeom.Mesh) and "visual" in str(prim.GetPath()):
+            m, _ = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()
+            print("[walk] MAT", prim.GetPath(), prim.IsInstanceProxy(), m.GetPath() if m else None, flush=True)
+            break
     return info
 
 
@@ -417,6 +429,7 @@ def main(argv):
     p.add_argument("--renderer", default="RaytracedLighting")
     p.add_argument("--robot_color", default="graphite")
     p.add_argument("--dome_gain", type=float, default=0.25)
+    p.add_argument("--flood_gain", type=float, default=0.3)
     p.add_argument("--lamp_gain", type=float, default=1.0)
     from isaaclab.app import AppLauncher
 
