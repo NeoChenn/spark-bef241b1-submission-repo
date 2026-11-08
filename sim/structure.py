@@ -54,12 +54,19 @@ RECIPES = {
     "mark_yellow": {"kind": "paint", "paint_color": (0.6, 0.4, 0.03), "chip_amount": 0.4, "rust_amount": 0.02,
                     "streak_amount": 0.0, "salt_amount": 0.1, "macro_scale": 5.0},
     "net": {"kind": "grating", "texture": "Net004A", "rust_amount": 0.05, "metallic": 0.0, "scale": 1.2},
-    "lifeboat": {"kind": "paint", "paint_color": (0.78, 0.22, 0.025), "chip_amount": 0.2, "rust_amount": 0.05,
-                 "streak_amount": 0.35, "salt_amount": 0.2, "macro_scale": 4.0},
+    "lifeboat": {"kind": "paint", "paint_color": (0.8, 0.13, 0.01), "chip_amount": 0.1, "rust_amount": 0.03,
+                 "streak_amount": 0.15, "salt_amount": 0.05, "macro_scale": 4.0},
     "lifeboat_white": {"kind": "paint", "paint_color": (0.58, 0.58, 0.56), "chip_amount": 0.2, "rust_amount": 0.04,
                        "streak_amount": 0.3, "salt_amount": 0.15, "macro_scale": 4.0},
 }
 WET = {"growth": 1.0, "splash": 0.9, "rubber": 0.8, "anode": 0.9}
+DRY = {"helideck": 0.15, "mark_white": 0.15, "mark_yellow": 0.15, "net": 0.2}
+
+
+def wetness_for(name: str, wet: float) -> float:
+    if name in DRY:
+        return min(wet, DRY[name])
+    return max(wet, WET.get(name, 0.0))
 
 
 def band_of(z: float) -> int:
@@ -90,9 +97,9 @@ def apply(stage, preset: str, quality: str | None = None) -> dict:
             shader = UsdShade.Shader(stage.GetPrimAtPath(prim.GetPath().AppendChild("rig_mdl")))
             if not shader:
                 continue
-            shader.CreateInput("wetness", Sdf.ValueTypeNames.Float).Set(max(w["wetness"], WET.get(prim.GetName(), 0.0)))
+            shader.CreateInput("wetness", Sdf.ValueTypeNames.Float).Set(wetness_for(prim.GetName(), w["wetness"]))
             if shader.GetSourceAssetSubIdentifier("mdl") == "rig_weathered":
-                shader.CreateInput("puddles", Sdf.ValueTypeNames.Float).Set(w["puddles"])
+                shader.CreateInput("puddles", Sdf.ValueTypeNames.Float).Set(0.0 if prim.GetName() in DRY else w["puddles"])
                 shader.CreateInput("triplanar", Sdf.ValueTypeNames.Bool).Set(q["triplanar"])
     offline = stage.GetPrimAtPath(OFFLINE)
     if offline.IsValid():

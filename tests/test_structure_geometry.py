@@ -193,3 +193,11 @@ def test_lifeboat_bounds_and_normals():
     assert np.allclose(np.linalg.norm(m["normals"], axis=1), 1.0)
     side = (np.abs(p[:, 0]) < 1.0) & (np.abs(p[:, 2]) < 0.1)
     assert (np.sign(m["normals"][side, 1]) == np.sign(p[side, 1])).all()
+
+
+def test_helideck_stays_dry_and_splash_stays_wet():
+    import structure
+
+    assert structure.wetness_for("helideck", 0.64) == 0.15
+    assert structure.wetness_for("growth", 0.3) == 1.0
+    assert structure.wetness_for("column", 0.64) == 0.64

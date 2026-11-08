@@ -1169,14 +1169,14 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.2
+                    float inputs:chip_amount = 0.1
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 4
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
                         colorSpace = "raw"
                     )
                     float inputs:metallic = 0
-                    color3f inputs:paint_color = (0.78, 0.22, 0.025)
+                    color3f inputs:paint_color = (0.8, 0.13, 0.01)
                     asset inputs:paint_diff = @../assets/third_party/textures/PaintedMetal010_4k/diff.jpg@ (
                         colorSpace = "sRGB"
                     )
@@ -1191,7 +1191,7 @@ over "World"
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
-                    float inputs:rust_amount = 0.05
+                    float inputs:rust_amount = 0.03
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
                         colorSpace = "sRGB"
                     )
@@ -1202,8 +1202,8 @@ over "World"
                         colorSpace = "raw"
                     )
                     float inputs:rust_scale = 1.5
-                    float inputs:salt_amount = 0.2
-                    float inputs:streak_amount = 0.35
+                    float inputs:salt_amount = 0.05
+                    float inputs:streak_amount = 0.15
                     color3f inputs:streak_color = (0.15, 0.075, 0.035)
                     asset inputs:streaks = @../assets/generated/rig_streaks.png@ (
                         colorSpace = "raw"
