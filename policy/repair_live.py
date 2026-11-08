@@ -25,7 +25,7 @@ def worker(argv):
     p.add_argument("--abrasion", type=float, default=1.0)
     p.add_argument("--max_steps", type=int, default=400)
     p.add_argument("--start_x", type=float, default=-2.6)
-    p.add_argument("--bead_height", type=float, default=0.008)
+    p.add_argument("--bead_height", type=float, default=0.010)
     p.add_argument("--no_events", action="store_true")
     p.add_argument("--no-gemini", dest="no_gemini", action="store_true")
     p.add_argument("--still", action="store_true")

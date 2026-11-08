@@ -224,8 +224,9 @@ class LabRepairBridge:
         while self.events and self.events[0].t <= self.t:
             e = self.events.pop(0)
             e.fire()
-            self.pending_events.append({"t": round(self.t, 3), "type": "scene_change", "name": e.name})
-            self.log(f"   >>> [scene change t={self.t:5.1f}s] {e.name}")
+            if e.name:
+                self.pending_events.append({"t": round(self.t, 3), "type": "scene_change", "name": e.name})
+                self.log(f"   >>> [scene change t={self.t:5.1f}s] {e.name}")
 
     def schedule(self, t: float, name: str, fire: Callable[[], None]) -> None:
         self.events.append(Event(t, name, fire))
@@ -445,7 +446,12 @@ class LabRepairBridge:
         img = rs.UsdGeom.Imageable(self.lens_mist)
         img.MakeVisible() if on else img.MakeInvisible()
 
-    def force_spike(self, height: float = 0.008) -> None:
+    def force_spike(self, height: float = 0.010) -> None:
+        if self.parked or self.press is None and self.force_now < 3.0:
+            self.schedule(self.t + 0.2, "", lambda: self.force_spike(height))
+            return
+        self.log(f"   weld bead placed under the brush at t={self.t:.1f}s")
+        self.pending_events.append({"t": round(self.t, 3), "type": "force_spike", "height_m": height})
         theta, z = float(self.base.theta[0]), float(self.base.axial[0])
         self.bead_cells.append((theta, z, height))
         self.base.place_bead([0], theta, z, height)
