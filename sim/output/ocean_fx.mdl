@@ -225,8 +225,8 @@ float3 legs_eval(float2 p)
         float3 l = LEGS[i];
         float2 rel = p - float2(l.x, l.y);
         float d = math::max(math::length(rel) - l.z, 0.0);
-        ring = math::max(ring, math::exp(-d / 2.4));
-        wash = math::max(wash, math::exp(-d / 9.0));
+        ring = math::max(ring, math::max(math::exp(-d / 3.2), d < 0.7 ? 1.0 : 0.0));
+        wash = math::max(wash, math::exp(-d / 12.0));
         float along = math::dot(rel, DRIFT);
         float across = math::abs(math::dot(rel, perp));
         float spread = l.z * 1.1 + 0.2 * math::max(along, 0.0);
@@ -269,7 +269,7 @@ export material OceanFx(
     float footprint = math::max(min_footprint, dist * pixel_angle * math::sqrt(stretch));
 
     float2 perp = float2(-DRIFT.y, DRIFT.x);
-    float3 lg = legs_eval(p);
+    float3 lg = legs_eval(float2(pw.x, pw.y));
     float ring = lg.x;
     float wash = lg.y;
     float wake = lg.z;
@@ -287,7 +287,7 @@ export material OceanFx(
     float crest = math::saturate((foam_threshold - o.jac) / foam_softness);
     float residue = math::saturate((foam_threshold + 0.25 - o.jac) / 0.45) * math::smoothstep(0.4, 0.75, streak) * 0.7;
     float surge = 0.7 + 0.3 * math::saturate(o.h / math::max(height, 0.1) + 0.5);
-    float leg = leg_foam * surge * math::max(math::max(ring, 0.7 * wash), 0.85 * wake * (0.4 + 0.6 * math::smoothstep(0.3, 0.7, streak)));
+    float leg = leg_foam * surge * math::max(math::max(ring, 0.8 * wash), 0.9 * wake * (0.4 + 0.6 * math::smoothstep(0.3, 0.7, streak)));
     float m = math::saturate(math::max(foam_amount * math::max(crest, residue), leg));
     float foam = m <= 0.001 ? 0.0 : math::smoothstep(1.0 - m, 1.2 - m, pattern + 0.15 * m) * math::min(1.0, m * 3.0);
 
