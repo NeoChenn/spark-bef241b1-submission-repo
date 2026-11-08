@@ -146,26 +146,6 @@ def test_soft_texture_fades_to_clear_edges():
     assert not np.array_equal(a, soft_texture(64, seed=2))
 
 
-def test_flow_usda_has_fire_steam_layers_and_wind():
-    from pxr import Sdf
-
-    from sim.atmos import flow_usda
-
-    text = flow_usda(flare=(-58.0, 8.0, 70.0), vents=[(0.0, 0.0, 40.0), (5.0, 5.0, 41.0)], wind=(6.0, -2.0), cell=0.3)
-    layer = Sdf.Layer.CreateAnonymous("f.usda")
-    assert layer.ImportFromString(text)
-    flame = layer.GetPrimAtPath("/Flow/flare")
-    assert flame.typeName == "FlowEmitterSphere"
-    assert flame.attributes["layer"].default == 0 and flame.attributes["enabled"].default is True
-    assert layer.GetPrimAtPath("/Flow/sim_0/advection").attributes["enabled"].default is True
-    assert [layer.GetPrimAtPath(f"/Flow/vent_{i}").attributes["layer"].default for i in range(2)] == [1, 1]
-    assert layer.GetPrimAtPath("/Flow/wind_0").attributes["velocity"].default == (6.0, -2.0, 0.0)
-    assert layer.GetPrimAtPath("/Flow/wind_0").attributes["allocationScale"].default == 0.0
-    assert max(layer.GetPrimAtPath("/Flow/wind_1").attributes["halfSize"].default) < 40
-    assert layer.GetPrimAtPath("/Flow/sim_1").attributes["densityCellSize"].default == pytest.approx(0.3)
-    assert {p.typeName for p in layer.GetPrimAtPath("/Flow").nameChildren} >= {"FlowSimulate", "FlowOffscreen", "FlowRender"}
-
-
 def test_billboard_quats_turn_minus_y_face_towards_eye():
     from sim.atmos import billboard_quats
 
@@ -195,3 +175,16 @@ def test_fade_bucket_ramps_in_and_out():
     b = fade_bucket(age, ttl, 4)
     assert b.dtype.kind == "i" and b.min() >= 0 and b.max() <= 3
     assert b[2] == 3 and b[0] < b[2] and b[3] < b[2]
+
+
+def test_flow_overrides_retarget_preset_for_fire_and_steam():
+    from sim.atmos import flow_overrides
+
+    o = flow_overrides((-58.0, 8.0, 70.0), (0.0, 0.0, 40.0), wind=(6.0, 0.0), cell=0.3)
+    fire, steam = o["fire"], o["steam"]
+    assert fire["flowEmitterSphere"]["position"] == (-58.0, 8.0, 70.0)
+    assert fire["flowSimulate"]["densityCellSize"] == 0.3
+    assert fire["flowSimulate/advection"]["gravity"][2] < 0 and fire["flowSimulate/advection"]["gravity"][1] == 0
+    assert steam["flowSimulate/advection"]["combustionEnabled"] is False
+    assert {steam[k]["layer"] for k in ("flowEmitterSphere", "flowSimulate", "flowOffscreen", "flowRender")} == {1}
+    assert fire["flowEmitterSphere"]["velocity"][0] > 0

@@ -173,113 +173,6 @@ FIRE_MAP = ([(0.012, 0.012, 0.012, 0.0), (0.025, 0.024, 0.022, 0.45), (0.035, 0.
 STEAM_MAP = ([(0.35, 0.36, 0.38, 0.0), (0.45, 0.46, 0.48, 0.12), (0.5, 0.51, 0.53, 0.22), (0.55, 0.55, 0.57, 0.3)], [0, 0.2, 0.6, 1])
 
 
-def _usd(v) -> str:
-    if isinstance(v, bool):
-        return str(int(v))
-    if isinstance(v, (list, tuple)) and v and isinstance(v[0], (list, tuple)):
-        return "[" + ", ".join(_usd(x) for x in v) + "]"
-    if isinstance(v, (list, tuple)):
-        return ("[" if isinstance(v, list) else "(") + ", ".join(f"{float(x):g}" for x in v) + ("]" if isinstance(v, list) else ")")
-    return f"{v:g}" if isinstance(v, float) else str(v)
-
-
-def _kind(v) -> str:
-    if isinstance(v, list):
-        return "float4[]" if isinstance(v[0], (list, tuple)) else "float[]"
-    if isinstance(v, tuple):
-        return f"float{len(v)}"
-    return {bool: "bool", int: "int", float: "float"}[type(v)]
-
-
-def _prim(kind: str, name: str, attrs: dict, children: str = "", pad: str = "    ") -> str:
-    body = "".join(f"{pad}    {'uint' if k in UINTS else _kind(v)} {k} = {_usd(v)}\n" for k, v in attrs.items())
-    return f'{pad}def {kind} "{name}"\n{pad}{{\n{body}{children}{pad}}}\n'
-
-
-UINTS = {"numSubSteps", "maxStepsPerSimulate", "velocitySubSteps", "blockMinLifetime", "resolution", "numSteps"}
-
-
-def _emitter(name, layer, pos, radius, velocity, fuel=0.0, temp=0.0, smoke=0.0, couple=2.0) -> str:
-    return _prim("FlowEmitterSphere", name, {
-        "allocationScale": 1.0, "applyPostPressure": False, "burn": 0.0, "coupleRateBurn": 0.0, "coupleRateDivergence": 0.0,
-        "coupleRateFuel": couple, "coupleRateSmoke": couple, "coupleRateTemperature": 10.0, "coupleRateVelocity": couple,
-        "divergence": 0.0, "enabled": True, "fuel": fuel, "layer": layer, "multisample": False, "numSubSteps": 1,
-        "physicsVelocityScale": 0.0, "position": tuple(map(float, pos)), "radius": float(radius), "radiusIsWorldSpace": True,
-        "smoke": smoke, "temperature": temp, "velocity": tuple(map(float, velocity)), "velocityIsWorldSpace": True})
-
-
-def _wind(layer, wind, centre, half) -> str:
-    return _prim("FlowEmitterBox", f"wind_{layer}", {
-        "allocationScale": 0.0, "coupleRateBurn": 0.0, "coupleRateDivergence": 0.0, "coupleRateFuel": 0.0,
-        "coupleRateSmoke": 0.0, "coupleRateTemperature": 0.0, "coupleRateVelocity": 0.6, "enabled": True,
-        "halfSize": tuple(map(float, half)), "layer": layer, "position": tuple(map(float, centre)),
-        "velocity": (float(wind[0]), float(wind[1]), 0.0)})
-
-
-def _channel(name, damping, fade) -> str:
-    return _prim("FlowAdvectionChannelParams", name, {"damping": damping, "fade": fade, "secondOrderBlendFactor": 0.9,
-                                                       "secondOrderBlendThreshold": 0.001}, pad="            ")
-
-
-def _layer(layer, cell, colormap, combustion, smoke_fade, scale, cooling=1.5, colour_scale=2.5) -> str:
-    channels = (_channel("smoke", 0.3 if combustion else 0.1, smoke_fade) + _channel("velocity", 0.01, 1.0)
-                + _channel("divergence", 0.01, 1.0) + _channel("temperature", 0.0, 0.0) + _channel("fuel", 0.0, 0.0)
-                + _channel("burn", 0.0, 0.0))
-    advection = _prim("FlowAdvectionCombustionParams", "advection", {
-        "buoyancyMaxSmoke": 1.0, "buoyancyPerSmoke": 0.0 if combustion else 4.0 * scale, "buoyancyPerTemp": 6.0,
-        "burnPerTemp": 4.0, "combustionEnabled": combustion, "coolingRate": cooling, "divergencePerBurn": 0.0,
-        "downsampleEnabled": True, "enabled": True, "forceFadeEnabled": False, "fuelPerBurn": 0.25, "globalFetch": False,
-        "gravity": (0.0, 0.0, -100.0 * scale), "ignitionTemp": 0.05, "smokePerBurn": 3.0, "tempPerBurn": 5.0},
-        channels, pad="        ")
-    sim = _prim("FlowSimulate", f"sim_{layer}", {
-        "blockMinLifetime": 4, "densityCellSize": float(cell), "enableLowPrecisionDensity": False,
-        "enableLowPrecisionVelocity": False, "enableSmallBlocks": False, "enableVariableTimeStep": False, "forceClear": False,
-        "forceDisableCoreSimulation": False, "forceDisableEmitters": False, "forceSimulate": False,
-        "interpolateTimeSteps": False, "layer": layer, "maxStepsPerSimulate": 1, "physicsCollisionEnabled": False,
-        "physicsConvexCollision": True, "simulateWhenPaused": False, "stepsPerSecond": 60.0, "timeScale": 1.0,
-        "velocitySubSteps": 1},
-        advection + _prim("FlowVorticityParams", "vorticity", {
-            "burnMask": 0.0, "constantMask": 0.0, "densityMask": 0.0, "enabled": True, "forceScale": 3.0, "fuelMask": 0.0,
-            "smokeMask": 0.0, "temperatureMask": 0.0, "velocityLinearMask": 0.0, "velocityLogScale": 1.0,
-            "velocityMask": 1.0}, pad="        ")
-        + _prim("FlowPressureParams", "pressure", {"enabled": True}, pad="        ")
-        + _prim("FlowSummaryAllocateParams", "summaryAllocate", {
-            "enableNeighborAllocation": True, "smokeThreshold": 0.02, "speedThreshold": scale,
-            "speedThresholdMinSmoke": 0.0}, pad="        "))
-    rgba, xs = colormap
-    off = _prim("FlowOffscreen", f"offscreen_{layer}", {"layer": layer},
-                _prim("FlowRayMarchColormapParams", "colormap", {
-                    "colorScale": colour_scale, "colorScalePoints": [1.0] * len(xs), "resolution": 32, "rgbaPoints": list(rgba),
-                    "xPoints": [float(x) for x in xs]}, pad="        ")
-                + _prim("FlowShadowParams", "shadow", {
-                    "attenuation": 0.045, "coarsePropagate": True, "enabled": True, "isPointLight": False,
-                    "lightDirection": (1.0, 1.0, 1.0), "lightPosition": (0.0, 0.0, 0.0), "minIntensity": 0.125,
-                    "numSteps": 16, "stepOffsetScale": 1.0, "stepSizeScale": 0.75}, pad="        ")
-                + _prim("FlowDebugVolumeParams", "debugVolume", {
-                    "enableSpeedAsTemperature": False, "enableVelocityAsDensity": False,
-                    "velocityScale": (0.01, 0.01, 0.01)}, pad="        "))
-    ren = _prim("FlowRender", f"render_{layer}", {"layer": layer},
-                _prim("FlowRayMarchParams", "rayMarch", {
-                    "attenuation": 0.05, "colorScale": 1.0, "enableBlockWireframe": False, "enableRawMode": False,
-                    "shadowFactor": 1.0, "stepSizeScale": 0.75}, pad="        "))
-    return sim + off + ren
-
-
-def flow_usda(flare, vents, wind, cell: float, flame_radius: float = 1.1, fuel: float = 0.8, cooling: float = 2.5,
-              steam: float = 0.8, smoke_fade: float = 0.3) -> str:
-    s = flame_radius / 10.0
-    lean = (wind[0] * 0.3, wind[1] * 0.3)
-    body = _emitter("flare", 0, flare, flame_radius, (lean[0], lean[1], 0.0), fuel=fuel, temp=2.0)
-    body += "".join(_emitter(f"vent_{i}", 1, p, 0.5, (lean[0], lean[1], 3.0), smoke=steam, temp=0.0, couple=2.0)
-                    for i, p in enumerate(vents))
-    v = np.asarray(vents, float).reshape(-1, 3)
-    body += _wind(0, wind, np.asarray(flare, float) + [0.0, 0.0, 14.0], (18.0, 18.0, 22.0))
-    body += _wind(1, wind, (v.min(0) + v.max(0)) / 2 + [0.0, 0.0, 6.0], np.ptp(v, 0) / 2 + [10.0, 10.0, 8.0])
-    body += _layer(0, cell, FIRE_MAP, True, smoke_fade, s, cooling=cooling)
-    body += _layer(1, cell, STEAM_MAP, False, 1.2, s, colour_scale=1.0)
-    return f'#usda 1.0\n(\n    defaultPrim = "Flow"\n    metersPerUnit = 1\n    upAxis = "Z"\n)\ndef Xform "Flow"\n{{\n{body}}}\n'
-
-
 def billboard_quats(pos, eye) -> np.ndarray:
     d = np.asarray(eye, float) - np.asarray(pos, float)
     yaw = np.arctan2(d[:, 1], d[:, 0]) + np.pi / 2
@@ -292,3 +185,30 @@ def fade_bucket(age, ttl, n: int) -> np.ndarray:
     u = np.clip(np.asarray(age) / np.maximum(np.asarray(ttl), 1e-6), 0, 1)
     level = np.minimum(np.minimum(u / 0.15, 1.0), (1 - u) / 0.5)
     return np.clip((level * n).astype(int), 0, n - 1)
+
+
+def flow_overrides(flare, vent, wind, cell: float, flame_radius: float = 1.1, fuel: float = 0.8, cooling: float = 2.5,
+                   steam: float = 0.8, smoke_fade: float = 0.3) -> dict:
+    s = flame_radius / 10.0
+    lean = (float(wind[0]) * 0.3, float(wind[1]) * 0.3, 0.0)
+
+    def group(layer, pos, radius, emit, advection, colormap, fade):
+        rgba, xs = colormap
+        return {
+            "flowEmitterSphere": {"layer": layer, "position": tuple(map(float, pos)), "radius": float(radius),
+                                  "velocity": lean, "velocityIsWorldSpace": True, **emit},
+            "flowSimulate": {"layer": layer, "densityCellSize": float(cell)},
+            "flowSimulate/advection": {"gravity": (0.0, 0.0, -100.0 * s), **advection},
+            "flowSimulate/advection/smoke": {"fade": fade},
+            "flowOffscreen": {"layer": layer},
+            "flowOffscreen/colormap": {"rgbaPoints": list(rgba), "xPoints": [float(x) for x in xs],
+                                       "colorScalePoints": [1.0] * len(xs)},
+            "flowRender": {"layer": layer},
+        }
+
+    return {
+        "fire": group(0, flare, flame_radius, {"fuel": fuel, "temperature": 2.0},
+                      {"coolingRate": cooling, "combustionEnabled": True}, FIRE_MAP, smoke_fade),
+        "steam": group(1, vent, 0.6, {"fuel": 0.0, "temperature": 0.0, "smoke": steam, "coupleRateSmoke": 2.0},
+                       {"combustionEnabled": False, "buoyancyPerSmoke": 40.0 * s}, STEAM_MAP, 1.2),
+    }
