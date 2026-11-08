@@ -34,7 +34,7 @@ CARDS = (
 SEGMENTS = 12
 SMOKE_N, SMOKE_LIFE, SMOKE_LEVELS = 40, 10.0, 5
 HALO_SIZE, HALO_GAIN, HALO_ALPHA = 80.0, EMISSION * 0.2, 0.5
-SIDE_GAIN = 0.45
+SIDE_GAIN = 0.8
 STOPS = (
     (0.0, (0.7, 0.1, 0.01)),
     (0.3, (1.0, 0.38, 0.05)),
@@ -188,7 +188,7 @@ def facing_right(centre, eye, yaw_deg: float = 0.0) -> np.ndarray:
 
 
 def smoke_state(t: float, wind=WIND, n: int = SMOKE_N, life: float = SMOKE_LIFE, origin=None):
-    origin = centerline(np.array([0.8]), t, wind)[0] if origin is None else np.asarray(origin, float)
+    origin = centerline(np.array([1.0]), t, wind)[0] if origin is None else np.asarray(origin, float)
     w = np.array([wind[0], wind[1], 0.0])
     speed = max(np.linalg.norm(w), 1.5)
     w = w / max(np.linalg.norm(w), 1e-6) * speed
@@ -202,7 +202,7 @@ def smoke_state(t: float, wind=WIND, n: int = SMOKE_N, life: float = SMOKE_LIFE,
     pos = pos + jitter * (0.8 + 0.55 * age[:, None])
     scale = 3.0 + 2.1 * age
     u = age / life
-    alpha = (0.35 + 0.65 * smoothstep(0.0, 0.1, u)) * (1 - smoothstep(0.45, 1.0, u))
+    alpha = smoothstep(0.0, 0.08, u) * (1 - smoothstep(0.45, 1.0, u))
     return pos, scale, alpha
 
 
@@ -368,7 +368,9 @@ def update(stage, t: float, wind=WIND) -> None:
     for k, (yaw, ws, hs, phase, rate) in enumerate(CARDS):
         v = np.linspace(0, 1, rows)
         sub = centerline(v * hs, t + phase, wind)
-        sub = sub + np.outer(1.8 * v**1.5, facing_right(line[rows // 3], eye)) * np.sign(yaw)
+        away = np.asarray(eye, float) - line[rows // 3]
+        away = -away / max(np.linalg.norm(away), 1e-6) * 1.6 * abs(np.sign(yaw))
+        sub = sub + np.outer(1.8 * v**1.5, facing_right(line[rows // 3], eye)) * np.sign(yaw) + away
         pts = card_points(sub, facing_right(line[rows // 3], eye, yaw), WIDTH * ws * (0.96 + 0.06 * level))
         UsdGeom.Mesh(stage.GetPrimAtPath(f"{ROOT}/flame_{k}")).GetPointsAttr().Set(
             Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
