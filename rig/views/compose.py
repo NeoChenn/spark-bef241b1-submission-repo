@@ -65,7 +65,7 @@ def robot_views(rid: str, role: str, rgb, depth, cam: dict, pose, path=None, fie
     for xyz, name in targets or []:
         u, v, zc = project(cam, xyz)
         if zc > 0.3 and 0 <= u < w and 0 <= v < h:
-            seen.append((u, v, max(6.0, 0.25 * cam["K"][0][0] / zc), name))
+            seen.append((u, v, min(max(6.0, 0.25 * cam["K"][0][0] / zc), 0.12 * w), name))
     if seen:
         draw_targets(pol, seen)
         info["targets"] = [s[3] for s in seen]

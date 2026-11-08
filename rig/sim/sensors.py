@@ -13,7 +13,7 @@ from rig.views.compose import robot_views, role_of
 from rig.views.schedule import Schedule
 
 ROBOTS = "/World/Obstacles/Robots"
-MOUNTS = {"rust": ((0.35, 0.0, 1.05), (1.6, 0.0, -0.75)), "gas": ((0.3, 0.0, 0.95), (6.0, 0.0, 0.4)),
+MOUNTS = {"rust": ((0.35, 0.0, 1.05), (2.0, 0.0, 0.55)), "gas": ((0.3, 0.0, 0.95), (6.0, 0.0, 0.4)),
           "inspection": ((0.32, 0.0, 0.45), (6.0, 0.0, -0.5))}
 LIGHT = 15000.0
 PATIENCE = 12
