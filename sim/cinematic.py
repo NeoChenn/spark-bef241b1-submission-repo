@@ -56,7 +56,7 @@ PRESETS = {
         "sun_color": (0.8, 0.88, 1.0),
         "fog_color": (0.2, 0.24, 0.27),
         "fog_height": 0.03,
-        "wave_height": 3.2,
+        "wave_height": 2.5,
         "lights": 0.8,
         "windows": 0.8,
         "sea_color": (0.008, 0.02, 0.024),

@@ -70,3 +70,12 @@ def test_moved_threshold():
     assert fx.moved(None, (0.0, 0.0, 0.0), 1.0)
     assert not fx.moved((0.0, 0.0, 0.0), (0.5, -0.5, 0.2), 1.0)
     assert fx.moved((0.0, 0.0, 0.0), (0.0, 1.5, 0.0), 1.0)
+
+
+def test_storm_crests_stay_below_braces():
+    from sim.ocean import make_grid
+
+    rest, distance, _, _ = make_grid()
+    near = distance < 80
+    crest = max(surface(rest[near], distance[near], t, 2.5)[0][:, 2].max() for t in np.arange(0, 120, 1.0))
+    assert crest < 7.0
