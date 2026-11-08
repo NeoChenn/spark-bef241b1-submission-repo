@@ -21,13 +21,10 @@ HIDE = (
     "/World/Details/facade_windows",
     "/World/Details/windows_module_n83_40",
     "/World/Details/windows_module_n23_n71",
-    "/World/Topside/lifeboat",
 )
 EXISTING = {"galv": "/World/Looks/topside_galv", "yellow": "/World/Looks/topside_yellow",
             "white_steel": "/World/Looks/topside_steel_white"}
-HELIDECK = ((-36.93, -22.5), (-29.7, -35.0), (-15.3, -35.0), (-8.07, -22.5), (-15.3, -10.0), (-29.7, -10.0))
-HELI_Z = 51.25
-LIFEBOATS = ((-19.0, -40.6, 27.6, 1), (-9.0, -40.6, 27.6, 2))
+SPILL_NITS = 1200.0
 STAIR = ((0.65, -37.3), 31.25, 42.5)
 FLOODS = (
     ((-21.0, -39.3, 41.6), (-21.0, -37.8, 33.0), 4000.0), ((-12.0, -39.3, 41.6), (-12.0, -37.8, 33.0), 2100.0),
@@ -155,16 +152,12 @@ def materials(stage) -> dict:
         "frame": paint(stage, "frame", (0.08, 0.085, 0.09), chip=0.15, rust=0.05, metallic=0.4),
         "door": paint(stage, "door", (0.16, 0.24, 0.3), chip=0.55, rust=0.3),
         "unit": paint(stage, "unit", (0.62, 0.63, 0.61), chip=0.4, rust=0.2),
-        "hull": paint(stage, "hull", (0.95, 0.3, 0.015), chip=0.05, rust=0.0, streak_amount=0.1, grime_amount=0.15),
-        "fender": paint(stage, "fender", (0.03, 0.03, 0.03), chip=0.0, rust=0.0, streak_amount=0.0),
         "interior": preview(stage, "interior", (0.004, 0.004, 0.005), roughness=0.03, emit=TEX / "interiors.png"),
         "sign": preview(stage, "sign", roughness=0.35, emit=TEX / "signs.png", diffuse_tex=TEX / "signs.png"),
         "louvre": preview(stage, "louvre", roughness=0.6, diffuse_tex=TEX / "louvre.png"),
         "lamp": preview(stage, "lamp", (0.9, 0.9, 0.85), roughness=0.2),
-        "heli_green": preview(stage, "heli_green", (0.1, 0.4, 0.1), roughness=0.2),
         "streak": decal(stage, "streak", TEX / "streaks.png", (0.19, 0.085, 0.03), strength=0.9, roughness=0.5),
         "grime": decal(stage, "grime", TEX / "streaks.png", (0.05, 0.05, 0.045), strength=0.6, roughness=0.6),
-        "net": decal(stage, "net", TEX / "net.png", (0.06, 0.06, 0.05), strength=1.0, roughness=0.8),
     }
 
 
@@ -178,25 +171,31 @@ def overlaps(rect, rects, pad=0.15):
                for h in rects)
 
 
+def depth(w):
+    return w["depth"] if w["depth"] is not None else fl.CLAD_DEPTH
+
+
 def add_sign(b, w, along, zc, size, tile, taken):
     rect = (along - size[0] / 2, zc - size[1] / 2, along + size[0] / 2, zc + size[1] / 2)
     if overlaps(rect, taken) or rect[0] < w["along"][0] or rect[2] > w["along"][1]:
         return False
     taken.append(rect)
-    b.quad("sign", fl.quad(w, rect[0], rect[1], rect[2], rect[3], fl.CLAD_DEPTH + 0.02), sign_uv(tile))
+    b.quad("sign", fl.quad(w, rect[0], rect[1], rect[2], rect[3], depth(w) + 0.02), sign_uv(tile))
     return True
 
 
-def build_wall(b, w, lamps, extra_signs):
-    D, G = fl.CLAD_DEPTH, fl.GLASS_DEPTH
+def build_wall(b, w, lamps, spills, extra_signs):
+    D, G = depth(w), fl.GLASS_DEPTH
     a0, a1 = w["along"]
     z0, z1 = w["z"]
     items = fl.openings(w)
     hs = fl.holes(items)
-    clad = "clad_grey" if w["name"].startswith("m71") else "clad"
+    clad = "clad_grey" if w["name"].startswith("m71") else w["clad"]
     for r in fl.subtract((a0 - D, z0, a1 + D, z1), hs):
         b.quad(clad, fl.quad(w, *r, D))
-    taken = list(hs)
+    taken = list(hs) + (list(fl.KEEP_CLEAR) if w["name"] == "annex_s" else [])
+    if w["ribs"]:
+        ribs(b, w, D, taken)
     h = fl.storey_height(w)
     for s in range(1, w["storeys"]):
         z = z0 + s * h
@@ -210,12 +209,14 @@ def build_wall(b, w, lamps, extra_signs):
         if o["kind"] == "window":
             for f in fl.reveal(w, hole, D, G):
                 b.quad("trim", f)
+            if fl.lit(o):
+                spills.append((w, o, D))
             u0, v0, u1, v1 = fl.tile_uv(o["tile"])
             b.quad("interior", fl.quad(w, *hole, G), ((u0, v0), (u1, v0), (u1, v1), (u0, v1)))
             t = 0.07
             for lo, hi in (((hole[0], hole[1]), (hole[2], hole[1] + t)), ((hole[0], hole[3] - t), (hole[2], hole[3])),
                            ((hole[0], hole[1]), (hole[0] + t, hole[3])), ((hole[2] - t, hole[1]), (hole[2], hole[3])),
-                           ((o["along"] - 0.03, hole[1]), (o["along"] + 0.03, hole[3]))):
+                           *[((m - 0.03, hole[1]), (m + 0.03, hole[3])) for m in mullions(o)]):
                 b.box("frame", *fl.wall_box(w, lo[0], lo[1], hi[0], hi[1], G - 0.01, G + 0.06))
             b.box("trim", *fl.wall_box(w, hole[0] - 0.08, hole[1] - 0.07, hole[2] + 0.08, hole[1], D - 0.02, D + 0.09))
             sh = fl.streak_height(o, w)
@@ -261,53 +262,67 @@ EXTRA_SIGNS = {
 }
 
 
-def lifeboat(b, x, y, z, length=8.4, beam=2.9, keel=1.1, canopy=1.75, n=28, m=20):
-    rings = []
-    for i in range(n + 1):
-        t = -1 + 2 * i / n
-        taper = max(1 - abs(t) ** (2.4 if t > 0 else 3.2), 0.0) ** 0.5
-        ring = []
-        for j in range(m):
-            a = 2 * math.pi * j / m
-            c, s = math.cos(a), math.sin(a)
-            yy = beam / 2 * taper * math.copysign(abs(c) ** (2 / 3.2), c)
-            zz = (canopy * (0.75 + 0.25 * taper) if s > 0 else keel * (0.5 + 0.5 * taper)) * math.copysign(abs(s) ** (2 / 3.2), s)
-            ring.append((x + t * length / 2, y + yy, z + zz * max(taper, 0.08)))
-        rings.append(ring)
-    centre = np.array((x, y, z + 0.2))
-    for i in range(n):
-        for j in range(m):
-            pts = [rings[i][j], rings[i + 1][j], rings[i + 1][(j + 1) % m], rings[i][(j + 1) % m]]
-            mid = np.mean(pts, axis=0)
-            b.quad("hull", fl.orient(pts, mid - centre))
-    b.box("fender", (x - length * 0.42, y - beam / 2 - 0.08, z - 0.05), (x + length * 0.42, y + beam / 2 + 0.08, z + 0.12))
-    b.box("fender", (x - 1.0, y - 0.55, z + canopy - 0.05), (x + 1.0, y + 0.55, z + canopy + 0.12))
-    for k in range(5):
-        wx = x - 2.2 + k * 1.1
-        b.box("frame", (wx - 0.3, y - beam / 2 * 0.86 - 0.02, z + 0.55), (wx + 0.3, y - beam / 2 * 0.86 + 0.02, z + 0.85))
+def mullions(o):
+    n = max(1, round(o["w"] / 1.1))
+    return [o["along"] - o["w"] / 2 + o["w"] * k / (n + 1) for k in range(1, n + 1)] if n > 1 else [o["along"]]
 
 
-def helideck(b):
-    for x, y in fl.helideck_lights(HELIDECK, 3.0):
-        b.box("heli_green", (x - 0.09, y - 0.09, HELI_Z), (x + 0.09, y + 0.09, HELI_Z + 0.14))
-    c = np.mean(HELIDECK, axis=0)
-    size, pitch = 15.0, 8.0
-    pts = [(c[0] - size / 2, c[1] - size / 2, HELI_Z + 0.02), (c[0] + size / 2, c[1] - size / 2, HELI_Z + 0.02),
-           (c[0] + size / 2, c[1] + size / 2, HELI_Z + 0.02), (c[0] - size / 2, c[1] + size / 2, HELI_Z + 0.02)]
-    k = size / pitch
-    b.quad("net", pts, ((0, 0), (k, 0), (k, k), (0, k)))
-    for p, q in zip(HELIDECK, HELIDECK[1:] + HELIDECK[:1]):
-        e = np.array(q) - np.array(p)
-        out = np.array((e[1], -e[0])) / np.linalg.norm(e)
-        if np.dot(out, np.array(p) - c) < 0:
-            out = -out
-        p2, q2 = np.array(p) + out * 1.5, np.array(q) + out * 1.5
-        pts = [(p[0], p[1], HELI_Z - 0.1), (q[0], q[1], HELI_Z - 0.1), (q2[0], q2[1], HELI_Z - 0.35), (p2[0], p2[1], HELI_Z - 0.35)]
-        u = float(np.linalg.norm(e)) / 1.0
-        b.quad("net", fl.orient(pts, (0, 0, 1)), ((0, 0), (u, 0), (u, 1.5), (0, 1.5)))
-        for t in np.linspace(0, 1, max(2, int(np.linalg.norm(e) / 2.5))):
-            a = np.array(p) + e * t
-            b.beam("frame", (a[0], a[1], HELI_Z - 0.1), (a[0] + out[0] * 1.5, a[1] + out[1] * 1.5, HELI_Z - 0.35), 0.05, 0.05)
+def ribs(b, w, D, taken):
+    a0, a1 = w["along"]
+    z0, z1 = w["z"]
+    for a in np.arange(a0 + 0.3, a1 - 0.2, 0.6):
+        cuts = sorted((h[1], h[3]) for h in taken if h[0] - 0.05 < a < h[2] + 0.05)
+        lo = z0 + 0.25
+        for c0, c1 in cuts + [(z1 - 0.3, z1)]:
+            if c0 - lo > 0.2:
+                b.box("trim", *fl.wall_box(w, a - 0.04, lo, a + 0.04, c0, D, D + 0.05))
+            lo = max(lo, c1)
+    for k in range(int((a1 - a0) / 2.2)):
+        key = f"{w['name']}:g{k}"
+        if fl.unit(key) < 0.4:
+            continue
+        a = a0 + 1.0 + k * 2.2 + fl.unit(key + "a") * 1.0
+        h = 1.5 + 3.5 * fl.unit(key + "h")
+        col = int(fl.unit(key + "c") * 4)
+        rect = (a - 0.6, z1 - 0.3 - h, a + 0.6, z1 - 0.3)
+        if overlaps(rect, taken, 0.0):
+            continue
+        mat = "grime" if fl.unit(key + "m") < 0.5 else "streak"
+        uv = ((col / 4, 1 - h / 2.6), ((col + 1) / 4, 1 - h / 2.6), ((col + 1) / 4, 1), (col / 4, 1))
+        b.quad(mat, fl.quad(w, *rect, D + 0.06), uv)
+
+
+def annex_ladder(b):
+    (x, y, z), height = fl.ANNEX_LADDER
+    lad = tf.ladder((x, y, z), height, "x")
+    for p, q in lad["rails"] + lad["rungs"]:
+        b.beam("yellow", p, q, 0.04, 0.04)
+    for zz in np.arange(z + 0.6, z + height + 0.9, 2.0):
+        for yy in (y - 0.3, y + 0.3):
+            b.beam("yellow", (37.22, yy, zz), (x, yy, zz), 0.05, 0.05)
+    hoop = [(x, y - 0.38), (x + 0.5, y - 0.38), (x + 0.75, y), (x + 0.5, y + 0.38), (x, y + 0.38)]
+    for zz in np.arange(z + 2.4, z + height + 1.0, 0.9):
+        for p, q in zip(hoop, hoop[1:]):
+            b.beam("yellow", (p[0], p[1], zz), (q[0], q[1], zz), 0.04, 0.04)
+    for p in hoop[1:-1]:
+        b.beam("yellow", (p[0], p[1], z + 2.4), (p[0], p[1], z + height + 1.0), 0.03, 0.03)
+
+
+def spill_lights(stage, spills):
+    UsdGeom.Scope.Define(stage, f"{facade.OFFLINE}/Spill")
+    for i, (w, o, D) in enumerate(spills):
+        out = np.array(fl.outward(w))
+        root = UsdGeom.Xform.Define(stage, f"{facade.OFFLINE}/Spill/win_{i:03d}")
+        ops = UsdGeom.Xformable(root)
+        ops.AddTranslateOp().Set(Gf.Vec3d(*fl.to_world(w, o["along"], o["z0"] + o["h"] / 2, D + 0.03)))
+        qw, qx, qy, qz = tf.aim_from_down(out)
+        ops.AddOrientOp().Set(Gf.Quatf(float(qw), float(qx), float(qy), float(qz)))
+        light = UsdLux.RectLight.Define(stage, f"{root.GetPath()}/light")
+        width, height = (o["w"], o["h"]) if w["axis"] == "y" else (o["h"], o["w"])
+        light.CreateWidthAttr(float(width))
+        light.CreateHeightAttr(float(height))
+        light.CreateIntensityAttr(SPILL_NITS * (0.5 + fl.unit(o["key"] + "i")))
+        light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(fl.TILE_KELVIN[o["tile"]])))
 
 
 def stair(b):
@@ -374,21 +389,21 @@ def build() -> Path:
     looks = materials(stage)
     b = Batch()
     lamps: list = []
-    openings = sum(build_wall(b, w, lamps, EXTRA_SIGNS) for w in fl.WALLS)
-    for x, y, z, _ in LIFEBOATS:
-        lifeboat(b, x, y, z)
-    helideck(b)
+    spills: list = []
+    openings = sum(build_wall(b, w, lamps, spills, EXTRA_SIGNS) for w in fl.WALLS)
+    annex_ladder(b)
     stair(b)
     floods(stage, b)
     quads = b.write(stage, looks)
     offline_lights(stage, lamps)
+    spill_lights(stage, spills)
     world = stage.GetRootLayer().GetPrimAtPath("/World")
     world.specifier = Sdf.SpecifierOver
     world.typeName = ""
     for path in HIDE:
         stage.OverridePrim(path).SetActive(False)
     stage.GetRootLayer().Save()
-    print(f"FACADE_WRITTEN {facade.LAYER} openings={openings} quads={quads} lamps={len(lamps)}")
+    print(f"FACADE_WRITTEN {facade.LAYER} openings={openings} quads={quads} lamps={len(lamps)} spill={len(spills)}")
     return facade.LAYER
 
 

@@ -9,8 +9,8 @@ LAYER = pr.OUTPUT / "facade.usda"
 ROOT = "/World/Facade"
 LOOKS = f"{ROOT}/Looks"
 OFFLINE = f"{ROOT}/Offline"
-GLOW = {"interior": 1.0, "sign": 0.04, "lamp": 6.0, "heli_green": 2.5}
-COLORS = {"lamp": (1.0, 0.8, 0.55), "heli_green": (0.15, 1.0, 0.3)}
+GLOW = {"interior": 1.0, "sign": 0.04, "lamp": 6.0}
+COLORS = {"lamp": (1.0, 0.8, 0.55)}
 
 
 def attach(stage) -> bool:
