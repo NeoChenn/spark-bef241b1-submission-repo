@@ -1,0 +1,48 @@
+{
+ "final_state": "ESCALATE_TO_HUMAN",
+ "success": false,
+ "sim_time_s": 191.93,
+ "decisions": 23,
+ "back_off_count": 1,
+ "replans": 1,
+ "true_rust_left": 0.052537355571985245,
+ "rust_removed_fraction": 0.9474626444280148,
+ "painted_cells": 412,
+ "force_all": {
+  "peak_n": 183.343,
+  "mean_contact_n": 14.729674818494459,
+  "p95_contact_n": 33.33539999999999,
+  "frac_over_limit": 0.0047759638763459535,
+  "frac_contact_over_limit": 0.04203286205578907,
+  "time_over_limit_s": 0.9166666666666666,
+  "contact_s": 21.808333333333334
+ },
+ "force_scrub": {
+  "peak_n": 51.433,
+  "mean_contact_n": 11.917201139351446,
+  "p95_contact_n": 22.50045,
+  "frac_over_limit": 0.00036443148688046647,
+  "frac_contact_over_limit": 0.00043821209465381246,
+  "time_over_limit_s": 0.008333333333333333,
+  "contact_s": 19.016666666666666
+ },
+ "back_off_windows": [
+  [
+   62.9083,
+   64.2417
+  ]
+ ],
+ "bead": [
+  [
+   1.4390456676483154,
+   -0.010321911424398422,
+   0.016
+  ]
+ ],
+ "gemini": false,
+ "detector": "colour stand-in",
+ "setpoint_cap_n": 38.0,
+ "force_limit_n": 40.0,
+ "frames": 2437,
+ "wall_s": 1163.1
+}

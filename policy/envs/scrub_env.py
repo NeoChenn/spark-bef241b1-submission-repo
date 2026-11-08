@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 
 import gymnasium as gym
 import torch
@@ -45,6 +46,18 @@ def _add_backdrop(usd_path: str, translation) -> None:
             UsdPhysics.RigidBodyAPI(p).CreateRigidBodyEnabledAttr(False)
 
 
+def _strip_collisions(urdf: str) -> str:
+    import re
+
+    text = open(urdf).read()
+    out = os.path.splitext(urdf)[0] + "_nocollide.urdf"
+    stripped = re.sub(r"\s*<collision>.*?</collision>", "", text, flags=re.S)
+    if not os.path.exists(out) or open(out).read() != stripped:
+        with open(out, "w") as f:
+            f.write(stripped)
+    return out
+
+
 def _mid(r):
     return 0.5 * (r[0] + r[1])
 
@@ -54,6 +67,9 @@ class ScrubEnv(DirectRLEnv):
 
     def __init__(self, cfg: ScrubEnvCfg, render_mode: str | None = None, **kwargs):
         yaw = cfg.robot_yaw
+        if cfg.brush_sensor:
+            cfg.robot_cfg = cfg.robot_cfg.replace(spawn=cfg.robot_cfg.spawn.replace(
+                asset_path=_strip_collisions(cfg.robot_cfg.spawn.asset_path), activate_contact_sensors=True))
         cfg.robot_cfg = cfg.robot_cfg.replace(
             prim_path="/World/envs/env_.*/Robot",
             init_state=cfg.robot_cfg.init_state.replace(
@@ -86,6 +102,7 @@ class ScrubEnv(DirectRLEnv):
         self.f_set = torch.full((N,), cfg.force_set_mid, device=dev)
         self.brush_w, self.brush_v = z3(), z3()
         self.force, self.gap, self.theta, self.axial = z1(), z1(), z1(), z1()
+        self.force_model, self.force_sensor, self.force_peak = z1(), z1(), z1()
         self.removed, self.max_force = z1(), z1()
         self.success = torch.zeros(N, dtype=torch.bool, device=dev)
         self.event_step = torch.full((N,), -1, dtype=torch.long, device=dev)
@@ -108,8 +125,11 @@ class ScrubEnv(DirectRLEnv):
 
     def _setup_scene(self):
         c = self.cfg
+        self._brush_sensor, self._bead = None, None
         self._robot = Articulation(c.robot_cfg)
         self.scene.articulations["robot"] = self._robot
+        if c.brush_sensor:
+            self._add_brush_contact()
         if c.backdrop_usd:
             _add_backdrop(c.backdrop_usd, c.backdrop_translation)
         elif c.spawn_pipe_visual or c.spawn_dog_visual:
@@ -136,6 +156,69 @@ class ScrubEnv(DirectRLEnv):
         if not c.backdrop_usd:
             light = sim_utils.DomeLightCfg(intensity=2500.0, color=(0.8, 0.8, 0.8))
             light.func("/World/Light", light)
+
+    def _add_brush_contact(self):
+        import omni.usd
+        from pxr import Usd
+
+        from isaaclab.assets import RigidObject, RigidObjectCfg
+        from isaaclab.sensors import ContactSensor, ContactSensorCfg
+
+        c = self.cfg
+        for rng in (c.radius_range, c.height_range, c.axial_range, c.yaw_range) + (
+                (c.axis_dist_range,) if c.axis_dist_range else (c.standoff_range,)):
+            assert abs(rng[1] - rng[0]) < 1e-9, "brush_sensor needs pinned pipe geometry (use apply_meta)"
+        stage = omni.usd.get_context().get_stage()
+        root = stage.GetPrimAtPath("/World/envs/env_0/Robot")
+        tip = next(p for p in Usd.PrimRange(root) if p.GetName() == c.ee_body_name)
+        f = c.brush_friction
+        bristles = sim_utils.RigidBodyMaterialCfg(static_friction=f, dynamic_friction=f,
+                                                  compliant_contact_stiffness=c.contact_stiffness,
+                                                  compliant_contact_damping=c.contact_damping)
+        steel = sim_utils.RigidBodyMaterialCfg(static_friction=f, dynamic_friction=f)
+        brush = sim_utils.SphereCfg(radius=c.brush_radius, physics_material=bristles, visible=False,
+                                    collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.004, rest_offset=0.0))
+        brush.func(f"{tip.GetPath()}/brush_collider", brush, translation=c.brush_offset)
+        r, yaw = _mid(c.radius_range), _mid(c.yaw_range)
+        axis_y = -(_mid(c.axis_dist_range) if c.axis_dist_range else _mid(c.standoff_range) + r)
+        pipe = sim_utils.CylinderCfg(radius=r, height=4.0, axis="X", physics_material=steel, visible=False,
+                                     collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.004, rest_offset=0.0))
+        pipe.func("/World/envs/env_0/PipeCollider", pipe, translation=(_mid(c.axial_range), axis_y, _mid(c.height_range)),
+                  orientation=(math.cos(yaw / 2), 0.0, 0.0, math.sin(yaw / 2)))
+        self._bead = RigidObject(RigidObjectCfg(
+            prim_path="/World/envs/env_.*/WeldBead",
+            spawn=sim_utils.SphereCfg(
+                radius=c.weld_bead_radius, physics_material=steel,
+                rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True, disable_gravity=True),
+                mass_props=sim_utils.MassPropertiesCfg(mass=0.5),
+                collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.004, rest_offset=0.0),
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.33, 0.31, 0.29), metallic=0.85, roughness=0.4)),
+            init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, -5.0))))
+        self.scene.rigid_objects["weld_bead"] = self._bead
+        rel = str(tip.GetPath())[len("/World/envs/env_0/"):]
+        self._brush_sensor = ContactSensor(ContactSensorCfg(
+            prim_path=f"/World/envs/env_.*/{rel}", update_period=0.0, history_length=c.decimation))
+        self.scene.sensors["brush_contact"] = self._brush_sensor
+
+    def place_bead(self, env_ids, theta, za, height: float):
+        ids = torch.as_tensor(env_ids, device=self.device).long().view(-1)
+        th = torch.as_tensor(theta, device=self.device, dtype=torch.float32).expand(ids.numel())
+        z = torch.as_tensor(za, device=self.device, dtype=torch.float32).expand(ids.numel())
+        rho = self.pipe_r[ids] + height - self.cfg.weld_bead_radius
+        n = torch.cos(th)[:, None] * self.pipe_e[ids] + torch.sin(th)[:, None] * self.pipe_b[ids]
+        p = self.pipe_o[ids] + z[:, None] * self.pipe_a[ids] + rho[:, None] * n + self.scene.env_origins[ids]
+        quat = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).repeat(ids.numel(), 1)
+        self._bead.write_root_pose_to_sim(torch.cat([p, quat], -1), env_ids=ids)
+
+    def hide_bead(self, env_ids):
+        ids = torch.as_tensor(env_ids, device=self.device).long().view(-1)
+        p = self.scene.env_origins[ids] + torch.tensor([0.0, 0.0, -5.0], device=self.device)
+        quat = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).repeat(ids.numel(), 1)
+        self._bead.write_root_pose_to_sim(torch.cat([p, quat], -1), env_ids=ids)
+
+    def _sensor_normal_force(self, n: torch.Tensor) -> torch.Tensor:
+        f = self._brush_sensor.data.net_forces_w_history[:, :, 0]
+        return (f * n[:, None, :]).sum(-1).abs()
 
     def _make_markers(self):
         from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
@@ -238,15 +321,25 @@ class ScrubEnv(DirectRLEnv):
         pen = (self.pipe_r + c.brush_radius - rho).clamp_min(0.0)
         self.gap[:] = rho - self.pipe_r - c.brush_radius
         on_pipe = za.abs() < c.pipe_length / 2 + 0.5
-        self.force[:] = self.spring_k * pen * on_pipe
+        self.force_model[:] = self.spring_k * pen * on_pipe
         n = torch.cos(th)[:, None] * self.pipe_e + torch.sin(th)[:, None] * self.pipe_b
+        if self._brush_sensor is not None:
+            fn = self._sensor_normal_force(n)
+            self.force_sensor[:] = fn[:, 0]
+            self.force_peak[:] = fn.max(dim=1).values
+        else:
+            self.force_sensor[:] = self.force_model
+            self.force_peak[:] = self.force_model
+        self.force[:] = self.force_sensor if (self._brush_sensor is not None and c.sensor_in_loop) else self.force_model
+        if self._brush_sensor is not None and c.sensor_in_loop:
+            pen = torch.where(self.force > 0, self.force / self.spring_k.clamp_min(1.0), torch.zeros_like(pen))
         v_t = v_w - (v_w * n).sum(-1, keepdim=True) * n
         slide = v_t.norm(dim=-1)
         crad = (0.012 + torch.sqrt(2 * c.brush_radius * pen)).clamp(max=c.brush_radius)
         uv = self.rust.surface_to_uv(th, za)
         self.removed[:] = self.rust.abrade(uv, crad, self.force, slide, self.ctrl_dt)
         self.rust.step_soak(self.ctrl_dt)
-        self.max_force[:] = torch.maximum(self.max_force, self.force)
+        self.max_force[:] = torch.maximum(self.max_force, torch.maximum(self.force, self.force_peak))
 
     def _get_dones(self):
         c = self.cfg
@@ -351,6 +444,9 @@ class ScrubEnv(DirectRLEnv):
         self.prev_actions[env_ids] = 0.0
         self.f_set[env_ids] = c.force_set_mid
         self.force[env_ids] = 0.0
+        self.force_model[env_ids] = 0.0
+        self.force_sensor[env_ids] = 0.0
+        self.force_peak[env_ids] = 0.0
         self.removed[env_ids] = 0.0
         self.max_force[env_ids] = 0.0
         self.success[env_ids] = False

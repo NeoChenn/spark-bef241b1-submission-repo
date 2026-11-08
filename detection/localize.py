@@ -48,14 +48,19 @@ class LocalizeResult:
                 "rust_px_frac": round(self.rust_pixel_fraction, 4)}
 
 
-def fake_colour_classifier(patches: np.ndarray) -> np.ndarray:
-    p = patches.astype(np.float32) / 255.0
-    r, g, b = p[..., 0], p[..., 1], p[..., 2]
-    hue = (r - g) / (r + 1e-3)
-    warm = (r > b) & (r > 0.12)
-    score = np.clip((hue - 0.07) / 0.2, 0.0, 1.0) * warm
-    frac = score.reshape(len(p), -1).mean(axis=1)
-    return (frac - 0.15) * 30.0
+def colour_classifier(hue_lo: float = 0.07):
+    def classify(patches: np.ndarray) -> np.ndarray:
+        p = patches.astype(np.float32) / 255.0
+        r, g, b = p[..., 0], p[..., 1], p[..., 2]
+        hue = (r - g) / (r + 1e-3)
+        warm = (r > b) & (r > 0.12)
+        score = np.clip((hue - hue_lo) / 0.2, 0.0, 1.0) * warm
+        frac = score.reshape(len(p), -1).mean(axis=1)
+        return (frac - 0.15) * 30.0
+    return classify
+
+
+fake_colour_classifier = colour_classifier(0.07)
 
 
 class OnnxPatchClassifier:

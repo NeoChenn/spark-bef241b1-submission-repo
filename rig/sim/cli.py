@@ -54,6 +54,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--leak-dt", type=float, default=1 / 12, help="seconds of wall time between plume steps")
     p.add_argument("--pip-every", type=float, default=0.25)
     p.add_argument("--pip-size", type=size, default=(480, 270), metavar="WxH")
+    p.add_argument("--render-mode", choices=("local", "remote"), default=os.environ.get("RENDER_MODE") or "local",
+                   help="remote: skip the main view render and publish scene state for rig.render on another box")
     return p.parse_args(argv)
 
 

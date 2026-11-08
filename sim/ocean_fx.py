@@ -22,7 +22,7 @@ SHADER = f"{MATERIAL}/Shader"
 OCEAN = "/World/Cinematic/ocean"
 UV_TILE_M = 26.0
 WIND_DIR_DEG = 18.0
-CAMERAS = ("/World/Judge/Cam", "/World/Cinematic/Cameras/stream")
+CAMERAS = ("/World/Judge/Cam", "/RigRender/Camera", "/World/Cinematic/Cameras/stream")
 REFERENCE_WIDTH_PX = 1280.0
 
 FX = {
@@ -193,7 +193,7 @@ def animate(stage, time: float) -> None:
             if moved(_state.get("last_eye"), eye, 1.0):
                 _state["cam"].Set(Gf.Vec3f(*eye))
                 _state["last_eye"] = eye
-            angle = (pixel_angle(cam.GetHorizontalApertureAttr().Get(), cam.GetFocalLengthAttr().Get()),)
+            angle = (pixel_angle(cam.GetHorizontalApertureAttr().Get() or 20.955, cam.GetFocalLengthAttr().Get() or 50.0),)
             if moved(_state.get("last_angle"), angle, angle[0] * 0.02):
                 _state["angle"].Set(angle[0])
                 _state["last_angle"] = angle

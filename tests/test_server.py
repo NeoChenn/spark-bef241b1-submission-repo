@@ -226,7 +226,7 @@ def test_mock_shots_served(client):
     for n in (1, 2, 3):
         r = client.get(f"/api/mock/shot/{n}")
         assert r.status_code == 200
-        assert r.headers["content-type"] == "image/png"
+        assert r.headers["content-type"] == "image/jpeg"
     assert client.get("/api/mock/shot/9").status_code == 404
 
 
@@ -295,3 +295,53 @@ def test_bench_lists_json(tmp_path):
 def test_default_fleet_sample_exists(client):
     assert client.get("/api/fleet").json()["schema"] == "fleet_state.v1"
     assert client.get("/api/fleet/map").json()["schema"] == "fleet_map.v1"
+
+
+class FakeControl:
+    def __init__(self):
+        self.snaps, self.cut, self.intents = [], [], []
+
+    def tick(self, snap):
+        self.snaps.append(snap)
+        return {"mode": "CLOUD", "latency_ms": 900.0, "robots": len(snap.robots)}
+
+    def cut_link(self, on):
+        self.cut.append(on)
+
+    def intent(self, text, now=0.0):
+        self.intents.append(text)
+
+
+class StubFleet:
+    map = {"schema": "fleet_map.v1"}
+
+    def state(self):
+        return {"schema": "fleet_state.v1", "t": 3.0, "tasks": [],
+                "robots": [{"id": "R1", "state": "TRANSIT", "pose": {"x": 1.0, "y": 2.0, "z": 42.5},
+                            "battery": {"soc": 0.9}}]}
+
+    def advance(self, dt):
+        pass
+
+    def for_sim(self):
+        return {}
+
+    def event(self, name, args):
+        return {}
+
+
+def test_live_control_centre_ticks_on_fleet_state_and_takes_link_events():
+    cc = FakeControl()
+    with TestClient(create_app(sim_port=0, fleet=StubFleet(), control=cc)) as c:
+        deadline = time.monotonic() + 3.0
+        while not cc.snaps and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert cc.snaps and cc.snaps[-1].robots[0].id == "R1"
+        assert c.post("/api/event", json={"name": "cut_link", "args": {"on": True}}).status_code == 200
+        assert cc.cut == [True]
+        with c.websocket_connect("/ws/state") as ws:
+            sock = connect(c.app)
+            sock.sendall(encode({"type": "state", "seq": 0, "t": 1.0, "scene": {}}))
+            msg = ws.receive_json()
+            sock.close()
+        assert msg["control"]["mode"] == "CLOUD"
