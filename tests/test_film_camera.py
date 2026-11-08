@@ -29,7 +29,7 @@ def test_the_edl_tiles_sixty_seconds_in_story_order():
     assert names[:5] == ["rig", "control_push", "board", "board_hold", "unit2_walk"]
     assert names[-3:] == ["walk_back_u1", "walk_back_u2", "conclusion"]
     assert names.index("unit2_job") < names.index("unit1_walk") < names.index("unit1_spray")
-    order = ["unit1_spray", "unit1_soak", "unit1_scrub_wide", "unit1_scrub_close", "unit1_paint", "unit1_paint_close"]
+    order = ["unit1_spray", "unit1_soak", "unit1_scrub", "unit1_paint"]
     assert [names.index(n) for n in order] == sorted(names.index(n) for n in order)
     assert SHOTS[0].film[0] == 0.0 and SHOTS[-1].film[1] <= 60.0 + 1e-9
     for a, b in zip(SHOTS, SHOTS[1:]):
@@ -68,10 +68,8 @@ def test_sim_time_follows_the_recorded_beats():
     job = shots["unit2_job"]
     assert job.sim[0] < b.u2_engage and job.sim[1] > b.gf5_green and job.rate < 1.1
     assert shots["unit1_spray"].sim[0] < b.spray and shots["unit1_soak"].sim == (b.soak, b.scrub)
-    wide, close = shots["unit1_scrub_wide"], shots["unit1_scrub_close"]
-    assert wide.sim[0] == b.scrub and close.sim[1] == b.scrub_done and wide.sim[1] == close.sim[0]
-    assert wide.rate == pytest.approx(close.rate) and wide.film[1] - wide.film[0] == pytest.approx(1.5)
-    assert shots["unit1_paint"].sim[0] == b.scrub_done and shots["unit1_paint_close"].sim[1] > b.paint_done
+    assert shots["unit1_scrub"].sim == (b.scrub, b.scrub_done) and shots["unit1_scrub"].film == (37.9, 45.9)
+    assert shots["unit1_paint"].sim[0] == b.scrub_done and shots["unit1_paint"].sim[1] > b.paint_done
     assert shots["walk_back_u1"].sim == (b.u1_return + 5.0, b.u1_return + 10.0)
     assert shots["walk_back_u2"].sim == (b.u1_return + 10.0, b.u1_return + 15.0)
     assert shots["board"].sim == (0.0, b.dispatch_u2 + 0.3) and shots["board"].film == (10.0, 18.5)
@@ -123,10 +121,10 @@ def test_work_shots_frame_the_bolt_the_patch_and_the_arms():
     w = s.unit1_work
     unit1 = [s.patch, (w[0], w[1], w[2] + 1.1), (w[0] - 0.35, w[1], 42.5), (w[0] + 0.35, w[1], 42.5)]
     unit2 = [s.bolt, s.flange, (s.unit2_work[0], s.unit2_work[1], s.unit2_work[2] + 1.1)]
-    for name, pts, far in (("unit2_job", unit2, 4.5), ("unit1_spray", unit1, 4.0), ("unit1_scrub_wide", unit1, 4.0),
-                           ("unit1_paint", unit1, 4.0)):
+    for name, pts, far, lead in (("unit2_job", unit2, 4.5, 1.3), ("unit1_spray", unit1, 4.0, 1.3),
+                                 ("unit1_soak", unit1, 4.0, 0.0), ("unit1_paint", unit1, 4.0, 2.6)):
         shot = next(x for x in SHOTS if x.name == name)
-        for t in np.linspace(shot.film[0] + 1.3, shot.film[1] - 0.01, 6):
+        for t in np.linspace(shot.film[0] + lead, shot.film[1] - 0.01, 6):
             e, g, f, _ = camera_at_film(t, SHOTS)
             cam = view(e, g, f)
             for p in pts:
@@ -139,9 +137,9 @@ def test_work_shots_frame_the_bolt_the_patch_and_the_arms():
 
 def test_the_scrub_close_up_fills_the_frame_with_the_patch():
     s = DEFAULT_FILM_SCENE
-    for name in ("unit1_scrub_close", "unit1_paint_close"):
-        shot = next(x for x in SHOTS if x.name == name)
-        e, g, f, _ = camera_at_film(shot.film[0] + 0.5, SHOTS)
+    scrub, paint = (next(x for x in SHOTS if x.name == n) for n in ("unit1_scrub", "unit1_paint"))
+    for t in [*np.linspace(scrub.film[0] + 0.4, scrub.film[1] - 1e-3, 6), paint.film[0], paint.film[0] + 1.4]:
+        e, g, f, _ = camera_at_film(t, SHOTS)
         assert 0.9 <= np.linalg.norm(np.subtract(e, s.patch)) <= 1.2 and 50.0 <= f <= 65.0
         cam = view(e, g, f)
         tu = np.cross(s.patch_normal, (1.0, 0.0, 0.0))
@@ -158,7 +156,7 @@ def test_the_close_up_sightline_clears_the_scrubbing_arm():
         pytest.skip("no film timeline")
     sm = pytest.importorskip("integration.scrub_motion")
     job = sm.film_job(timeline)
-    shot = next(x for x in SHOTS if x.name == "unit1_scrub_close")
+    shot = next(x for x in SHOTS if x.name == "unit1_scrub")
     e = np.array(camera_at_film(shot.film[0] + 0.5, SHOTS)[0])
     c = np.array(DEFAULT_FILM_SCENE.patch)
     links = sm.ARM_LINKS[:-1]
@@ -274,8 +272,7 @@ def test_the_film_camera_never_enters_the_rig_meshes(tris):
 
 def test_nothing_blocks_the_bolt_or_the_patch(tris):
     s = DEFAULT_FILM_SCENE
-    for name, p in (("unit2_job", s.bolt), ("unit1_scrub_close", s.patch), ("unit1_paint_close", s.patch),
-                    ("unit1_paint", s.patch)):
+    for name, p in (("unit2_job", s.bolt), ("unit1_scrub", s.patch), ("unit1_paint", s.patch)):
         shot = next(x for x in SHOTS if x.name == name)
         e = np.array(camera_at_film(shot.film[1] - 0.01, SHOTS)[0])
         assert _hits(tris, e, np.array(p) + 0.05 * np.array(s.patch_normal)) == 0, name
