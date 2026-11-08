@@ -64,6 +64,13 @@ def worker(argv):
     p.add_argument("--fmax", type=float, default=0.0)
     p.add_argument("--storm_parts", default="gust,deck")
     p.add_argument("--cam", type=str, default="", choices=["", "close", "wide"])
+    p.add_argument("--seed", type=int, default=None)
+    p.add_argument("--cbf", action="store_true")
+    p.add_argument("--cbf_fmax", type=float, default=40.0)
+    p.add_argument("--cbf_gamma", type=float, default=0.5)
+    p.add_argument("--cbf_margin", type=float, default=2.0)
+    p.add_argument("--cbf_alpha", type=float, default=1.0)
+    p.add_argument("--tag", type=str, default="")
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -86,6 +93,8 @@ def worker(argv):
     task, cfg_name = TASKS[args.robot]
     env_cfg = getattr(C, cfg_name)()
     env_cfg.scene.num_envs = args.num_envs
+    if args.seed is not None:
+        env_cfg.seed = args.seed
     if args.storm >= 0:
         env_cfg.storm_level_range = (args.storm, args.storm)
         if "deck" not in args.storm_parts:
@@ -123,6 +132,13 @@ def worker(argv):
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
     runner.load(args.ckpt)
     policy = runner.get_inference_policy(device=base.device)
+    shield = None
+    if args.cbf:
+        from policy.cbf_shield import CBFShield, attach
+
+        shield = attach(base, CBFShield(base.num_envs, k0=env_cfg.spring_k_nominal, f_max=args.cbf_fmax,
+                                        gamma=args.cbf_gamma, margin=args.cbf_margin, alpha=args.cbf_alpha,
+                                        device=base.device))
     policy_nn = runner.alg.policy
     normalizer = getattr(policy_nn, "actor_obs_normalizer", None)
     exp_dir = os.path.join(args.out_dir, "exported")
@@ -153,6 +169,8 @@ def worker(argv):
                 act = torch.where(paused[:, None], retract, act)
             obs, _, dones, _ = env.step(act)
             paused &= ~dones.bool()
+            if shield is not None:
+                shield.reset(dones)
         step += 1
         if dones.any() and getattr(base, "last_episode_stats", None) is not None:
             st = base.last_episode_stats
@@ -177,12 +195,16 @@ def worker(argv):
         "episodes_with_new_patch": len(np_),
         "new_patch_handled_rate": (sum(np_) / len(np_)) if np_ else None,
         "wall_s": round(time.time() - t0, 1),
+        "seed": args.seed, "cbf": bool(args.cbf),
     }
+    if shield is not None:
+        res.update({"cbf_fmax": args.cbf_fmax, "cbf_gamma": args.cbf_gamma, "cbf_margin": args.cbf_margin,
+                    "cbf_alpha": args.cbf_alpha, "cbf_duty": shield.duty()})
     print("[play] EVAL", json.dumps(res), flush=True)
     os.makedirs(args.out_dir, exist_ok=True)
-    with open(os.path.join(args.out_dir, "eval_meta.json" if args.meta else "eval.json"), "w") as f:
+    with open(os.path.join(args.out_dir, f"eval{'_meta' if args.meta else ''}{args.tag}.json"), "w") as f:
         json.dump(res, f, indent=1)
-    with open(os.path.join(args.out_dir, "episodes_meta.json" if args.meta else "episodes.json"), "w") as f:
+    with open(os.path.join(args.out_dir, f"episodes{'_meta' if args.meta else ''}{args.tag}.json"), "w") as f:
         json.dump(recs, f)
     if frames:
         import imageio
