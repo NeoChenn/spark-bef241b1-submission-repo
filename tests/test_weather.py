@@ -50,3 +50,9 @@ def test_named_conditions_split_rain_and_fog():
     base = {"height": 0.004, "dist": 0.001, "color": (0.3, 0.2, 0.1)}
     calm = wx.target("calm", fog_base=base)
     assert calm["fog_height"] == 0.004 and calm["fog_color"] == (0.3, 0.2, 0.1)
+
+
+def test_fog_rolls_only_when_foggy():
+    assert wx.roll(3.0, 0.0) == 1.0
+    vals = [wx.roll(t, 1.0) for t in range(0, 60, 3)]
+    assert max(vals) > 1.0 > min(vals) and all(0.7 < v < 1.3 for v in vals)

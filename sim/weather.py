@@ -4,7 +4,8 @@ import math
 
 LEVELS = {"calm": (0.0, 0.0, 0.0), "fog": (0.15, 0.0, 1.0), "wind": (0.6, 0.0, 0.0), "rain": (0.6, 1.0, 0.3),
           "storm": (1.0, 1.0, 0.6)}
-FOG = {"height": (0.002, 0.06), "dist": (0.0, 0.014), "color": ((0.05, 0.16, 0.18), (0.17, 0.21, 0.23))}
+FOG = {"height": (0.002, 0.14), "dist": (0.0, 0.032), "color": ((0.05, 0.16, 0.18), (0.2, 0.25, 0.27))}
+ROLL = 0.25
 PRESET_LEVEL = {"storm": 1.0}
 RAMP_S = 4.0
 STORM_HEIGHT = 2.5
@@ -54,6 +55,10 @@ def target(level, wind_dir=None, gust=None, base_height: float = 1.5, fog_base=N
                fog_dist=lerp(base["dist"], max(base["dist"], FOG["dist"][1]), fog),
                fog_color=lerp(tuple(base["color"]), FOG["color"][1], fog))
     return out
+
+
+def roll(t: float, fog: float) -> float:
+    return 1.0 + ROLL * fog * math.sin(t * 0.35) * math.sin(t * 0.13 + 1.0)
 
 
 def wet(base_wetness: float, base_puddles: float, rain: float) -> tuple[float, float]:
@@ -161,11 +166,11 @@ class Controller:
 
         st = carb.settings.get_settings()
         st.set_bool("/rtx/fog/enabled", True)
-        st.set_float("/rtx/fog/fogHeightDensity", float(w["fog_height"]))
+        st.set_float("/rtx/fog/fogHeightDensity", float(w["fog_height"]) * roll(t, w["fog"]))
         st.set_float("/rtx/fog/fogDistanceDensity", float(w["fog_dist"]))
         st.set_float_array("/rtx/fog/fogColor", [float(c) for c in w["fog_color"]])
         if self.atm is not None and not isinstance(self.args.get("level"), str) and t - self.atm_at >= ATM_EVERY_S:
             self.atm_at = t
             self.atm.set_weather(level=w["level"], wind_dir=self.args.get("wind_dir"), gust=self.args.get("gust"))
-        if self.ramp.done(t):
+        if self.ramp.done(t) and w["fog"] < 0.05:
             self.live = False
