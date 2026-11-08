@@ -43,3 +43,24 @@ def test_live_run_folder_is_full_rate_with_disturbances_and_gzip():
         assert [x["type"] for x in rows if x["type"] == "object_report"] == ["object_report"]
         assert {x.get("name") for x in rows if x["type"] == "scenario"} >= {"object_dropped", "object_cleared", "push"}
         assert any(x["type"] == "nav_event" and x["event"] == "recovered" for x in rows)
+
+
+def test_replay_finds_the_isaac_video_and_serves_ranges(tmp_path):
+    d = tmp_path / "runs_sample/fleet_demo"
+    d.mkdir(parents=True)
+    (d / "live_hud.jsonl").write_text(json.dumps({"t": 0.0, "robots": [{"id": "unit1"}]}) + "\n")
+    (d / "live_timeline.jsonl").write_text("")
+    for name, tl in (("old", "runs_sample/other/live_timeline.jsonl"), ("final2", "runs_sample/fleet_demo/live_timeline.jsonl"), ("broken", None)):
+        v = tmp_path / "runs/fleet_isaac" / name
+        v.mkdir(parents=True)
+        (v / "fleet_isaac.mp4").write_bytes(b"\0" * 64 + (b"moov" if name != "broken" else b"mdat") + b"\0" * 4000)
+        (v / "fleet_isaac_header.jsonl").write_text(json.dumps({"frame": 0, "t": 0.0}) + "\n" + json.dumps({"frame": 30, "t": 1.0}) + "\n")
+        if tl:
+            (v / "fleet_isaac.json").write_text(json.dumps({"timeline": tl}))
+    with TestClient(create_app(sim_port=0, root=tmp_path)) as c:
+        s = c.get("/api/replay", params={"path": "runs_sample/fleet_demo"}).json()
+        assert s["video"] == {"url": "/api/video?path=runs/fleet_isaac/final2/fleet_isaac.mp4", "t0": 0.0, "t1": 1.0}
+        assert c.get("/api/replay", params={"path": "runs_sample/fleet_demo", "video": "runs/none.mp4"}).json()["video"] is None
+        r = c.get(s["video"]["url"], headers={"Range": "bytes=10-19"})
+        assert r.status_code == 206 and len(r.content) == 10
+        assert c.get("/api/video", params={"path": "../x.mp4"}).status_code == 403

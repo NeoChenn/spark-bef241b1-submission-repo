@@ -29,6 +29,7 @@ STALE_AFTER_S = 2.0
 BLACK_MEAN = 3.0
 HEADER_FILES = ("headers.jsonl", "header.jsonl", "hud.jsonl", "frames.jsonl", "live_hud.jsonl", "live_hud_1hz.jsonl")
 TIMELINE_FILES = ("timeline.jsonl", "live_timeline.jsonl")
+VIDEO_DIRS = ("runs/fleet_isaac", "runs_sample/fleet_isaac")
 TIMELINE_TYPES = ("finding", "argon_request", "argon_call", "command", "ticket", "vetoed", "object_report", "nav_event", "scenario")
 
 
@@ -55,7 +56,47 @@ def fleet_session(p: Path) -> dict | None:
             k += 1
         if k > n:
             h["argon_rows"] = marks[n:k]
-    return {"snapshots": heads, "duration": heads[-1]["pt"], "replay": True, "fleet_demo": True}
+    return {"snapshots": heads, "duration": heads[-1]["pt"], "replay": True, "fleet_demo": True, "timeline_file": str(tl) if tl else None}
+
+
+def _has_moov(f: Path) -> bool:
+    with f.open("rb") as fh:
+        if b"moov" in fh.read(1 << 16):
+            return True
+        fh.seek(max(0, f.stat().st_size - (1 << 20)))
+        return b"moov" in fh.read()
+
+
+def video_info(root: Path, mp4: Path) -> dict | None:
+    hdr = mp4.parent / "fleet_isaac_header.jsonl"
+    if not mp4.is_file() or not _has_moov(mp4):
+        return None
+    t0 = t1 = 0.0
+    if hdr.is_file():
+        with hdr.open("rb") as fh:
+            t0 = float(json.loads(fh.readline())["t"])
+            fh.seek(max(0, hdr.stat().st_size - (1 << 16)))
+            t1 = float(json.loads(fh.read().splitlines()[-1])["t"])
+    return {"url": "/api/video?path=" + str(mp4.relative_to(root)), "t0": t0, "t1": t1}
+
+
+def find_video(root: Path, timeline: str | None) -> dict | None:
+    found = []
+    for vd in VIDEO_DIRS:
+        for mp4 in (root / vd).glob("*/fleet_isaac.mp4"):
+            d = mp4.parent
+            if not (d / "fleet_isaac_header.jsonl").is_file():
+                continue
+            meta = d / "fleet_isaac.json"
+            tl = json.loads(meta.read_text()).get("timeline") if meta.is_file() else None
+            if timeline and tl and tl != timeline:
+                continue
+            found.append(mp4)
+    for mp4 in sorted(found, key=lambda f: f.stat().st_mtime, reverse=True):
+        info = video_info(root, mp4)
+        if info:
+            return info
+    return None
 
 
 class FrameHub:
@@ -217,7 +258,7 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
         return FileResponse(fleet_file("fleet_map.json"), media_type="application/json")
 
     @app.get("/api/replay")
-    async def replay(path: str, request: Request) -> Response:
+    async def replay(path: str, request: Request, video: str | None = None) -> Response:
         from rig.replay import load_timeline, timeline_session
         p = (root / path).resolve()
         if not any(p.is_relative_to(root / d) for d in ("runs", "runs_sample")):
@@ -226,6 +267,10 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             raise HTTPException(404, f"no {path}")
         fleet = await asyncio.to_thread(fleet_session, p)
         if fleet is not None:
+            tf = fleet.pop("timeline_file", None)
+            rel = str(Path(tf).relative_to(root)) if tf and Path(tf).is_relative_to(root) else None
+            v = inside(video) if video else None
+            fleet["video"] = await asyncio.to_thread(lambda: video_info(root, v) if v else find_video(root, rel))
             body = await asyncio.to_thread(lambda: json.dumps(fleet, separators=(",", ":")).encode())
             if "gzip" not in request.headers.get("accept-encoding", ""):
                 return Response(body, media_type="application/json")
@@ -234,6 +279,19 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
         if not p.is_file():
             raise HTTPException(404, f"no replay in {path}")
         return await asyncio.to_thread(lambda: timeline_session(load_timeline(p)))
+
+    def inside(rel: str) -> Path:
+        v = (root / rel).resolve()
+        if not any(v.is_relative_to(root / d) for d in ("runs", "runs_sample")):
+            raise HTTPException(403, "videos must live under runs/ or runs_sample/")
+        return v
+
+    @app.get("/api/video")
+    async def video_file(path: str) -> FileResponse:
+        v = inside(path)
+        if v.suffix != ".mp4" or not v.is_file():
+            raise HTTPException(404, f"no {path}")
+        return FileResponse(v, media_type="video/mp4")
 
     @app.get("/api/bench")
     async def bench() -> list:
