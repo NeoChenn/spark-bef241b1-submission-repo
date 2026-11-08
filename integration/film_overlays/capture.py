@@ -142,9 +142,15 @@ def board_data(R: dict, stub: dict, span: float = 12.0, sim_span=None) -> dict:
         if f["after"] is None:
             f.pop("state_after", None)
     calls = _get(R["summary"], (KEYS["argon_calls"],))
-    if isinstance(calls, list) and calls:
-        b["argon"]["calls"] = len(calls)
-        b["argon"]["cost_usd"] = round(sum(float(c.get("cost_usd") or 0) for c in calls), 4)
+    if isinstance(calls, list):
+        steps, n, cost = [[0.0, 0, 0.0]], 0, 0.0
+        for c in sorted(calls, key=lambda c: float(c.get("t_reply") or 0)):
+            tr = c.get("t_reply")
+            if tr is None or c.get("status", "ok") != "ok" or not (kn[0][1] - 1e-6 <= float(tr) <= kn[-1][1] + 1e-6):
+                continue
+            n, cost = n + 1, cost + float(c.get("cost_usd") or 0)
+            steps.append([_u(kn, float(tr)), n, round(cost, 4)])
+        b["argon"]["calls"] = steps
     heads = [h for h in R["heads"] if isinstance(h.get(KEYS["board"]), dict)]
     if not heads:
         return b

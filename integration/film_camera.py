@@ -32,6 +32,7 @@ class FilmScene:
     unit2_dock: Vec3 = (*DOCK["unit2"][:2], TRUNK_Z)
     unit2_work: Vec3 = (21.012, -10.27, TRUNK_Z)
     bolt: Vec3 = (20.5072, -10.5843, 43.3081)
+    bolt_axis: Vec3 = (-0.92034082, -0.39111735, 0.0)
     flange: Vec3 = (20.4602, -10.5044, 43.4)
 
 
@@ -110,6 +111,19 @@ def unit2_job(scene: FilmScene = DEFAULT_FILM_SCENE) -> tuple[Vec3, Vec3, float]
 
 
 CLOSE_UP = (1.0, 1.0, 62.0)
+SOCKET_VIEW = {"elevation": 62.0, "distance": 2.0, "focal": 50.0, "pull_m": 0.9, "pull_focal": 40.0}
+
+
+def socket_view(scene: FilmScene = DEFAULT_FILM_SCENE, pull: float = 0.0) -> tuple[Vec3, Vec3, float]:
+    v = SOCKET_VIEW
+    a = np.asarray(scene.bolt_axis, float)
+    side = np.array([-a[1], a[0], 0.0])
+    side = side / np.linalg.norm(side) * (1.0 if side[1] >= 0 else -1.0)
+    el = math.radians(v["elevation"])
+    d = math.cos(el) * side + math.sin(el) * np.array([0.0, 0.0, 1.0])
+    k = ease(pull)
+    eye = np.asarray(scene.bolt) + (v["distance"] + v["pull_m"] * k) * d
+    return tuple(float(c) for c in eye), scene.bolt, v["focal"] + (v["pull_focal"] - v["focal"]) * k
 
 
 def unit1_close(scene: FilmScene = DEFAULT_FILM_SCENE) -> tuple[Vec3, Vec3, float]:

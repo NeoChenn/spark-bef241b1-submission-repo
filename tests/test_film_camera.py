@@ -120,11 +120,10 @@ def test_work_shots_frame_the_bolt_the_patch_and_the_arms():
     s = DEFAULT_FILM_SCENE
     w = s.unit1_work
     unit1 = [s.patch, (w[0], w[1], w[2] + 1.1), (w[0] - 0.35, w[1], 42.5), (w[0] + 0.35, w[1], 42.5)]
-    unit2 = [s.bolt, s.flange, (s.unit2_work[0], s.unit2_work[1], s.unit2_work[2] + 1.1)]
-    for name, pts, far, lead in (("unit2_job", unit2, 4.5, 1.3), ("unit1_spray", unit1, 4.0, 1.3),
+    for name, pts, far, lead in (("unit2_job", [s.bolt, s.flange], 2.0, 1.6), ("unit1_spray", unit1, 4.0, 1.3),
                                  ("unit1_soak", unit1, 4.0, 0.0), ("unit1_paint", unit1, 4.0, 0.0)):
         shot = next(x for x in SHOTS if x.name == name)
-        end = shot.film[1] - 0.01 if name != "unit1_paint" else shot.film[1] - 2.5
+        end = {"unit1_paint": shot.film[1] - 2.5, "unit2_job": shot.film[0] + 6.5}.get(name, shot.film[1] - 0.01)
         for t in np.linspace(shot.film[0] + lead, end, 6):
             e, g, f, _ = camera_at_film(t, SHOTS)
             cam = view(e, g, f)
@@ -134,6 +133,47 @@ def test_work_shots_frame_the_bolt_the_patch_and_the_arms():
             assert np.linalg.norm(np.subtract(e, pts[0])) < far
             if name != "unit2_job":
                 assert 0.2 * cam["h"] < project(cam, s.patch)[1] < 0.5 * cam["h"]
+
+
+def test_the_socket_view_is_side_on_and_fills_the_frame():
+    s = DEFAULT_FILM_SCENE
+    shot = next(x for x in SHOTS if x.name == "unit2_job")
+    axis = np.asarray(s.bolt_axis)
+    for t in np.linspace(shot.film[0] + 1.6, shot.film[0] + 6.5, 5):
+        e, g, f, _ = camera_at_film(t, SHOTS)
+        v = np.subtract(e, s.bolt)
+        assert 1.5 <= np.linalg.norm(v) <= 2.0 and 50.0 <= f <= 60.0
+        assert 75.0 <= np.degrees(np.arccos(abs(v @ axis) / np.linalg.norm(v))) <= 105.0
+        cam = view(e, g, f)
+        side = np.cross(axis, (0.0, 0.0, 1.0))
+        rim = [np.asarray(s.flange) + 0.17 * (np.cos(a) * side + np.sin(a) * np.array([0.0, 0.0, 1.0]))
+               for a in np.linspace(0, 2 * np.pi, 16)]
+        vs = [project(cam, p)[1] for p in rim]
+        assert 0.3 <= (max(vs) - min(vs)) / cam["h"] <= 0.8
+    e0 = camera_at_film(shot.film[0] + 6.5, SHOTS)
+    e1 = camera_at_film(shot.film[1] - 1e-3, SHOTS)
+    assert np.linalg.norm(np.subtract(e1[0], s.bolt)) > np.linalg.norm(np.subtract(e0[0], s.bolt)) + 0.5
+
+
+def test_the_socket_sightline_clears_the_fixer_arm():
+    timeline = Path(__file__).resolve().parent.parent / "runs_sample/film/timeline.jsonl"
+    if not timeline.exists():
+        pytest.skip("no film timeline")
+    rm = pytest.importorskip("integration.retorque_motion")
+    m = rm.from_timeline(timeline)
+    s = DEFAULT_FILM_SCENE
+    shot = next(x for x in SHOTS if x.name == "unit2_job")
+    links = ("ur3_shoulder_link", "ur3_upper_arm_link", "ur3_forearm_link", "ur3_wrist_1_link", "ur3_wrist_2_link")
+    for t in np.arange(46.0, 50.2, 0.25):
+        e = np.array(camera_at_film(shot.film[0] + (t - shot.sim[0]) / shot.rate, SHOTS)[0])
+        P = {k: v[:3, 3] for k, v in m.model.link_poses(m.base, m._full(m.vector(t))).items()}
+        for target in (np.asarray(s.bolt), P["socket_link"]):
+            w = target - e
+            for a, b in zip(links[:-1], links[1:]):
+                for k in np.linspace(0, 1, 12):
+                    p = P[a] + (P[b] - P[a]) * k
+                    u = np.clip((p - e) @ w / (w @ w), 0.0, 0.97)
+                    assert np.linalg.norm(e + u * w - p) > 0.09, (t, a, b)
 
 
 def test_the_scrub_close_up_fills_the_frame_with_the_patch():

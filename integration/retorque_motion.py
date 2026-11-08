@@ -18,6 +18,50 @@ LEAK_META = REPO / "sim/output/leak_flanges_meta.json"
 JOINTS = [LIFT_JOINT, *ARM_JOINTS, SOCKET_JOINT]
 STOW = {LIFT_JOINT: 0.12, "ur3_shoulder_pan_joint": 0.0, "ur3_shoulder_lift_joint": -1.45, "ur3_elbow_joint": 2.55,
         "ur3_wrist_1_joint": -1.1, "ur3_wrist_2_joint": 1.52, "ur3_wrist_3_joint": 0.0, SOCKET_JOINT: 0.0}
+CAPSULES = (("ur3_base_link", "ur3_shoulder_link", 0.045), ("ur3_shoulder_link", "ur3_upper_arm_link", 0.045),
+            ("ur3_upper_arm_link", "ur3_forearm_link", 0.045), ("ur3_forearm_link", "ur3_wrist_1_link", 0.045),
+            ("ur3_wrist_1_link", "ur3_wrist_2_link", 0.045), ("ur3_wrist_2_link", "ur3_wrist_3_link", 0.045),
+            ("ur3_wrist_3_link", "gripper_base", 0.045))
+PALM_R = 0.082
+SOCKET_R = 0.022
+CLEAR_M = 0.015
+CONTACT = ("engage", "torque", "disengage")
+
+
+@dataclass
+class Cylinder:
+    name: str
+    p0: np.ndarray
+    p1: np.ndarray
+    radius: float
+
+    def distance(self, pts) -> np.ndarray:
+        pts = np.atleast_2d(np.asarray(pts, float))
+        p0, p1 = np.asarray(self.p0, float), np.asarray(self.p1, float)
+        d = p1 - p0
+        L = float(np.linalg.norm(d))
+        u = d / L
+        rel = pts - p0
+        a = rel @ u
+        r = np.linalg.norm(rel - a[:, None] * u, axis=1)
+        da = np.maximum(np.maximum(-a, a - L), 0.0)
+        dr = np.maximum(r - self.radius, 0.0)
+        inside = (da == 0) & (dr == 0)
+        pen = np.minimum(np.minimum(a, L - a), self.radius - r)
+        return np.where(inside, -pen, np.hypot(da, dr))
+
+
+def flange_obstacles(flange: FlangeGeometry, skip_bolt: Optional[int] = None) -> list[Cylinder]:
+    c, n = flange.center, flange.normal
+    out = [Cylinder("flange", c - 0.04 * n, c, flange.outer_radius),
+           Cylinder("pipe", c - 0.6 * n, c - 0.04 * n, flange.pipe_radius)]
+    for k in range(flange.n_bolts):
+        if k != skip_bolt:
+            b = flange.bolt_center(k)
+            out.append(Cylinder(f"bolt_{k}", b - flange.head_height * n, b, flange.head_radius))
+    return out
+
+
 PHASES = ("stow", "approach", "align", "engage", "torque", "disengage", "retract", "home")
 
 
@@ -26,7 +70,7 @@ class MotionConfig:
     lift: float = 0.40
     pre_m: float = 0.12
     align_gap_m: float = 0.02
-    engage_m: float = 0.008
+    engage_m: float = 0.015
     turn_steps: int = 3
     turn_deg: float = 40.0
     approach_s: float = 2.6
@@ -54,7 +98,8 @@ def _near(v: float, ref: float) -> float:
 class RetorqueMotion:
     def __init__(self, flange: Optional[FlangeGeometry] = None, bolt: int = 3, base: Optional[np.ndarray] = None,
                  t0: float = 0.0, config: Optional[MotionConfig] = None, skill: Optional[RetorqueSkill] = None,
-                 stow: Optional[dict] = None, start_q: Optional[dict] = None):
+                 stow: Optional[dict] = None, start_q: Optional[dict] = None, head=None, axis=None,
+                 obstacles: Optional[list] = None):
         self.cfg = config or MotionConfig()
         self.flange = flange or flange_from_meta()
         self.bolt = int(bolt)
@@ -64,8 +109,9 @@ class RetorqueMotion:
         self.model = self.skill.model
         self.stow = dict(STOW, **(stow or {}))
         self.start_q = None if start_q is None else {k: float(start_q.get(k, v)) for k, v in self.stow.items()}
-        self.axis = -self.flange.normal
-        self.head = self.flange.bolt_center(self.bolt)
+        self.axis = -self.flange.normal if axis is None else np.asarray(axis, float) / np.linalg.norm(axis)
+        self.head = self.flange.bolt_center(self.bolt) if head is None else np.asarray(head, float)
+        self.obstacles = flange_obstacles(self.flange, self.bolt) if obstacles is None else list(obstacles)
         self._build()
 
     def _full(self, v: np.ndarray) -> dict:
@@ -114,10 +160,10 @@ class RetorqueMotion:
 
     def _build(self) -> None:
         c = self.cfg
-        n = self.flange.normal
+        n = -self.axis
         p_pre = self.head + c.pre_m * n
         p_align = self.head + c.align_gap_m * n
-        p_engage = self.head - min(c.engage_m, self.flange.head_height) * n
+        p_engage = self.head - min(c.engage_m, self.flange.head_height - 0.002) * n
         stow = self._vec(self.stow)
         first = stow if self.start_q is None else self._vec(self.start_q)
         pre = self._pre(p_pre)
@@ -203,6 +249,44 @@ class RetorqueMotion:
         d = wr - sh
         s = float(np.clip((el - sh) @ d / max(float(d @ d), 1e-9), 0.0, 1.0))
         return float(el[2] - (sh + s * d)[2]) > 0.0
+
+    def clearance(self, v: np.ndarray, phase: str = "") -> tuple[float, str]:
+        P = self.model.link_poses(self.base, self._full(v))
+        best = (math.inf, "")
+        for a, b, r in CAPSULES:
+            pa, pb = P[a][:3, 3], P[b][:3, 3]
+            pts = pa + np.linspace(0.0, 1.0, 12)[:, None] * (pb - pa)
+            for o in self.obstacles:
+                d = float(o.distance(pts).min()) - r
+                if d < best[0]:
+                    best = (d, f"{a}->{o.name}")
+        G = P["gripper_base"]
+        palm = G[:3, 3] + 0.01 * G[:3, 0]
+        S = P["socket_tip"]
+        ax, tip = S[:3, 0], S[:3, 3]
+        side = np.cross(ax, [0.0, 0.0, 1.0])
+        side = side / np.linalg.norm(side) if np.linalg.norm(side) > 1e-6 else np.array([1.0, 0.0, 0.0])
+        up = np.cross(ax, side)
+        ring = [SOCKET_R * (math.cos(a) * side + math.sin(a) * up) for a in np.linspace(0, 2 * math.pi, 8, endpoint=False)]
+        sock = np.array([tip - s * ax + w for s in np.linspace(0.0, 0.115, 8) for w in [np.zeros(3), *ring]])
+        slack = CLEAR_M if phase in CONTACT else 0.0
+        for o in self.obstacles:
+            d = float(o.distance([palm])[0]) - PALM_R
+            if d < best[0]:
+                best = (d, f"palm->{o.name}")
+            d = float(o.distance(sock).min()) + slack
+            if d < best[0]:
+                best = (d, f"socket->{o.name}")
+        return best
+
+    def min_clearance(self, fps: float = 30.0) -> tuple[float, float, str]:
+        best = (math.inf, 0.0, "")
+        for i in range(int(self.duration * fps) + 1):
+            t = self.t0 + i / fps
+            d, what = self.clearance(self.vector(t), self.phase(t))
+            if d < best[0]:
+                best = (d, t, what)
+        return best
 
     def coaxial_error_deg(self) -> float:
         T = self.tool_pose(self.engage_q)

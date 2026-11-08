@@ -9,13 +9,15 @@ from typing import Callable, Optional
 import numpy as np
 
 from integration.film_camera import (DEFAULT_FILM_SCENE, TRUNK_Z, FilmScene, conclusion, control_push,
-                                     control_room, follow, rig_orbit, unit1_close, unit1_job, unit2_job, walk_home)
+                                     control_room, follow, rig_orbit, socket_view, unit1_close, unit1_job, unit2_job,
+                                     walk_home)
 from rig.sim.zoom import ease
 
 REPO = Path(__file__).resolve().parent.parent
 FILM_RUN = REPO / "runs_sample/film"
 FOLLOW_FOCAL = 33.0
 MOVE_S = 1.2
+UNIT2_IN_S = 1.5
 CLOSE_IN_S = 0.4
 PAINT_CLOSE_S = 1.5
 CLOSE_OUT_S = 1.0
@@ -160,6 +162,8 @@ def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE
     j2, j1, c1 = _still(unit2_job(s)), _still(unit1_job(s)), _still(unit1_close(s))
     home = min(b.u1_return, b.u2_return) if b.u2_return >= b.paint_done else b.u1_return
     p2, p1 = _pan(tr, "unit2", j2(0, 0)[0], b.u2_arrive), _pan(tr, "unit1", j1(0, 0)[0], b.u1_arrive)
+    pull0 = b.torque_done + 0.8
+    sock = lambda u, t: socket_view(s, ((pull0 if t is None else t) - pull0) / max(b.gf5_green + 0.3 - pull0, 0.1))
     plan = [
         ("rig", 6.0, (0.0, 0.0), lambda u, t: rig_orbit(u), "fade", "xfade", False),
         ("control_push", 4.0, (0.0, 0.0), lambda u, t: control_push(u), "xfade", "xfade", False),
@@ -167,7 +171,7 @@ def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE
         ("board_hold", 1.5, (b.dispatch_u2 + 0.3, b.dispatch_u2 + 0.3), lambda u, t: control_room(0.85 + 0.15 * u),
          "cut", "xfade", True),
         ("unit2_walk", 1.5, (b.u2_arrive - 1.5, b.u2_arrive), p2, "xfade", "cut", False),
-        ("unit2_job", 10.5, (b.u2_engage - 2.5, b.gf5_green + 0.8), j2, "cut", "cut", False),
+        ("unit2_job", 10.5, (b.u2_engage - 2.5, b.gf5_green + 0.8), sock, "cut", "cut", False),
         ("unit1_walk", 1.5, (b.u1_arrive - 1.5, b.u1_arrive), p1, "cut", "cut", False),
         ("unit1_spray", 3.4, (b.spray - 0.3, b.soak), j1, "cut", "cut", False),
         ("unit1_soak", 1.0, (b.soak, b.scrub), j1, "cut", "cut", False),
@@ -183,7 +187,7 @@ def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE
     for name, dur, sim, cam, t_in, t_out, two_d in plan:
         rate = (sim[1] - sim[0]) / dur
         if name in ("unit2_job", "unit1_spray"):
-            cam = _blend(prev, cam, MOVE_S, dur)
+            cam = _blend(prev, cam, UNIT2_IN_S if name == "unit2_job" else MOVE_S, dur)
         badge = "" if rate <= 1.05 or two_d else f"{rate:.1f}x".replace(".0x", "x")
         shots.append(Shot(name, (t, t + dur), sim, rate, cam, t_in, t_out, two_d, badge))
         t, prev = t + dur, cam

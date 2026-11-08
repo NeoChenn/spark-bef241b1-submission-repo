@@ -62,7 +62,7 @@ def test_socket_is_coaxial_with_bolt_3_and_slides_on(m):
         assert np.linalg.norm(off - (off @ m.axis) * m.axis) < 0.002
     tip = m.tool_pose(m.t0 + b)[:3, 3]
     depth = float((tip - m.head) @ m.axis)
-    assert depth == pytest.approx(0.008, abs=0.0015)
+    assert depth == pytest.approx(min(0.015, m.flange.head_height - 0.002), abs=0.0015)
 
 
 def test_socket_never_enters_the_flange_outside_engage(m, frames):
@@ -159,3 +159,18 @@ def test_standby_after_verify_keeps_the_home_phase_short(tmp_path, after):
     for t in (55.0, 80.0, 114.0):
         assert m.phase(t) == "done"
         assert all(m.at(t)[j] == pytest.approx(STOW[j], abs=1e-6) for j in ARM)
+
+
+def test_every_link_clears_the_flange_pipe_and_heads(m):
+    from integration.retorque_motion import CLEAR_M
+    d, t, what = m.min_clearance(30.0)
+    assert d >= CLEAR_M, (d, t, what)
+
+
+def test_checker_sees_a_link_driven_through_the_flange(m):
+    from integration.retorque_motion import Cylinder
+    v = m.engage_q.copy()
+    P = m.model.link_poses(m.base, m._full(v))
+    w = P["ur3_wrist_1_link"][:3, 3]
+    bad = RetorqueMotion(m.flange, 3, t0=0.0, obstacles=[Cylinder("block", w - [0, 0, 0.05], w + [0, 0, 0.05], 0.03)])
+    assert bad.clearance(v)[0] < 0.0
