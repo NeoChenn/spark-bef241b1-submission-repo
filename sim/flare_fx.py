@@ -23,7 +23,7 @@ FRAMES = COLS * ROWS
 FPS = 18.0
 HEIGHT, WIDTH = 24.0, 14.0
 WIND = (2.6, 1.5)
-EMISSION = 9.0
+EMISSION = float(os.environ.get("RIG_FLARE_GAIN", "1500"))
 CARDS = (
     (0.0, 1.0, 1.0, 0.0, 1.0),
     (38.0, 0.8, 0.82, 0.37, 1.27),
@@ -31,7 +31,7 @@ CARDS = (
 )
 SEGMENTS = 12
 SMOKE_N, SMOKE_LIFE, SMOKE_LEVELS = 40, 10.0, 5
-HALO_SIZE, HALO_GAIN, HALO_ALPHA = 70.0, 1.2, 0.5
+HALO_SIZE, HALO_GAIN, HALO_ALPHA = 70.0, EMISSION * 0.12, 0.5
 STOPS = (
     (0.0, (0.35, 0.03, 0.0)),
     (0.3, (1.0, 0.18, 0.01)),

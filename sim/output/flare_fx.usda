@@ -55,7 +55,7 @@ over "World"
                     )
                     float inputs:cols = 8
                     float inputs:frame = 0
-                    float inputs:gain = 9
+                    float inputs:gain = 1500
                     float inputs:rows = 4
                     token outputs:out
                 }
@@ -76,7 +76,7 @@ over "World"
                     )
                     float inputs:cols = 8
                     float inputs:frame = 0
-                    float inputs:gain = 9
+                    float inputs:gain = 1500
                     float inputs:rows = 4
                     token outputs:out
                 }
@@ -97,7 +97,7 @@ over "World"
                     )
                     float inputs:cols = 8
                     float inputs:frame = 0
-                    float inputs:gain = 9
+                    float inputs:gain = 1500
                     float inputs:rows = 4
                     token outputs:out
                 }
@@ -118,7 +118,7 @@ over "World"
                         colorSpace = "raw"
                     )
                     float inputs:cols = 1
-                    float inputs:gain = 1.2
+                    float inputs:gain = 180
                     float inputs:rows = 1
                     token outputs:out
                 }
