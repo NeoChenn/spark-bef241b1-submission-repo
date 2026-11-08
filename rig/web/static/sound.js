@@ -172,5 +172,5 @@
   }
 
   if (!wire()) addEventListener("DOMContentLoaded", wire, { once: true });
-  window.Sound = { play, boot, mute: setMuted, muted, weld: () => !!weld };
+  window.Sound = { play, boot, mute: setMuted, muted, weld: () => !!weld, state: () => (AC ? (ctx ? ctx.state : "none") : "unsupported") };
 })();
