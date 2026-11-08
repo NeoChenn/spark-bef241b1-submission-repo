@@ -258,7 +258,7 @@ def dress(stage, work, args):
                             robot_color=args.robot_color)
 
 
-def lead_camera(p, yaw, front=2.6, side=2.1, height=1.75):
+def lead_camera(p, yaw, front=2.6, side=1.35, height=1.75):
     import numpy as np
 
     c, s = math.cos(yaw), math.sin(yaw)
@@ -406,7 +406,7 @@ def main(argv):
     p.add_argument("--track_s", type=float, default=60.0)
     p.add_argument("--patrol_s", type=float, default=150.0)
     p.add_argument("--v_max", type=float, default=1.0)
-    p.add_argument("--start_back", type=float, default=10.0)
+    p.add_argument("--start_back", type=float, default=8.0)
     p.add_argument("--focal", type=float, default=24.0)
     p.add_argument("--pos_tol", type=float, default=0.06)
     p.add_argument("--v_min", type=float, default=0.25)
