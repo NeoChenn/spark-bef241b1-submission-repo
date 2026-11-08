@@ -6,6 +6,7 @@ import carb.settings
 import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
+import facade
 import ocean
 import photoreal
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
@@ -431,6 +432,7 @@ def build_stage() -> Usd.Stage:
 
 def apply_preset(stage, name: str) -> None:
     preset = PRESETS[name]
+    facade.apply(stage, preset["windows"])
     photoreal.apply(stage, name)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))
