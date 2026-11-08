@@ -63,7 +63,7 @@ def robot_cfg(urdf: str = "") -> ArticulationCfg:
             joint_drive=sim_utils.UrdfConverterCfg.JointDriveCfg(
                 gains=sim_utils.UrdfConverterCfg.JointDriveCfg.PDGainsCfg(stiffness=0.0, damping=0.0)),
         ),
-        init_state=ArticulationCfg.InitialStateCfg(pos=(0.0, 0.0, 0.42), joint_pos={**STANDING, **ARM_STOWED},
+        init_state=ArticulationCfg.InitialStateCfg(pos=(0.0, 0.0, 0.36), joint_pos={**STANDING, **ARM_STOWED},
                                                    joint_vel={".*": 0.0}),
         soft_joint_pos_limit_factor=0.9,
         actuators={

@@ -63,7 +63,7 @@ def load_policy(env, ckpt: str):
     return wrapped, runner.get_inference_policy(device=env.unwrapped.device)
 
 
-def place(base, xy, yaw, z=0.42):
+def place(base, xy, yaw, z=0.36):
     import torch
 
     r = base.scene["robot"]
