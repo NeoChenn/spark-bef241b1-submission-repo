@@ -1,33 +1,4 @@
 {
- "nv_air_compressor_a01": {
-  "min": [
-   -0.7565,
-   -0.2727,
-   0.0
-  ],
-  "max": [
-   0.9347,
-   0.2727,
-   1.1804
-  ],
-  "mpu": 1.0,
-  "up": "Z",
-  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Equipment_AirCompressor_A01/sm_equipment_airCompressor_a01_01.usd"
- },
- "nv_suppression_cyl_b01": {
-  "min": [
-   -0.1816,
-   -0.1163,
-   0.0
-  ],
-  "max": [
-   0.1766,
-   0.1163,
-   0.1741
-  ],
-  "mpu": 1.0,
-  "up": "Z"
- },
  "nv_tripod_light": {
   "min": [
    -0.3831,
@@ -41,7 +12,102 @@
   ],
   "mpu": 1.0,
   "up": "Z",
-  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Tripod_Flood_Task_Light_A01/sm_lighting_taskLight_tripodFlood_a01_01.usd"
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Tripod_Flood_Task_Light_A01/sm_lighting_taskLight_tripodFlood_a01_01.usd",
+  "physics": {
+   "apis": {
+    ".": [
+     "PhysicsArticulationRootAPI"
+    ],
+    "Geometry/body_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/wheel_03_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/pole_01_obj_00": [
+     "PhysicsRigidBodyAPI",
+     "PhysicsMassAPI"
+    ],
+    "Geometry/glass_03_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/glass_02_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/wheelSupport_03_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/wheelSupport_02_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/glass_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/light_03_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/wheel_02_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/wheelSupport_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/light_02_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/wheel_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/light_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__plastic__orange_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__rubber__new_black_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__paintedRough_black_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__plastic__rough_black_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__aluminiumClean_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__plastic__glossy_white_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_trans__glass__clean_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__plastic__red_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__plastic__glossy_black_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__plastic__emissive_yellow_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "Joints/joint_light_03_joint_00": [
+     "PhysicsDriveAPI:angular"
+    ],
+    "Joints/joint_light_01_joint_00": [
+     "PhysicsDriveAPI:angular"
+    ],
+    "Joints/joint_pole_01_joint_00": [
+     "PhysicsDriveAPI:linear"
+    ],
+    "Joints/joint_light_02_joint_00": [
+     "PhysicsDriveAPI:angular"
+    ]
+   },
+   "joints": [
+    "Joints"
+   ]
+  }
  },
  "nv_scaffold_a01": {
   "min": [
@@ -56,7 +122,56 @@
   ],
   "mpu": 1.0,
   "up": "Z",
-  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Equipment/Rolling_Steel_Scaffold_A01/sm_scaffold_rolling_steel_a01_01.usd"
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Equipment/Rolling_Steel_Scaffold_A01/sm_scaffold_rolling_steel_a01_01.usd",
+  "physics": {
+   "apis": {
+    "Geometry/sm_platform_a01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/sm_front_left_wheel_a01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/sm_front_right_wheel_a01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/sm_back_left_tire_a01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/sm_front_left_tire_a01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/sm_back_left_wheel_a01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/sm_back_right_tire_a01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/sm_back_right_wheel_a01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/sm_front_right_tirel_a01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__metal__painted_yellow_a": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__metal__steel_a": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__paper__decals_a": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__wood__frame_a": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__rubber__black_a": [
+     "PhysicsMaterialAPI"
+    ]
+   },
+   "joints": [
+    "Joints"
+   ]
+  }
  },
  "nv_ibc_steel_a01": {
   "min": [
@@ -71,7 +186,35 @@
   ],
   "mpu": 1.0,
   "up": "Z",
-  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Ibc_Tank_Steel_Stainless_A01/sm_ibcTank_steel_stainless_a01_01.usd"
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Ibc_Tank_Steel_Stainless_A01/sm_ibcTank_steel_stainless_a01_01.usd",
+  "physics": {
+   "apis": {
+    "Geometry/sm_body_a01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/sm_lid_a01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/sm_lidelement_a01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__metal__glossy_b": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__paper__decals_a": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__plastic__blue_a": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__metal__aluminium_brushed_a": [
+     "PhysicsMaterialAPI"
+    ]
+   },
+   "joints": [
+    "Joints"
+   ]
+  }
  },
  "nv_stillage_d01": {
   "min": [
@@ -86,7 +229,41 @@
   ],
   "mpu": 1.0,
   "up": "Z",
-  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Racks/Storage_System_Heavy_Duty_D01/sm_storageSystem_rack_heavyDuty_d01_01.usd"
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Racks/Storage_System_Heavy_Duty_D01/sm_storageSystem_rack_heavyDuty_d01_01.usd",
+  "physics": {
+   "apis": {
+    "Geometry/body_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__paintedNoise_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__anodizedSteel_semiGloss_orande_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__plastic__green_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__brushedAniso_clean_b01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__steelEnamel_wite_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__chromeClean_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__glossy_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__steel_paintedFine_a01": [
+     "PhysicsMaterialAPI"
+    ]
+   },
+   "joints": [
+    "Joints"
+   ]
+  }
  },
  "nv_pipe_bundle_b08": {
   "min": [
@@ -101,7 +278,26 @@
   ],
   "mpu": 1.0,
   "up": "Z",
-  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Equipment/Pipe_Plastic_Gray_B08/sm_pipe_plastic_gray_b08_01.usd"
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Equipment/Pipe_Plastic_Gray_B08/sm_pipe_plastic_gray_b08_01.usd",
+  "physics": {
+   "apis": {
+    "Geometry/sm_pipe_plastic_gray_b08_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__rubber__black_glossy_standard_a": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__wood__new_standard_a": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__plastic__gray_a": [
+     "PhysicsMaterialAPI"
+    ]
+   },
+   "joints": [
+    "Joints"
+   ]
+  }
  },
  "nv_hopper_blue_a04": {
   "min": [
@@ -116,22 +312,35 @@
   ],
   "mpu": 1.0,
   "up": "Z",
-  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Hopper_Dumpling_Steel_Blue_A04/sm_hopper_dumpling_steel_blue_a04_01.usd"
- },
- "nv_barrier_rail_a02": {
-  "min": [
-   -0.1149,
-   -0.115,
-   0.0001
-  ],
-  "max": [
-   1.1149,
-   0.115,
-   1.0719
-  ],
-  "mpu": 1.0,
-  "up": "Z",
-  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Barriers/Barrier_Fence_Metal_A02/sm_barrier_fence_metal_a02_01.usd"
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Hopper_Dumpling_Steel_Blue_A04/sm_hopper_dumpling_steel_blue_a04_01.usd",
+  "physics": {
+   "apis": {
+    "Geometry/sm_hopper_dumpling_steel_blue_a04_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__metal__chrome_a": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__metal__painted_blue_a": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__metal__glossy_a": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__paper__decals_a": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__metal__glossy_b": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_opaque__metal__steel_rope_a": [
+     "PhysicsMaterialAPI"
+    ]
+   },
+   "joints": [
+    "Joints"
+   ]
+  }
  },
  "nv_extinguisher_a01": {
   "min": [
@@ -146,7 +355,29 @@
   ],
   "mpu": 1.0,
   "up": "Z",
-  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/Fire_Protection_Extinguisher_Portable_A01/sm_fireProtection_extinguisher_portable_a01_01.usd"
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/Fire_Protection_Extinguisher_Portable_A01/sm_fireProtection_extinguisher_portable_a01_01.usd",
+  "physics": {
+   "apis": {
+    "Geometry/body_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/glass_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__fireProtection_extinguisher_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__paper__fireProtection_extinguisher_decal_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_trans__glass__fireProtection_extinguisher_glass_a01": [
+     "PhysicsMaterialAPI"
+    ]
+   },
+   "joints": [
+    "Joints"
+   ]
+  }
  },
  "nv_first_aid_a01": {
   "min": [
@@ -161,21 +392,37 @@
   ],
   "mpu": 1.0,
   "up": "Z",
-  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/First_Aid_Cabinet_Wall_Mounted_A01/sm_safety_firstAidCabinet_wallMounted_a01_01.usd"
- },
- "nv_hose_reel_exhaust": {
-  "min": [
-   -0.3789,
-   -0.4657,
-   0.003
-  ],
-  "max": [
-   0.3185,
-   0.6407,
-   0.9607
-  ],
-  "mpu": 1.0,
-  "up": "Z",
-  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Ventilation_ExhaustExtractor_HoseReel_A01/sm_ventilation_exhaustExtractor_hoseReel_a01_01.usd"
+  "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/First_Aid_Cabinet_Wall_Mounted_A01/sm_safety_firstAidCabinet_wallMounted_a01_01.usd",
+  "physics": {
+   "apis": {
+    "Geometry/door_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/handle_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/lock_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/lock_02_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "Geometry/body_01_obj_00": [
+     "PhysicsRigidBodyAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__paintedNoise_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__paintedNoise_green_a01": [
+     "PhysicsMaterialAPI"
+    ],
+    "PhysicsMaterials/physics_mat_m_opaque__metal__chromeScratched_a01": [
+     "PhysicsMaterialAPI"
+    ]
+   },
+   "joints": [
+    "Joints"
+   ]
+  }
  }
 }

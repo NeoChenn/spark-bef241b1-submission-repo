@@ -16,7 +16,7 @@ def test_layout_keeps_work_zone_route_and_eyes_clear():
 def test_every_asset_resolves_locally_or_has_remote_bounds():
     bounds = {**json.loads((ASSETS / "nv_bounds.json").read_text()), **json.loads((ASSETS / "hero_bounds.json").read_text())}
     manifest = {a["id"] for a in json.loads((ASSETS / "manifest.json").read_text())["assets"]}
-    for asset, *_ in ah.PLACE + ah.WALL + ah.HUNG:
+    for asset, *_ in ah.PLACE + ah.WALL + ah.HUNG + ah.REPAIR_BG:
         assert asset in manifest
         if asset.startswith("nv_"):
             assert asset in bounds
@@ -37,3 +37,20 @@ def test_wall_pose_sits_on_the_column_face():
 def test_inside_respects_margin():
     assert ah.inside((16.0, -5.0), ah.WORK, margin=0.5)
     assert not ah.inside((15.0, -5.0), ah.WORK, margin=0.5)
+
+
+def test_repair_background_stays_behind_the_pipe_away_from_the_robot():
+    for _, x, y, *_ in ah.REPAIR_BG:
+        assert ah.inside((x, y), ah.BEHIND_PIPE)
+        assert y < -6.5
+
+
+def test_unreachable_remote_props_are_skipped_fast(monkeypatch):
+    import time
+
+    monkeypatch.setattr(ah, "PROBE", "http://127.0.0.1:9/missing.usd")
+    start = time.monotonic()
+    assert ah.remote_ok(timeout=1.0) is False
+    assert time.monotonic() - start < 2.0
+    monkeypatch.setenv("RIG_ASSETS_REMOTE", "0")
+    assert ah.remote_ok() is False

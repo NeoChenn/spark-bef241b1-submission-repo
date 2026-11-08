@@ -16,6 +16,24 @@ BOUNDS = {**json.loads((ah.SIM_DIR / "assets" / "nv_bounds.json").read_text()),
           **json.loads((ah.SIM_DIR / "assets" / "hero_bounds.json").read_text())}
 MANIFEST = {a["id"]: a for a in json.loads((ah.SIM_DIR / "assets" / "manifest.json").read_text())["assets"]}
 FRONT = {"fuel_junction_box": 90.0}
+STRIP = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular",
+         "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI",
+         "PhysxArticulationAPI", "PhysxCollisionAPI"]
+
+
+def strip_physics(stage, model, asset: str):
+    layer = stage.GetRootLayer()
+    info = BOUNDS[asset].get("physics", {"apis": {}, "joints": []})
+    for rel_path in info["apis"]:
+        path = model.GetPath() if rel_path == "." else model.GetPath().AppendPath(Sdf.Path(rel_path))
+        spec = Sdf.CreatePrimInLayer(layer, path)
+        op = Sdf.TokenListOp()
+        op.deletedItems = STRIP
+        spec.SetInfo("apiSchemas", op)
+        attr = Sdf.AttributeSpec(spec, "physics:rigidBodyEnabled", Sdf.ValueTypeNames.Bool)
+        attr.default = False
+    for rel_path in info["joints"]:
+        stage.OverridePrim(model.GetPath().AppendPath(Sdf.Path(rel_path))).SetActive(False)
 
 
 def source(asset: str) -> tuple[str, tuple, tuple]:
@@ -42,6 +60,9 @@ def relink_textures(stage, model, asset: str):
 
 def place(stage, parent: str, name: str, asset: str, pos, rot: float, scale: float, centre_z=False):
     url, lo, hi = source(asset)
+    if asset.startswith("nv_"):
+        name = f"{parent.rsplit('/', 1)[-1]}_{name}"
+        parent = ah.REMOTE
     holder = UsdGeom.Xform.Define(stage, f"{parent}/{name}")
     ops = UsdGeom.Xformable(holder)
     ops.AddTranslateOp().Set(Gf.Vec3d(*pos))
@@ -51,6 +72,7 @@ def place(stage, parent: str, name: str, asset: str, pos, rot: float, scale: flo
     model.GetReferences().AddReference(url)
     if asset.startswith("nv_"):
         model.GetVariantSets().AddVariantSet("PhysX").SetVariantSelection("Disabled")
+        strip_physics(stage, model, asset)
     cz = -(lo[2] + hi[2]) / 2 if centre_z else -lo[2]
     UsdGeom.Xformable(model).AddTranslateOp().Set(Gf.Vec3d(-(lo[0] + hi[0]) / 2, -(lo[1] + hi[1]) / 2, cz))
     if asset.startswith("fuel_"):
@@ -82,8 +104,12 @@ def build() -> Path:
     UsdGeom.Scope.Define(stage, f"{ah.ROOT}/Wall")
     UsdGeom.Scope.Define(stage, f"{ah.ROOT}/Hung")
     UsdGeom.Scope.Define(stage, ah.OFFLINE)
+    UsdGeom.Scope.Define(stage, ah.REMOTE)
     for index, (asset, x, y, rot, scale) in enumerate(ah.PLACE):
         place(stage, f"{ah.ROOT}/Equipment", f"{asset}_{index:02d}", asset, (x, y, ah.DECK), rot, scale)
+    UsdGeom.Scope.Define(stage, f"{ah.ROOT}/RepairBackground")
+    for index, (asset, x, y, rot, scale) in enumerate(ah.REPAIR_BG):
+        place(stage, f"{ah.ROOT}/RepairBackground", f"{asset}_{index:02d}", asset, (x, y, ah.DECK), rot, scale)
     for index, (asset, x, y, face, height) in enumerate(ah.WALL):
         wall_item(stage, f"{ah.ROOT}/Wall", index, asset, x, y, face, height)
     for index, (asset, x, y, rot, height) in enumerate(ah.HUNG):
@@ -92,7 +118,7 @@ def build() -> Path:
         stage.OverridePrim(path).SetActive(False)
     stage.GetRootLayer().GetPrimAtPath("/World").specifier = Sdf.SpecifierOver
     stage.GetRootLayer().Save()
-    print(f"ASSETS_HERO_WRITTEN {ah.LAYER} items={len(ah.PLACE) + len(ah.WALL) + len(ah.HUNG)} hidden={len(ah.HIDE)}")
+    print(f"ASSETS_HERO_WRITTEN {ah.LAYER} items={len(ah.PLACE) + len(ah.WALL) + len(ah.HUNG) + len(ah.REPAIR_BG)} hidden={len(ah.HIDE)}")
     return ah.LAYER
 
 

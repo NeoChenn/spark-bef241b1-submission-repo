@@ -7,6 +7,9 @@ SIM_DIR = Path(__file__).resolve().parent
 LAYER = Path(os.environ.get("RIG_ASSETS_HERO_LAYER", SIM_DIR / "output" / "assets_hero.usda"))
 ROOT = "/World/AssetsHero"
 OFFLINE = f"{ROOT}/Offline"
+REMOTE = f"{ROOT}/Remote"
+PROBE = ("https://omniverse-content-production.s3-us-west-2.amazonaws."
+         "com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Ibc_Tank_Steel_Stainless_A01/sm_ibcTank_steel_stainless_a01_01.usd")
 DECK = 42.5
 WORK = (16.25, 21.25, -7.95, -3.55)
 ROUTE = [(-21.0, 20.5), (-10.0, 20.5), (-10.0, 11.0), (-1.0, 11.0), (-1.0, -4.5), (24.0, -4.5), (24.0, -9.0),
@@ -28,6 +31,13 @@ PLACE = [
     ("nv_hopper_blue_a04", 8.2, -20.2, 0.0, 1.0),
     ("nv_scaffold_a01", 2.0, -12.0, 90.0, 1.0),
 ]
+BEHIND_PIPE = (15.4, 18.0, -7.9, -6.6)
+REPAIR_BG = [
+    ("fuel_gate_valve", 16.0, -6.92, 90.0, 1.0),
+    ("Barrel_01", 16.3, -7.55, 0.0, 1.0),
+    ("metal_jerrycan", 16.85, -7.62, 75.0, 1.0),
+    ("metal_toolbox", 17.45, -7.6, 15.0, 1.0),
+]
 WALL = [
     ("fuel_junction_box", 11.75, -10.15, "+y", 1.25),
     ("fuel_junction_box", 25.75, -10.15, "+y", 1.25),
@@ -47,7 +57,7 @@ HIDE = []
 
 
 def footprints() -> list:
-    return [(x, y) for _, x, y, *_ in PLACE + WALL + HUNG]
+    return [(x, y) for _, x, y, *_ in PLACE + WALL + HUNG + REPAIR_BG]
 
 
 def inside(point, rect, margin=0.0) -> bool:
@@ -58,7 +68,7 @@ def inside(point, rect, margin=0.0) -> bool:
 def layout_issues(radius: float = 1.0) -> list:
     from dressing_geometry import blocked
 
-    issues = [p for p in footprints() if inside(p, WORK, margin=radius)]
+    issues = [p for p in footprints() if inside(p, WORK, margin=radius) and not inside(p, BEHIND_PIPE)]
     issues += [(x, y) for _, x, y, *_ in PLACE if blocked((x, y), ROUTE, [], EYES, corridor=1.3, eye_radius=1.2)]
     return issues
 
@@ -69,6 +79,18 @@ def wall_pose(x: float, y: float, face: str) -> tuple:
     return x + dx, y + dy, FACING[face]
 
 
+def remote_ok(timeout: float = 2.0) -> bool:
+    import urllib.request
+
+    if os.environ.get("RIG_ASSETS_REMOTE", "1") == "0":
+        return False
+    try:
+        urllib.request.urlopen(urllib.request.Request(PROBE, method="HEAD"), timeout=timeout)
+        return True
+    except Exception:
+        return False
+
+
 def attach(stage) -> bool:
     if not LAYER.exists() or os.environ.get("RIG_ASSETS_HERO", "1") == "0":
         return False
@@ -76,6 +98,9 @@ def attach(stage) -> bool:
     target = os.path.relpath(LAYER, Path(root.realPath).parent) if root.realPath else str(LAYER)
     if not any(Path(p).name == LAYER.name for p in root.subLayerPaths):
         root.subLayerPaths.insert(0, target)
+    remote = stage.GetPrimAtPath(REMOTE)
+    if remote.IsValid():
+        remote.SetActive(remote_ok())
     offline = stage.GetPrimAtPath(OFFLINE)
     if offline.IsValid():
         offline.SetActive(os.environ.get("RIG_QUALITY", "live") == "offline")

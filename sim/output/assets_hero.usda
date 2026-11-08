@@ -27,26 +27,6 @@ over "World"
                 }
             }
 
-            def Xform "nv_tripod_light_01"
-            {
-                float xformOp:rotateZ = 230
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (22.7, -7.3, 42.5)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Tripod_Flood_Task_Light_A01/sm_lighting_taskLight_tripodFlood_a01_01.usd@
-                    variants = {
-                        string PhysX = "Disabled"
-                    }
-                    prepend variantSets = "PhysX"
-                )
-                {
-                    double3 xformOp:translate = (0.10175, -0, -0.0003)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
             def Xform "fuel_gate_valve_02"
             {
                 float xformOp:rotateZ = 180
@@ -115,66 +95,6 @@ over "World"
                 }
             }
 
-            def Xform "nv_ibc_steel_a01_06"
-            {
-                float xformOp:rotateZ = 6
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (11.9, -14.2, 42.5)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Ibc_Tank_Steel_Stainless_A01/sm_ibcTank_steel_stainless_a01_01.usd@
-                    variants = {
-                        string PhysX = "Disabled"
-                    }
-                    prepend variantSets = "PhysX"
-                )
-                {
-                    double3 xformOp:translate = (-0, -0.00020000000000003348, -0)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
-            def Xform "nv_ibc_steel_a01_07"
-            {
-                float xformOp:rotateZ = -3
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (11.9, -15.55, 42.5)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Ibc_Tank_Steel_Stainless_A01/sm_ibcTank_steel_stainless_a01_01.usd@
-                    variants = {
-                        string PhysX = "Disabled"
-                    }
-                    prepend variantSets = "PhysX"
-                )
-                {
-                    double3 xformOp:translate = (-0, -0.00020000000000003348, -0)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
-            def Xform "nv_stillage_d01_08"
-            {
-                float xformOp:rotateZ = 90
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (9.4, -17.6, 42.5)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Racks/Storage_System_Heavy_Duty_D01/sm_storageSystem_rack_heavyDuty_d01_01.usd@
-                    variants = {
-                        string PhysX = "Disabled"
-                    }
-                    prepend variantSets = "PhysX"
-                )
-                {
-                    double3 xformOp:translate = (-0, 0.01855000000000001, -0)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
             def Xform "fuel_cable_spool_09"
             {
                 float xformOp:rotateZ = 20
@@ -188,66 +108,6 @@ over "World"
                 )
                 {
                     double3 xformOp:translate = (-0, 0.29999998211860657, 0.49240389466285706)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
-            def Xform "nv_pipe_bundle_b08_10"
-            {
-                float xformOp:rotateZ = 0
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (10.6, -21.6, 42.5)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Equipment/Pipe_Plastic_Gray_B08/sm_pipe_plastic_gray_b08_01.usd@
-                    variants = {
-                        string PhysX = "Disabled"
-                    }
-                    prepend variantSets = "PhysX"
-                )
-                {
-                    double3 xformOp:translate = (-0, -0, -0)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
-            def Xform "nv_hopper_blue_a04_11"
-            {
-                float xformOp:rotateZ = 0
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (8.2, -20.2, 42.5)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Hopper_Dumpling_Steel_Blue_A04/sm_hopper_dumpling_steel_blue_a04_01.usd@
-                    variants = {
-                        string PhysX = "Disabled"
-                    }
-                    prepend variantSets = "PhysX"
-                )
-                {
-                    double3 xformOp:translate = (-0, -0, -0)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
-            def Xform "nv_scaffold_a01_12"
-            {
-                float xformOp:rotateZ = 90
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (2, -12, 42.5)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Equipment/Rolling_Steel_Scaffold_A01/sm_scaffold_rolling_steel_a01_01.usd@
-                    variants = {
-                        string PhysX = "Disabled"
-                    }
-                    prepend variantSets = "PhysX"
-                )
-                {
-                    double3 xformOp:translate = (0.004149999999999987, 0.027200000000000002, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
             }
@@ -285,46 +145,6 @@ over "World"
                 )
                 {
                     double3 xformOp:translate = (0.01720472425222397, 0.16556775569915771, -2.9802322387695312e-8)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
-            def Xform "nv_first_aid_a01_02"
-            {
-                float xformOp:rotateZ = 270
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (11.75, -1.56505, 43.6)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/First_Aid_Cabinet_Wall_Mounted_A01/sm_safety_firstAidCabinet_wallMounted_a01_01.usd@
-                    variants = {
-                        string PhysX = "Disabled"
-                    }
-                    prepend variantSets = "PhysX"
-                )
-                {
-                    double3 xformOp:translate = (-0.09005, -0.00495000000000001, -0.2341)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
-            def Xform "nv_extinguisher_a01_03"
-            {
-                float xformOp:rotateZ = 270
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (25.75, -1.52935, 43.4)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/Fire_Protection_Extinguisher_Portable_A01/sm_fireProtection_extinguisher_portable_a01_01.usd@
-                    variants = {
-                        string PhysX = "Disabled"
-                    }
-                    prepend variantSets = "PhysX"
-                )
-                {
-                    double3 xformOp:translate = (-0.05435, 0.0020000000000000018, -0.20875)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
             }
@@ -611,6 +431,1087 @@ over "World"
 
         def Scope "Offline"
         {
+        }
+
+        def Scope "Remote"
+        {
+            def Xform "Equipment_nv_tripod_light_01"
+            {
+                float xformOp:rotateZ = 230
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (22.7, -7.3, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Tripod_Flood_Task_Light_A01/sm_lighting_taskLight_tripodFlood_a01_01.usd@
+                    variants = {
+                        string PhysX = "Disabled"
+                    }
+                    prepend variantSets = "PhysX"
+                )
+                {
+                    bool physics:rigidBodyEnabled = 0
+                    double3 xformOp:translate = (0.10175, -0, -0.0003)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Geometry"
+                    {
+                        over "body_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "wheel_03_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "pole_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "glass_03_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "glass_02_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "wheelSupport_03_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "wheelSupport_02_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "glass_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "light_03_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "wheel_02_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "wheelSupport_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "light_02_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "wheel_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "light_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "PhysicsMaterials"
+                    {
+                        over "physics_mat_m_opaque__plastic__orange_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__rubber__new_black_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__metal__paintedRough_black_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__plastic__rough_black_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__metal__aluminiumClean_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__plastic__glossy_white_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_trans__glass__clean_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__plastic__red_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__plastic__glossy_black_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__plastic__emissive_yellow_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                        over "joint_light_03_joint_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "joint_light_01_joint_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "joint_pole_01_joint_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "joint_light_02_joint_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+                }
+            }
+
+            def Xform "Equipment_nv_ibc_steel_a01_06"
+            {
+                float xformOp:rotateZ = 6
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (11.9, -14.2, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Ibc_Tank_Steel_Stainless_A01/sm_ibcTank_steel_stainless_a01_01.usd@
+                    variants = {
+                        string PhysX = "Disabled"
+                    }
+                    prepend variantSets = "PhysX"
+                )
+                {
+                    double3 xformOp:translate = (-0, -0.00020000000000003348, -0)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Geometry"
+                    {
+                        over "sm_body_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_lid_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_lidelement_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "PhysicsMaterials"
+                    {
+                        over "physics_mat_opaque__metal__glossy_b" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__paper__decals_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__plastic__blue_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__metal__aluminium_brushed_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            def Xform "Equipment_nv_ibc_steel_a01_07"
+            {
+                float xformOp:rotateZ = -3
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (11.9, -15.55, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Ibc_Tank_Steel_Stainless_A01/sm_ibcTank_steel_stainless_a01_01.usd@
+                    variants = {
+                        string PhysX = "Disabled"
+                    }
+                    prepend variantSets = "PhysX"
+                )
+                {
+                    double3 xformOp:translate = (-0, -0.00020000000000003348, -0)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Geometry"
+                    {
+                        over "sm_body_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_lid_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_lidelement_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "PhysicsMaterials"
+                    {
+                        over "physics_mat_opaque__metal__glossy_b" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__paper__decals_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__plastic__blue_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__metal__aluminium_brushed_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            def Xform "Equipment_nv_stillage_d01_08"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (9.4, -17.6, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Racks/Storage_System_Heavy_Duty_D01/sm_storageSystem_rack_heavyDuty_d01_01.usd@
+                    variants = {
+                        string PhysX = "Disabled"
+                    }
+                    prepend variantSets = "PhysX"
+                )
+                {
+                    double3 xformOp:translate = (-0, 0.01855000000000001, -0)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Geometry"
+                    {
+                        over "body_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "PhysicsMaterials"
+                    {
+                        over "physics_mat_m_opaque__metal__paintedNoise_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__metal__anodizedSteel_semiGloss_orande_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__plastic__green_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__metal__brushedAniso_clean_b01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__metal__steelEnamel_wite_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__metal__chromeClean_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__metal__glossy_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__metal__steel_paintedFine_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            def Xform "Equipment_nv_pipe_bundle_b08_10"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (10.6, -21.6, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Equipment/Pipe_Plastic_Gray_B08/sm_pipe_plastic_gray_b08_01.usd@
+                    variants = {
+                        string PhysX = "Disabled"
+                    }
+                    prepend variantSets = "PhysX"
+                )
+                {
+                    double3 xformOp:translate = (-0, -0, -0)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Geometry"
+                    {
+                        over "sm_pipe_plastic_gray_b08_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "PhysicsMaterials"
+                    {
+                        over "physics_mat_opaque__rubber__black_glossy_standard_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__wood__new_standard_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__plastic__gray_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            def Xform "Equipment_nv_hopper_blue_a04_11"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (8.2, -20.2, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Hopper_Dumpling_Steel_Blue_A04/sm_hopper_dumpling_steel_blue_a04_01.usd@
+                    variants = {
+                        string PhysX = "Disabled"
+                    }
+                    prepend variantSets = "PhysX"
+                )
+                {
+                    double3 xformOp:translate = (-0, -0, -0)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Geometry"
+                    {
+                        over "sm_hopper_dumpling_steel_blue_a04_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "PhysicsMaterials"
+                    {
+                        over "physics_mat_opaque__metal__chrome_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__metal__painted_blue_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__metal__glossy_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__paper__decals_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__metal__glossy_b" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__metal__steel_rope_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            def Xform "Equipment_nv_scaffold_a01_12"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (2, -12, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Equipment/Rolling_Steel_Scaffold_A01/sm_scaffold_rolling_steel_a01_01.usd@
+                    variants = {
+                        string PhysX = "Disabled"
+                    }
+                    prepend variantSets = "PhysX"
+                )
+                {
+                    double3 xformOp:translate = (0.004149999999999987, 0.027200000000000002, -0)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Geometry"
+                    {
+                        over "sm_platform_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_front_left_wheel_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_front_right_wheel_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_back_left_tire_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_front_left_tire_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_back_left_wheel_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_back_right_tire_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_back_right_wheel_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_front_right_tirel_a01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "PhysicsMaterials"
+                    {
+                        over "physics_mat_opaque__metal__painted_yellow_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__metal__steel_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__paper__decals_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__wood__frame_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_opaque__rubber__black_a" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            def Xform "Wall_nv_first_aid_a01_02"
+            {
+                float xformOp:rotateZ = 270
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (11.75, -1.56505, 43.6)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/First_Aid_Cabinet_Wall_Mounted_A01/sm_safety_firstAidCabinet_wallMounted_a01_01.usd@
+                    variants = {
+                        string PhysX = "Disabled"
+                    }
+                    prepend variantSets = "PhysX"
+                )
+                {
+                    double3 xformOp:translate = (-0.09005, -0.00495000000000001, -0.2341)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Geometry"
+                    {
+                        over "door_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "handle_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "lock_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "lock_02_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "body_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "PhysicsMaterials"
+                    {
+                        over "physics_mat_m_opaque__metal__paintedNoise_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__metal__paintedNoise_green_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__metal__chromeScratched_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            def Xform "Wall_nv_extinguisher_a01_03"
+            {
+                float xformOp:rotateZ = 270
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (25.75, -1.52935, 43.4)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/Fire_Protection_Extinguisher_Portable_A01/sm_fireProtection_extinguisher_portable_a01_01.usd@
+                    variants = {
+                        string PhysX = "Disabled"
+                    }
+                    prepend variantSets = "PhysX"
+                )
+                {
+                    double3 xformOp:translate = (-0.05435, 0.0020000000000000018, -0.20875)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Geometry"
+                    {
+                        over "body_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "glass_01_obj_00" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "PhysicsMaterials"
+                    {
+                        over "physics_mat_m_opaque__metal__fireProtection_extinguisher_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_opaque__paper__fireProtection_extinguisher_decal_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "physics_mat_m_trans__glass__fireProtection_extinguisher_glass_a01" (
+                            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsArticulationRootAPI", "PhysicsMassAPI", "PhysicsDriveAPI:angular", "PhysicsDriveAPI:linear", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxRigidBodyAPI", "PhysxArticulationAPI", "PhysxCollisionAPI"]
+                        )
+                        {
+                            bool physics:rigidBodyEnabled = 0
+                        }
+                    }
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+        }
+
+        def Scope "RepairBackground"
+        {
+            def Xform "fuel_gate_valve_00"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (16, -6.92, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @../assets/third_party/models/fuel_gate_valve/fuel_gate_valve.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-0, 0.2472415715456009, -0.00005396000051405281)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+                }
+            }
+
+            def Xform "Barrel_01_01"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (16.3, -7.55, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    prepend references = @../assets/third_party/models/Barrel_01/Barrel_01_1k.usdc@
+                )
+                {
+                    double3 xformOp:translate = (2.9802322387695312e-8, 1.043081283569336e-7, 0.006614277604967356)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+                }
+            }
+
+            def Xform "metal_jerrycan_02"
+            {
+                float xformOp:rotateZ = 75
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (16.85, -7.62, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    prepend references = @../assets/third_party/models/metal_jerrycan/metal_jerrycan_2k.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-0.005002938210964203, -0.0027406997978687286, -0.000013880239748687018)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "_materials"
+                    {
+                        over "metal_jerrycan"
+                        {
+                            over "Image_Texture"
+                            {
+                                asset inputs:file = @../assets/third_party/models/metal_jerrycan/textures/metal_jerrycan_diff_2k.jpg@
+                            }
+
+                            over "Image_Texture_001"
+                            {
+                                asset inputs:file = @../assets/third_party/models/metal_jerrycan/textures/metal_jerrycan_metal_2k.exr@
+                            }
+
+                            over "Image_Texture_002"
+                            {
+                                asset inputs:file = @../assets/third_party/models/metal_jerrycan/textures/metal_jerrycan_rough_2k.exr@
+                            }
+
+                            over "Image_Texture_003"
+                            {
+                                asset inputs:file = @../assets/third_party/models/metal_jerrycan/textures/metal_jerrycan_nor_gl_2k.exr@
+                            }
+
+                            over "NodeGraphs"
+                            {
+                                over "bnode__Image_Texture_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/metal_jerrycan/textures/metal_jerrycan_diff_2k.jpg@
+                                }
+
+                                over "bnode__Image_Texture_001_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/metal_jerrycan/textures/metal_jerrycan_metal_2k.exr@
+                                }
+
+                                over "bnode__Image_Texture_002_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/metal_jerrycan/textures/metal_jerrycan_rough_2k.exr@
+                                }
+
+                                over "bnode__Image_Texture_003_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/metal_jerrycan/textures/metal_jerrycan_nor_gl_2k.exr@
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            def Xform "metal_toolbox_03"
+            {
+                float xformOp:rotateZ = 15
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (17.45, -7.6, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    prepend references = @../assets/third_party/models/metal_toolbox/metal_toolbox_1k.usdc@
+                )
+                {
+                    double3 xformOp:translate = (0.000004872679710388184, -0.03236038881732933, -0)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "_materials"
+                    {
+                        over "metal_toolbox"
+                        {
+                            over "Image_Texture"
+                            {
+                                asset inputs:file = @../assets/third_party/models/metal_toolbox/textures/metal_toolbox_diff_1k.jpg@
+                            }
+
+                            over "Image_Texture_001"
+                            {
+                                asset inputs:file = @../assets/third_party/models/metal_toolbox/textures/metal_toolbox_metal_1k.exr@
+                            }
+
+                            over "Image_Texture_002"
+                            {
+                                asset inputs:file = @../assets/third_party/models/metal_toolbox/textures/metal_toolbox_rough_1k.exr@
+                            }
+
+                            over "Image_Texture_003"
+                            {
+                                asset inputs:file = @../assets/third_party/models/metal_toolbox/textures/metal_toolbox_nor_gl_1k.exr@
+                            }
+
+                            over "NodeGraphs"
+                            {
+                                over "bnode__Image_Texture_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/metal_toolbox/textures/metal_toolbox_diff_1k.jpg@
+                                }
+
+                                over "bnode__Image_Texture_001_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/metal_toolbox/textures/metal_toolbox_metal_1k.exr@
+                                }
+
+                                over "bnode__Image_Texture_002_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/metal_toolbox/textures/metal_toolbox_rough_1k.exr@
+                                }
+
+                                over "bnode__Image_Texture_003_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/metal_toolbox/textures/metal_toolbox_nor_gl_1k.exr@
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

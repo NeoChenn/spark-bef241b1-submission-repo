@@ -57,6 +57,35 @@ def save_texture(src, dst: Path, size: int, mode: str, tint=None) -> Path:
     return dst
 
 
+def tiled(path: Path, size, tiles: int, mode: str):
+    from PIL import Image
+
+    im = Image.open(path).convert(mode).resize((size[0] // tiles, size[1] // tiles))
+    out = Image.new(mode, size)
+    for i in range(tiles):
+        for j in range(tiles):
+            out.paste(im, (i * im.size[0], j * im.size[1]))
+    return np.asarray(out, np.float32) / 255.0
+
+
+def weather(albedo_path: Path, rough_path, grime: Path, rust: Path, noise: Path, amount: float):
+    from PIL import Image
+
+    albedo = np.asarray(Image.open(albedo_path).convert("RGB"), np.float32) / 255.0
+    size = (albedo.shape[1], albedo.shape[0])
+    dirt = tiled(grime, size, 2, "L")[..., None]
+    rust_rgb = tiled(rust, size, 3, "RGB")
+    patch = tiled(noise, size, 1, "L")
+    mask = np.clip((patch - (1.0 - 0.35 * amount)) * 6.0, 0.0, 1.0)[..., None] * (0.4 + 0.6 * dirt)
+    out = albedo * (1.0 - 0.45 * amount * dirt) + np.array([0.05, 0.035, 0.02]) * amount * dirt
+    out = out * (1.0 - mask) + rust_rgb * 0.8 * mask
+    rough = None
+    if rough_path is not None:
+        r = np.asarray(Image.open(rough_path).convert("L").resize(size), np.float32) / 255.0
+        rough = Image.fromarray((np.clip(r + 0.25 * amount * dirt[..., 0] + 0.4 * mask[..., 0], 0, 1) * 255).astype(np.uint8))
+    return Image.fromarray((np.clip(out, 0, 1) * 255).astype(np.uint8)), rough
+
+
 def write(meshes, out: Path, textures: dict, color, roughness: float, metallic: float):
     from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
 
@@ -125,6 +154,7 @@ def main():
     ap.add_argument("--metallic", type=float, default=0.0)
     ap.add_argument("--size", type=int, default=2048)
     ap.add_argument("--tint", type=float, nargs=3)
+    ap.add_argument("--weather", type=float, default=0.0)
     for key in MAPS:
         ap.add_argument(f"--{key}", type=Path)
     args = ap.parse_args()
@@ -136,6 +166,15 @@ def main():
     args.out.parent.mkdir(parents=True, exist_ok=True)
     textures = {}
     inside = embedded(meshes)
+    if args.weather > 0 and args.albedo:
+        lib = Path(__file__).resolve().parents[1] / "assets"
+        tex = lib / "third_party" / "textures"
+        albedo, rough = weather(args.albedo, args.rough, tex / "SurfaceImperfections011" / "opacity.jpg",
+                                tex / "rust_coarse_01" / "diff.jpg", lib / "generated" / "hero_noise.png", args.weather)
+        inside.update(albedo=albedo, rough=rough if rough is not None else inside.get("rough"))
+        args.albedo = None
+        if rough is not None:
+            args.rough = None
     for key in MAPS:
         src = getattr(args, key) or inside.get(key)
         if src is not None:

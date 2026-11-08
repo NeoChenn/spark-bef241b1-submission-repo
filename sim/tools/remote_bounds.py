@@ -48,6 +48,25 @@ def bounds(path: Path) -> dict:
             "mpu": UsdGeom.GetStageMetersPerUnit(stage), "up": UsdGeom.GetStageUpAxis(stage)}
 
 
+PHYSICS = ("Physics", "Physx")
+
+
+def physics(path: Path) -> dict:
+    from pxr import Usd
+
+    stage = Usd.Stage.Open(str(path))
+    root = stage.GetDefaultPrim().GetPath()
+    apis, joints = {}, []
+    for prim in stage.Traverse():
+        rel = str(prim.GetPath().MakeRelativePath(root))
+        names = [n for n in prim.GetAppliedSchemas() if n.startswith(PHYSICS)]
+        if names:
+            apis[rel] = names
+        if prim.GetName() == "Joints":
+            joints.append(rel)
+    return {"apis": apis, "joints": joints}
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("out", type=Path)
@@ -58,6 +77,6 @@ if __name__ == "__main__":
     for item in args.items:
         name, url = item.split("=", 1)
         path, full = mirror(url, args.cache)
-        data[name] = {**bounds(path), "url": full}
+        data[name] = {**bounds(path), "url": full, "physics": physics(path)}
         print(name, data[name])
     args.out.write_text(json.dumps(data, indent=1) + "\n")
