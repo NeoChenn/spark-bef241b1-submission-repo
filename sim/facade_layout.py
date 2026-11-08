@@ -12,6 +12,9 @@ DOOR_W, DOOR_H = 1.0, 2.15
 BAY = 2.6
 MARGIN = 0.9
 TILES = 4
+STYLES = (("cabin", 1.3, 1.0, 0.5), ("small", 0.85, 0.9, 0.2), ("office", 1.3, 1.0, 0.3))
+OFFICE_W, OFFICE_H = 3.0, 1.3
+TILE_KELVIN = (2700, 3000, 2900, 4200, 5200, 6500, 2800, 4000, 5000, 3000, 2700, 3000, 0, 0, 0, 0)
 TILE_WEIGHTS = (
     ("warm", (0, 1, 2), 0.24),
     ("cool", (3, 4, 5), 0.2),
@@ -21,19 +24,21 @@ TILE_WEIGHTS = (
 )
 
 
-def wall(name, axis, sign, plane, along, z, storeys, doors=(), windows=True, blank=0.15):
-    return {"name": name, "axis": axis, "sign": sign, "plane": plane, "along": along, "z": z, "storeys": storeys,
-            "doors": tuple(doors), "windows": windows, "blank": blank}
+def wall(name, axis, sign, plane, along, z, storeys, doors=(), windows=True, blank=0.15, depth=None, clad="clad",
+         ribs=False, styles=None):
+    return {"styles": dict(styles or {}), "name": name, "axis": axis, "sign": sign, "plane": plane, "along": along, "z": z, "storeys": storeys,
+            "doors": tuple(doors), "windows": windows, "blank": blank, "depth": depth, "clad": clad, "ribs": ribs}
 
 
 WALLS = (
-    wall("lq_s_upper", "y", -1, -37.5, (-25.0, 0.3), (30.0, 41.2), 3, doors=((-19.8, 0), (-3.4, 0))),
+    wall("lq_s_upper", "y", -1, -37.5, (-25.0, 0.3), (30.0, 41.2), 3, doors=((-19.8, 0), (-3.4, 0)),
+         styles={1: "office"}),
     wall("lq_s_lower", "y", -1, -37.5, (-18.1, 0.3), (20.0, 30.0), 3),
     wall("lq_notch_w", "x", -1, -18.1, (-37.5, -27.5), (20.0, 30.0), 3, doors=((-30.2, 0),)),
     wall("lq_notch_s", "y", -1, -27.5, (-25.0, -18.1), (20.0, 30.0), 3),
     wall("lq_w_lower", "x", -1, -25.0, (-27.5, -22.9), (20.0, 30.0), 3),
     wall("lq_w_upper", "x", -1, -25.0, (-37.5, -22.9), (30.0, 41.2), 3, doors=((-25.6, 0),)),
-    wall("lq_e_lower", "x", 1, 0.3, (-37.5, -22.9), (20.0, 30.0), 3, doors=((-24.6, 0),)),
+    wall("lq_e_lower", "x", 1, 0.3, (-37.5, -22.9), (20.0, 30.0), 3, doors=((-24.6, 0),), styles={1: "office"}),
     wall("lq_e_upper", "x", 1, 0.3, (-37.5, -22.9), (30.0, 41.2), 3, doors=((-29.9, 0),)),
     wall("lq_n_lower", "y", 1, -22.9, (-25.0, 0.3), (20.0, 30.0), 3, doors=((-2.0, 0),)),
     wall("lq_n_upper", "y", 1, -22.9, (-22.1, 0.3), (30.0, 41.2), 3, windows=False),
@@ -47,18 +52,27 @@ WALLS = (
     wall("m71_s2", "y", -1, -12.3, (-1.1, 4.0), (31.25, 37.2), 2),
     wall("m71_e2", "x", 1, 4.0, (-12.3, -8.8), (31.25, 37.2), 2),
     wall("m71_n", "y", 1, -8.8, (-5.8, 4.0), (31.25, 37.2), 2),
+    wall("annex_s", "y", -1, -37.0, (25.5, 37.0), (31.25, 40.0), 1, doors=((26.6, 0),), windows=False, depth=0.12,
+         clad="clad_grey", ribs=True),
+    wall("annex_e", "x", 1, 37.0, (-37.0, -18.0), (31.25, 40.0), 1, doors=((-21.0, 0),), windows=False, depth=0.22,
+         clad="clad_grey", ribs=True),
+    wall("annex_w", "x", -1, 25.5, (-37.0, -18.0), (31.25, 40.0), 1, windows=False, depth=0.1, clad="clad_grey",
+         ribs=True),
 )
+ANNEX_LADDER = ((37.5, -33.0, 31.25), 8.75)
+KEEP_CLEAR = ((27.4, 36.1, 35.1, 38.3),)
 
 
 def unit(key: str) -> float:
     return int.from_bytes(hashlib.sha1(key.encode()).digest()[:4], "big") / 2**32
 
 
-def pick_tile(key: str) -> int:
+def pick_tile(key: str, dark: float = 1.0) -> int:
     r = unit(key)
-    total = sum(w for _, _, w in TILE_WEIGHTS)
+    weights = [(tiles, wt * (dark if name == "dark" else 1.0)) for name, tiles, wt in TILE_WEIGHTS]
+    total = sum(wt for _, wt in weights)
     acc = 0.0
-    for _, tiles, weight in TILE_WEIGHTS:
+    for tiles, weight in weights:
         acc += weight / total
         if r < acc:
             return tiles[int(unit(key + "t") * len(tiles))]
@@ -93,17 +107,44 @@ def openings(w) -> list[dict]:
             out.append({"kind": "door", "along": a, "z0": floor + 0.05, "w": DOOR_W, "h": DOOR_H, "storey": s})
         if not w["windows"]:
             continue
-        for i, a in enumerate(bays(*w["along"])):
-            if any(abs(a - d) < (WINDOW_W + DOOR_W) / 2 + 0.3 for d in here):
+        row = f"{w['name']}:{s}"
+        style = next((st for st in STYLES if st[0] == w["styles"].get(s)), None) or storey_style(row)
+        sill = floor + SILL + (unit(row + "sill") - 0.5) * 0.2
+        dark = 0.4 + 2.2 * unit(row + "dark")
+        centres = bays(*w["along"])
+        skip = set()
+        for i, a in enumerate(centres):
+            if i in skip or any(abs(a - d) < (WINDOW_W + DOOR_W) / 2 + 0.3 for d in here):
                 continue
-            key = f"{w['name']}:{s}:{i}"
+            key = f"{row}:{i}"
             if unit(key + "b") < w["blank"]:
-                out.append({"kind": "blank", "along": a, "z0": floor + SILL, "w": WINDOW_W, "h": WINDOW_H, "storey": s,
-                            "key": key})
+                out.append({"kind": "blank", "along": a, "z0": sill, "w": WINDOW_W, "h": WINDOW_H, "storey": s, "key": key})
                 continue
-            out.append({"kind": "window", "along": a, "z0": floor + SILL, "w": WINDOW_W, "h": WINDOW_H, "storey": s,
-                        "tile": pick_tile(key), "key": key})
+            nxt = centres[i + 1] if i + 1 < len(centres) else None
+            if style[0] == "office" and nxt is not None and unit(key + "o") < 0.6 and not any(
+                    abs(nxt - d) < (OFFICE_W + DOOR_W) / 2 + 0.3 for d in here):
+                skip.add(i + 1)
+                out.append({"kind": "window", "along": (a + nxt) / 2, "z0": sill - 0.1, "w": OFFICE_W, "h": OFFICE_H,
+                            "storey": s, "tile": pick_tile(key, dark * 0.6), "key": key})
+                continue
+            _, ww, wh, _ = style
+            out.append({"kind": "window", "along": a, "z0": sill, "w": ww, "h": wh, "storey": s,
+                        "tile": pick_tile(key, dark), "key": key})
     return out
+
+
+def storey_style(row: str):
+    r = unit(row + "style")
+    acc = 0.0
+    for style in STYLES:
+        acc += style[3]
+        if r < acc:
+            return style
+    return STYLES[0]
+
+
+def lit(o) -> bool:
+    return o["kind"] == "window" and TILE_KELVIN[o["tile"]] > 0
 
 
 def holes(items) -> list[tuple[float, float, float, float]]:
@@ -189,7 +230,7 @@ def wall_box(w, a0, z0, a1, z1, d0, d1):
 def streak_height(o, w) -> float:
     room = o["z0"] - w["z"][0] - 0.15
     if o["storey"] > 0:
-        room = min(room, storey_height(w) - WINDOW_H - 0.25)
+        room = min(room, storey_height(w) - OFFICE_H - 0.45)
     return max(0.0, min(room, 0.9 + 1.6 * unit(o["key"] + "s")))
 
 

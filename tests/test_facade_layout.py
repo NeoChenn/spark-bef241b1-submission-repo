@@ -91,3 +91,46 @@ def test_glow_follows_preset():
     assert facade.glow_scale("interior", 0.15) < facade.glow_scale("interior", 1.0)
     assert facade.glow_scale("lamp", 1.0) == facade.GLOW["lamp"]
     assert facade.glow_scale("lamp", 0.0) == 0.0
+
+
+def test_all_walls_holes_disjoint_and_inside():
+    for w in fl.WALLS:
+        hs = fl.holes(fl.openings(w))
+        for i, a in enumerate(hs):
+            assert w["along"][0] <= a[0] and a[2] <= w["along"][1]
+            assert w["z"][0] <= a[1] and a[3] <= w["z"][1]
+            for b in hs[i + 1:]:
+                assert not (a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3])
+
+
+def test_windows_irregular():
+    wins = [o for w in fl.WALLS for o in fl.openings(w) if o["kind"] == "window"]
+    assert len({(o["w"], o["h"]) for o in wins}) >= 3
+    assert any(o["w"] == fl.OFFICE_W for o in wins)
+    assert len({round(o["z0"] - fl.WALLS[0]["z"][0], 2) for o in fl.openings(fl.WALLS[0])}) > 3
+    rows = {}
+    for w in fl.WALLS:
+        for o in fl.openings(w):
+            if o["kind"] == "window":
+                rows.setdefault((w["name"], o["storey"]), []).append(fl.lit(o))
+    shares = [sum(v) / len(v) for v in rows.values() if len(v) >= 3]
+    assert max(shares) - min(shares) > 0.3
+
+
+def test_annex_door_clear_of_id_board():
+    w = next(w for w in fl.WALLS if w["name"] == "annex_s")
+    for h in fl.holes(fl.openings(w)):
+        for k in fl.KEEP_CLEAR:
+            assert not (h[0] < k[2] and k[0] < h[2] and h[1] < k[3] and k[1] < h[3])
+
+
+def test_pick_tile_dark_bias():
+    keys = [f"d{i}" for i in range(400)]
+    dark_hi = sum(fl.TILE_KELVIN[fl.pick_tile(k, 3.0)] == 0 for k in keys)
+    dark_lo = sum(fl.TILE_KELVIN[fl.pick_tile(k, 0.3)] == 0 for k in keys)
+    assert dark_hi > dark_lo + 60
+
+
+def test_style_override_gives_office_row():
+    w = fl.WALLS[0]
+    assert any(o["w"] == fl.OFFICE_W for o in fl.openings(w) if o["storey"] == 1)
