@@ -529,7 +529,8 @@ class FleetFx:
 
         self.stage, self.leak, self.crate, self.deck = stage, leak, crate, deck
         self.root = "/World/Fleet/fx"
-        UsdGeom.Xform.Define(stage, self.root)
+        for sub in ("", "/gas", "/lidar"):
+            UsdGeom.Xform.Define(stage, self.root + sub)
         self.puffs, self.origin, self.jet, self.vis = [], None, None, {}
         f = None if leak is None else next((x for x in (flanges or {}).get("flanges", [])
                                              if x["id"] == leak["flange"]), None)
