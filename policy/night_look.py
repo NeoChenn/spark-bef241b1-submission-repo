@@ -56,6 +56,7 @@ def lamps(work):
         dict(name="flood_back", pos=(wx - 2.5, -3.6, 3.9), color=AMBER, radius=0.35, intensity=6.0e4),
         dict(name="flood_key", pos=(wx + 3.5, 3.4, 3.9), color=AMBER, radius=0.45, intensity=2.5e4),
         dict(name="led_rim", pos=(wx - 1.2, -1.6, 2.4), color=LED, radius=0.15, intensity=4.5e4),
+        dict(name="led_rim_low", pos=(wx - 1.3, -0.3, 0.45), color=LED, radius=0.1, intensity=1.5e4),
         dict(name="led_fill", pos=(wx + 5.5, 1.0, 2.0), color=LED, radius=0.6, intensity=3.0e3),
     ]
 
