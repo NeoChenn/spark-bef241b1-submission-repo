@@ -4,6 +4,7 @@ import argparse
 import json
 import math
 import os
+import shutil
 import sys
 from bisect import bisect_right
 from dataclasses import dataclass, field
@@ -78,6 +79,7 @@ def parse_args(argv=None):
     p.add_argument("--film", action="store_true", help="render only the EDL's sim windows, per shot")
     p.add_argument("--edl", default="", help="EDL module (default integration.film_edl) or a .json file")
     p.add_argument("--shots", default="", help="comma-separated shot names to render (film mode)")
+    p.add_argument("--half-shots", default="", help="film: shots rendered at half rate with duplicated frames")
     p.add_argument("--colors", action="store_true", help="unit paint colours (on in film mode)")
     p.add_argument("--control-room", default="", help="x,y,z,w,d,h[,yaw] bare lit interior")
     return p.parse_args(argv)
@@ -445,8 +447,9 @@ def normalize_shot(sh) -> dict | None:
     rate = float(_get(sh, ("rate", "playback", "speed", "playback_rate"), 1.0))
     if f1 is None:
         f1 = float(f0) + (float(t1) - float(t0)) / max(rate, 1e-6)
+    still = bool(_get(sh, ("still",), False)) or any(k in str(name).lower() for k in ("board", "conclusion"))
     return {"name": str(name), "sim_t0": float(t0), "sim_t1": float(t1), "rate": rate, "film_t0": float(f0),
-            "film_t1": float(f1)}
+            "film_t1": float(f1), "still": still}
 
 
 def load_edl(spec: str = "") -> list:
@@ -466,16 +469,22 @@ def load_edl(spec: str = "") -> list:
     return [s for s in (normalize_shot(x) for x in (raw or [])) if s is not None]
 
 
-def film_steps(shots: list, fps: int, only: str = "") -> list:
+def film_steps(shots: list, fps: int, only: str = "", fast_div: int = 2, half: str = "") -> list:
     pick = {s for s in only.split(",") if s} if only else None
+    halves = {s for s in half.split(",") if s}
     tasks = []
     for sh in shots:
         if pick and sh["name"] not in pick:
             continue
         n = max(1, int(round((sh["film_t1"] - sh["film_t0"]) * fps)))
-        dt = (sh["sim_t1"] - sh["sim_t0"]) / n if sh["sim_t1"] > sh["sim_t0"] else 0.0
-        for i in range(n):
-            tasks.append((round(sh["sim_t0"] + i * dt, 6), (sh["name"], i, round(sh["film_t0"] + i / fps, 4))))
+        if sh.get("still") or sh["sim_t1"] <= sh["sim_t0"]:
+            tasks.append((round(sh["sim_t0"], 6), (sh["name"], 0, round(sh["film_t0"], 4), n)))
+            continue
+        step = fast_div if sh["rate"] > 1.0 or sh["name"] in halves else 1
+        dt = (sh["sim_t1"] - sh["sim_t0"]) / n
+        for i in range(0, n, step):
+            tasks.append((round(sh["sim_t0"] + i * dt, 6),
+                          (sh["name"], i, round(sh["film_t0"] + i / fps, 4), min(step, n - i))))
     if not tasks:
         return []
     end = max(t for t, _ in tasks)
@@ -1104,7 +1113,8 @@ def main(argv=None):
     if args.max_frames:
         n_frames = min(n_frames, args.max_frames * max(1, args.every))
     shots = load_edl(args.edl) if args.film else []
-    steps = film_steps(shots, args.fps, args.shots) if args.film else \
+    shots_by_name = {s_["name"]: s_ for s_ in shots}
+    steps = film_steps(shots, args.fps, args.shots, half=args.half_shots) if args.film else \
         [(args.start + k / args.fps, k) for k in range(n_frames)]
     if args.film:
         n_frames = sum(1 for _, task in steps if task is not None)
@@ -1219,6 +1229,8 @@ def main(argv=None):
     if room:
         print(f"[fleet] control room {room} parts {add_control_room(stage, room['center'], room['size'], room.get('yaw', 0.0))}",
               flush=True)
+    if args.film:
+        print(f"[fleet] flange patch F5 double-sided prims {patch_flange(stage, flanges, 'F5')}", flush=True)
     if args.colors:
         print(f"[fleet] paint {[(rid, paint_unit(stage, f'/World/Fleet/{rid}', UNIT_COLORS[rid])) for rid in UNITS]}",
               flush=True)
@@ -1519,6 +1531,8 @@ def main(argv=None):
                 sdir.mkdir(parents=True, exist_ok=True)
                 shot_heads[task[0]] = (out / task[0] / "fleet_isaac_header.jsonl").open("w")
             Image.fromarray(rgb).save(sdir / f"{task[1]:05d}.jpg", quality=args.jpeg)
+            for j_ in range(1, task[3] if not shots_by_name[task[0]]["still"] else 1):
+                shutil.copyfile(sdir / f"{task[1]:05d}.jpg", sdir / f"{task[1] + j_:05d}.jpg")
         else:
             Image.fromarray(rgb).save(frames_dir / f"{(k if args.from_frame else rendered):05d}.jpg", quality=args.jpeg)
         if writer is not None:
@@ -1604,6 +1618,32 @@ def paint_unit(stage, root_path: str, body_hex: str) -> dict:
         n[role] += 1
         if role in mats:
             UsdShade.MaterialBindingAPI.Apply(prim).Bind(mats[role], UsdShade.Tokens.strongerThanDescendants)
+    return n
+
+
+def patch_flange(stage, flanges: dict | None, fid: str = "F5", root: str = "/World/Leak") -> int:
+    from pxr import Gf, Usd, UsdGeom, UsdShade
+
+    f = next((x for x in (flanges or {}).get("flanges", []) if x["id"] == fid), None)
+    prim = stage.GetPrimAtPath(f"{root}/{fid}")
+    if f is None:
+        return 0
+    n = 0
+    if prim.IsValid():
+        for p in Usd.PrimRange(prim):
+            if p.IsA(UsdGeom.Gprim):
+                UsdGeom.Gprim(p).CreateDoubleSidedAttr(True).Set(True)
+                n += 1
+    c, nrm = np.asarray(f["center_m"], float), np.asarray(f["normal"], float)
+    disc = UsdGeom.Cylinder.Define(stage, f"/World/Fleet/flange_patch_{fid}")
+    disc.CreateAxisAttr("X")
+    disc.CreateRadiusAttr(float(f.get("outer_radius_m", 0.17)) * 0.98)
+    disc.CreateHeightAttr(0.04)
+    xf = UsdGeom.Xformable(disc)
+    xf.AddTranslateOp().Set(Gf.Vec3d(*map(float, c - 0.035 * nrm)))
+    xf.AddRotateZOp().Set(math.degrees(math.atan2(nrm[1], nrm[0])))
+    UsdShade.MaterialBindingAPI.Apply(disc.GetPrim()).Bind(
+        _surface(stage, "/World/Looks/Fleet/flange_steel", (0.33, 0.34, 0.36), 0.5, 0.6))
     return n
 
 
