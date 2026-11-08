@@ -725,7 +725,8 @@ class FleetDemo:
         cmds = self.link.tick(t, fds, brief, self.scn.detectors, self.ids, scrubber_pos=self.u1.hot_xy,
                               wait=self.wait)
         for c in cmds:
-            if c.robot == SCRUBBER and c.kind == HOLD and self.far(c.target):
+            if c.robot == SCRUBBER and c.kind == HOLD and c.source == "argon" and self.far(c.target):
+                self.link.held = False
                 self.timeline.log("hold_skipped", t, robot=SCRUBBER, target=c.target, source=c.source,
                                   why=f"{c.target} is {self.far(c.target):.1f} m from hot work, outside the "
                                       f"{SPARK_RADIUS_M:.0f} m spark radius")

@@ -6,8 +6,8 @@ from typing import Optional
 
 import numpy as np
 
-from integration.dual_argon import (PIPE_SENSOR_FAULT, SCRUBBER, FIXER, EdgeOnly, FixedDetector, Finding, fuse_fleet,
-                                    led)
+from integration.dual_argon import (FIXER, LEAK_CONFIRMED, LEAK_UNSEEN_BY_FIXED, PIPE_SENSOR_FAULT, SCRUBBER,
+                                    UNVERIFIED, EdgeOnly, FixedDetector, Finding, fuse_fleet, led)
 from policy.control.envelope import Envelope
 from policy.control.port import MemoryCoordinator
 
@@ -116,7 +116,11 @@ class StuckSensor:
             self.det.last = round(self.value, 2)
         h = self.health.observe(t, {self.sensor: self.det.last}, group=self.det.flange).get(self.sensor)
         self.health_status = getattr(h, "status", "OK")
-        fd = self.fault or finding or fuse_fleet(self.det, sniffers or {})
+        fd = finding or fuse_fleet(self.det, sniffers or {})
+        if fd.hazard or fd.kind in (LEAK_CONFIRMED, LEAK_UNSEEN_BY_FIXED):
+            self.fault = None
+        elif self.fault is not None and fd.kind == UNVERIFIED:
+            fd = self.fault
         if self.fault is None and fd.kind == PIPE_SENSOR_FAULT and not fd.hazard:
             if self.health_status == STUCK:
                 fd.reason += f"; health {STUCK}"

@@ -160,3 +160,13 @@ def test_cut_link_with_a_new_alarm_goes_edge_on_the_same_tick():
     beat.tick(0.0)
     cmds = leak_tick(link, 0.0, beat, d2, 0.14)
     assert kinds(cmds) == [(HOLD, SCRUBBER, "F5"), (GO_CHECK, FIXER, "F5")] and link.calls == []
+
+
+def test_a_latched_stuck_head_still_reports_real_gas_beside_it():
+    d1, d2 = rig()
+    beat = stuck_sensor({"G-F6": d1, "G-F5": d2}, at=0.0, value=15.0)
+    for t in (0.0, 0.5, 1.0):
+        fd = beat.tick(t, {FIXER: (0.8, (-9.2, 0.4))})
+    assert fd.kind == PIPE_SENSOR_FAULT and beat.fault is not None
+    fd = beat.tick(1.5, {FIXER: (12.0, (-9.2, 0.4))})
+    assert fd.kind == LEAK_CONFIRMED and beat.fault is None
