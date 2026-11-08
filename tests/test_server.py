@@ -227,3 +227,66 @@ def test_mock_shots_served(client):
 
 def test_viewer_skips_stream_in_mock_mode():
     assert '"mock"' in VIEWER_JS.read_text()
+
+
+def test_post_scenario_event_forwards(client):
+    with connect(client.app) as s:
+        s.sendall(frame(0))
+        wait_frames(client, 1)
+        r = client.post("/api/event", json={"name": "set_weather", "args": {"level": "storm", "gust": 30}})
+        assert r.status_code == 200
+        assert read_event(s) == {"type": "event", "name": "set_weather", "args": {"level": "storm", "gust": 30}}
+    assert client.post("/api/event", json={"name": "set_weather", "args": {"level": "hail"}}).status_code == 400
+
+
+def test_fleet_serves_sample_then_live(tmp_path):
+    import json as js
+    d = tmp_path / "fleet"
+    d.mkdir()
+    (d / "fleet_state.json").write_text(js.dumps({"schema": "fleet_state.v1", "t": 1.0, "robots": []}))
+    (d / "fleet_map.json").write_text(js.dumps({"schema": "fleet_map.v1", "decks": []}))
+    with TestClient(create_app(sim_port=0, fleet_dirs=(tmp_path / "missing", d))) as c:
+        assert c.get("/api/fleet").json()["t"] == 1.0
+        assert c.get("/api/fleet/map").json()["schema"] == "fleet_map.v1"
+        assert c.post("/api/fleet", json={"schema": "fleet_state.v1", "t": 5.0, "robots": []}).status_code == 200
+        assert c.get("/api/fleet").json()["t"] == 5.0
+        assert c.post("/api/fleet", json={"schema": "other"}).status_code == 400
+        with connect(c.app) as s:
+            hdr = {"type": "frame", "w": 4, "h": 4, "seq": 0, "t": 0, "fleet": {"schema": "fleet_state.v1", "t": 9.0}}
+            s.sendall(encode(hdr, b"\xff\xd8\x00"))
+            wait_frames(c, 1)
+            assert c.get("/api/fleet").json()["t"] == 9.0
+
+
+def test_fleet_missing_is_404(tmp_path):
+    with TestClient(create_app(sim_port=0, fleet_dirs=(tmp_path,))) as c:
+        assert c.get("/api/fleet").status_code == 404
+        assert c.get("/api/fleet/map").status_code == 404
+
+
+def test_replay_converts_timeline_under_runs_only(tmp_path):
+    import json as js
+    (tmp_path / "runs/fleet").mkdir(parents=True)
+    line = {"t": 0.0, "robot": "Q1", "kind": "Q", "position": [1, 2, 42.5], "yaw": 0, "state": "IDLE", "job": None}
+    (tmp_path / "runs/fleet/timeline.jsonl").write_text(js.dumps(line) + "\n")
+    (tmp_path / "secret.jsonl").write_text(js.dumps(line) + "\n")
+    with TestClient(create_app(sim_port=0, root=tmp_path)) as c:
+        r = c.get("/api/replay", params={"path": "runs/fleet/timeline.jsonl"})
+        assert r.status_code == 200 and r.json()["snapshots"][0]["robots"][0]["name"] == "Unit 1 · rust"
+        assert c.get("/api/replay", params={"path": "secret.jsonl"}).status_code == 403
+        assert c.get("/api/replay", params={"path": "runs/../secret.jsonl"}).status_code == 403
+        assert c.get("/api/replay", params={"path": "runs/none.jsonl"}).status_code == 404
+
+
+def test_bench_lists_json(tmp_path):
+    import json as js
+    (tmp_path / "runs_sample/bench").mkdir(parents=True)
+    (tmp_path / "runs_sample/bench/scrub.json").write_text(js.dumps({"title": "Scrub", "rows": []}))
+    (tmp_path / "runs_sample/bench/bad.json").write_text("{")
+    with TestClient(create_app(sim_port=0, root=tmp_path)) as c:
+        assert c.get("/api/bench").json() == [{"name": "scrub", "title": "Scrub", "rows": []}]
+
+
+def test_default_fleet_sample_exists(client):
+    assert client.get("/api/fleet").json()["schema"] == "fleet_state.v1"
+    assert client.get("/api/fleet/map").json()["schema"] == "fleet_map.v1"

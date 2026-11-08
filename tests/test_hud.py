@@ -118,3 +118,71 @@ def test_record_mock_session(tmp_path):
     assert "rust_grid" in snaps[0]
     assert any("BACK_OFF" == s["state"] for s in snaps)
     assert all(s["pt"] >= 0 for s in snaps)
+
+
+def test_scenario_events_whitelisted():
+    from rig.hud import EVENTS, SCENARIO
+    assert {"set_weather", "drop_obstacle", "close_walkway", "close_stairs", "clear", "gas_leak",
+            "control_action", "cut_link", "battery_fault", "approve", "reject"} <= set(SCENARIO)
+    assert set(HOOKS) | {"camera"} | set(SCENARIO) == set(EVENTS)
+
+
+def test_scenario_event_dispatched_to_bridge_hook():
+    calls = []
+
+    class B:
+        def set_weather(self, **k):
+            calls.append(k)
+    assert apply_event(B(), {"name": "set_weather", "args": {"level": "storm", "wind_dir": 90, "gust": 30}}) is True
+    assert calls == [{"level": "storm", "wind_dir": 90, "gust": 30}]
+
+
+def test_scenario_event_falls_back_to_generic_handler_or_skips():
+    calls = []
+
+    class G:
+        def scenario(self, name, **k):
+            calls.append((name, k))
+    assert apply_event(G(), {"name": "close_walkway", "args": {"id": "W3"}}) is True
+    assert calls == [("close_walkway", {"id": "W3"})]
+    assert apply_event(FakeBridge(), {"name": "drop_obstacle"}) is False
+
+
+def test_set_weather_level_checked():
+    from rig.hud import check_event
+    assert check_event({"name": "set_weather", "args": {"level": "fog"}})["args"]["level"] == "fog"
+    assert check_event({"name": "set_weather", "args": {"level": 0.4}})["args"]["level"] == 0.4
+    with pytest.raises(ValueError):
+        check_event({"name": "set_weather", "args": {"level": "hail"}})
+    with pytest.raises(ValueError):
+        check_event({"name": "nope"})
+
+
+def test_header_extras(orch):
+    feed = HudFeed(orch, extras={"gas": lambda: {"sensors": [], "max": 0.0}, "pip": lambda: None})
+    h = feed.header()
+    assert h["gas"] == {"sensors": [], "max": 0.0} and "pip" not in h
+
+
+def test_mock_fleet_gas_control_and_three_units():
+    from rig.hud import mock_fleet
+    snaps = mock_fleet(10.0, 100.0)
+    assert all([r["name"] for r in s["robots"]] == ["Unit 1 · rust", "Unit 2 · gas", "Unit 3"] for s in snaps)
+    peak = max(s["gas"]["max"] for s in snaps)
+    assert 0.15 <= peak < 0.2
+    alarm = next(s for s in snaps if s["gas"]["max"] >= 0.1)
+    assert alarm["gas"]["alarm"] and {"id", "at", "lel"} <= set(alarm["gas"]["sensors"][0])
+    acts = alarm["control"]["actions"]
+    assert acts and {"id", "label", "robot", "confidence"} <= set(acts[0])
+    assert [a["confidence"] for a in acts] == sorted((a["confidence"] for a in acts), reverse=True)
+    assert snaps[-1]["gas"]["alarm"] is False
+    assert set(alarm["sensors"]) == {"unit-1", "unit-2", "unit-3"}
+    assert {"force_n", "gas_lel", "thermal_c", "battery", "reach"} <= set(alarm["sensors"]["unit-2"])
+    f = alarm["fleet"]
+    assert f["schema"] == "fleet_state.v1" and [r["id"] for r in f["robots"]] == ["unit-1", "unit-2", "unit-3"]
+    assert all(r["pose"]["z"] == 42.5 and r["deck"] == "top_deck" for r in f["robots"])
+    assert any(z["kind"] == "gas" for z in f["zones"]) and not any(z["kind"] == "gas" for z in snaps[-1]["fleet"]["zones"])
+    assert snaps[0]["fleet"]["robots"][1]["pose"]["x"] != snaps[-1]["fleet"]["robots"][1]["pose"]["x"]
+    orch = alarm["orchestrator"]
+    assert orch["approvals"] and {"job", "text"} <= set(orch["approvals"][0])
+    assert {"QUEUED", "RUNNING"} <= {j["status"] for j in orch["jobs"]}
