@@ -172,3 +172,28 @@ def test_timeline_sha256(tmp_path):
     f = tmp_path / "tl.jsonl"
     f.write_bytes(b'{"t": 0}\n')
     assert R.file_sha256(str(f)) == hashlib.sha256(b'{"t": 0}\n').hexdigest() and R.file_sha256("demo") is None
+
+
+def test_film_edl_steps_colours_and_room():
+    shots = [R.normalize_shot(x) for x in ({"name": "u2", "sim": [50, 52], "film": [24, 26]},
+                                             {"name": "back", "sim_t0": 80, "sim_t1": 85, "rate": 2.5, "film_t0": 54})]
+    assert shots[1]["film_t1"] == 56.0 and R.normalize_shot({"name": "x"}) is None
+    steps = R.film_steps(shots, 30)
+    tasks = [t for t in steps if t[1] is not None]
+    assert len(tasks) == 120 and [t for t in steps][-1][1][0] == "back"
+    assert all(a[0] <= b[0] for a, b in zip(steps, steps[1:]))
+    back = [t for t, task in tasks if task[0] == "back"]
+    assert abs((back[1] - back[0]) - 2.5 / 30) < 1e-6
+    assert len([t for t in R.film_steps(shots, 30, "u2") if t[1] is not None]) == 60
+    assert R.hex_linear("#FFFFFF") == (1.0, 1.0, 1.0) and R.hex_linear("#2D55C8")[2] > 0.5
+    assert R.paint_role("/R/Geometry/base/lift_housing/lift_carriage/ur3_base_link/x") == "arm"
+    assert R.paint_role("/R/Geometry/base/lift_housing") == "body" and R.paint_role("/R/a/scrubber_link/m") == "pad"
+    assert R.parse_room("1,2,3,6,4,3") == {"center": [1, 2, 3], "size": [6, 4, 3], "yaw": 0.0}
+    from pxr import Usd, UsdGeom
+
+    stage = Usd.Stage.CreateInMemory()
+    assert R.add_control_room(stage, (10, -2, 42.5), (6, 4, 3), 0.3) > 20
+    UsdGeom.Xform.Define(stage, "/World/Fleet/unit1")
+    UsdGeom.Cube.Define(stage, "/World/Fleet/unit1/Geometry/base/trunk")
+    UsdGeom.Cube.Define(stage, "/World/Fleet/unit1/Geometry/base/lift_carriage/ur3_base_link/m")
+    assert R.paint_unit(stage, "/World/Fleet/unit1", "#2D55C8") == {"body": 1, "arm": 1, "pad": 0}
