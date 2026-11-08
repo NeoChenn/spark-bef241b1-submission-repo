@@ -84,10 +84,12 @@
     desc: "A small inset of what the focused robot's policy sees. ⇧F opens it full size.", suggest: (S) => (S.vkinds ? 0.3 : 0), hint: () => (S.vkinds ? kname(kindsOf(bot()?.id)[0] || "") : ""),
     render(el) {
       const r = bot(), id = r?.id, ks = kindsOf(id), k = ks.includes(S.kind) ? S.kind : ks[0], src = k ? srcOf(id, k) : null;
-      const x = q(el, `<div class="pip on"><img data-k="img" alt=""><span class="fp-cap" data-k="cap"></span><span class="pip-none" data-k="none"></span></div>`);
+      const x = q(el, `<div class="pip on"><img data-k="img" alt=""><span class="fp-cap" data-k="cap"></span><span class="pip-none" data-k="none"></span></div><div class="tags" data-k="tags"></div>`);
       if (src && x.img._s !== src) { x.img._s = src; x.img.src = src; }
       x.img.hidden = !src;
-      set(x.cap, src ? `${r.name || H.rname(r)} · ${kname(k, id)}` : ""); set(x.none, src ? "" : "No policy views from the sim yet");
+      const tg = r && H.tags ? H.tags(r, S) : "";
+      if (x.tags._h !== tg) { x.tags._h = tg; x.tags.innerHTML = tg; }
+      set(x.cap, src ? `ROBOT VIEW · ${H.rname(r)} · ${kname(k, id)}` : ""); set(x.none, src ? "" : "No policy views from the sim yet");
     } });
   const MET = [["gas_lel", "Gas", "% LEL", 100, 1, { min: 0, max: 30, color: "#FF4D4F", refs: [[10, "rgba(255,176,32,.5)"]] }],
     ["thermal_c", "Thermal", "°C", 1, 1, { min: 0, max: 80, color: "rgba(255,255,255,.75)" }],
@@ -156,7 +158,7 @@
   H.free((text) => ({ id: "tell", group: "Tell Argon", icon: "spark", label: `Tell Argon “${text}”`, desc: "Sends this to Gemini 4 Argon as an operator intent. It turns it into jobs through the coordinator; the edge safety envelope still applies and it cannot approve its own SUPV jobs.", run: () => tell(text) }));
   const T = {};
   const U = (id, label, ic, key, name, args, local, o = {}) => H.command({ id: "u." + id, group: "Unscripted change", label, icon: ic, key, keys: "unscripted inject judge change " + (o.keys || ""), desc: o.desc,
-    active: o.tog ? () => !!T[id] : undefined, score: o.score, run: () => { if (o.tog) T[id] = !T[id]; if (o.pre) o.pre(); H.event(name, typeof args === "function" ? args() : args, local); } });
+    active: o.tog ? () => !!T[id] : undefined, score: o.score, run: () => { if (o.tog) T[id] = !T[id]; H.unscripted?.(o.tog && !T[id] ? label + " off" : label, name); if (o.pre) o.pre(); H.event(name, typeof args === "function" ? args() : args, local); } });
   const scrub = () => S.state === "SCRUB";
   U("rust", "New rust patch", "spark", "⇧1", "spawn_patch", {}, () => {
     if (S.rust_grid) { const [bi, bj] = S.brush || [20, 30]; S.rust_grid = S.rust_grid.map((row, i) => row.map((v, j) => { const d = Math.hypot((i - bi + 6) / 3.5, (((j - bj + 13 + 64) % 64) / 4) - 1.5); return Math.max(v, d < 1.6 ? 0.85 * (1 - d / 1.6) + 0.1 : 0); })); }

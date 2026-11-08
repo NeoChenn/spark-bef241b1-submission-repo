@@ -80,18 +80,18 @@
   const send = (name, args, why) => {
     H.post(name, args).then((r) => H.addLog({ t: S.t, from: "Judge", to: name.toUpperCase(), reason: r?.fleet?.log?.[0]?.message || r?.detail || why }));
   };
-  const C = (id, label, ic, name, args, desc, key) => H.command({ id: "nav." + id, group: "Unscripted change", label, icon: ic, key, keys: "nav route reroute obstacle block path planner " + name, desc, run: () => send(name, args, label) });
+  const C = (id, label, ic, name, args, desc, key) => H.command({ id: "nav." + id, group: "Unscripted change", label, icon: ic, key, keys: "nav route reroute obstacle block path planner " + name, desc, run: () => { H.unscripted?.(label, name); send(name, args, label); } });
   C("crate", "Drop a crate on R1's route", "block", "drop_obstacle", { kind: "crate", at: "R1" }, "A crate lands on the walkway ahead of R1. The planner closes that segment and R1 re-routes, via the stairs if it must.");
   C("debris", "Drop debris on R2's route", "block", "drop_obstacle", { kind: "debris", at: "R2" }, "Debris blocks the walkway ahead of R2; R2 re-plans around it.");
   C("scaffold", "Scaffold tower on R3's route", "block", "drop_obstacle", { kind: "scaffold", at: "R3" }, "A scaffold tower goes up on R3's walkway; R3 re-plans.");
-  C("can", "Drop a can on R1's walkway", "block", "drop_can", { at: "R1" }, "A can lands on the walkway ahead of R1. The nearest robot with a gripper is dispatched to pick it up; the others re-route until it is cleared.");
+  C("can", "Drop a can on R1's walkway", "block", "drop_can", { at: "R1" }, "A can lands on the walkway ahead of R1. The nearest robot with a gripper is dispatched to pick it up; the others re-route until it is cleared.", "⇧C");
   C("hose", "Hose across R1's route", "block", "drop_obstacle", { kind: "hose", at: "R1" }, "A hose across the grating: passable but slow, so the planner weighs a detour.");
   C("spill", "Oil spill on the west stairs", "warn", "drop_obstacle", { kind: "spill", at: "stairs_west_upper" }, "Slippery stairs are closed; flat walkways nearby are slowed.");
   C("stairs", "Close the west stairs", "block", "close_stairs", { id: "stairs_west_upper" }, "Robots on the stairs back out to the landing; the rest re-route.");
   C("catwalk", "Close the middle-deck catwalk", "block", "close_walkway", { edge: "catwalk_mid" }, "The narrow cross catwalk on the middle deck is shut.");
   C("worker", "Worker on the top-deck walkway", "person", "person_at", { xy: [-1, 4], deck: "top_deck", duration: 90 }, "Robots keep 3 m clear and route around the worker for 90 s.");
   C("clear", "Clear obstacles and closures", "x", "clear", { id: "all" }, "Removes every obstacle and closure; routes and cut-off jobs come back.");
-  C("barrel", "Roll a barrel at R1", "wind", "drop_obstacle", { kind: "barrel", at: "R1" }, "An oil drum breaks loose ahead of R1 and rolls with the wind. Its blocked segments move with it; robots re-plan until it comes to rest.");
+  C("barrel", "Roll a barrel at R1", "wind", "drop_obstacle", { kind: "barrel", at: "R1" }, "An oil drum breaks loose ahead of R1 and rolls with the wind. Its blocked segments move with it; robots re-plan until it comes to rest.", "⇧D");
   const PAD = "https://rig.zeecloud.org/interactive";
   let qrLib = null;
   const qr = (el, size) => {

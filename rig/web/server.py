@@ -420,6 +420,13 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             except (ValueError, TypeError) as e:
                 raise HTTPException(400, str(e))
             fleet_changed()
+        if request.headers.get("x-spark-source") == "judge" or "/interactive" in request.headers.get("referer", ""):
+            # Unscripted moment: tag presses from the judges' phone pad so Mission Control can show "Judge pressed".
+            hub.log.append({"t": hub.header().get("t"), "from": "Judge", "to": ev["name"].upper(), "source": "judge",
+                            "event": ev["name"], "reason": "pressed on the judges' phone pad",
+                            "args": {k: v for k, v in ev["args"].items() if isinstance(v, (str, int, float, bool))}})
+            hub._trim()
+            hub._bump()
         pending.append(ev)
         queued = len(pending)
         flush()

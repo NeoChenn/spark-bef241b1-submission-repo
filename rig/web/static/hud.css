@@ -485,3 +485,73 @@ body.presenter #brand { opacity: 0.85; }
 button > i.sw { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
 .card header, #sheet > header button { font-family: var(--spark-font-body); }
 .ban b, .m-row b { font-family: var(--spark-font-display); letter-spacing: -0.01em; }
+
+/* ---- Demo-video layer (video.js): EDGE / CLOUD badge, chapters, callouts, tags, unscripted toast, recording mode ---- */
+#dock-right { top: calc(var(--top) + 48px); max-height: calc(100vh - var(--top) - 48px - var(--edge)); }
+#topright { position: fixed; top: var(--edge); right: var(--edge); z-index: 7; display: flex; align-items: center; gap: 8px; pointer-events: none; }
+#netbadge, #chap-pill { height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 18px; background: rgba(11,13,16,.84); box-shadow: inset 0 0 0 1.5px var(--nb, var(--spark-color-line)), var(--shadow); white-space: nowrap; }
+#netbadge { --nb: var(--spark-color-warning); }
+#netbadge[data-mode="cloud"] { --nb: var(--spark-color-accent); }
+#netbadge i { width: 8px; height: 8px; border-radius: 50%; background: var(--nb); }
+#netbadge b { font: 600 14px/1 var(--spark-font-display); letter-spacing: .06em; color: var(--nb); }
+#netbadge span { font-size: 12px; color: var(--spark-color-text); }
+#netbadge[data-mode="edge"] i { animation: breathe 1.2s ease-in-out infinite; }
+#chap-pill span { font-size: 12px; color: var(--spark-color-accent); }
+#chap-pill b { font: 600 13px/1 var(--spark-font-display); color: var(--spark-color-text); }
+#chapter { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%) scale(.96); z-index: 8; pointer-events: none; display: flex; align-items: baseline; gap: 18px; padding: 18px 34px 20px;
+  border-radius: 14px; background: rgba(11,13,16,.86); box-shadow: inset 0 0 0 1.5px var(--spark-color-accent), var(--shadow); opacity: 0; transition: opacity 260ms ease, transform 420ms var(--spring); }
+#chapter.on { opacity: 1; transform: translate(-50%, -50%); }
+#chapter span { font: 600 clamp(22px, 2.2vw, 38px)/1 var(--spark-font-mono); color: var(--spark-color-accent); }
+#chapter b { font: 600 clamp(34px, 3.6vw, 64px)/1 var(--spark-font-display); letter-spacing: -.02em; color: var(--spark-color-text); }
+#callout { position: fixed; left: 50%; bottom: 15vh; transform: translate(-50%, 8px); z-index: 8; pointer-events: none; padding: 14px 26px 16px; border-radius: 12px; background: rgba(11,13,16,.88);
+  box-shadow: inset 4px 0 0 var(--co, var(--spark-color-accent)), var(--shadow); opacity: 0; transition: opacity 220ms ease, transform 320ms var(--spring); text-align: left; }
+#callout.on { opacity: 1; transform: translate(-50%, 0); }
+#callout[data-tone="stop"] { --co: var(--spark-color-stop); }
+#callout[data-tone="ok"] { --co: var(--spark-color-success); }
+#callout[data-tone="warn"] { --co: var(--spark-color-warning); }
+#callout small { display: block; font: 600 12px/1 var(--spark-font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--spark-color-muted); margin-bottom: 8px; }
+#callout b { display: block; font: 600 clamp(34px, 3.4vw, 62px)/1 var(--spark-font-mono); letter-spacing: -.02em; color: var(--co, var(--spark-color-accent)); white-space: nowrap; }
+#toast { position: fixed; left: 50%; top: calc(var(--edge) + 92px); transform: translate(-50%, -6px); z-index: 9; pointer-events: none; display: flex; align-items: center; gap: 12px; padding: 8px 18px 8px 8px;
+  border-radius: 12px; background: rgba(11,13,16,.9); box-shadow: inset 0 0 0 1.5px var(--spark-color-warning), var(--shadow); opacity: 0; transition: opacity 200ms ease, transform 320ms var(--spring); white-space: nowrap; }
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+#toast .uns { font: 700 15px/1 var(--spark-font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--spark-color-bg); background: var(--spark-color-warning); padding: 8px 12px; border-radius: 7px; }
+#toast b { font: 600 18px/1.2 var(--spark-font-body); color: var(--spark-color-text); }
+#logline { display: none; }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.tags:empty { display: none; }
+.tag { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 5px; font: 600 10.5px/1 var(--spark-font-mono); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+.tag.pol { --c: var(--spark-color-accent); color: var(--c); border: 1.5px solid var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+.tag.gem { color: var(--spark-color-text); border: 1.5px dashed var(--spark-color-muted); background: rgba(243,245,248,.05); }
+.tag.edge { color: var(--spark-color-warning); border: 1.5px solid var(--spark-color-warning); }
+.lc .tags { margin-top: 4px; }
+.rb-tags { margin: 2px 0 8px; }
+.card .tags[data-k="tags"] { margin-top: 8px; }
+.g-top .tag, .ap .tag { margin-right: 6px; }
+.ap .tag { margin: 6px 0 2px; }
+.cc-meta .tag { height: 18px; font-size: 10px; }
+
+/* Recording mode (?record=1): clean take, everything readable at 1280x720 and 1920x1080. */
+body.record { --label2: #C9D0D8; --label3: var(--spark-color-muted); }
+body.record #dock-bottom, body.record .card .x, body.record .card .pin { display: none !important; }
+body.record .dglass { display: none; }
+body.record .card { background: rgba(13,15,19,.9); box-shadow: var(--shadow); }
+body.record .card.leaving { background: transparent; }
+body.record .card header { color: var(--spark-color-text); }
+body.record .cc-sum p { color: var(--spark-color-text); }
+body.record .cc-acts small, body.record .veto small, body.record .call small, body.record .ap p { color: #B9C1CB; }
+body.record #brand { opacity: 1; }
+body.record #logline { display: flex; position: fixed; left: 50%; bottom: var(--edge); transform: translateX(-50%); z-index: 6; max-width: min(980px, calc(100vw - 2 * var(--edge))); align-items: baseline; gap: 10px;
+  padding: 9px 16px; border-radius: 10px; background: rgba(11,13,16,.86); box-shadow: inset 0 0 0 1px var(--spark-color-line); white-space: nowrap; overflow: hidden; pointer-events: none; font-size: 14px; }
+body.record #logline:empty { display: none; }
+body.record #logline .tnum { color: var(--spark-color-muted); }
+body.record #logline b { color: var(--spark-color-accent); font-weight: 600; }
+body.record #logline em { font-style: normal; font-weight: 600; color: var(--spark-color-text); }
+body.record #logline span:last-child { overflow: hidden; text-overflow: ellipsis; color: #C9D0D8; }
+@media (max-width: 1400px) {
+  body.record { --wl: 260px; --wr: 300px; }
+  #netbadge span { display: none; }
+  body.record #netbadge span { display: inline; }
+}
+/* Recording mode keeps the pinned robot view: docks never evict it, and the control centre stays compact. */
+body.record #dock-right, body.record #dock-left { max-height: none; }
+body.record .cc-agent, body.record .veto, body.record .cc-acts li:nth-child(n+3), body.record .cc-sum p:nth-child(n+3) { display: none; }

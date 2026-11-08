@@ -17,7 +17,7 @@
 
   async function post(name, args) {
     try {
-      const r = await fetch("/api/event", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, args }) });
+      const r = await fetch("/api/event", { method: "POST", headers: { "Content-Type": "application/json", "X-Spark-Source": "judge" }, body: JSON.stringify({ name, args }) });
       return { status: r.status, body: await r.json().catch(() => ({})) };
     } catch (e) { return { status: 0, body: { detail: "offline" } }; }
   }

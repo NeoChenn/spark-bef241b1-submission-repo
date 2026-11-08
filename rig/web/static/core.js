@@ -94,7 +94,7 @@
     g.beginPath(); g.arc(Math.min(w - 2.5, x(l[0])), y(l[1]), 2.2, 0, 7); g.fill();
   }
   const P = new Map(), C = new Map(), V = new Map(), pins = new Set(store.get("pins", [])), hooks = [];
-  let booted = false, auto = store.get("auto", true), presenter = Q.has("presenter"), slot = null, slotAt = -99, dismissed = null;
+  let booted = false, auto = store.get("auto", true), presenter = Q.has("presenter") && !Q.has("record"), slot = null, slotAt = -99, dismissed = null;
   const command = (c) => (C.set(c.id, { group: "Demo", icon: "bolt", ...c }), c);
   const uncommand = (id) => C.delete(id);
   function panel(p) {
@@ -284,6 +284,7 @@
   isl.querySelectorAll(":scope > div").forEach((d) => ro.observe(d));
   function banner(tone, title, sub, ic = "warn", ms = 4000) {
     if (S.seeking) return;
+    if (HUD.dogs) { title = HUD.dogs(title); sub = HUD.dogs(sub); }
     set($("b-title"), title); set($("b-sub"), sub); $("b-icon").innerHTML = icon(ic);
     isl.dataset.tone = tone; isl.classList.add("big"); B.classList.add("alarm"); fitIsland();
     clearTimeout(banT);
@@ -309,7 +310,7 @@
     if (S.robots.length > 1) {
       const rank = (r) => (RANK[r.caption?.tone] || 0) + (S.gasAlarm && /GAS|LEAK|RETORQUE/.test(r.state) ? 2.5 : 0) - (/DOCK|CHARG/.test(r.state) ? 1.5 : 0);
       const r = S.robots.reduce((a, b) => (rank(b) > rank(a) ? b : a));
-      return r.caption && { ...r.caption, lead: `${String(r.name || r.id).split(" ·")[0]} · ${r.caption.lead || ""}` };
+      return r.caption && { ...r.caption, lead: `${(HUD.rname ? HUD.rname(r) : String(r.name || r.id)).split(" ·")[0]} · ${r.caption.lead || ""}` };
     }
     const c = S.caption || S.robots[0]?.caption;
     if (c || SIM) return c;
@@ -318,7 +319,7 @@
     return s0 ? { lead: "Argon", rest: " · " + String(s0).split(/(?<=[.;:])\s/)[0].replace(/[.;:]$/, ""), tone: "act" } : { lead: "Live", rest: n ? ` · ${n} robots on the rig` : " · offshore rig", tone: "act" };
   }
   function subtitle() {
-    const c = caption(), html = c ? `<b>${esc(c.lead)}</b>${esc(c.rest)}` : "", key = (c?.tone || "") + html.replace(/\d+(\.\d+)?/g, "#");
+    const c = caption(), dg = HUD.dogs || ((x) => x), html = c ? `<b>${esc(dg(c.lead))}</b>${esc(dg(c.rest))}` : "", key = (c?.tone || "") + html.replace(/\d+(\.\d+)?/g, "#");
     const cur = sub.children[layer];
     if (key === subKey) { if (cur.innerHTML !== html) cur.innerHTML = html; return; }
     subKey = key; layer ^= 1;
@@ -343,14 +344,15 @@
       if (!Array.isArray(rb.world_pos) || rb.world_pos.length < 3) return;
       keep.add(rb.id);
       let el = LBL.querySelector(`[data-id="${rb.id}"]`);
-      if (!el) { el = document.createElement("div"); el.dataset.id = rb.id; el.innerHTML = `<div class="lc"><b><i></i><span></span></b><small></small></div>`; LBL.appendChild(el); }
+      if (!el) { el = document.createElement("div"); el.dataset.id = rb.id; el.innerHTML = `<div class="lc"><b><i></i><span></span></b><small></small><div class="tags"></div></div>`; LBL.appendChild(el); }
       const [u, v, z] = project(cam, rb.world_pos);
       let x = ox + u * k, y = oy + v * k, mode = z <= 0.1 ? "behind" : rb.occluded ? "occ" : "";
       if (!mode && (x < M || x > innerWidth - M || y < M + 90 || y > innerHeight - M)) mode = "behind";
       el.className = `lbl ${rb.caption?.tone || ""} ${mode} ${S.ping === rb.id ? "ping" : ""} ${S.focus === rb.id ? "focus" : ""}`;
       el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
       if (HUD.rcol && !el.dataset.c) { el.dataset.c = "1"; el.style.setProperty("--bot", HUD.rcol(rb)); }
-      set(el.querySelector("span"), rb.name || rb.id); set(el.querySelector("small"), rb.caption?.text);
+      set(el.querySelector("span"), HUD.rname ? HUD.rname(rb) : rb.name || rb.id); set(el.querySelector("small"), HUD.dogs ? HUD.dogs(rb.caption?.text) : rb.caption?.text);
+      const tg = HUD.tags ? HUD.tags(rb, S) : ""; if (el._tg !== tg) { el._tg = tg; el.querySelector(".tags").innerHTML = tg; }
       const cw = el.firstChild.offsetWidth, ch = el.firstChild.offsetHeight, dx = Math.min(Math.max(x - cw / 2, lo), hi - cw) - (x - cw / 2);
       el.firstChild.style.marginLeft = dx.toFixed(0) + "px";
       if (mode) return;
@@ -404,7 +406,7 @@
   }
   function robotCommands(rs) {
     [...C.keys()].filter((id) => id.startsWith("robot.")).forEach(uncommand);
-    rs.forEach((r) => command({ id: "robot." + r.id, group: "Robots", label: r.name || r.id, icon: "robot", keys: "unit robot focus " + r.id, desc: "Focus this robot: its label pings, and ROBOT VIEW and Sensors follow it.",
+    rs.forEach((r) => command({ id: "robot." + r.id, group: "Robots", label: HUD.rname ? HUD.rname(r) : r.name || r.id, icon: "robot", keys: "unit robot focus " + r.id, desc: "Focus this robot: its label pings, and ROBOT VIEW and Sensors follow it.",
       hint: () => S.robots.find((x) => x.id === r.id)?.caption?.lead, active: () => S.focus === r.id, run: () => focus(r.id) }));
   }
   function focus(id) { S.focus = id; S.ping = id; clearTimeout(S.pingT); S.pingT = setTimeout(() => (S.ping = null), 1200); }
@@ -506,7 +508,7 @@
   isl.onclick = () => (palOpen ? closePal() : openPal());
   $("p-keep").textContent = MAC ? "⌘↵" : "Ctrl ↵";
   B.classList.toggle("presenter", presenter);
-  window.HUD = { S, sheetId: () => sheet.id, free: (f) => (free = f), ask, panel, command, uncommand, view, on: (f) => hooks.push(f), apply, event, post, judge, banner, addLog, setState, focus, shot, openView, num, set, esc, q, fit, spark, push, icon, nice, now, json };
+  window.HUD = { S, sheetId: () => sheet.id, pinOnce: (id) => { if (!pins.has(id)) { pins.add(id); show(id); open.get(id)?.el.classList.add("pinned"); } }, slot: () => slot, free: (f) => (free = f), ask, panel, command, uncommand, view, on: (f) => hooks.push(f), apply, event, post, judge, banner, addLog, setState, focus, shot, openView, num, set, esc, q, fit, spark, push, icon, nice, now, json };
   addEventListener("DOMContentLoaded", () => {
     booted = true;
     pins.forEach((id) => show(id));

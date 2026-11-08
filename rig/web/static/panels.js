@@ -20,14 +20,16 @@
   const fc = (f) => (f > 40 ? B.stop : f >= 36 ? B.warn : f >= 18 ? B.ok : "rgba(255,255,255,.72)");
   const COL = { stop: B.stop, warn: B.warn, ok: B.ok, act: B.accent, idle: "rgba(243,245,248,.6)" };
   const tone = (st = "") => (/PAUSE|RETREAT|FAIL|ESCALATE/.test(st) ? "stop" : /WAIT|BACK|HOLD|DOCK|GAS|BLOCK/.test(st) ? "warn" : /DONE|CHARG/.test(st) ? "ok" : /IDLE/.test(st) ? "idle" : "act");
-  const NAMES = { R1: "Unit 1 · rust", R2: "Unit 2 · gas", R3: "Unit 3", Q1: "Unit 1 · rust", Q2: "Unit 2 · gas", Q3: "Unit 3", "unit-1": "Unit 1 · rust", "unit-2": "Unit 2 · gas", "unit-3": "Unit 3", "go2-1": "Dog-1", "go2-2": "Dog-2", "go2-3": "Dog-3" };
-  const rname = (r) => r.name || NAMES[r.id] || r.id;
+  // Every visible robot name is Dog-1 / Dog-2 / Dog-3, whatever the feed calls it (unit-1, "Unit 1 · rust", go2-1, R1, Q1, U1).
+  const NAMES = { R1: "Dog-1", R2: "Dog-2", R3: "Dog-3", Q1: "Dog-1", Q2: "Dog-2", Q3: "Dog-3", "unit-1": "Dog-1", "unit-2": "Dog-2", "unit-3": "Dog-3", "go2-1": "Dog-1", "go2-2": "Dog-2", "go2-3": "Dog-3" };
+  const dogs = (s) => (s == null ? s : String(s).replace(/\b(?:Unit|U)[ -]?(\d)\b/g, "Dog-$1").replace(/\b(?:unit|go2|dog)-(\d)\b/gi, "Dog-$1").replace(/\b[RQ]([123])\b(?![-\w])/g, "Dog-$1"));
+  const rname = (r) => dogs(r.name || NAMES[r.id] || r.id);
   const pct = (v, d = 0) => (v == null ? "—" : (100 * v).toFixed(d) + " %");
   const STEPS = ["Patrol", "Detect", "Spray", "Soak", "Scrub", "Verify", "Paint", "Done"];
   const STEP_OF = { PATROL: 0, DETECT: 1, SECOND_VIEW: 1, APPROACH: 1, SPRAY: 2, SOAK: 3, SCRUB: 4, BACK_OFF: 4, VERIFY: 5, PAINT: 6, VERIFY_PAINT: 6, DONE: 7 };
   const KEEP_STEP = new Set(["WIPE_LENS", "WAIT_LULL", "PAUSE_PERSON", "HOLD"]);
   const SEE = ["DETECT", "SECOND_VIEW", "APPROACH", "VERIFY", "VERIFY_PAINT", "HOLD"];
-  Object.assign(H, { fc, COL, tone, rname, brand: B, rkind, rcol });
+  Object.assign(H, { fc, COL, tone, rname, dogs, brand: B, rkind, rcol });
   const MISSION = `<div class="track">${STEPS.map(() => "<i></i>").join("")}</div><div class="m-row"><b data-k="step"></b><span data-k="of"></span></div><div class="soak" data-k="soak"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15"/><circle data-k="ring" cx="18" cy="18" r="15"/></svg><b class="tnum" data-k="left"></b><span>s of soak left</span></div>`;
   H.panel({ id: "mission", title: "Mission", icon: "flag", key: "h", phases: ["SOAK"], priority: 50, keys: "stepper soak progress steps timer",
     desc: "Where the repair is in its eight steps, with the soak timer.", hint: (S) => H.nice(S.state),
@@ -77,7 +79,7 @@
       if (j && x.img._j !== j) { x.img._j = j; x.img.src = "data:image/jpeg;base64," + j; x.img.parentNode.classList.add("on"); }
       x.img.classList.toggle("mist", !!S.mist);
     } });
-  const GEM = `<div class="g-top"><span class="chip" data-k="v">No call yet</span><span class="tnum dim" data-k="lat"></span></div><div class="bar"><span data-k="bar"></span></div><div class="thumb"><img data-k="img" alt=""><svg data-k="pts"></svg></div><p class="why" data-k="why"></p>`;
+  const GEM = `<div class="g-top"><span class="tag gem">Gemini Robotics-ER</span><span class="chip" data-k="v">No call yet</span><span class="tnum dim" data-k="lat"></span></div><div class="bar"><span data-k="bar"></span></div><div class="thumb"><img data-k="img" alt=""><svg data-k="pts"></svg></div><p class="why" data-k="why"></p>`;
   H.panel({ id: "gemini", title: "Second opinion", meta: "Gemini Robotics-ER", icon: "spark", key: "o", phases: (S) => now() - S.gemAt < 9 / S.speed, priority: 70, keys: "gemini verdict vlm verify",
     desc: "Gemini checks the detector's call before the robot moves on.", hint: (S) => (S.gemini ? String(S.gemini.verdict || "").replace("_", " ") : ""),
     render(el, S) {
@@ -94,7 +96,7 @@
       x.pts.innerHTML = (g.points || []).map(([px, py]) => `<circle cx="${px}" cy="${py}" r="${r}" stroke-width="${r / 4}"/>`).join("");
     } });
   const logCls = (e) => (tone(e.to) === "stop" || /GAS/.test(e.to) ? "stop" : tone(e.to) === "warn" || /RE-PLAN|REPLAN/.test(e.reason + e.to) ? "warn" : /DONE|APPROVED/.test(e.to) ? "ok" : "");
-  H.logRows = (S, n) => S.log.slice(0, n).map((e) => `<li><span class="tnum">${Number(e.t).toFixed(1)}</span><b class="${logCls(e)}">${esc(H.nice(e.to))}</b><span>${e.from && !/^[A-Z_]+$/.test(e.from) ? `<i>${esc(e.from)}</i> ` : ""}${esc(String(e.reason || "").replace(/->/g, "→"))}</span></li>`).join("");
+  H.logRows = (S, n) => S.log.slice(0, n).map((e) => `<li><span class="tnum">${Number(e.t).toFixed(1)}</span><b class="${logCls(e)}">${esc(H.nice(e.to))}</b><span>${e.from && !/^[A-Z_]+$/.test(e.from) ? `<i>${esc(dogs(e.from))}</i> ` : ""}${esc(dogs(String(e.reason || "").replace(/->/g, "→")))}</span></li>`).join("");
   H.panel({ id: "log", title: "Decisions", icon: "list", key: "l", edge: "bottom", phases: ["PAUSE_PERSON", "PAUSED"], priority: 45, keys: "log history events reasons why",
     desc: "Every state change and the reason the planner gave.", hint: (S) => (S.log.length ? S.log.length + " recent" : ""),
     render(el, S) { const x = q(el, `<ol class="log" data-k="l"></ol>`); if (el._n !== S.logN) { el._n = S.logN; x.l.innerHTML = H.logRows(S, 4); } } });
@@ -180,7 +182,7 @@
     if (S.gasAlarm && now() - S.gasAt < 6 / S.speed) return 0;
     return S.gasAlarm || S.linkCut || c?.banner || S.state === "ESCALATE_TO_HUMAN" || an.some((a) => a?.severity === "critical") ? 90 : an.some((a) => /warn/.test(a?.severity)) ? 50 : c && S.started && now() - H._skAt < 14 / S.speed ? 20 : 0;
   };
-  const ccRow = (a, n) => !a ? "" : `<li data-n="${n}" class="${acted.has(a.id) ? "done" : ""}"><span class="tnum">${a.rank || n + 1}</span><span>${esc(a.label)}<small>${a.source === "edge" ? "Edge rule" : "Argon"}${a.rationale ? " · " + esc(a.rationale) : ""}</small></span><b class="tnum">${a.source === "edge" ? "hard" : Math.round((a.confidence || 0) * 100)}</b></li>`;
+  const ccRow = (a, n) => !a ? "" : `<li data-n="${n}" class="${acted.has(a.id) ? "done" : ""}"><span class="tnum">${a.rank || n + 1}</span><span>${esc(dogs(a.label))}<small>${a.source === "edge" ? "Edge rule" : "Argon"}${a.rationale ? " · " + esc(dogs(a.rationale)) : ""}</small></span><b class="tnum">${a.source === "edge" ? "hard" : Math.round((a.confidence || 0) * 100)}</b></li>`;
   H.planner = (ag, n) => (ag && (ag.intent || ag.text || ag.calls?.length) ? `<div class="cc-agent">${ag.intent ? `<p class="intent">“${esc(ag.intent)}”</p>` : ""}${ag.text ? `<p class="ag-text">${esc(String(ag.text).slice(0, 160))}</p>` : ""}${(Array.isArray(ag.calls) ? ag.calls : []).filter(Boolean).slice(-n).reverse().map((x) =>
     `<p class="call ${x.ok === false ? "no" : ""}"><b>${x.ok === false ? "✗" : "✓"}</b>${esc(x.label || x.name || "call")}<small>${esc(x.ok === false ? "refused: " + (x.refused || x.note || x.why || "") : x.why || x.note || "")}</small></p>`).join("")}</div>` : "");
   H.vetoes = (c, n) => (c?.vetoed || []).slice(0, n).map((v) => `<p class="veto"><b>Edge veto</b> <s>${esc(v.label)}</s><small>${esc(v.why)}</small></p>`).join("");
@@ -191,10 +193,10 @@
       const c = ctl(S), ap = waiting(S), key = JSON.stringify(c) + acted.size + JSON.stringify(ap);
       if (el._k === key) return;
       el._k = key;
-      const aps = ap.slice(0, 2).map((a) => `<div class="ap mini"><b>${esc((a.kind || "job").replace(/_/g, " "))} · ${esc(a.target || a.job)}</b>${a.text ? `<p>${esc(a.text)}</p>` : ""}<div><button data-job="${esc(a.job)}" data-a="1" class="yes">Approve</button><button data-job="${esc(a.job)}" data-a="0">Reject</button></div></div>`).join("");
-      el.innerHTML = (aps ? `<h6 class="cc-h">Waiting for you</h6>${aps}` : "") + (!c ? (aps ? "" : `<p class="none">Waiting for a situation report</p>`) : `<div class="cc-meta"><span class="badge ${c.mode === "CLOUD" ? "cloud" : ""}">${c.mode === "CLOUD" ? "Cloud" : "Edge"}</span>${typeof c.latency_ms === "number" ? `<span class="tnum">${(c.latency_ms / 1000).toFixed(1)} s</span>` : ""}${typeof c.cost_today_usd === "number" ? `<span class="tnum">$${c.cost_today_usd.toFixed(3)} today · ${c.calls_today || 0} calls</span>` : ""}</div>`
+      const aps = ap.slice(0, 2).map((a) => `<div class="ap mini"><b>${esc((a.kind || "job").replace(/_/g, " "))} · ${esc(a.target || a.job)}</b>${/gemini|argon/i.test(a.text || "") ? `<span class="tag gem">Gemini advisor</span>` : ""}${a.text ? `<p>${esc(dogs(a.text))}</p>` : ""}<div><button data-job="${esc(a.job)}" data-a="1" class="yes">Approve</button><button data-job="${esc(a.job)}" data-a="0">Reject</button></div></div>`).join("");
+      el.innerHTML = (aps ? `<h6 class="cc-h">Waiting for you</h6>${aps}` : "") + (!c ? (aps ? "" : `<p class="none">Waiting for a situation report</p>`) : `<div class="cc-meta"><span class="badge ${c.mode === "CLOUD" ? "cloud" : ""}">${c.mode === "CLOUD" ? "Cloud" : "Edge"}</span>${c.mode === "CLOUD" && c.link !== "CUT" ? `<span class="tag gem">Gemini advisor</span>` : `<span class="tag edge">Edge rules</span>`}${typeof c.latency_ms === "number" ? `<span class="tnum">${(c.latency_ms / 1000).toFixed(1)} s</span>` : ""}${typeof c.cost_today_usd === "number" ? `<span class="tnum">$${c.cost_today_usd.toFixed(3)} today · ${c.calls_today || 0} calls</span>` : ""}</div>`
         + (c.banner ? `<p class="edge">${esc(sent(c.banner))}</p>` : "")
-        + `<div class="cc-sum">${(Array.isArray(c.situation) && c.situation.length ? c.situation : [typeof c.situation === "string" ? c.situation : c.summary || "Edge safety rules only; no cloud plan yet."]).slice(0, 3).map((l) => `<p>${esc(l)}</p>`).join("")}</div>`
+        + `<div class="cc-sum">${(Array.isArray(c.situation) && c.situation.length ? c.situation : [typeof c.situation === "string" ? c.situation : c.summary || "Edge safety rules only; no cloud plan yet."]).slice(0, 3).map((l) => `<p>${esc(dogs(l))}</p>`).join("")}</div>`
         + `<ol class="cc-acts">${(c.actions || []).slice(0, 3).map(ccRow).join("")}</ol>` + H.vetoes(c, 1) + H.planner(c.agent, 1));
       el.onclick = (e) => { const b = e.target.closest("[data-job]"); if (b) return H.decide?.(b.dataset.job, b.dataset.a === "1"); const li = e.target.closest("[data-n]"); if (li && c?.actions) act(c.actions[+li.dataset.n]); };
     } });
@@ -243,13 +245,13 @@
       g.fill();
       g.strokeStyle = col; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); g.lineTo(x + Math.cos(a) * (rr + (big ? 9 : 6)), y + Math.sin(a) * (rr + (big ? 9 : 6))); g.stroke();
       g.fillStyle = "rgba(255,255,255,.85)"; g.font = `${big ? 600 : 500} ${big ? 12 : 10}px Inter, system-ui, sans-serif`;
-      g.fillText((big ? rname(r) : rname(r).split(" ·")[0].replace("Unit ", "U")) + (off && big ? "  · " + String(r.deck).replace("_deck", " deck") : ""), x + rr + 4, y - rr);
+      g.fillText((big ? rname(r) : rname(r).split(" ·")[0]) + (off && big ? "  · " + String(r.deck).replace("_deck", " deck") : ""), x + rr + 4, y - rr);
       g.globalAlpha = 1;
       hits.push({ id: r.id, x, y });
     });
     return Object.assign(hits, { deck });
   };
-  const fleetRows = (S) => (S.fleet?.robots || []).map((r) => `<div class="bot"><b><i class="sw" style="background:${rcol(r)}"></i>${esc(rname(r).split(" ·")[0])}</b><span class="dim">${esc(H.nice(r.job_state || r.state))}</span><i><s style="width:${pct(r.battery?.soc).replace(" ", "")};background:${(r.battery?.soc ?? 1) < 0.25 ? COL.warn : ""}"></s></i><em class="tnum">${r.battery?.soc == null ? "" : Math.round(r.battery.soc * 100)}</em></div>`).join("");
+  const fleetRows = (S) => (S.fleet?.robots || []).map((r) => `<div class="bot"><b style="color:${rcol(r)}"><i class="sw" style="background:${rcol(r)}"></i>${esc(rname(r).split(" ·")[0])}</b><span class="dim">${esc(H.nice(r.job_state || r.state))}</span><i><s style="width:${pct(r.battery?.soc).replace(" ", "")};background:${(r.battery?.soc ?? 1) < 0.25 ? COL.warn : ""}"></s></i><em class="tnum">${r.battery?.soc == null ? "" : Math.round(r.battery.soc * 100)}</em></div>`).join("");
   H.panel({ id: "fleet", title: "Fleet", icon: "robot", key: "b", edge: "left", keys: "robots map battery deck units", suggest: (S) => ((S.fleet?.robots?.length || 0) > 1 ? 0.2 : 0),
     desc: "Every robot on the rig: where it is on its deck, what it is doing and its battery. ⇧M opens the full mission map.", hint: (S) => (S.fleet?.robots ? S.fleet.robots.length + " robots" : ""),
     render(el, S) {
@@ -284,11 +286,12 @@
       const kv = [["Battery", soc == null ? null : Math.round(soc * 100) + " %"], ["Task", r.task ? String(r.task).split(":").pop().replace(/_/g, " ") : null], ["Deck", r.deck ? String(r.deck).replace("_deck", "").replace(/_/g, " ") : null],
         ["Gas", gas == null ? null : (gas * 100).toFixed(1) + " % LEL"], ["Force", force == null ? null : force.toFixed(1) + " N"]].filter((x) => x[1] != null).slice(0, 4);
       const others = H.bots(S).filter((o) => o.id !== id);
-      const src = H.viewSrc?.(id), key = [id, st, r.caption?.text, JSON.stringify(kv), others.map((o) => o.id + (o.job_state || o.state)).join(), src].join("|");
+      const src = H.viewSrc?.(id), tg = H.tags ? H.tags(r, S) : "", key = [id, st, r.caption?.text, JSON.stringify(kv), others.map((o) => o.id + (o.job_state || o.state)).join(), src, tg].join("|");
       if (el._k === key) return;
       el._k = key;
       el.innerHTML = `<div class="rb-top"><i style="background:${rcol(r)}"></i><b>${esc(rname(r))}</b><span class="chip">${esc(H.nice(st) || "Idle")}</span></div>`
-        + (r.caption?.text ? `<p class="rb-cap">${esc(r.caption.text)}</p>` : "")
+        + (tg ? `<div class="tags rb-tags">${tg}</div>` : "")
+        + (r.caption?.text ? `<p class="rb-cap">${esc(dogs(r.caption.text))}</p>` : "")
         + (src ? `<div class="pip on rb-pip"><img src="${src}" alt=""></div>` : "")
         + (kv.length ? `<div class="rb-kv">${kv.map(([k, v]) => `<span><em>${k}</em><b class="tnum">${esc(v)}</b></span>`).join("")}</div>` : "")
         + (others.length ? `<div class="rb-oth">${others.map((o) => `<button data-id="${esc(o.id)}"><i style="background:${rcol(o)}"></i>${esc(rname(o).split(" ·")[0])}<em>${esc(H.nice(o.job_state || o.state))}</em></button>`).join("")}</div>` : "");
