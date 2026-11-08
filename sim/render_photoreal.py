@@ -47,7 +47,7 @@ VIEWS = {
     "deck_mid": ((25.25, 3.25, 47.0), (18.25, -5.75, 43.5), 22.0),
     "waterline": ((75.0, -105.0, 4.0), (2.0, -8.0, 24.0), 18.0),
     "topdeck": ((30.0, -36.0, 52.0), (-6.0, 4.0, 44.0), 20.0),
-    "laydown": ((30.0, -2.0, 45.2), (16.0, -14.0, 43.0), 24.0),
+    "laydown": ((28.5, -19.5, 45.3), (17.5, -13.5, 43.2), 22.0),
 }
 
 settings = carb.settings.get_settings()
@@ -164,7 +164,9 @@ VARIANTS = {
     "lite": lambda: set_inputs("lite", True),
     "nocoat": lambda: set_inputs("wet_coat", False),
     "nodress": lambda: stage.GetPrimAtPath("/World/Photoreal").SetActive(False),
+    "coat": lambda: set_inputs("wet_coat", True),
     "off": lambda: stage.GetRootLayer().subLayerPaths.remove("photoreal.usda"),
+    "on": lambda: stage.GetRootLayer().subLayerPaths.insert(0, "photoreal.usda"),
 }
 for variant in (v for v in args.variants.split(",") if v):
     VARIANTS[variant]()

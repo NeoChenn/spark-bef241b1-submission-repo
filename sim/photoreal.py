@@ -158,6 +158,7 @@ def shader_inputs(recipe: dict) -> tuple[str, dict]:
 
 
 DECK_HEIGHTS = (20.0, 31.25, 42.5)
+FLOOR_LOOK = "/World/Photoreal/Looks/deck_floor"
 FLOOR_MESHES = ("upper_structure_frame", "legs_and_lower_deck_frame", "top_deck_rail")
 
 
@@ -176,7 +177,7 @@ def bind_floors(stage) -> int:
     import numpy as np
     from pxr import UsdGeom, UsdShade
 
-    deck = UsdShade.Material(stage.GetPrimAtPath("/World/Looks/deck"))
+    deck = UsdShade.Material(stage.GetPrimAtPath(FLOOR_LOOK))
     if not deck:
         return 0
     count = 0

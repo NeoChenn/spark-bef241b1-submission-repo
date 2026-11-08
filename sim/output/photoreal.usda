@@ -6019,6 +6019,63 @@ over "World"
                     float3 outputs:rgb
                 }
             }
+
+            def Material "deck_floor"
+            {
+                token outputs:mdl:surface.connect = </World/Photoreal/Looks/deck_floor/rig_mdl.outputs:out>
+                token outputs:surface.connect = </World/Photoreal/Looks/deck_floor/rig_mdl.outputs:out>
+
+                def Shader "rig_mdl"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
+                    float inputs:chip_amount = 0
+                    float inputs:grime_amount = 0.35
+                    float inputs:macro_scale = 23
+                    asset inputs:masks = @../assets/generated/rig_masks.png@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:metallic = 0.4
+                    color3f inputs:paint_color = (1, 1, 1)
+                    asset inputs:paint_diff = @../assets/third_party/textures/DiamondPlate008C_4k/diff.jpg@ (
+                        colorSpace = "sRGB"
+                    )
+                    asset inputs:paint_normal = @../assets/third_party/textures/DiamondPlate008C_4k/nor_gl.jpg@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:paint_reference = 0.77
+                    asset inputs:paint_rough = @../assets/third_party/textures/DiamondPlate008C_4k/rough.jpg@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:paint_scale = 1.6
+                    float inputs:porosity = 0.6
+                    float inputs:puddle_scale = 9
+                    float inputs:puddles = 0
+                    float inputs:rust_amount = 0.08
+                    asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
+                        colorSpace = "sRGB"
+                    )
+                    asset inputs:rust_normal = @../assets/third_party/textures/Rust007_4k/nor_gl.jpg@ (
+                        colorSpace = "raw"
+                    )
+                    asset inputs:rust_rough = @../assets/third_party/textures/Rust007_4k/rough.jpg@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:rust_scale = 1.5
+                    float inputs:salt_amount = 0.15
+                    float inputs:streak_amount = 0
+                    color3f inputs:streak_color = (0.15, 0.075, 0.035)
+                    asset inputs:streaks = @../assets/generated/rig_streaks.png@ (
+                        colorSpace = "raw"
+                    )
+                    bool inputs:tint_paint = 0
+                    bool inputs:triplanar = 0
+                    bool inputs:use_opacity = 0
+                    float inputs:wetness = 0
+                    token outputs:out
+                }
+            }
         }
 
         def Scope "Props"
