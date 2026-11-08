@@ -1,13 +1,3 @@
-"""Measure gauge-reader accuracy against synthetic truth and write the test crops.
-
-    C:\\isaacsim\\python.bat -m fleet.perception.gauge_eval --n 300 --gemini 20
-
-Classical reader: ``--n`` normal crops and ``--n`` hard crops (1.5x tilt, blur, glare and noise).
-Gemini: the 7 rig gauges at their true values plus random normal and hard crops, ``--gemini`` calls in total
-(0 = not measured). Crops sent to Gemini are saved as JPEG in fleet/testdata/rounds/ with the truth, the
-classical reading and the recorded Gemini reply in manifest.json, so tests can replay them offline.
-Results go to fleet/testdata/rounds/gauge_accuracy.json.
-"""
 from __future__ import annotations
 
 import argparse
@@ -97,7 +87,7 @@ def main(argv=None) -> int:
                 img = render_gauge_crop(v, p, seed=100 + idx)
                 path = args.out / f"gauge_{name}.jpg"
                 cv2.imwrite(str(path), img[..., ::-1], [cv2.IMWRITE_JPEG_QUALITY, 92])
-                img = cv2.imread(str(path))[..., ::-1]      # read back what the tests will see
+                img = cv2.imread(str(path))[..., ::-1]
                 c = reader.read(img)
                 gr = gem.read(img)
                 rec = {"file": path.name, "group": group, "truth": round(v, 4), "truth_bar": round(v * RANGE_BAR, 2),

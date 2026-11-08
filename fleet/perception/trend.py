@@ -1,10 +1,3 @@
-"""Condition-monitoring trends over inspection rounds: drift and step changes against a baseline.
-
-A one-off reading above a threshold is not an alarm here; a sustained change is. Each series is median-filtered
-(kills single spikes), turned into z-scores against the first ``baseline_n`` rounds, and run through a two-sided
-CUSUM. A CUSUM alarm is then classified as a ``step`` (flat after the change point) or a ``drift`` (a straight
-line fits the post-change segment and it keeps climbing).
-"""
 from __future__ import annotations
 
 import math
@@ -16,16 +9,16 @@ import numpy as np
 
 @dataclass
 class Trend:
-    kind: str                    # "step" | "drift"
-    direction: str               # "up" | "down"
+    kind: str
+    direction: str
     baseline_mean: float
     baseline_sd: float
-    current_mean: float          # mean of the last 3 rounds
-    delta: float                 # current_mean - baseline_mean
+    current_mean: float
+    delta: float
     delta_sigma: float
-    slope_per_round: float       # least squares over the rounds since the change point
-    change_round: int            # first round of the new behaviour (0-based)
-    alarm_round: int             # round at which the CUSUM crossed its limit
+    slope_per_round: float
+    change_round: int
+    alarm_round: int
     rounds: int
 
     def to_dict(self) -> dict:
@@ -42,8 +35,6 @@ def _medfilt3(x: np.ndarray) -> np.ndarray:
 
 def detect_change(series: Sequence[float], baseline_n: int = 10, min_sd: float = 0.0, k: float = 0.5,
                   h: float = 6.0, min_effect: float = 0.0, min_sigma: float = 3.0) -> Optional[Trend]:
-    """Trend if the CUSUM alarms AND the last 3 rounds sit at least max(min_sigma * sd, min_effect) off baseline
-    (the median filter makes neighbouring rounds correlated, so CUSUM alone over-alarms on small wobbles)."""
     tr = _cusum(series, baseline_n, min_sd, k, h)
     if tr is None or abs(tr.delta) < max(min_sigma * tr.baseline_sd, min_effect):
         return None
@@ -77,8 +68,6 @@ def _cusum(series, baseline_n, min_sd, k, h) -> Optional[Trend]:
     if alarm is None:
         return None
     alarm_i, _, direction = alarm
-    # Locate the change and its shape: best step (baseline, then a new level) vs best hinge (baseline, then a
-    # ramp) over every candidate start between the end of the baseline and the alarm. Uses the raw series.
     n = len(x)
     best_step = (math.inf, baseline_n)
     best_hinge = (math.inf, baseline_n, 0.0)
@@ -107,13 +96,6 @@ def _cusum(series, baseline_n, min_sd, k, h) -> Optional[Trend]:
 
 def synth_condition_history(asset_ids: Sequence[str], rounds: int = 30, seed: int = 7,
                             faults: Optional[dict] = None) -> dict:
-    """Per-asset temperature (deg C) and vibration velocity (mm/s RMS) over ``rounds`` inspection rounds.
-
-    Default faults (on the first assets available, so the demo always has something to find):
-      asset[1] temperature drift +0.6 C/round from round 18 (failing valve packing / bearing)
-      asset[4] vibration step 2.0 -> 4.4 mm/s at round 22 (loosened support, cavitation)
-      asset[2] one-off 12 C spike at round 25 (sun on the sensor; must NOT raise an alarm)
-    """
     rng = np.random.default_rng(seed)
     ids = list(asset_ids)
     if faults is None:
@@ -151,7 +133,6 @@ def synth_condition_history(asset_ids: Sequence[str], rounds: int = 30, seed: in
 
 
 def rounds_to_limit(trend: Trend, limit: float) -> Optional[float]:
-    """Rounds until a drifting series reaches ``limit`` at the current slope (None if not heading there)."""
     if trend.kind != "drift" or trend.slope_per_round == 0:
         return None
     n = (limit - trend.current_mean) / trend.slope_per_round

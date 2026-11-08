@@ -1,16 +1,3 @@
-"""Analog pressure-gauge perception: synthetic camera crops plus two independent readers.
-
-Dial geometry (sim/tools/make_generated_assets.py, make_gauge_dial): in image coordinates (x right, y down)
-the scale runs clockwise from 135 deg (lower left, value 0) through the top to 405 = 45 deg (lower right,
-value 1), 270 deg in all, 51 ticks with a major tick every 10. The red band covers values 0.8 to 1.0.
-The rig gauges read 0 to 16 bar (sim/rig_details.py GAUGE_RANGE_BAR).
-
-Readers
-  ClassicalGaugeReader  OpenCV: fit the light dial face as an ellipse, undo the perspective tilt with an
-                        affine map, then take the circular mean direction of the red needle pixels.
-  GeminiGaugeReader     Gemini vision: structured JSON reading + confidence. Returns None when there is no
-                        key, no network, the call budget is spent or the reply is unusable (offline fallback).
-"""
 from __future__ import annotations
 
 import base64
@@ -26,11 +13,11 @@ import numpy as np
 
 REPO = Path(__file__).resolve().parents[2]
 DIAL_TEXTURE = REPO / "sim/assets/generated/gauge_dial.png"
-START_DEG = 135.0          # value 0, image coordinates (y down)
+START_DEG = 135.0
 SWEEP_DEG = 270.0
 RED_ZONE = (0.8, 1.0)
 RANGE_BAR = 16.0
-NEEDLE_FRACTION = 0.75     # needle tip radius / dial radius (inside the ticks and the red band)
+NEEDLE_FRACTION = 0.75
 NEEDLE_RED = (191, 16, 12)
 
 
@@ -39,25 +26,22 @@ def value_to_angle(value: float) -> float:
 
 
 def angle_to_value(angle_deg: float) -> float:
-    """Image-frame needle angle (deg, y down) -> dial fraction. Angles in the dead zone snap to the nearer end."""
     rel = (angle_deg - START_DEG) % 360.0
     if rel <= SWEEP_DEG:
         return rel / SWEEP_DEG
     return 1.0 if rel - SWEEP_DEG < (360.0 - rel) else 0.0
 
 
-# ---------------------------------------------------------------------------------------------- synthetic crops
-
 @dataclass
 class CropParams:
-    yaw_deg: float = 0.0       # camera off the dial axis, left/right
-    pitch_deg: float = 0.0     # camera above/below the dial axis
-    roll_deg: float = 0.0      # small camera roll (body sway)
+    yaw_deg: float = 0.0
+    pitch_deg: float = 0.0
+    roll_deg: float = 0.0
     blur_sigma: float = 0.0
-    glare: float = 0.0         # 0..1 peak of a white specular blob
-    noise_std: float = 0.0     # gaussian sensor noise, 8-bit units
-    scale: float = 1.0         # dial size in the crop
-    shift: tuple[float, float] = (0.0, 0.0)   # dial centre offset, fraction of crop size
+    glare: float = 0.0
+    noise_std: float = 0.0
+    scale: float = 1.0
+    shift: tuple[float, float] = (0.0, 0.0)
     glare_at: tuple[float, float] = (0.35, 0.3)
 
     @classmethod
@@ -90,7 +74,6 @@ def dial_texture() -> np.ndarray:
 
 
 def dial_face(value: float) -> np.ndarray:
-    """512 px dial texture with the needle drawn at ``value`` (RGB)."""
     face = dial_texture()
     h, w = face.shape[:2]
     c = np.array([w / 2.0, h / 2.0])
@@ -122,8 +105,6 @@ def _tilt_homography(size: int, yaw: float, pitch: float, roll: float) -> np.nda
 
 def render_gauge_crop(value: float, params: Optional[CropParams] = None, size: int = 256,
                       seed: int = 0) -> np.ndarray:
-    """A camera crop of one gauge: grey pipework background, black bezel, dial with needle at ``value``,
-    then perspective tilt, blur, glare and sensor noise. Returns RGB uint8 (size x size)."""
     p = params or CropParams()
     rng = np.random.default_rng(seed)
     yy, xx = np.mgrid[0:size, 0:size].astype(np.float32)
@@ -157,11 +138,9 @@ def render_gauge_crop(value: float, params: Optional[CropParams] = None, size: i
     return img.clip(0, 255).astype(np.uint8)
 
 
-# ---------------------------------------------------------------------------------------------- classical reader
-
 @dataclass
 class GaugeReading:
-    value: Optional[float]              # 0..1 across the dial, None if unreadable
+    value: Optional[float]
     confidence: float
     method: str
     reading_bar: Optional[float] = None
@@ -176,20 +155,17 @@ class GaugeReading:
 
 
 class ClassicalGaugeReader:
-    """Needle-angle reader. Works on any RGB crop with one gauge roughly centred."""
 
     method = "classical_opencv"
 
     def __init__(self, range_bar: float = RANGE_BAR, canon: int = 128):
         self.range_bar = range_bar
-        self.canon = canon          # dial radius in the rectified image, px
+        self.canon = canon
 
     def _dial_ellipse(self, rgb: np.ndarray):
         return self._bezel_ellipse(rgb) or self._light_ellipse(rgb)
 
     def _bezel_ellipse(self, rgb: np.ndarray):
-        """Dial edge = inner boundary of the dark bezel ring. A black-hat filter keeps thin dark structures and
-        is unaffected by smooth additive glare, which shifts the bezel and the dial face by the same amount."""
         gray = cv2.GaussianBlur(cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY), (0, 0), 1.0)
         k = max(9, rgb.shape[0] // 9) | 1
         hat = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
@@ -247,8 +223,6 @@ class ClassicalGaugeReader:
         return cv2.warpAffine(rgb, M, (out, out), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
 
     def _scale_gap_offset(self, rect: np.ndarray, rad: np.ndarray, dx: np.ndarray, dy: np.ndarray):
-        """The ellipse fit leaves an in-plane twist (combined yaw + pitch, camera roll). The tick-free gap at
-        the bottom of the scale must sit at 90 deg: measure where it is and return the offset (or None)."""
         gray = cv2.cvtColor(rect, cv2.COLOR_RGB2GRAY)
         hat = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15)))
         ticks = (hat > 40) & (rad > 0.70) & (rad < 0.82)
@@ -259,7 +233,7 @@ class ClassicalGaugeReader:
         bins[ang.astype(int)] = True
         if bins.all():
             return None
-        start = int(np.argmax(bins))             # rotate so the run search starts on an occupied bin
+        start = int(np.argmax(bins))
         rolled = np.roll(bins, -start)
         best_len, best_mid, run = 0, 0.0, 0
         for i, occ in enumerate(np.append(rolled, True)):
@@ -290,12 +264,12 @@ class ClassicalGaugeReader:
         rad = np.hypot(dx, dy) / self.canon
         sel = red & (rad > 0.18) & (rad < 0.70)
         count = int(sel.sum())
-        expected = 0.52 * self.canon * 9 / 256 * 2 * self.canon   # needle length x width in canon px
+        expected = 0.52 * self.canon * 9 / 256 * 2 * self.canon
         if count < 0.12 * expected:
             return GaugeReading(None, 0.0, self.method,
                                 detail={"reason": "needle not found", "needle_px": count})
         ang = np.arctan2(dy[sel], dx[sel])
-        weights = rad[sel]                      # outer pixels pin the direction better
+        weights = rad[sel]
         cs, sn = float((np.cos(ang) * weights).sum()), float((np.sin(ang) * weights).sum())
         rbar = math.hypot(cs, sn) / float(weights.sum())
         raw_angle = math.degrees(math.atan2(sn, cs)) % 360.0
@@ -310,8 +284,6 @@ class ClassicalGaugeReader:
             "needle_px": count, "concentration": round(rbar, 4),
             "dial_aspect": round(tilt, 3), "dead_zone": bool(in_dead_zone)})
 
-
-# ---------------------------------------------------------------------------------------------- Gemini reader
 
 GAUGE_PROMPT = (
     "You are the instrument technician for an inspection robot on an offshore oil rig. The image is a camera "
@@ -339,8 +311,6 @@ GAUGE_SCHEMA = {
 
 
 class GeminiGaugeReader:
-    """Gemini vision reader with a hard call budget. ``read`` returns None whenever Gemini can't be used,
-    so callers always keep the classical reading (offline fallback)."""
 
     method = "gemini_vision"
 
@@ -393,7 +363,7 @@ class GeminiGaugeReader:
             frac = float(np.clip(bar / self.range_bar, 0.0, 1.0))
             conf = float(np.clip(float(data.get("confidence", 0.0)), 0.0, 1.0))
             readable = bool(data.get("readable", True))
-        except Exception as e:   # network, HTTP, schema: fall back to the classical reader
+        except Exception as e:
             self.last_error = f"{type(e).__name__}: {str(e)[:200]}"
             self.calls.append({"error": self.last_error})
             return None

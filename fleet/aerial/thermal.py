@@ -1,15 +1,3 @@
-"""Radiometric thermal image of the lit flare tip and a nozzle-anomaly detector.
-
-Simulation (no Isaac): a 320x256 radiometric frame (deg C per pixel) from a zoom thermal camera (24 deg
-HFOV) looking horizontally at the flare tip from the planner's viewpoint. Sky background, the hot boom,
-a row of burner nozzles on the tip (each a small hot spot at its own temperature from World.state),
-the flame above them (tilted by the wind), sensor noise (NETD-like) and a pointing error.
-
-Detection: project the nozzle row into the image from the known tip pose, search a small window around
-each expected spot for the local maximum (absorbs the pointing error), read the peak temperature, and
-flag nozzles whose temperature departs from the median by more than `k` robust sigmas (MAD) and more than
-`min_delta_c`. Hot = burn-back / internal burning; cold = plugged or unlit.
-"""
 from __future__ import annotations
 
 import math
@@ -41,7 +29,6 @@ class FlareTipState:
 
 
 def nozzle_pixels(n: int, pitch_m: float, distance_m: float) -> list[tuple[float, float]]:
-    """Expected (x, y) of each nozzle when the camera is centred on the tip at `distance_m`."""
     s = FOCAL_PX / distance_m
     cx, cy = W / 2, H * 0.62
     return [(cx + (i - (n - 1) / 2) * pitch_m * s, cy) for i in range(n)]
@@ -50,7 +37,7 @@ def nozzle_pixels(n: int, pitch_m: float, distance_m: float) -> list[tuple[float
 def render(tip: FlareTipState, distance_m: float, wind_toward_cam_x: float = 0.0, seed: int = 0,
            pointing_px: Optional[tuple[float, float]] = None, netd_c: float = 1.5) -> np.ndarray:
     rng = np.random.default_rng(seed)
-    s = FOCAL_PX / distance_m                        # px per metre
+    s = FOCAL_PX / distance_m
     yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
     off = pointing_px if pointing_px is not None else tuple(rng.uniform(-4, 4, 2))
     img = tip.sky_c + 6.0 * (yy / H) + rng.normal(0, 0.3, (H, W))
@@ -59,19 +46,16 @@ def render(tip: FlareTipState, distance_m: float, wind_toward_cam_x: float = 0.0
     cy = pts[0][1]
     half = (n / 2 + 0.6) * tip.nozzle_pitch_m * s
     x0, x1 = pts[0][0] - 0.5 * tip.nozzle_pitch_m * s - 4, pts[-1][0] + 0.5 * tip.nozzle_pitch_m * s + 4
-    # tip body (steel, heated by the flame) and the boom below it
     body = (xx >= x0) & (xx <= x1) & (yy >= cy + 2) & (yy <= cy + 0.6 * s)
     img[body] = 300.0 + rng.normal(0, 3, body.sum())
     boom = (np.abs(xx - (x0 + x1) / 2 - (yy - cy) * 0.25) <= 0.35 * s) & (yy > cy + 0.6 * s)
     img[boom] = np.maximum(img[boom], 90.0 + 140.0 * np.exp(-(yy[boom] - cy) / (2.5 * s)))
-    # flame: a tilted plume starting a little above the nozzle row (gas emission, lower apparent T)
     top = cy - 0.5 * s
     up = np.clip(top - yy, 0, None)
     axis = (x0 + x1) / 2 + wind_toward_cam_x * up * 0.6
     width = half * (1.0 + up / (6 * s))
     plume = np.exp(-((xx - axis) / np.maximum(width, 1)) ** 2) * (up > 0) * np.exp(-up / (10 * s))
     img = np.maximum(img, tip.sky_c + (tip.flame_c - tip.sky_c) * plume * 0.9)
-    # nozzles: compact hot spots on the tip rim
     sigma = max(0.12 * s, 1.2)
     for (px, py), t in zip(pts, tip.nozzle_temps_c):
         spot = np.exp(-((xx - px) ** 2 + (yy - py) ** 2) / (2 * sigma ** 2))
@@ -84,7 +68,7 @@ class NozzleReport:
     temps_c: list[float]
     median_c: float
     mad_c: float
-    anomalies: list[dict] = field(default_factory=list)   # {"nozzle", "temp_c", "delta_c", "z", "kind"}
+    anomalies: list[dict] = field(default_factory=list)
 
     def summary(self) -> dict:
         return {"temps_c": [round(t, 1) for t in self.temps_c], "median_c": round(self.median_c, 1),
@@ -94,11 +78,8 @@ class NozzleReport:
 def detect(frame: np.ndarray, n: int, pitch_m: float, distance_m: float, k: float = 5.0,
            min_delta_c: float = 60.0, search_px: int = 8) -> NozzleReport:
     expected = np.array(nozzle_pixels(n, pitch_m, distance_m))
-    # keep the search under half a nozzle pitch, or a one-pitch slip would also line up 7 of 8 spots
     spacing = pitch_m * FOCAL_PX / distance_m
     search_px = int(min(search_px, max(1, math.floor(0.45 * spacing))))
-    # 1) pointing error: one shift for the whole row, the one where the nozzle spots line up best (robust:
-    #    the median over nozzles, so a single odd nozzle does not pull the alignment)
     best, shift = -np.inf, (0, 0)
     for dy in range(-search_px, search_px + 1):
         for dx in range(-search_px, search_px + 1):
@@ -107,7 +88,6 @@ def detect(frame: np.ndarray, n: int, pitch_m: float, distance_m: float, k: floa
             score = float(np.median(frame[ys, xs]))
             if score > best:
                 best, shift = score, (dx, dy)
-    # 2) each nozzle: median of the 3x3 block at its aligned position
     temps = []
     for x, y in expected:
         ix, iy = int(round(x + shift[0])), int(round(y + shift[1]))
@@ -127,7 +107,6 @@ def detect(frame: np.ndarray, n: int, pitch_m: float, distance_m: float, k: floa
 
 
 def false_colour(frame: np.ndarray, n: int, pitch_m: float, distance_m: float, scale: int = 3) -> np.ndarray:
-    """Inferno-like false-colour RGB, upscaled, with nozzle numbers under the tip (for Gemini and the HUD)."""
     from PIL import Image, ImageDraw
     lo, hi = np.percentile(frame, 1), np.percentile(frame, 99.8)
     v = np.clip((frame - lo) / max(hi - lo, 1e-6), 0, 1)

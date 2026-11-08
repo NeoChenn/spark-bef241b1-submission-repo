@@ -1,22 +1,3 @@
-"""Aerial drone (A) jobs: flare tip thermal inspection and topsides corrosion survey (ISO 4628-3 Ri).
-
-    flare_tip_inspection  A + thermal  AUTO   fly outside the flare no-fly volume, image the lit tip,
-                                              find a hot / cold burner nozzle -> HUMAN maintenance job
-    corrosion_survey      A + camera   AUTO   image coating patches, grade Ri 0-5 (classical + Gemini);
-                                              Ri >= 3 -> rust_repair (Q) if on a pipe Q can reach from a deck,
-                                              otherwise coating_touchup (C). With params["verify_of"] it
-                                              re-images repaired patches and confirms them (closes the loop).
-
-World.state used (simulated truth for mock runs; see fleet/jobs/AERIAL.md):
-    wind               {"speed_mps", "toward_deg", "gust_mps"}
-    flare              {"nozzle_temps_c": [...], "nozzle_pitch_m"}
-    topsides_patches   {patch_id: {"rust_pct", "base", "fill", "seed", "position", "on_pipe", "size_m",
-                                    "repaired", ...}}
-
-Gemini: by default the executors use recorded Gemini replies (fleet/testdata/aerial/gemini_replies.json),
-so runs are offline and repeatable; set FLEET_GEMINI_LIVE=1 to call Gemini live. Unknown images or no
-reply -> the classical grade alone (edge autonomy is kept).
-"""
 from __future__ import annotations
 
 import math
@@ -33,7 +14,7 @@ from fleet.aerial.patches import TESTDATA, PatchSpec, grade_classical, load_imag
 from fleet.contract import Finding, Job, JobResult, JobStatus, Level, Robot, RobotKind, World, register
 
 REPLIES = TESTDATA / "gemini_replies.json"
-Q_REACH_ABOVE_DECK_M = (0.2, 1.8)     # Go2 + lift + UR3 working band above the deck it stands on
+Q_REACH_ABOVE_DECK_M = (0.2, 1.8)
 
 
 def default_vision() -> Optional[GeminiVision]:
@@ -43,7 +24,6 @@ def default_vision() -> Optional[GeminiVision]:
 
 
 def _drone_spec(robot: Robot) -> DroneSpec:
-    """Robot.speed_mps is the cruise ground speed when it is set to a drone-like value (>= 3 m/s)."""
     return DroneSpec(airspeed_mps=robot.speed_mps) if robot.speed_mps >= 3.0 else DroneSpec()
 
 
@@ -54,7 +34,6 @@ def _flight_failed(job: Job, robot: Robot, world: World, plan, what: str) -> Job
                      log=[f"flight plan rejected: {plan.reasons}"])
 
 
-# ---------------------------------------------------------------- flare tip
 class FlareTipInspection:
     kind = "flare_tip_inspection"
     level = Level.AUTO
@@ -78,7 +57,6 @@ class FlareTipInspection:
         distance = float(math.dist(vp, geom.tip))
         tip_state = thermal.FlareTipState.from_state(world.state)
         n = len(tip_state.nozzle_temps_c)
-        # wind across the camera's view tilts the flame in the image
         view = np.array(geom.tip[:2]) - np.array(vp[:2])
         right = np.array([view[1], -view[0]]) / max(np.linalg.norm(view), 1e-6)
         across = float(np.dot(wind.vec, right)) / 10.0
@@ -112,14 +90,12 @@ class FlareTipInspection:
         return JobResult(job.id, robot.id, status, world.t, world.t + plan.time_s, findings, log, used_gemini)
 
 
-# ---------------------------------------------------------------- corrosion survey
 def patch_spec(pid: str, p: dict) -> PatchSpec:
     return PatchSpec(pid, float(p.get("rust_pct", 0.0)), p.get("base", "grey"), p.get("fill", "rust_coarse_01"),
                      int(p.get("seed", 0)), int(p.get("size", 384)), bool(p.get("repaired", False)))
 
 
 def patch_image(pid: str, p: dict) -> np.ndarray:
-    """What the drone camera sees: the recorded test image for this patch if there is one, else a render."""
     if "image" in p and not p.get("repaired"):
         return load_image(TESTDATA / p["image"])
     if "image" in p and p.get("repaired"):
@@ -130,7 +106,6 @@ def patch_image(pid: str, p: dict) -> np.ndarray:
 
 
 def q_reachable(p: dict, decks: Optional[list[float]] = None) -> bool:
-    """A quadruped can reach the patch if it is on a pipe within the arm's band above some deck."""
     if not p.get("on_pipe"):
         return False
     z = float(p["position"][2])
@@ -139,7 +114,6 @@ def q_reachable(p: dict, decks: Optional[list[float]] = None) -> bool:
 
 
 def fuse(classical_ri: int, gemini) -> tuple[int, str]:
-    """Final grade: agree -> that grade; disagree -> the higher one (a missed Ri >= 3 costs more than a touch-up)."""
     if gemini is None:
         return classical_ri, "classical only"
     if gemini.ri == classical_ri:
@@ -233,21 +207,14 @@ FLARE_TIP_INSPECTION = register(FlareTipInspection())
 CORROSION_SURVEY = register(CorrosionSurvey())
 
 
-# ---------------------------------------------------------------- demo world
 def demo_patches() -> dict:
-    """Topsides patches for demos and tests, using the recorded test images (true grade in `true_ri`)."""
     from fleet.aerial.patches import test_set
     specs = {s.id: s for s in test_set()}
     placed = {
-        # on the middle-deck pipe rack 1.1 m above the deck: the quadruped can reach it
         "ri4_1": ([-12.0, 26.0, 32.35], True, [0.6, 0.6]),
-        # vessel shell high on the west face: crawler work
         "ri5_0": ([-36.0, -5.0, 50.0], False, [0.8, 0.8]),
-        # structure (not a pipe) on the south-east corner: crawler
         "ri3_2": ([30.0, -38.0, 44.0], False, [0.5, 0.5]),
-        # light rusting on a pipe too high for Q, below the repair threshold anyway
         "ri2_0": ([37.0, 10.0, 36.0], True, [0.5, 0.5]),
-        # sound coating
         "ri0_1": ([0.0, 27.0, 25.0], False, [0.5, 0.5]),
     }
     out = {}

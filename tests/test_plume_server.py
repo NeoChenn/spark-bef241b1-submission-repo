@@ -63,6 +63,8 @@ def test_ws_state_carries_light_plume_state(client):
         msg = ws.receive_json()
         assert msg["plume"]["seq"] == 1 and msg["plume"]["flow"]["kg_s"] == 0.0159
         assert "jpg" not in msg["plume"]
+        assert base64.b64decode(msg["pip"]["jpg"]) == b"\xff\xd8a"
+        assert "15.9 g/s" in msg["pip"]["caption"] and "LEL" in msg["pip"]["caption"]
         s.sendall(encode({"type": "frame", "w": 64, "h": 36, "seq": 1, "t": 0.1}, b"\xff\xd8\x01"))
         deadline = time.monotonic() + 2
         while time.monotonic() < deadline:
@@ -70,3 +72,4 @@ def test_ws_state_carries_light_plume_state(client):
             if msg.get("seq") == 1:
                 break
         assert msg["plume"]["seq"] == 1
+        assert "pip" not in msg

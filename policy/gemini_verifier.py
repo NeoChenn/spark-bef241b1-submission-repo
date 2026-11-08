@@ -216,8 +216,6 @@ def post_json(url: str, body: dict, api_key: str, timeout: float = 60.0, method:
 
 
 def pick_text_model(api_key: str, transport=None) -> str:
-    """GEMINI_TEXT_MODEL if set, else the newest 'pro' (then 'flash') model the key can call generateContent on.
-    Asking the API avoids hard-coding a model name that may have been retired."""
     if os.environ.get("GEMINI_TEXT_MODEL"):
         return os.environ["GEMINI_TEXT_MODEL"]
     listing = (transport or (lambda url: post_json(url, None, api_key, 30.0, "GET")))(f"{API_ROOT}/models?pageSize=200")
@@ -239,7 +237,6 @@ def pick_text_model(api_key: str, transport=None) -> str:
 
 def generate_json(prompt: str, schema: dict, api_key: str, model: str, timeout: float = 300.0, transport=None,
                   temperature: float = 0.4) -> dict:
-    """One text-only generateContent call that must return JSON matching `schema`."""
     body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
             "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema,
                                  "temperature": temperature}}

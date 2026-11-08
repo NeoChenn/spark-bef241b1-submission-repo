@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rig Spotlight</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="spot.css">
+</head>
+<body>
+  <div id="stage">
+    <div id="backdrop"><div class="shot" id="shotA"></div><div class="shot" id="shotB"></div></div>
+    <canvas id="view" width="640" height="360"></canvas>
+    <div id="flash"></div>
+  </div>
+  <div id="labels"></div>
+  <div id="vignette"></div>
+
+  <button id="capsule" class="glass hl" aria-label="Open command palette">
+    <span class="dot"></span><span id="c-state">Ready</span>
+    <span class="c-time"><b class="tnum" id="c-time">0.0</b>s</span>
+    <span id="c-key"><b class="tnum" id="c-num"></b><span id="c-unit"></span></span>
+    <kbd id="c-kbd">⌘K</kbd>
+  </button>
+  <div id="subtitle" class="glass hl"><span id="s-main"></span><span id="s-sub"></span></div>
+
+  <div class="dock" id="dock-left"><div class="dglass"></div></div>
+  <div class="dock" id="dock-right"><div class="dglass"></div></div>
+  <div class="dock" id="dock-bottom"><div class="dglass"></div></div>
+
+  <div id="palette" class="glass hl" role="dialog" aria-label="Command palette">
+    <label class="p-search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
+      <input id="p-input" placeholder="Search panels, cameras, events" autocomplete="off" spellcheck="false" role="combobox" aria-controls="p-list">
+    </label>
+    <div class="p-body"><ul id="p-list" role="listbox"></ul><div id="p-preview"></div></div>
+    <div class="p-foot">
+      <span><span class="dot"></span><span id="status">connecting…</span><span class="sep">·</span><span id="fps">–</span> fps<span class="sep">·</span><span id="p-src">EDGE</span></span>
+      <span class="p-keys"><kbd>↑↓</kbd><kbd>↵</kbd>open<kbd id="p-keep">⌘↵</kbd>keep open<kbd>esc</kbd></span>
+    </div>
+  </div>
+  <span id="age" hidden></span>
+
+  <script src="/static/viewer.js"></script>
+  <script src="spot.js"></script>
+</body>
+</html>

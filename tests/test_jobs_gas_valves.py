@@ -10,7 +10,7 @@ from fleet.gas.plume import true_concentration
 from fleet.gas.report import Gemini
 from fleet.jobs import gas_valves as gv
 
-from fleet.gas.measure import SCENARIOS  # seeded leaks: source xy, wind, flow direction, upstream valve
+from fleet.gas.measure import SCENARIOS
 
 SEEDS = range(6)
 ERROR_BOUND_M = 1.5
@@ -30,7 +30,7 @@ def rig():
 def world_with(rig, source=None, wind=(0.0, 0.0), flow=None, seed=0, **leak):
     w = World(assets=copy.deepcopy(rig.assets), state={"seed": seed, "wind": list(wind)})
     w.state["gas_leaks"] = []
-    if source is not None:   # the coordinator's format (PR #7) plus optional fields of this module
+    if source is not None:
         w.state["gas_leaks"].append({"id": "leak_01", "position": [*source, 43.3], "rate_g_s": 3.5, "t0": 0.0,
                                      "source": "test flange", "isolated": False, "flow_dir": flow, **leak})
     return w
@@ -63,7 +63,6 @@ def test_registry_has_the_four_jobs():
 
 @pytest.mark.parametrize("name", list(SCENARIOS))
 def test_localization_error_within_bound(rig, name):
-    """Every seed: error under 1.5 m and inside the reported 95% radius; mean error under 0.5 m."""
     src, wind, flow, _ = SCENARIOS[name]
     errs = []
     for seed in SEEDS:
@@ -80,8 +79,6 @@ def test_localization_error_within_bound(rig, name):
 
 @pytest.mark.parametrize("name", list(SCENARIOS))
 def test_survey_respects_the_gas_limits(rig, name):
-    """The robot may walk into the stop limit once on its fixed route (the rule is reactive, as on the gas
-    branch); it then backs off, and the plume climb never takes it there."""
     from fleet.gas.localize import Seeker
     from fleet.gas.plume import GasSensor
     w = world_with(rig, *SCENARIOS[name][:3])
@@ -102,7 +99,6 @@ def test_no_leak_means_no_finding(rig):
 
 
 def test_far_leak_is_missed_and_says_so(rig):
-    """Detection range is a few metres with this plume: a leak 11 m off the route is not found."""
     res = run_survey(world_with(rig, (-3.0, 22.5), (0.0, -1.5)))
     assert res.status == JobStatus.DONE
 
@@ -120,7 +116,6 @@ def test_follow_up_isolates_the_upstream_valve_and_needs_approval(rig, name):
 
 
 def test_valve_isolate_does_nothing_without_approval(rig):
-    """The coordinator holds SUPV jobs until approve(); the executor is a second gate on approved=False."""
     w = world_with(rig, *SCENARIOS["north_rack_east_wind"][:3])
     job = run_survey(w).findings[0].follow_up[0]
     job.params["approved"] = False
@@ -150,9 +145,6 @@ def test_full_chain_detect_isolate_confirm(rig):
 
 
 def test_coordinator_alarm_triggered_survey(rig):
-    """The coordinator's demo leak (fleet/demo.py, PR #7): a gas alarm queues gas_survey(target=leak id,
-    position=alarm). Valve_05 is 1.1 m from the leak, so the robot would stand in gas: it is skipped by
-    prediction and the next valve is proposed; closing it cuts the leak and the confirm survey sees it fall."""
     w = world_with(rig)
     w.state["gas_leaks"].append({"id": "leak_01", "source": "flange near valve_05", "position": (21.0, -10.2, 43.4),
                                  "rate_g_s": 3.5, "t0": 205.0, "alarm_after_s": 60.0})
@@ -165,7 +157,7 @@ def test_coordinator_alarm_triggered_survey(rig):
     assert any("valve_05" in s for s in f.evidence["valves_skipped"])
     iso = f.follow_up[0]
     assert iso.kind == "valve_isolate" and iso.target == "valve_06" and iso.params["zone"] == "leak_01"
-    iso.params["approved"] = True  # as Coordinator.approve() sets it
+    iso.params["approved"] = True
     out = gv.ValveIsolateJob().run(iso, quad(), w)
     assert out.status == JobStatus.FINDING, out.log
     assert w.state["gas_leaks"][0]["isolated"]
@@ -207,7 +199,7 @@ def test_valve_isolate_reaches_a_rig_valve(rig):
 
 def test_out_of_reach_valve_is_refused_and_handed_to_a_human(rig):
     w = world_with(rig)
-    w.assets["valve_03"]["position_m"][2] = 42.5 + 2.2          # handle 2.2 m above the deck
+    w.assets["valve_03"]["position_m"][2] = 42.5 + 2.2
     res = gv.ValveIsolateJob().run(isolate_job("valve_03", rig), quad(), w)
     assert res.status == JobStatus.HANDED_TO_HUMAN
     f = res.findings[0]
@@ -247,7 +239,6 @@ def test_robot_without_arm_fails(rig):
     assert gv.ValveIsolateJob().run(isolate_job("valve_03", rig), r, world_with(rig)).status == JobStatus.FAILED
 
 
-# ----------------------------------------------------------------------------------------------- filters
 FILTER_POS = (-8.0, 23.6, 43.4)
 
 
@@ -267,7 +258,7 @@ def test_high_dp_creates_a_supervised_changeover_job(rig):
 def test_filter_changeover_gated_then_dp_drops(rig):
     w = filter_world(rig)
     job = gv.filter_jobs(w)[0]
-    job.params["approved"] = False          # operator has not approved yet
+    job.params["approved"] = False
     assert gv.FilterChangeoverJob().run(job, quad(), w).status == JobStatus.WAITING_APPROVAL
     assert w.state["filters"]["filter_01"]["active"] == "A"
     res = gv.FilterChangeoverJob().run(approve(job), quad(), w)
@@ -285,7 +276,6 @@ def test_filter_low_dp_or_fouled_standby(rig):
     assert w.state["filters"]["filter_01"]["active"] == "A"
 
 
-# ------------------------------------------------------------------------------------------------- panel
 PANEL_POS = (-14.0, 23.6, 43.5)
 
 
@@ -331,7 +321,6 @@ def test_alarm_ack(rig):
     assert res.status == JobStatus.FINDING and w.state["panel"]["alarms"][0]["acknowledged"]
 
 
-# ------------------------------------------------------------------------------------------------ Gemini
 def fake_transport(payload):
     def transport(url, body):
         transport.prompts.append(body["contents"][0]["parts"][0]["text"])

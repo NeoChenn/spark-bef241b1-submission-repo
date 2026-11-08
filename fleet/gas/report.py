@@ -1,9 +1,3 @@
-"""Operator-facing leak report and approval request: Gemini writes them from the localization numbers,
-with a deterministic template as the fallback (as `gas-leak-detection` flange_robot/alerts.py does).
-
-Gemini is on the slow path only: no decision depends on it. It is used when a key is available
-(policy.gemini_verifier.load_api_key) and FLEET_GEMINI is not "0". A small rate guard caps calls.
-"""
 from __future__ import annotations
 
 import os
@@ -28,7 +22,6 @@ MAX_PER_MIN = 6
 
 
 class Gemini:
-    """Callable (prompt, schema) -> dict or None. `transport` is for tests (see policy.gemini_verifier)."""
 
     def __init__(self, enabled: Optional[bool] = None, transport: Optional[Callable] = None,
                  model: Optional[str] = None):
@@ -44,7 +37,7 @@ class Gemini:
         try:
             from policy.gemini_verifier import load_api_key
             return load_api_key()
-        except Exception:  # noqa: BLE001
+        except Exception:
             return None
 
     def __call__(self, prompt: str, schema: dict) -> Optional[dict]:
@@ -66,7 +59,7 @@ class Gemini:
                 self._model = "test-model" if self.transport else pick_text_model(key)
             return generate_json(prompt, schema, key, self._model, timeout=60.0, transport=self.transport,
                                  temperature=0.2)
-        except Exception as exc:  # noqa: BLE001 - network, quota, parse: fall back to the template
+        except Exception as exc:
             self.last_error = type(exc).__name__
             return None
 
@@ -101,7 +94,6 @@ def leak_prompt(n: dict) -> str:
 
 
 def write_leak_messages(numbers: dict, gemini: Optional[Callable[[str, dict], Optional[dict]]]) -> tuple[dict, bool]:
-    """Returns (messages, used_gemini). Falls back to the template if Gemini is off, fails, or drops a number."""
     base = leak_template(numbers)
     if gemini is None:
         return base, False

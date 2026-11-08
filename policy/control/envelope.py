@@ -116,6 +116,10 @@ class Envelope:
             jid = port.queue(args["kind"], args["target"], args["level"], args.get("priority", 3), args["params"],
                              by=self.agent, why=why)
             out["result"] = {"job_id": jid, "status": port.job(jid)["status"]}
+        elif name == "approve_request":
+            port.log("approval_requested", args["job_id"], None, by=self.agent, why=why)
+            out["result"] = {"job_id": args["job_id"], "status": port.job(args["job_id"])["status"]}
+            note = out["note"] = (note + " " if note else "") + "sent to the operator inbox; only a human approves"
         else:
             fn = {"cancel_job": lambda: port.cancel(args["job_id"], self.agent, why),
                   "approve_request": lambda: port.approve_request(args["job_id"], self.agent, why),

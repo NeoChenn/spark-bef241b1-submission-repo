@@ -1,25 +1,3 @@
-"""Gas survey and valve, filter and panel operations for the quadruped (Go2 + lift + UR3).
-
-    gas_survey         Q + gas_sensor, AUTO  round -> detect -> climb the plume -> fit the source with a 95%
-                                             radius -> critical Finding + follow-up valve_isolate (SUPV).
-                                             mode="confirm": re-sample the plume after isolation; if the gas has
-                                             not fallen, try the next upstream valve.
-    valve_isolate      Q + arm, SUPV         approval -> gas and person check -> IK reach check -> torque ramp vs
-                                             limit -> quarter turn -> follow-up confirming gas_survey.
-                                             Out of reach, over torque or in gas: refuse, hand to a human.
-    filter_changeover  Q + arm, SUPV         high dP -> approval -> reach -> move the duplex lever -> verify dP fell.
-    panel_button       Q + arm, SUPV         pump_start or alarm_ack only. ESD reset (or any reset, bypass,
-                                             override, inhibit, shutdown button) is refused and never pressed.
-
-Approval: the coordinator (PR #7) holds a SUPV job and calls `run` only after `approve(job_id)`. As a second
-gate, a job whose `params["approved"]` (or `params["approval"]["approved"]`) is False actuates nothing and returns
-WAITING_APPROVAL with the approval request (`executor.approval_request(job, world)`). Follow-up jobs carry
-`params["approval_request"]` (Gemini-written) for the operator.
-
-Simulated truth (World.state): "gas_leaks" (coordinator format: id, position, rate_g_s, t0, source, isolated),
-"wind", "process_flow_dir", "valves", "filters", "panel"; see fleet/jobs/GAS_VALVES.md.
-Gemini writes the leak report and the approval text (fleet/gas/report.py), with a template fallback.
-"""
 from __future__ import annotations
 
 import math
@@ -37,12 +15,12 @@ from fleet.gas.reach import check_reach, deck_below, facing_of, patrol_route, ri
 from fleet.gas.report import Gemini, approval_template, as_approval, write_leak_messages
 
 LIMITS = safety.SafetyLimits()
-PUSH_FORCE_N = 38.0          # arm force cap, same as the scrub-v2 policy's 38 N setpoint cap
+PUSH_FORCE_N = 38.0
 DEFAULT_LEVER_M = 0.25
 DEFAULT_BREAKAWAY_NM = 6.0
 TORQUE_STEP_NM = 0.25
-LOCAL_BOX_M = 3.0            # half-side of the box search around a gas alarm position
-CONFIRM_DROP = 0.25         # isolation confirmed when the plume excess falls below 25% of before
+LOCAL_BOX_M = 3.0
+CONFIRM_DROP = 0.25
 ALLOWED_BUTTONS = {"pump_start", "alarm_ack"}
 FORBIDDEN_BUTTON = re.compile(r"esd|reset|shut|bypass|override|inhibit|trip|emergency", re.I)
 QUAD = {RobotKind.QUADRUPED}
@@ -53,7 +31,6 @@ class RefusedButton(RuntimeError):
 
 
 def is_approved(job: Job) -> bool:
-    """True only when the operator approved: the coordinator sets params["approved"] in approve()."""
     a = job.params.get("approval")
     return job.params.get("approved") is True or (isinstance(a, dict) and a.get("approved") is True)
 
@@ -95,9 +72,6 @@ def _human_job(job: Job, kind: str, why: str, priority: int = 1) -> Job:
 
 
 def isolate_leaks(world: World, valve_id: str, leak_label=None, estimate=None, near_m: float = 4.0) -> list[str]:
-    """Simulated truth: which leaks closing `valve_id` cuts. A leak's `isolating_valves` decides when given;
-    otherwise the leak named by the job (coordinator id), else leaks within `near_m` of the estimate.
-    Cut leaks get isolated=True and their rate (rate_g_s, amplitude_lel) scaled by `residual` (default 0.05)."""
     cut = []
     for lk in world.state.get("gas_leaks") or []:
         if lk.get("isolated"):
@@ -119,8 +93,6 @@ def isolate_leaks(world: World, valve_id: str, leak_label=None, estimate=None, n
 
 
 def _flow_dir(world: World, xy):
-    """Process flow direction at a point: World.state["process_flow_dir"], else the `flow_dir` of the line
-    (gas_leaks entry) nearest the point. This is piping knowledge, not the leak's position."""
     if world.state.get("process_flow_dir") is not None:
         return world.state["process_flow_dir"]
     lines = [lk for lk in world.state.get("gas_leaks") or [] if lk.get("flow_dir") is not None]
@@ -130,8 +102,6 @@ def _flow_dir(world: World, xy):
 
 
 def select_isolation_valve(world: World, source_xyz, exclude=(), unsafe=None) -> tuple[Optional[dict], str, list]:
-    """Nearest valve upstream of the source along the process flow; without a flow direction, the nearest valve.
-    Same deck preferred. `unsafe(valve) -> str|None` skips valves the robot could not work at (e.g. in gas)."""
     s = np.asarray(source_xyz, float)
     valves = [v for v in world.of_type("valve") if v["id"] not in set(exclude)]
     skipped = []
@@ -146,7 +116,7 @@ def select_isolation_valve(world: World, source_xyz, exclude=(), unsafe=None) ->
     same = [v for v in valves if abs(v["position_m"][2] - s[2]) < 3.0]
     valves = same or valves
     flow = _flow_dir(world, s)
-    dist = lambda v: float(np.linalg.norm(np.asarray(v["position_m"], float)[:2] - s[:2]))  # noqa: E731
+    dist = lambda v: float(np.linalg.norm(np.asarray(v["position_m"], float)[:2] - s[:2]))
     if flow is not None:
         f = np.asarray(flow, float)[:2]
         up = [v for v in valves if (np.asarray(v["position_m"], float)[:2] - s[:2]) @ f < 0]
@@ -155,7 +125,6 @@ def select_isolation_valve(world: World, source_xyz, exclude=(), unsafe=None) ->
     return min(valves, key=dist), "nearest", skipped
 
 
-# ---------------------------------------------------------------------------------------------- gas_survey
 class GasSurveyJob:
     kind, level, needs, robot_kinds = "gas_survey", Level.AUTO, {"gas_sensor"}, {RobotKind.QUADRUPED,
                                                                                  RobotKind.AERIAL}
@@ -165,8 +134,6 @@ class GasSurveyJob:
 
     @staticmethod
     def _route(job: Job, world: World) -> tuple[list, str]:
-        """Explicit route; else the full patrol round for a deck-wide survey; else (a survey triggered by a gas
-        alarm, as the coordinator queues it) a box search LOCAL_BOX_M around the alarm position."""
         if job.params.get("route"):
             return job.params["route"], "given route"
         decks = set(rig_meta().get("deck_heights_m") or {}) | {"round", "patrol"}
@@ -208,7 +175,6 @@ class GasSurveyJob:
         wind = np.asarray(world.state.get("wind") or (0.0, 0.0), float)
 
         def unsafe(v):
-            """Predicted gas at the valve stance from the fitted plume (1.5x amplitude margin)."""
             stance = np.asarray(v["position_m"], float)[:2] + 0.5 * facing_of(v, world.assets)
             c = GAS_BASE + 1.5 * s.amplitude * float(shape(stance[None], np.asarray(est[:2]), world.state.get("wind"),
                                                            seeker.decay_m)[0])
@@ -298,7 +264,6 @@ class GasSurveyJob:
         return _result(job, robot, world, JobStatus.FINDING, seeker.s.time_s, [f], log)
 
 
-# ------------------------------------------------------------------------------------------- valve_isolate
 class ValveIsolateJob:
     kind, level, needs, robot_kinds = "valve_isolate", Level.SUPV, {"arm"}, QUAD
 
@@ -382,7 +347,6 @@ class ValveIsolateJob:
         return _result(job, robot, world, JobStatus.FINDING, 150.0, [f], log)
 
 
-# --------------------------------------------------------------------------------------- filter_changeover
 class FilterChangeoverJob:
     kind, level, needs, robot_kinds = "filter_changeover", Level.SUPV, {"arm"}, QUAD
 
@@ -441,7 +405,6 @@ class FilterChangeoverJob:
 
 
 def filter_jobs(world: World, t: float = 0.0) -> list[Job]:
-    """filter_changeover jobs for every filter in World.state whose dP is at or above its limit."""
     out = []
     for fid, fs in (world.state.get("filters") or {}).items():
         if fs.get("dp_bar", 0.0) >= fs.get("dp_limit_bar", 1.0):
@@ -450,9 +413,7 @@ def filter_jobs(world: World, t: float = 0.0) -> list[Job]:
     return out
 
 
-# -------------------------------------------------------------------------------------------- panel_button
 def press(world: World, button: str, robot_id: str) -> None:
-    """The only place a button gets pressed. Refuses forbidden buttons even if a caller gets this far."""
     if FORBIDDEN_BUTTON.search(button) or button not in ALLOWED_BUTTONS:
         raise RefusedButton(button)
     world.state.setdefault("panel", {}).setdefault("pressed", []).append({"button": button, "robot": robot_id,

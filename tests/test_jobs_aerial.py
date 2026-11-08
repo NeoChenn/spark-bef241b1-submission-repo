@@ -1,5 +1,3 @@
-"""Aerial (A) and crawler (C) jobs: flight planner no-fly check, flare thermal anomaly, Ri graders vs known
-grades, and the drone -> Gemini -> C/Q -> drone re-image chain run through the executors (no network)."""
 import json
 import math
 
@@ -33,7 +31,6 @@ def replay_vision():
     return GeminiVision(replay=REPLIES)
 
 
-# ---------------------------------------------------------------- flight planner
 def test_flare_tip_is_read_from_cinematic_source(tmp_path):
     g = flare_geometry()
     assert g.tip == (-58.0, 8.0, 70.0) and g.base == (-26.0, 8.0, 42.0)
@@ -52,7 +49,7 @@ def test_survey_never_enters_no_fly_or_rig(wind):
     nf, bx = check_path(plan.waypoints[:-1], nofly, lo, hi, skip_first=1)
     assert nf > 0 and plan.min_nofly_clearance_m > 0, plan.summary()
     assert bx > 0
-    assert plan.detours >= 1                      # the standoff ring does pass the flare: it had to route round
+    assert plan.detours >= 1
     assert plan.feasible and plan.length_m > 1500 and plan.time_s > 0
 
 
@@ -83,7 +80,6 @@ def test_flare_viewpoint_is_outside_no_fly_and_upwind():
         assert plan.feasible and plan.min_nofly_clearance_m > 0
 
 
-# ---------------------------------------------------------------- thermal
 @pytest.mark.parametrize("case,nozzle,kind", [("hot", 5, "hot"), ("cold", 3, "cold"), ("healthy", None, None)])
 def test_flare_tip_inspection_finds_the_degraded_nozzle(case, nozzle, kind):
     world = demo_world(degraded_nozzle=nozzle, kind=kind or "hot")
@@ -120,7 +116,6 @@ def test_gemini_thermal_second_opinion_recorded():
             assert op["anomalous_nozzle"] == nozzle
 
 
-# ---------------------------------------------------------------- Ri graders vs known grades
 def test_ri_scale():
     assert [ri_from_pct(p) for p in RI_PCT.values()] == [0, 1, 2, 3, 4, 5]
     assert ri_from_pct(60.0) == 5 and ri_from_pct(0.01) == 0
@@ -134,7 +129,6 @@ def test_classical_grader_on_test_images():
 
 
 def test_classical_grader_on_random_in_class_areas():
-    """Rust % drawn log-uniformly inside each grade's class (harder than the nominal values)."""
     from fleet.aerial.patches import BASES, FILLS, RI_EDGES
     rng = np.random.default_rng(42)
     edges = [0.0] + RI_EDGES + [55.0]
@@ -163,7 +157,6 @@ def test_gemini_grader_on_test_images_recorded():
     acc, facc = accuracy(pairs), accuracy(fused)
     print("gemini (recorded), 18 patches:", acc, "fused:", facc)
     assert acc["n"] == 18 and acc["exact"] >= 0.8 and acc["within_1"] == 1.0
-    # repaired patches all read Ri 0
     assert all(v.grade_ri(load_image(TESTDATA / r["file"])).ri == 0 for r in ROWS["repaired"])
 
 
@@ -184,14 +177,12 @@ def test_gemini_reply_parsing_with_fake_transport():
     assert bad.grade_ri(np.zeros((32, 32, 3), np.uint8)) is None
 
 
-# ---------------------------------------------------------------- dispatch and the coordination chain
 def test_dispatch_rule_q_vs_c():
     p = demo_world().state["topsides_patches"]
     assert q_reachable(p["ri4_1"]) and not q_reachable(p["ri5_0"]) and not q_reachable(p["ri2_0"])
 
 
 def q_rust_repair_stub(job, robot, world):
-    """Stand-in for Q's rust_repair executor (owned by another branch): marks the patch repaired."""
     from fleet.contract import Finding, JobResult
     from fleet.jobs.crawler import verify_job
     pid = job.params["patch_id"]
@@ -211,7 +202,7 @@ def test_chain_drone_gemini_crawler_quadruped_reimage():
     truth = {pid: p["true_ri"] for pid, p in world.state["topsides_patches"].items()}
     assert {pid: g["ri"] for pid, g in grades.items()} == truth
     follow = {f.follow_up[0].target: f.follow_up[0] for f in r1.findings}
-    assert set(follow) == {"ri4_1", "ri5_0", "ri3_2"}                  # Ri >= 3 only
+    assert set(follow) == {"ri4_1", "ri5_0", "ri3_2"}
     assert follow["ri4_1"].kind == "rust_repair" and follow["ri4_1"].robot_kinds == {RobotKind.QUADRUPED}
     assert follow["ri5_0"].kind == "coating_touchup" and follow["ri5_0"].robot_kinds == {RobotKind.CRAWLER}
     assert all(j.level == Level.SUPV and j.parent == "survey-1" for j in follow.values())
@@ -221,7 +212,7 @@ def test_chain_drone_gemini_crawler_quadruped_reimage():
     for target, j in follow.items():
         world.t += 60
         if j.kind == "coating_touchup":
-            j.params["approved"] = True                                # operator approved (SUPV)
+            j.params["approved"] = True
             r = touchup.run(j, crawler(), world)
             assert r.status == JobStatus.DONE and r.findings[0].evidence["covered_frac"] >= 0.99
         else:
@@ -241,7 +232,7 @@ def test_reimage_flags_a_repair_that_did_not_hold():
     world = demo_world()
     survey = CorrosionSurvey(vision=replay_vision())
     j = Job("v-1", "corrosion_survey", "ri5_0", HELIDECK, Level.AUTO, params={"patch_ids": ["ri5_0"], "verify_of": "x"})
-    r = survey.run(j, drone(), world)                 # never repaired
+    r = survey.run(j, drone(), world)
     assert r.status == JobStatus.FINDING and r.findings[0].kind == "repair_not_verified"
     assert r.findings[0].follow_up[0].kind == "coating_touchup"
 
@@ -259,7 +250,6 @@ def test_coating_touchup_needs_approval_and_covers_patch():
     assert world.state["topsides_patches"]["ri5_0"]["repaired"]
 
 
-# ---------------------------------------------------------------- UT thickness
 def ut_world(pit_depth):
     w = World()
     w.state["vessels"] = {"vessel_11_52": {"nominal_mm": 12.7, "ca_mm": 3.0, "radius_m": 1.2, "height_m": 4.0,
@@ -287,12 +277,10 @@ def test_ut_thickness_allowance_check():
     assert r2.findings[0].evidence["min_mm"] <= f.evidence["min_mm"] + 0.1
 
 
-# ---------------------------------------------------------------- contract
 def test_registered_and_match_contract():
     for kind, lvl in {"flare_tip_inspection": Level.AUTO, "corrosion_survey": Level.AUTO,
                       "coating_touchup": Level.SUPV, "ut_thickness": Level.AUTO}.items():
         ex = REGISTRY[kind]
         assert isinstance(ex, JobExecutor) and ex.level == lvl
     r = REGISTRY["corrosion_survey"].run(Job("s", "corrosion_survey", "x", HELIDECK, Level.AUTO), drone(), demo_world())
-    # JobResult.to_json keeps the follow-up jobs' `needs` / `robot_kinds` as sets (contract), so dump with default
     json.dumps(r.to_json(), default=lambda o: sorted(o) if isinstance(o, set) else str(o))

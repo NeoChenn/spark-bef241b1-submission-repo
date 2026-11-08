@@ -143,6 +143,10 @@ class LeakStream:
             self.visual.update()
         self.sim_ms = 0.9 * self.sim_ms + 0.1 * (time.perf_counter() - t0) * 1e3
 
+    def event(self, args: dict) -> dict:
+        a = {k: float(args[k]) for k in ("hole_mm", "bar") if k in args}
+        return self.plume.set_leak(**a, rate=1.0 if args.get("on", True) else 0.0)
+
     def header(self, now: float) -> dict | None:
         import base64
 
@@ -157,6 +161,7 @@ class LeakStream:
             data = np.asarray(self.ann.get_data())
             if data.ndim == 3 and data.size:
                 out["jpg"] = jpeg_b64(compose(data, self.stats, out["flow"], out["wind"], f"GAS PLUME  ·  {self.args.leak}"))
+                out["w"], out["h"] = 480, 270
                 self.pip_at = now + self.args.pip_every
         if now >= self.field_at:
             out["field"] = base64.b64encode(p.field().to_bytes(2)).decode()

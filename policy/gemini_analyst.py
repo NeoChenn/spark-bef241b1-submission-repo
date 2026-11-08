@@ -1,22 +1,3 @@
-"""Gemini test analyst: Gemini designs stress scenarios, the CPU mock runs them, Gemini explains the failures.
-
-    python -m policy.gemini_analyst --n 120 --rounds 2            # with GEMINI_API_KEY (env or .env)
-    python -m policy.gemini_analyst --n 120 --rounds 2 --offline  # no Gemini: random design + statistics only
-
-Closed loop:
-  round 1  Gemini writes N scenarios that spread over the risks (glare, new rust mid-soak, force spikes,
-           stubborn rust, occlusion, workers, unreachable waypoints), each with a one-line rationale.
-  run      policy.scenario_runner runs every scenario through the real orchestrator on the CPU mock (~0.6 s each).
-  round 2  Gemini sees round 1's failure table and writes N scenarios that probe the failure boundaries
-           (near-misses, one-factor changes, controls) -- active testing instead of blind sampling.
-  analyse  per-parameter statistics are computed locally (failure rate by bin, failed-vs-passed medians), then
-           Gemini gets those numbers plus failing traces and returns failure modes with evidence run ids,
-           likely causes in the code and suggested fixes.
-Writes report.md, charts, results.jsonl and the raw Gemini JSON to --out (default runs/analyst).
-
-Every Gemini step has an offline fallback, so the pipeline always completes; the report says which was used.
-Limits: the mock uses a colour classifier stand-in, a greedy scrub policy and ray-cast images, not RTX renders.
-"""
 from __future__ import annotations
 
 import argparse
@@ -30,8 +11,8 @@ from pathlib import Path
 import os
 
 try:
-    import torch  # noqa: F401
-except ImportError:  # Isaac's Python: torch lives in a separate folder (see integration/SIM_BRIDGE.md)
+    import torch
+except ImportError:
     sys.path.insert(0, str(Path(os.environ.get("ISAAC_DEPS", Path.home() / ".isaac-deps"))))
 
 import numpy as np
@@ -52,7 +33,6 @@ rust that is still there, declaring DONE without finding rust that exists, force
 control steps, and timeouts. Perception is a colour-based rust classifier on camera images; the scrub policy
 targets the cells perception marks as rusty."""
 
-# What each parameter physically does in the simulation, so Gemini reasons from the real mechanism.
 MEANING = {
     "seed": "random seed",
     "patch_size": "size (m) of the initial rust blob",
@@ -111,7 +91,6 @@ ANALYSIS_SCHEMA = {
 }
 
 
-# ------------------------------------------------------------------------------------------- Gemini
 class Gemini:
     def __init__(self, offline: bool = False, model: str | None = None, transport=None):
         self.key = None if offline else gv.load_api_key()
@@ -121,7 +100,7 @@ class Gemini:
         if self.key and not self.model:
             try:
                 self.model = gv.pick_text_model(self.key)
-            except Exception as e:  # listing failed: stay offline but say why
+            except Exception as e:
                 self.log.append({"step": "pick_model", "error": f"{type(e).__name__}: {e}"})
                 self.key = None
 
@@ -143,9 +122,7 @@ class Gemini:
             return None
 
 
-# ------------------------------------------------------------------------------------------- design
 def design(gemini: Gemini, n: int, round_no: int, rng: np.random.Generator, previous: list[dict] | None = None):
-    """-> (scenarios, source) where source is 'gemini' or 'offline'."""
     if round_no == 1:
         prompt = (f"{SYSTEM}\n\nDesign {n} test scenarios for a CPU simulation of this robot. Spread them over the "
                   "risks above, mixing single-factor and combined stresses, and include a few nominal controls. "
@@ -159,7 +136,7 @@ def design(gemini: Gemini, n: int, round_no: int, rng: np.random.Generator, prev
                   f"should pass. Fields:\n{FIELD_DOC}\n\nIds g2-001, g2-002, ...; one-line rationale "
                   "each naming the hypothesis being tested. Return a JSON array.")
     out = []
-    for start in range(0, n, 20):                      # small batches keep each reply well under the timeout
+    for start in range(0, n, 20):
         batch = gemini.ask(f"design_round{round_no}", prompt.replace(f"Design {n}", f"Design {min(20, n - start)}")
                            + (f" Start numbering at {start + 1}." if start else ""), SCENARIO_SCHEMA)
         if not isinstance(batch, list):
@@ -173,7 +150,6 @@ def design(gemini: Gemini, n: int, round_no: int, rng: np.random.Generator, prev
 
 
 def _perturb_failures(results: list[dict], n: int, rng: np.random.Generator) -> list[dict]:
-    """Offline round 2: jitter one parameter of a failing scenario at a time, plus random controls."""
     failing = [r for r in results if r["label"] != "success"] or results
     out = []
     for i in range(n):
@@ -190,7 +166,6 @@ def _perturb_failures(results: list[dict], n: int, rng: np.random.Generator) -> 
     return out
 
 
-# ------------------------------------------------------------------------------------------- statistics
 def stats(results: list[dict]) -> dict:
     labels = Counter(r["label"] for r in results)
     fail = [r for r in results if r["unsafe"]]
@@ -276,7 +251,6 @@ def analyse(gemini: Gemini, results: list[dict]) -> tuple[dict, str]:
     return offline_analysis(results), "offline"
 
 
-# ------------------------------------------------------------------------------------------- report
 LABEL_COLOURS = {"success": "#3fb68b", "painted_over_rust": "#e5484d", "missed_rust": "#f76b15",
                  "force_not_contained": "#ab4aba", "timeout": "#6e56cf"}
 
@@ -364,9 +338,8 @@ def write_report(out: Path, results, s, analysis, sources, gemini: Gemini, files
     return path
 
 
-# ------------------------------------------------------------------------------------------- main
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(description='Gemini test analyst: Gemini designs stress scenarios, the CPU mock runs them, Gemini explains the failures')
     ap.add_argument("--n", type=int, default=120, help="scenarios per round")
     ap.add_argument("--rounds", type=int, default=2, choices=[1, 2])
     ap.add_argument("--out", default=str(REPO / "runs/analyst"))
@@ -399,7 +372,7 @@ def main(argv=None) -> int:
     sources["analysis"] = src
     with (out / "results.jsonl").open("w", encoding="utf-8") as f:
         for r in results:
-            f.write(json.dumps(r, default=float) + "\n")
+            f.write(json.dumps({k: v for k, v in r.items() if k != "phases"}, default=float) + "\n")
     (out / "analysis.json").write_text(json.dumps({"stats": s, "analysis": analysis, "sources": sources},
                                                   indent=2, default=float), encoding="utf-8")
     (out / "gemini_log.json").write_text(json.dumps(gemini.log, indent=2), encoding="utf-8")
