@@ -8,6 +8,7 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
 import look
 import ocean
+import hero_mat
 import photoreal
 import structure
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
@@ -465,6 +466,7 @@ def apply_preset(stage, name: str) -> None:
     preset = PRESETS[name]
     photoreal.apply(stage, name)
     structure.apply(stage, name)
+    hero_mat.apply(stage, name)
     relight(stage)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))
