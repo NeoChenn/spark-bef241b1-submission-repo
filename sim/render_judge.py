@@ -95,7 +95,7 @@ import cinematic
 import shafts
 
 tier = next((lk for lk in ("offline", "live") if lk in looks), "none")
-beams = shafts.specs(cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS, cinematic.DECK_FLOODS, tier)
+beams = (shafts.specs(cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS, cinematic.DECK_FLOODS, tier) if cinematic.PRESETS[args.preset]["lights"] > 0 else [])
 keys = {k for lk in looks for k in look.rtx_settings(lk)}
 neutral = {k: settings.get(k) if settings.get(k) is not None else (False if k.endswith("enabled") else None) for k in keys}
 

@@ -5,10 +5,10 @@ import math
 import numpy as np
 from PIL import Image, ImageChops
 
-EV_KEYS = ((1.9, -0.4), (8.0, 0.0), (40.0, 0.4), (120.0, 0.8), (330.0, 1.0))
+EV_KEYS = ((1.9, -0.4), (8.0, 0.3), (40.0, 0.4), (120.0, 0.8), (330.0, 1.0))
 VIEWS = {
     "wide": {"ev": 1.0, "fstop": 0.0},
-    "deck_mid": {"ev": 0.0, "fstop": 0.0},
+    "deck_mid": {"ev": 0.4, "fstop": 0.0},
     "repair": {"ev": -0.4, "fstop": 1.4},
     "waterline": {"ev": 0.8, "fstop": 0.0},
     "flare": {"ev": 0.3, "fstop": 0.0},

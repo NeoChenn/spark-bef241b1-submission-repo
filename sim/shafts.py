@@ -10,10 +10,10 @@ PICKS = (
     ("deck", 1, DECK_Z, 18.0, 1.0),
     ("deck", 2, DECK_Z, 18.0, 1.0),
     ("deck", 3, DECK_Z, 18.0, 1.0),
-    ("area", 3, DECK_Z, 20.0, 0.8),
-    ("area", 4, DECK_Z, 20.0, 0.8),
-    ("sea", 0, SEA_Z, 24.0, 1.0),
-    ("sea", 1, SEA_Z, 24.0, 1.0),
+    ("area", 3, DECK_Z, 20.0, 0.3),
+    ("area", 4, DECK_Z, 20.0, 0.3),
+    ("sea", 0, SEA_Z, 24.0, 0.4),
+    ("sea", 1, SEA_Z, 24.0, 0.4),
 )
 KELVIN = {2000.0: 2100.0, 4000.0: 4500.0, 6000.0: 7000.0}
 TIERS = {"none": 0, "live": 0, "offline": len(PICKS)}
