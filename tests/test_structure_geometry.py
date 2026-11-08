@@ -159,3 +159,45 @@ def test_edge_detail_ribs_sit_outside():
     assert len(e["ribs"]) == 4
     assert all(r[0][1] < -37.5 and math.isclose(r[0][2], 30.625) for r in e["ribs"])
     assert math.isclose(e["strip"][0][2], 31.2)
+
+
+def test_lattice_boom_chords_follow_axis_and_taper():
+    b = sg.lattice_boom((-26, 8, 42), (-57.5, 8, 69.6), 3.2, 1.6)
+    assert len(b["chords"]) == 3 * (len(b["struts"]) // 3 - 1)
+    first = [s for s in b["struts"] if s[2] == 0.0]
+    last = [s for s in b["struts"] if s[2] == 1.0]
+    span0 = max(np.linalg.norm(np.subtract(p, q)) for p, q, _ in first)
+    span1 = max(np.linalg.norm(np.subtract(p, q)) for p, q, _ in last)
+    assert math.isclose(span0, 3.2, rel_tol=0.05) and math.isclose(span1, 1.6, rel_tol=0.05)
+    assert abs(np.dot(b["up"], b["axis"])) < 1e-9 and b["up"][2] > 0
+
+
+def test_hex_and_disc_rings():
+    h = sg.hex_ring((0, 0), 10.0, 9.0, 5.0)
+    assert len(h["points"]) == 12 and len(h["counts"]) == 6
+    d = sg.disc_ring((1, 2), 5.0, 6.0, 3.0)
+    r = np.hypot(d["points"][:, 0] - 1, d["points"][:, 1] - 2)
+    assert r.min() >= 5.0 - 1e-9 and r.max() <= 6.0 + 1e-9
+
+
+def test_perimeter_points_cover_polygon():
+    pts = sg.perimeter_points(sg.hexagon((0, 0), 10.0, 0.0), 2.5)
+    assert len(pts) == 24
+    assert np.allclose(np.linalg.norm(np.array(pts)[:, :2], axis=1).max(), 10.0)
+
+
+def test_lifeboat_bounds_and_normals():
+    m = sg.lifeboat(8.0, 2.8, 1.0, 1.5)
+    p = m["points"]
+    assert np.allclose(p.min(0), (-4.0, -1.4, -1.0), atol=0.05) and np.allclose(p.max(0), (4.0, 1.4, 1.5), atol=0.05)
+    assert np.allclose(np.linalg.norm(m["normals"], axis=1), 1.0)
+    side = (np.abs(p[:, 0]) < 1.0) & (np.abs(p[:, 2]) < 0.1)
+    assert (np.sign(m["normals"][side, 1]) == np.sign(p[side, 1])).all()
+
+
+def test_helideck_stays_dry_and_splash_stays_wet():
+    import structure
+
+    assert structure.wetness_for("helideck", 0.64) == 0.15
+    assert structure.wetness_for("growth", 0.3) == 1.0
+    assert structure.wetness_for("column", 0.64) == 0.64
