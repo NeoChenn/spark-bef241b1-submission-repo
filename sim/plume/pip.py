@@ -39,13 +39,13 @@ def compose(rgb, stats: dict, flow: dict, wind: dict, title: str = "GAS PLUME", 
     d.text((8, 5), title, font=f11, fill=FG)
     tag, col = level(stats.get("max_lel_pct", 0.0))
     tw = d.textlength(tag, font=f11)
-    d.rounded_rectangle([w - tw - 20, 4, w - 6, 19], 4, fill=col + (60,))
-    d.text((w - tw - 13, 5), tag, font=f11, fill=col)
+    d.rounded_rectangle([w - tw - 26, 4, w - 6, 19], 4, fill=col + (60,))
+    d.text((w - tw - 16, 5), tag, font=f11, fill=col)
     d.text((8 + d.textlength(title, font=f11) + 10, 6), f"t {stats.get('t', 0):.1f}s", font=f9, fill=DIM)
     bh, bw, bx, by = 118, 8, w - 40, 34
     d.rectangle([bx - 6, by - 8, w - 4, by + bh + 20], fill=BG + (200,))
     ov.paste(Image.fromarray(colorbar(bw, bh)).convert("RGBA"), (bx, by))
-    for pct in (0, 10, 50, 100):
+    for pct in (10, 50, 100):
         y = by + round((1 - pct / 100) * (bh - 1))
         d.line([bx + bw, y, bx + bw + 3, y], fill=FG)
         d.text((bx + bw + 5, y - 5), f"{pct}", font=f9, fill=FG)

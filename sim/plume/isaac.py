@@ -7,6 +7,7 @@ from sim.plume.colormap import lel_rgb
 ROOT = "/World/Plume"
 BANDS = (2.0, 5.0, 10.0, 20.0, 35.0, 50.0, 75.0, 1e9)
 BAND_OPACITY = (0.05, 0.08, 0.12, 0.18, 0.26, 0.36, 0.5)
+PARK = (0.0, 0.0, -1.0e4)
 
 
 def omnipbr(stage, path: str, color, opacity: float, emissive: float):
@@ -43,9 +44,9 @@ def cloud(field, lo: float = BANDS[0], hi: float = 1e9, max_points: int = 60000,
 
 
 class PlumeVisual:
-    def __init__(self, stage, plume, path: str = ROOT + "/Cloud", max_points: int = 40000, size: float = 1.7,
+    def __init__(self, stage, plume, path: str = ROOT + "/Cloud", max_points: int = 8000, size: float = 1.7,
                  emissive: float = 150.0, opacity: float = 1.0):
-        from pxr import UsdGeom, UsdShade
+        from pxr import UsdGeom, UsdShade, Vt
 
         self.plume, self.max_points = plume, max_points
         self.width = size * plume.dx
@@ -58,29 +59,27 @@ class PlumeVisual:
             mat = omnipbr(stage, f"{ROOT}/Looks/band{k}", lel_rgb(mid), min(1.0, BAND_OPACITY[k] * opacity), emissive)
             UsdShade.MaterialBindingAPI.Apply(proto.GetPrim()).Bind(mat)
             prim.CreatePrototypesRel().SetTargets([proto.GetPath()])
+            prim.CreateProtoIndicesAttr().Set(Vt.IntArray.FromNumpy(np.zeros(max_points, np.int32)))
+            prim.CreatePositionsAttr().Set(Vt.Vec3fArray.FromNumpy(np.full((max_points, 3), PARK, np.float32)))
             self.bands.append((prim, lo, hi))
         self.count = 0
         self.update()
 
     def update(self) -> int:
-        from pxr import UsdGeom, Vt
+        from pxr import Vt
 
         field = self.plume.field()
         self.count = 0
         for prim, lo, hi in self.bands:
             pts, _ = cloud(field, lo, hi, self.max_points)
-            img = UsdGeom.Imageable(prim)
-            if not len(pts):
-                img.MakeInvisible()
-                continue
-            img.MakeVisible()
-            prim.GetPositionsAttr().Set(Vt.Vec3fArray.FromNumpy(pts))
-            prim.GetProtoIndicesAttr().Set(Vt.IntArray.FromNumpy(np.zeros(len(pts), np.int32)))
+            buf = np.full((self.max_points, 3), PARK, np.float32)
+            buf[: len(pts)] = pts
+            prim.GetPositionsAttr().Set(Vt.Vec3fArray.FromNumpy(buf))
             self.count += len(pts)
         return self.count
 
 
-def analysis_pose(plume, side: float = 1.0, distance: float = 7.5, height: float = 3.2, ahead: float = 2.5):
+def analysis_pose(plume, side: float = 1.0, distance: float = 6.5, height: float = 2.6, ahead: float = 1.8):
     w = plume.wind.at(plume.t)
     h = math.atan2(w[1], w[0]) if np.linalg.norm(w[:2]) > 1e-6 else math.radians(plume.wind.heading_deg)
     d = np.array([math.cos(h), math.sin(h), 0.0])

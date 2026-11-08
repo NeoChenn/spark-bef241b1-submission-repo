@@ -28,7 +28,7 @@ def parse(argv=None):
     a.add_argument("--pip-side", type=float, default=-1.0)
     a.add_argument("--size", type=float, default=1.7)
     a.add_argument("--opacity", type=float, default=1.0)
-    a.add_argument("--max-points", type=int, default=60000)
+    a.add_argument("--max-points", type=int, default=8000)
     a.add_argument("--out", default="/rig/runs/plume/video")
     return a.parse_args(argv)
 
@@ -78,12 +78,14 @@ def main():
         (out / sub).mkdir(parents=True, exist_ok=True)
     dt = 1.0 / args.fps
     n = int(args.seconds * args.fps)
-    log, sim_ms, ren_ms = [], [], []
+    log, sim_ms, ren_ms, vis_ms = [], [], [], []
     for f in range(n):
         t1 = time.perf_counter()
         st = plume.step(dt)
+        tv = time.perf_counter()
         vis.update()
         t2 = time.perf_counter()
+        vis_ms.append((t2 - tv) * 1e3)
         cine(plume.t)
         rep.orchestrator.step(rt_subframes=args.subframes, pause_timeline=False, wait_for_render=True)
         t3 = time.perf_counter()
@@ -103,9 +105,9 @@ def main():
         comp.save(out / "comp" / f"{f:04d}.jpg", quality=92)
         if f % 24 == 0:
             print(f"frame {f}/{n} t={plume.t:.1f} pts={vis.count} vol10={st['vol_10lel_m3']:.2f} max={st['max_lel_pct']:.0f}% "
-                  f"sim={np.median(sim_ms[-24:]):.1f}ms render={np.median(ren_ms[-24:]):.1f}ms", flush=True)
+                  f"sim={np.median(sim_ms[-24:]):.1f}ms vis={np.median(vis_ms[-24:]):.1f}ms render={np.median(ren_ms[-24:]):.1f}ms", flush=True)
     (out / "log.json").write_text(json.dumps({"args": vars(args), "flow": plume.flow_rate(), "stats": log,
-                                             "sim_ms_median": float(np.median(sim_ms)), "render_ms_median": float(np.median(ren_ms))}))
+                                             "sim_ms_median": float(np.median(sim_ms)), "render_ms_median": float(np.median(ren_ms)), "vis_ms_median": float(np.median(vis_ms))}))
     print("done", flush=True)
     os._exit(0)
 
