@@ -36,7 +36,9 @@ def collect(u, env, steps, log):
     u.sense_geometry()
     O, A, D, S = [], [], [], []
     t0 = time.time()
-    for _ in range(steps):
+    for step in range(steps):
+        if step % 100 == 0:
+            log(f"collect step {step} {time.time() - t0:.0f}s")
         with torch.inference_mode():
             o = u.geo_obs()
             a = picker.act(u._tip()[0], u.p_tgt, u.geom_grasp(), u.sealed, u._robot.data.joint_pos[:, u.lift_id])
@@ -99,8 +101,9 @@ def evaluate(u, env, policy_fn, replan, max_steps, log, name):
     from policy.pickcan.run import summarize
 
     N, dev = u.num_envs, u.device
-    env.reset(seed=u.cfg.seed)
-    u.sense_geometry()
+    with torch.inference_mode():
+        env.reset(seed=u.cfg.seed)
+        u.sense_geometry()
     done_once = torch.zeros(N, dtype=torch.bool, device=dev)
     eps, last, plan, k = [], None, None, 0
     lat = []
@@ -152,14 +155,16 @@ def latency(model, obs_dim, dev, n_steps):
 
 def main(argv):
     p = argparse.ArgumentParser()
-    p.add_argument("--collect_envs", type=int, default=1024)
-    p.add_argument("--collect_steps", type=int, default=1500)
-    p.add_argument("--diff_min", type=float, default=12.0)
-    p.add_argument("--mlp_min", type=float, default=4.0)
+    p.add_argument("--collect_envs", type=int, default=512)
+    p.add_argument("--collect_steps", type=int, default=1000)
+    p.add_argument("--diff_min", type=float, default=10.0)
+    p.add_argument("--mlp_min", type=float, default=3.0)
     p.add_argument("--ddim", type=int, default=8)
     p.add_argument("--replan", type=int, default=4)
     p.add_argument("--out", default="runs/pickup/learn")
     p.add_argument("--seed", type=int, default=7)
+    p.add_argument("--load", default="")
+    p.add_argument("--eval_envs", type=int, default=256)
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -181,26 +186,35 @@ def main(argv):
         logf.flush()
 
     torch.manual_seed(args.seed)
-    env, u, cfg = make_env(args.collect_envs, args.seed + 100)
-    obs, act, cinfo = collect(u, env, args.collect_steps, log)
-    torch.save({"obs": obs.cpu(), "act": act.cpu()}, os.path.join(args.out, "demos.pt"))
-    obs_dim = obs.shape[1]
-    dev = obs.device
-    report = {"collect": cinfo, "obs_dim": obs_dim}
-    diff = DiffusionPolicy(obs_dim).to(dev)
-    report["diffusion"] = train(diff, obs, act, args.diff_min, log, "diffusion")
-    report["diffusion"]["params"] = n_params(diff)
-    torch.save(diff.state_dict(), os.path.join(args.out, "diffusion.pt"))
-    mlp = MLPPolicy(obs_dim).to(dev)
-    report["mlp"] = train(mlp, obs, act, args.mlp_min, log, "mlp", lr=1e-3)
-    report["mlp"]["params"] = n_params(mlp)
-    torch.save(mlp.state_dict(), os.path.join(args.out, "mlp.pt"))
+    if args.load:
+        env, u, cfg = make_env(args.eval_envs, args.seed)
+        obs_dim = u.geo_obs().shape[1]
+        dev = u.device
+        diff, mlp = DiffusionPolicy(obs_dim).to(dev), MLPPolicy(obs_dim).to(dev)
+        diff.load_state_dict(torch.load(os.path.join(args.load, "diffusion.pt"), map_location=dev))
+        mlp.load_state_dict(torch.load(os.path.join(args.load, "mlp.pt"), map_location=dev))
+        report = {"loaded": args.load, "diffusion": {"params": n_params(diff)}, "mlp": {"params": n_params(mlp)}}
+    else:
+        env, u, cfg = make_env(args.collect_envs, args.seed + 100)
+        obs, act, cinfo = collect(u, env, args.collect_steps, log)
+        torch.save({"obs": obs.cpu(), "act": act.cpu()}, os.path.join(args.out, "demos.pt"))
+        obs_dim = obs.shape[1]
+        dev = obs.device
+        report = {"collect": cinfo, "obs_dim": obs_dim}
+        diff = DiffusionPolicy(obs_dim).to(dev)
+        report["diffusion"] = train(diff, obs, act, args.diff_min, log, "diffusion")
+        report["diffusion"]["params"] = n_params(diff)
+        torch.save(diff.state_dict(), os.path.join(args.out, "diffusion.pt"))
+        mlp = MLPPolicy(obs_dim).to(dev)
+        report["mlp"] = train(mlp, obs, act, args.mlp_min, log, "mlp", lr=1e-3)
+        report["mlp"]["params"] = n_params(mlp)
+        torch.save(mlp.state_dict(), os.path.join(args.out, "mlp.pt"))
+        del obs, act
     diff.eval()
     mlp.eval()
     report["diffusion"]["latency_ms_b1"] = latency(diff, obs_dim, dev, args.ddim)
     report["mlp"]["latency_ms_b1"] = latency(mlp, obs_dim, dev, 0)
     log("train done " + json.dumps(report))
-    del obs, act
     u.cfg.seed = args.seed
 
     picker = ScriptedPicker(u.num_envs, u.device, dt=u.ctrl_dt, scale=u.cfg.action_scale)

@@ -10,8 +10,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-ROBOT_XY = (1.5, -1.5)
-CAN_XY = (0.12, -0.40)
+ROBOT_XY = (1.5, -1.9)
+CAN_XY = (0.14, 0.40)
 TEAL, AMBER, RED, WHITE, GREY = (80, 220, 210), (255, 190, 60), (255, 80, 60), (232, 234, 236), (170, 176, 182)
 
 
@@ -46,6 +46,10 @@ def main(argv):
     p.add_argument("--renderer", default="RaytracedLighting")
     p.add_argument("--still", action="store_true")
     p.add_argument("--key", type=float, default=2.5e4)
+    p.add_argument("--policy", default="scripted", choices=["scripted", "diffusion", "mlp"])
+    p.add_argument("--ckpt", default="")
+    p.add_argument("--ddim", type=int, default=8)
+    p.add_argument("--replan", type=int, default=4)
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -110,7 +114,7 @@ def main(argv):
             print("[video] night look", night_look.apply(st, "/World/Backdrop", w, dome=args.dome,
                                                           lamp_gain=args.lamp_gain,
                                                           robot_root="/World/envs/env_0/Robot"), flush=True)
-            night_look._lamp(st, "/World/PickKey", (0.9, -1.6, 1.9), (1.0, 0.86, 0.7), 0.12, args.key)
+            night_look._lamp(st, "/World/PickKey", (0.9, 1.6, 1.9), (1.0, 0.86, 0.7), 0.12, args.key)
             night_look._lamp(st, "/World/PickRim", (-1.2, 0.8, 1.4), night_look.LED, 0.1, 0.4 * args.key)
 
     PE.PickCanEnv._setup_scene = setup
@@ -138,7 +142,7 @@ def main(argv):
     origin = u.scene.env_origins[0].cpu().numpy()
     cams = {}
     W, H, WW, WH = 1280, 720, 640, 360
-    wide = rsc.Camera(stage, "/World/Cameras/pick_wide", focal=26.0)
+    wide = rsc.Camera(stage, "/World/Cameras/pick_wide", focal=20.0)
     wrist = rsc.Camera(stage, "/World/Cameras/pick_wrist", focal=14.0)
     for key, cam, size, kinds in (("wide", wide, (W, H), ("rgb",)), ("wrist", wrist, (WW, WH), ("rgb", "distance_to_image_plane"))):
         rp = rep.create.render_product(cam.path, size)
@@ -149,9 +153,9 @@ def main(argv):
     K = intrinsics(14.0, wrist.aperture, WW, WH)
 
     def place_cams(t):
-        a = -1.05 - 0.2 * math.sin(0.3 * t)
-        eye = np.array([0.1 + math.cos(a) * 2.3, -0.2 + math.sin(a) * 2.3, 1.35 + 0.08 * math.sin(0.25 * t)])
-        wide.look(eye + origin, np.array([0.0, -0.22, 0.22]) + origin)
+        a = 0.95 + 0.25 * math.sin(0.3 * t)
+        eye = np.array([0.0 + math.cos(a) * 1.8, 0.2 + math.sin(a) * 1.8, 1.4 + 0.06 * math.sin(0.25 * t)])
+        wide.look(eye + origin, np.array([-0.06, 0.14, 0.33]) + origin)
         tip, R = (x[0].cpu().numpy() for x in u._tip()[:2])
         out = np.array([tip[0] + 0.01, tip[1], 0.0])
         out = out / max(np.linalg.norm(out), 1e-6)
@@ -174,7 +178,16 @@ def main(argv):
     os.makedirs(args.out_dir, exist_ok=True)
     writer = imageio.get_writer(os.path.join(args.out_dir, "pickcan.mp4"), fps=args.fps, quality=8, macro_block_size=8)
     n_steps = int(args.seconds * args.fps)
-    det_best, grasp_det, log, keys = None, None, [], {}
+    det_best, log, keys, shown_fit = None, [], {}, None
+    learned, plan, k = None, None, 0
+    if args.policy != "scripted":
+        from policy.pickcan.diffusion import DiffusionPolicy, MLPPolicy
+
+        net = (DiffusionPolicy if args.policy == "diffusion" else MLPPolicy)(u.geo_obs().shape[1]).to(dev)
+        net.load_state_dict(torch.load(args.ckpt, map_location=dev))
+        net.eval()
+        gen = torch.Generator(device=dev).manual_seed(0)
+        learned = (lambda o: net.sample(o, n_steps=args.ddim, generator=gen)) if args.policy == "diffusion" else net.sample
     hold = torch.zeros(1, 5, device=dev)
     hold[:, 3] = -1.0
     hold[:, 4] = -1.0
@@ -186,8 +199,11 @@ def main(argv):
             if t < args.intro:
                 act = hold.clone()
             else:
-                g = grasp_det if grasp_det is not None else u.grasp_estimate()
-                act = picker.act(tip, u.p_tgt, g, u.sealed, u._robot.data.joint_pos[:, u.lift_id])
+                act = picker.act(tip, u.p_tgt, u.geom_grasp(), u.sealed, u._robot.data.joint_pos[:, u.lift_id])
+                if learned is not None:
+                    if plan is None or k >= args.replan:
+                        plan, k = learned(u.geo_obs()), 0
+                    act, k = plan[:, k], k + 1
             env.step(act)
         u.sim.render()
         rgb = np.asarray(cams[("wide", "rgb")].get_data())
@@ -209,15 +225,6 @@ def main(argv):
             if dets and t < args.intro:
                 det_best = dets[0]
         can_p = u._can_state()[0][0].cpu().numpy()
-        if det_best is not None and grasp_det is None and t >= args.intro - 1.0 / args.fps:
-            xyz = np.asarray(det_best["xyz"], float)
-            if np.linalg.norm(xyz[:2] - can_p[:2]) < 0.04:
-                top = det_best.get("diameter", 2 * can_r) / 2 if det_best.get("lying", True) else det_best.get("length", can_h) / 2
-                grasp_det = torch.tensor([[xyz[0], xyz[1], xyz[2] + top]], device=dev, dtype=torch.float32)
-                print(f"[video] grasp from detector {grasp_det.tolist()} true can {can_p.round(3).tolist()}", flush=True)
-            else:
-                print(f"[video] detector off by {np.linalg.norm(xyz[:2] - can_p[:2]):.3f} m, using env estimate", flush=True)
-                grasp_det = u.grasp_estimate()
         if args.look == "night":
             rgb, wr = grade(rgb), grade(wr)
         im = Image.fromarray(rgb)
@@ -236,7 +243,7 @@ def main(argv):
         d.rectangle([X0 - 2, Y0 - 2, X0 + 481, Y0 + 271], outline=(255, 255, 255, 110))
         im.paste(inset, (X0, Y0))
         d.rectangle([X0, Y0 + 270 - 22, X0 + 250, Y0 + 270], fill=(10, 12, 16, 180))
-        d.text((X0 + 8, Y0 + 270 - 19), "WRIST CAMERA  can detector", fill=WHITE, font=fonts["small"])
+        d.text((X0 + 8, Y0 + 270 - 19), "WRIST CAMERA   depth fit -> grasp", fill=WHITE, font=fonts["small"])
         sealed = bool(u.sealed[0])
         col = AMBER if phase in ("DETECT",) else (TEAL if phase != "DONE" else (120, 230, 120))
         d.rounded_rectangle([16, 16, 600, 58], radius=10, fill=(10, 12, 16, 170))
@@ -252,15 +259,19 @@ def main(argv):
                  f"suction {'SEALED' if sealed else ('on' if bool(u.suction[0]) else 'off')}   "
                  f"lift {max(lift_dz, 0) * 100:5.1f} cm   mast {float(u._robot.data.joint_pos[0, u.lift_id]) * 100:4.1f} cm",
                  f"tool contact {float(u.tool_force[0]):5.1f} N  (limit 20 N)   drops {int(u.drops[0])}"]
-        if det_best is not None:
-            e = np.linalg.norm(np.asarray(det_best["xyz"])[:2] - can_p[:2]) if phase == "DETECT" else None
-            lines.insert(1, f"detector: {det_best.get('colour')} can at ({det_best['xyz'][0]:.2f}, {det_best['xyz'][1]:.2f}) m"
-                            + (f"  err {e * 100:.1f} cm" if e is not None else ""))
+        if not bool(u.ever_sealed[0]) and u.geom_fit is not None:
+            shown_fit = {kk: vv.clone() for kk, vv in u.geom_fit.items()}
+            shown_fit["err"] = (u.geom_fit["centre"][0, :2] - u._can_state()[0][0, :2]).norm()
+        f = shown_fit
+        if f is not None:
+            e = float(f["err"])
+            lines.insert(1, f"depth fit: {'lying' if bool(f['lying'][0]) else 'upright'}  r {float(f['radius'][0]) * 100:.1f} cm"
+                            f"  L {float(f['length'][0]) * 100:.1f} cm  conf {float(f['conf'][0]):.2f}  err {e * 100:.1f} cm")
         y = H - 24 - 22 * len(lines)
         d.rounded_rectangle([16, y - 12, 720, H - 16], radius=10, fill=(10, 12, 16, 165))
         for k, line in enumerate(lines):
             d.text((30, y + 22 * k), line, fill=WHITE, font=fonts["mid"])
-        d.text((W - 430, H - 30), "Isaac Lab  Rig-PickCan-Go2UR3Lift-v0  scripted grasp", fill=GREY, font=fonts["small"])
+        d.text((W - 430, H - 30), f"Isaac Lab  Rig-PickCan-Go2UR3Lift-v0  {args.policy} policy", fill=GREY, font=fonts["small"])
         frame = np.asarray(im)
         writer.append_data(frame)
         if phase not in keys or (phase == "LIFT" and lift_dz > 0.1 and "LIFT_hi" not in keys):
@@ -273,7 +284,7 @@ def main(argv):
     writer.close()
     in_tote = bool(core.in_tote(u._can_state()[0])[0])
     res = {"in_tote": in_tote, "drops": int(u.drops[0]), "max_force": float(u.max_force[0]),
-           "lift_max": float(u.lift_max[0]), "detector_used": grasp_det is not None, "frames": len(log)}
+           "lift_max": float(u.lift_max[0]), "policy": args.policy, "frames": len(log)}
     print("[video] RESULT " + json.dumps(res), flush=True)
     with open(os.path.join(args.out_dir, "log.json"), "w") as f:
         json.dump({"result": res, "frames": log}, f)

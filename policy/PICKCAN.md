@@ -36,3 +36,20 @@ tote on its back.
 * Success: can at rest inside the tote, seal released, lifted at least 0.15 m. Episode 12 s.
 * Rewards: reach, seal bonus, hold, lift, carry to tote, in-tote, success; drop, action rate, tool
   contact force over 20 N, suction on while far from the can.
+
+## Geometric perception (no pixels into the policy)
+
+`pickcan/geom.py`: a depth sensor on the top of the lift mast (32 x 32 rays, 0.4 rad field of view, aimed at the coarse
+detection) is ray-cast against the can in torch for every env each step, with 0.4 % range noise and 20 % ray dropout.
+Points above the deck are the can segment. A cylinder is fitted with PCA plus extents: centre, axis, radius, length,
+lying/upright, residual and a confidence, and the grasp point (top line or lid centre). `geom_obs()` is the compact
+14-d observation (relative to the tip, yaw folded to 2θ). `PickCanEnv.geo_obs()` adds the tip state, IK target,
+lift, arm joints, seal/suction flags, tote offset, tool force and the last action (41-d). The scripted picker grasps
+at the fitted grasp point.
+
+## Learning (`pickcan/learn.py`, `pickcan/diffusion.py`)
+
+One container run: scripted demos on many envs (successful episodes only), then behaviour cloning on the 41-d
+geometric observation: a small DDPM diffusion policy (MLP-residual denoiser, about 2 M parameters, chunks of 8
+actions, cosine schedule, 8 DDIM steps, replan every 4 steps) and an MLP BC baseline with the same chunks. All
+policies are then evaluated on the same seeded scenarios (first episode of every env).
