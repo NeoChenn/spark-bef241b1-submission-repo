@@ -26,13 +26,14 @@ def shot_at(t):
 
 def test_the_edl_tiles_sixty_seconds_in_story_order():
     names = [s.name for s in SHOTS]
-    assert names[:4] == ["rig", "control_push", "board", "unit2_walk"] and names[-2:] == ["walk_back", "conclusion"]
+    assert names[:5] == ["rig", "control_push", "board", "board_hold", "unit2_walk"]
+    assert names[-2:] == ["walk_back", "conclusion"]
     assert names.index("unit2_job") < names.index("unit1_walk") < names.index("unit1_spray")
     assert names.index("unit1_spray") < names.index("unit1_scrub") < names.index("unit1_paint")
     assert SHOTS[0].film[0] == 0.0 and SHOTS[-1].film[1] <= 60.0 + 1e-9
     for a, b in zip(SHOTS, SHOTS[1:]):
         assert a.film[1] == pytest.approx(b.film[0])
-    assert [s.name for s in SHOTS if s.two_d] == ["board", "conclusion"]
+    assert [s.name for s in SHOTS if s.two_d] == ["board", "board_hold", "conclusion"]
     assert next(s for s in SHOTS if s.name == "walk_back").rate == 2.5
     assert all(s.rate >= 0.99 for s in SHOTS if s.sim and s.sim[1] > s.sim[0])
     assert all(s.badge for s in SHOTS if s.rate > 1.05 and not s.two_d)
@@ -68,7 +69,11 @@ def test_sim_time_follows_the_recorded_beats():
     assert shots["unit1_spray"].sim[0] < b.spray and shots["unit1_soak"].sim == (b.soak, b.scrub)
     assert shots["unit1_scrub"].sim == (b.scrub, b.scrub_done) and shots["unit1_paint"].sim[1] > b.paint_done
     assert shots["walk_back"].sim == (b.u1_return, b.u1_return + 10.0)
-    assert shots["board"].sim == (0.0, b.dispatch_u2)
+    assert shots["board"].sim == (0.0, b.dispatch_u2 + 0.3) and shots["board"].film == (10.0, 18.5)
+    hold = shots["board_hold"]
+    assert hold.film == (18.5, 20.0) and hold.rate == 0.0 and hold.sim == (b.dispatch_u2 + 0.3,) * 2
+    assert shots["board"].film[0] + b.dispatch_u2 / shots["board"].rate < hold.film[0]
+    assert shots["unit2_walk"].film[0] == 20.0
     sims = [camera_at_film(t, list(shots.values()))[3] for t in np.arange(22.0, 50.0, 0.1)]
     sims = [s for s in sims if s is not None]
     assert all(b2 >= a2 for a2, b2 in zip(sims, sims[1:]))
