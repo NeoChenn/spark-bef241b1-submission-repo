@@ -74,6 +74,11 @@ def parse_args(argv=None):
     p.add_argument("--jpeg", type=int, default=95)
     p.add_argument("--no-video", action="store_true")
     p.add_argument("--write-demo", default="", help="write the built-in timeline to this path and exit")
+    p.add_argument("--film", action="store_true", help="render only the EDL's sim windows, per shot")
+    p.add_argument("--edl", default="", help="EDL module (default integration.film_edl) or a .json file")
+    p.add_argument("--shots", default="", help="comma-separated shot names to render (film mode)")
+    p.add_argument("--colors", action="store_true", help="unit paint colours (on in film mode)")
+    p.add_argument("--control-room", default="", help="x,y,z,w,d,h[,yaw] bare lit interior")
     return p.parse_args(argv)
 
 
@@ -397,6 +402,105 @@ def resample(a: np.ndarray, shape) -> np.ndarray:
     i = np.minimum((np.arange(shape[0]) + 0.5) * a.shape[0] / shape[0], a.shape[0] - 1).astype(int)
     j = np.minimum((np.arange(shape[1]) + 0.5) * a.shape[1] / shape[1], a.shape[1] - 1).astype(int)
     return a[i][:, j]
+
+
+FILM_TIMELINE = "runs_sample/film/timeline.jsonl"
+UNIT_COLORS = {"unit1": "#2D55C8", "unit2": "#EFE8D6"}
+ARM_DARK = (0.07, 0.072, 0.078)
+ARM_PARTS = ("ur3_", "gripper", "socket", "grasp", "ee_link", "tool0")
+
+
+def hex_linear(h: str) -> tuple:
+    h = h.lstrip("#")
+    c = [int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4)]
+    return tuple(round(v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4, 5) for v in c)
+
+
+def paint_role(path: str) -> str:
+    if "scrubber_link" in path or "brush" in path.lower():
+        return "pad"
+    return "arm" if any(k in path for k in ARM_PARTS) else "body"
+
+
+def _get(d, keys, default=None):
+    for k in keys:
+        if isinstance(d, dict) and d.get(k) is not None:
+            return d[k]
+        if not isinstance(d, dict) and getattr(d, k, None) is not None:
+            return getattr(d, k)
+    return default
+
+
+def normalize_shot(sh) -> dict | None:
+    name = _get(sh, ("name", "shot", "id"))
+    span = _get(sh, ("sim", "sim_span", "sim_t"))
+    t0 = _get(sh, ("sim_t0", "sim_start", "sim_in"), span[0] if isinstance(span, (list, tuple)) else None)
+    t1 = _get(sh, ("sim_t1", "sim_end", "sim_out"), span[1] if isinstance(span, (list, tuple)) else None)
+    if name is None or t0 is None or t1 is None:
+        return None
+    film = _get(sh, ("film", "film_span"))
+    f0 = _get(sh, ("film_t0", "film_start", "film_in"), film[0] if isinstance(film, (list, tuple)) else 0.0)
+    f1 = _get(sh, ("film_t1", "film_end", "film_out"), film[1] if isinstance(film, (list, tuple)) else None)
+    rate = float(_get(sh, ("rate", "playback", "speed", "playback_rate"), 1.0))
+    if f1 is None:
+        f1 = float(f0) + (float(t1) - float(t0)) / max(rate, 1e-6)
+    return {"name": str(name), "sim_t0": float(t0), "sim_t1": float(t1), "rate": rate, "film_t0": float(f0),
+            "film_t1": float(f1)}
+
+
+def load_edl(spec: str = "") -> list:
+    if spec and spec.endswith(".json"):
+        raw = json.loads(resolve(spec).read_text())
+    else:
+        import importlib
+
+        mod = importlib.import_module(spec or "integration.film_edl")
+        raw = None
+        for name in ("EDL", "SHOTS", "edl", "shots", "build_edl", "load"):
+            v = getattr(mod, name, None)
+            if v is not None:
+                raw = v() if callable(v) else v
+                break
+    raw = raw.get("shots", raw) if isinstance(raw, dict) else raw
+    return [s for s in (normalize_shot(x) for x in (raw or [])) if s is not None]
+
+
+def film_steps(shots: list, fps: int, only: str = "") -> list:
+    pick = {s for s in only.split(",") if s} if only else None
+    tasks = []
+    for sh in shots:
+        if pick and sh["name"] not in pick:
+            continue
+        n = max(1, int(round((sh["film_t1"] - sh["film_t0"]) * fps)))
+        dt = (sh["sim_t1"] - sh["sim_t0"]) / n if sh["sim_t1"] > sh["sim_t0"] else 0.0
+        for i in range(n):
+            tasks.append((round(sh["sim_t0"] + i * dt, 6), (sh["name"], i, round(sh["film_t0"] + i / fps, 4))))
+    if not tasks:
+        return []
+    end = max(t for t, _ in tasks)
+    grid = [(round(k / fps, 6), None) for k in range(int(end * fps) + 1)]
+    return sorted(grid + tasks, key=lambda x: (x[0], x[1] is not None))
+
+
+def control_room_parts(center, size, yaw: float = 0.0, sill: float = 0.9, head: float = 2.1, n_win: int = 3):
+    cx, cy, cz = center
+    w, d, h = size
+    t = 0.08
+    parts = [("floor", (0, 0, -0.03), (w, d, 0.06)), ("ceiling", (0, 0, h), (w, d, 0.06))]
+    for side, (ox, oy, lx, ly) in {"n": (0, d / 2, w, t), "s": (0, -d / 2, w, t), "e": (w / 2, 0, t, d),
+                                   "w": (-w / 2, 0, t, d)}.items():
+        span = max(lx, ly)
+        along = (1, 0) if lx > ly else (0, 1)
+        parts.append((f"wall_{side}_low", (ox, oy, sill / 2), (lx, ly, sill)))
+        parts.append((f"wall_{side}_high", (ox, oy, (head + h) / 2), (lx, ly, h - head)))
+        for k in range(n_win + 1):
+            c = -span / 2 + k * span / n_win
+            pw = 0.25
+            px, py = ox + along[0] * c, oy + along[1] * c
+            parts.append((f"wall_{side}_post{k}", (px, py, (sill + head) / 2),
+                          (pw if lx > ly else t, pw if ly >= lx else t, head - sill)))
+    c, s = math.cos(yaw), math.sin(yaw)
+    return [(n, (cx + c * x - s * y, cy + s * x + c * y, cz + z), sz) for n, (x, y, z), sz in parts]
 
 
 def gait(stand: dict, phase: float, amp: float) -> dict:
@@ -971,6 +1075,12 @@ def main(argv=None):
         out.write_text("".join(json.dumps(r) + "\n" for r in demo_rows(meta, flanges)))
         print(f"[fleet] wrote {out}", flush=True)
         return
+    if args.film:
+        if not args.timeline and resolve(FILM_TIMELINE).exists():
+            args.timeline = FILM_TIMELINE
+        if args.out == "runs/fleet_isaac":
+            args.out = "runs/film_isaac"
+        args.colors, args.no_video = True, True
     tl = pick_timeline(args.timeline)
     args.timeline_path = tl
     scn = load_scenario(tl, meta, flanges)
@@ -982,6 +1092,12 @@ def main(argv=None):
         n_frames = min(n_frames, max(at_frames) + 1)
     if args.max_frames:
         n_frames = min(n_frames, args.max_frames * max(1, args.every))
+    shots = load_edl(args.edl) if args.film else []
+    steps = film_steps(shots, args.fps, args.shots) if args.film else \
+        [(args.start + k / args.fps, k) for k in range(n_frames)]
+    if args.film:
+        n_frames = sum(1 for _, task in steps if task is not None)
+        print(f"[fleet] film shots {[(s_['name'], s_['sim_t0'], s_['sim_t1'], s_['rate']) for s_ in shots]}", flush=True)
     print(f"[fleet] timeline {tl} end={scn.end:.1f}s robots={sorted(scn.poses)} leds={len(scn.leds)} "
           f"frames={n_frames}", flush=True)
 
@@ -1073,6 +1189,28 @@ def main(argv=None):
     cam.CreateVerticalApertureAttr(20.955 * args.height / args.width)
     cam_op = UsdGeom.Xformable(cam).AddTransformOp()
     cam_fn, cam_kind = camera_source(args, scn, meta)
+    film_cam = None
+    room = parse_room(args.control_room) if args.control_room else None
+    if args.film:
+        try:
+            from integration import film_camera as fcam
+
+            room = room or getattr(fcam, "CONTROL_ROOM", None)
+            fn_ = next(getattr(fcam, n_) for n_ in ("camera_at", "at", "shot_at") if callable(getattr(fcam, n_, None)))
+
+            def film_cam(ft, st):
+                c_ = fn_(ft)
+                if isinstance(c_, dict):
+                    return list(c_["eye"]), list(c_.get("target", c_.get("look"))), float(c_.get("focal", args.focal))
+                return list(c_[0]), list(c_[1]), float(c_[2]) if len(c_) > 2 else args.focal
+        except Exception as exc:
+            print(f"[fleet] film camera unavailable ({exc}), using {cam_kind}", flush=True)
+    if room:
+        print(f"[fleet] control room {room} parts {add_control_room(stage, room['center'], room['size'], room.get('yaw', 0.0))}",
+              flush=True)
+    if args.colors:
+        print(f"[fleet] paint {[(rid, paint_unit(stage, f'/World/Fleet/{rid}', UNIT_COLORS[rid])) for rid in UNITS]}",
+              flush=True)
     print(f"[fleet] camera {cam_kind}", flush=True)
 
     pipe = pipe_from_meta(meta)
@@ -1207,8 +1345,10 @@ def main(argv=None):
             return p - appr * 0.005 * (1 + math.sin(2.0 * t)), appr, 2.5 * t
         return None
 
-    for k in range(n_frames):
-        t = args.start + k / args.fps
+    t_last, shot_heads = None, {}
+    for k, (t, task) in enumerate(steps):
+        dt = 0.0 if t_last is None else t - t_last
+        t_last = t
         while nav_t + NAV_DT <= t + 1e-9:
             nav_t += NAV_DT
             for rid, u in units.items():
@@ -1221,11 +1361,11 @@ def main(argv=None):
         t_prev = t
         st1 = scn.state("unit1", t).upper()
         working = acts["unit1"] in ("scrub", "spray", "paint") or any(k in st1 for k in AT_PIPE)
-        work_w = min(1.0, work_w + 1.0 / args.fps) if working else max(0.0, work_w - 1.0 / args.fps)
+        work_w = min(1.0, work_w + dt) if working else max(0.0, work_w - dt)
         u2 = units["unit2"]
         in_rt = retq is not None and retq[2] - 1.0 <= t <= retq[2] + retq[0].duration
         f2 = nearest_flange(flanges, (u2.x, u2.y)) if acts["unit2"] in ("inspect", "retorque") else None
-        fix_w = min(1.0, fix_w + 1.0 / args.fps) if (f2 is not None or in_rt) else max(0.0, fix_w - 1.0 / args.fps)
+        fix_w = min(1.0, fix_w + dt) if (f2 is not None or in_rt) else max(0.0, fix_w - dt)
         if in_rt:
             wb = retq[1]
             fix_pose = (float(wb[0, 3]), float(wb[1, 3]), math.atan2(wb[1, 0], wb[0, 0]))
@@ -1283,7 +1423,7 @@ def main(argv=None):
                         target_q["ur3_wrist_3_joint"] = target_q.get("ur3_wrist_3_joint", 0.0) + 0.8 * math.sin(roll)
                 else:
                     target_q.update(ARM_STOWED)
-            blend = 1.0 if k == 0 or skill_q is not None else min(1.0, 4.0 / args.fps)
+            blend = 1.0 if k == 0 or skill_q is not None else min(1.0, 4.0 * dt)
             for j, v in target_q.items():
                 if "thigh" in j or "calf" in j:
                     q[rid][j] = v
@@ -1317,15 +1457,18 @@ def main(argv=None):
                         detectors.set_detector_state(did, st)
                 except KeyError:
                     pass
-        c = cam_fn(t)
+        if args.film and task is None:
+            continue
+        c = film_cam(task[2], t) if args.film and film_cam is not None else cam_fn(t)
         cam.GetFocalLengthAttr().Set(float(c[2]))
         cam_op.Set(Gf.Matrix4d(*look_rows(c[0], c[1]).reshape(-1)))
-        if at_frames is not None and k not in at_frames:
-            continue
-        if k < args.from_frame:
-            continue
-        if at_frames is None and k % max(1, args.every):
-            continue
+        if not args.film:
+            if at_frames is not None and k not in at_frames:
+                continue
+            if k < args.from_frame:
+                continue
+            if at_frames is None and k % max(1, args.every):
+                continue
         warm = args.warmup if rendered == 0 else 1
         rgb = None
         for i_ in range(warm + 20):
@@ -1336,11 +1479,21 @@ def main(argv=None):
                 break
         if rgb is None:
             raise RuntimeError(f"annotator stayed empty at t={t:.2f}")
-        Image.fromarray(rgb).save(frames_dir / f"{(k if args.from_frame else rendered):05d}.jpg", quality=args.jpeg)
+        if args.film:
+            sdir = out / task[0] / "frames"
+            if task[0] not in shot_heads:
+                sdir.mkdir(parents=True, exist_ok=True)
+                shot_heads[task[0]] = (out / task[0] / "fleet_isaac_header.jsonl").open("w")
+            Image.fromarray(rgb).save(sdir / f"{task[1]:05d}.jpg", quality=args.jpeg)
+        else:
+            Image.fromarray(rgb).save(frames_dir / f"{(k if args.from_frame else rendered):05d}.jpg", quality=args.jpeg)
         if writer is not None:
             writer.append_data(rgb)
         evs = scn.events_between(t - max(1, args.every) / args.fps, t)
-        row = header_row(k if args.from_frame else rendered, t, c, args, units, dets, evs, acts, shown)
+        row = header_row(task[1] if args.film else k if args.from_frame else rendered, t, c, args, units, dets, evs,
+                         acts, shown)
+        if args.film:
+            row.update(shot=task[0], film_t=task[2], sim_t=round(t, 4))
         row["fx"] = fx_state
         if in_rt and retq[2] <= t:
             ph = retq[0].phase[min(int(np.searchsorted(retq[0].t, t - retq[2])), len(retq[0].phase) - 1)]
@@ -1351,12 +1504,14 @@ def main(argv=None):
                                                                         tools["unit2"])[:3, 3]]}
         row["rust"] = {"progress": {k: round(v, 2) for k, v in prog.items()}, "source": "timeline" if
                        scn.masks_at(t) is not None else "synthetic"}
-        head.write(json.dumps(row) + "\n")
+        (shot_heads[task[0]] if args.film else head).write(json.dumps(row) + "\n")
         rendered += 1
         if rendered % 30 == 1:
             print(f"[fleet] frame {rendered}/{n_frames // max(1, args.every)} t={t:.2f} mean={rgb.mean():.1f} "
                   f"u1={units['unit1'].mode}:{acts['unit1']} u2={units['unit2'].mode}:{acts['unit2']}", flush=True)
     head.close()
+    for h_ in shot_heads.values():
+        h_.close()
     if writer is not None:
         writer.close()
     (out / "fleet_isaac.json").write_text(json.dumps({
@@ -1373,6 +1528,88 @@ def main(argv=None):
                                                           for ph in dict.fromkeys(retq[0].phase)}}}, indent=1))
     print(f"[fleet] DONE {rendered} frames -> {out}", flush=True)
     os._exit(0)
+
+
+def _surface(stage, path, color, rough, metal=0.0, emissive=None):
+    from pxr import Gf, Sdf, UsdShade
+
+    mat = UsdShade.Material.Define(stage, path)
+    sh = UsdShade.Shader.Define(stage, path + "/surface")
+    sh.CreateIdAttr("UsdPreviewSurface")
+    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
+    sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(float(rough))
+    sh.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(float(metal))
+    if emissive is not None:
+        sh.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*emissive))
+    mat.CreateSurfaceOutput().ConnectToSource(sh.CreateOutput("surface", Sdf.ValueTypeNames.Token))
+    return mat
+
+
+def paint_unit(stage, root_path: str, body_hex: str) -> dict:
+    from pxr import Usd, UsdGeom, UsdShade
+
+    name = root_path.rstrip("/").split("/")[-1]
+    mats = {"body": _surface(stage, f"/World/Looks/Fleet/{name}_body", hex_linear(body_hex), 0.45, 0.05),
+            "arm": _surface(stage, f"/World/Looks/Fleet/{name}_arm", ARM_DARK, 0.42, 0.3)}
+    root = stage.GetPrimAtPath(root_path)
+    while True:
+        inst = [p for p in Usd.PrimRange(root) if p.IsInstanceable()]
+        if not inst:
+            break
+        for prim in inst:
+            prim.SetInstanceable(False)
+    n = {"body": 0, "arm": 0, "pad": 0}
+    for prim in Usd.PrimRange(root):
+        if not prim.IsA(UsdGeom.Gprim) or "collision" in str(prim.GetPath()):
+            continue
+        role = paint_role(str(prim.GetPath()))
+        n[role] += 1
+        if role in mats:
+            UsdShade.MaterialBindingAPI.Apply(prim).Bind(mats[role], UsdShade.Tokens.strongerThanDescendants)
+    return n
+
+
+def add_control_room(stage, center, size, yaw: float = 0.0, root: str = "/World/Fleet/control_room") -> int:
+    from pxr import Gf, UsdGeom, UsdLux, UsdShade
+
+    UsdGeom.Xform.Define(stage, root)
+    wall = _surface(stage, f"{root}/Looks/wall", (0.55, 0.56, 0.55), 0.8)
+    floor = _surface(stage, f"{root}/Looks/floor", (0.12, 0.13, 0.14), 0.6)
+    panel = _surface(stage, f"{root}/Looks/panel", (0.9, 0.9, 0.85), 0.5, emissive=(6.0, 6.0, 5.4))
+    parts = control_room_parts(center, size, yaw)
+    for name, c, sz in parts:
+        cube = UsdGeom.Cube.Define(stage, f"{root}/{name}")
+        cube.CreateSizeAttr(1.0)
+        xf = UsdGeom.Xformable(cube)
+        xf.AddTranslateOp().Set(Gf.Vec3d(*map(float, c)))
+        xf.AddRotateZOp().Set(math.degrees(yaw))
+        xf.AddScaleOp().Set(Gf.Vec3f(*map(float, sz)))
+        UsdShade.MaterialBindingAPI.Apply(cube.GetPrim()).Bind(floor if name in ("floor", "ceiling") else wall)
+    cx, cy, cz = center
+    w, d, h = size
+    for k, fx_ in enumerate((-0.25, 0.25)):
+        x, y = cx + math.cos(yaw) * fx_ * w, cy + math.sin(yaw) * fx_ * w
+        p = UsdGeom.Cube.Define(stage, f"{root}/light_panel_{k}")
+        p.CreateSizeAttr(1.0)
+        xf = UsdGeom.Xformable(p)
+        xf.AddTranslateOp().Set(Gf.Vec3d(x, y, cz + h - 0.04))
+        xf.AddRotateZOp().Set(math.degrees(yaw))
+        xf.AddScaleOp().Set(Gf.Vec3f(min(1.6, 0.3 * w), 0.4, 0.02))
+        UsdShade.MaterialBindingAPI.Apply(p.GetPrim()).Bind(panel)
+        lt = UsdLux.RectLight.Define(stage, f"{root}/light_{k}")
+        lt.CreateWidthAttr(min(1.6, 0.3 * w))
+        lt.CreateHeightAttr(0.4)
+        lt.CreateIntensityAttr(6000.0)
+        lt.CreateColorAttr(Gf.Vec3f(1.0, 0.96, 0.9))
+        UsdGeom.Xformable(lt).AddTranslateOp().Set(Gf.Vec3d(x, y, cz + h - 0.08))
+    return len(parts) + 4
+
+
+def parse_room(spec: str):
+    v = [float(x) for x in spec.split(",") if x.strip()]
+    if len(v) < 6:
+        return None
+    return {"center": v[:3], "size": v[3:6], "yaw": v[6] if len(v) > 6 else 0.0}
 
 
 def scene_boxes(stage, meta: dict, height: float, radius: float = 30.0, max_side: float = 6.0) -> np.ndarray:
