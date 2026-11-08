@@ -196,17 +196,17 @@ def list_models(key: str) -> list[str]:
             return names
 
 
-def run_gemini_arm(model, datasets, n_max, workers=6, api_key=None, transport=None):
+def run_gemini_arm(model, datasets, n_max, workers=6, api_key=None, transport=None, timeout=90.0):
     from policy.gemini_verifier import GeminiVerifier
 
-    v = GeminiVerifier(api_key=api_key, model=model, transport=transport)
+    v = GeminiVerifier(api_key=api_key, model=model, transport=transport, timeout=timeout)
     res = {}
     for dname, items in datasets.items():
         idx = stratified_subset([y for _, y, _ in items], n_max, seed=0)
         sub = [items[i] for i in idx]
 
         def call(it):
-            return GeminiVerifier(api_key=v.api_key, model=model, transport=transport).verify(np.asarray(it[0]),
+            return GeminiVerifier(api_key=v.api_key, model=model, transport=transport, timeout=timeout).verify(np.asarray(it[0]),
                                                                                                   "rust")
 
         with ThreadPoolExecutor(workers) as ex:
@@ -235,7 +235,7 @@ def chart(doc, path):
     arms = doc["arms"]
     names = [a["name"] for a in arms]
     panels = []
-    for dname, title in (("sim_heldout", "held-out sim renders"), ("rust_sim_test", "synthetic test")):
+    for dname, title in (("sim_heldout", "held-out sim renders"), ("rust_sim_test", "synth test")):
         for metric, mt in (("f1", "F1"), ("auroc", "AUROC")):
             vals = {}
             for a in arms:
@@ -244,14 +244,18 @@ def chart(doc, path):
                     vals[a["name"]] = r[metric]
                 else:
                     vals[a["name"]] = {"mean": None, "label": a.get("status", "n/a")}
-            panels.append({"title": f"{mt} · {title} (n={doc['datasets'][dname]['n']})", "values": vals,
+            gn = sorted({a["results"][dname]["n"] for a in arms if "Gemini" in a["name"] and "n" in a.get("results", {}).get(dname, {})})
+            sub = f"; Gemini {gn[-1]}" if gn and gn[-1] < doc["datasets"][dname]["n"] else ""
+            panels.append({"title": f"{mt} · {title} (n={doc['datasets'][dname]['n']}{sub})", "values": vals,
                            "fmt": "{:.2f}"})
     vals = {}
     for a in arms:
-        lat = [r["latency"]["median_ms"] for r in a.get("results", {}).values() if "latency" in r
-               and "median_ms" in r["latency"]]
+        lat = [r["latency"]["median_ms"] if "median_ms" in r["latency"] else r["latency"]["median_s"] * 1000.0
+               for r in a.get("results", {}).values() if "latency" in r
+               and ("median_ms" in r["latency"] or "median_s" in r["latency"])]
         vals[a["name"]] = {"mean": float(np.median(lat))} if lat else {"mean": None, "label": a.get("status", "n/a")}
-    panels.append({"title": "CPU latency per image, median ms", "values": vals, "fmt": "{:.1f}"})
+    panels.append({"title": "Latency / image, median ms (log)", "values": vals, "fmt": "{:.3g}",
+                   "log": True})
     from bench.chart import SERIES
 
     pal = {"Colour stand-in": SERIES[3], "MNv4 LoRA (deployed)": SERIES[0], "MNv4 full-FT (sim-only)": SERIES[2]}
@@ -268,7 +272,10 @@ def main(argv=None):
     ap.add_argument("--deployed", default="runs/detector/best")
     ap.add_argument("--gemini-n", type=int, default=200)
     ap.add_argument("--out", default=str(OUT))
+    ap.add_argument("--gemini-only", action="store_true")
     a = ap.parse_args(argv)
+    if a.gemini_only:
+        return gemini_only(a.synth, a.gemini_n)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     datasets = {"sim_heldout": load_heldout()}
@@ -330,6 +337,32 @@ def main(argv=None):
                       f"[{r['auroc']['lo']:.3f},{r['auroc']['hi']:.3f}] cm={r['confusion']}")
         if "status" in arm:
             print(f"{arm['name']:28s} {arm['status']}")
+    return doc
+
+
+def merge_gemini(doc: dict, arms: list[dict]) -> dict:
+    names = {a["name"] for a in arms}
+    doc["arms"] = [a for a in doc["arms"] if a["name"] not in names] + arms
+    return doc
+
+
+def gemini_only(synth: str, n: int, sample: Path = SAMPLE):
+    from policy.gemini_verifier import load_api_key
+
+    datasets = {"sim_heldout": load_heldout(), "rust_sim_test": load_dir(synth)}
+    doc = json.loads((sample / "detect.json").read_text())
+    key = load_api_key()
+    arms = [run_gemini_arm(m, datasets, n, api_key=key) for m in GEMINI_MODELS]
+    for arm in arms:
+        for r in arm["results"].values():
+            if dname_large(r):
+                r.pop("per_item", None)
+    doc = merge_gemini(doc, arms)
+    doc["gemini_note"] = (f"Gemini arms: all {len(datasets['sim_heldout'])} held-out sim crops + a stratified "
+                          f"{n}-image sample (seed 0) of the synthetic test split, regenerated locally with "
+                          "detection/synth_sim.generate(seed=0) (same 485/202 split as watson).")
+    (sample / "detect.json").write_text(json.dumps(doc, indent=1, default=float))
+    chart(doc, sample / "detect.png")
     return doc
 
 
