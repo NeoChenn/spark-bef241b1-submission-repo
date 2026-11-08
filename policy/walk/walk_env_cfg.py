@@ -22,6 +22,7 @@ from isaaclab_tasks.manager_based.locomotion.velocity.config.go2.agents.rsl_rl_p
 from isaaclab_tasks.manager_based.locomotion.velocity.config.go2.rough_env_cfg import UnitreeGo2RoughEnvCfg
 
 from integration.kinematics import ARM_START, ARM_STOWED, STANDING
+from policy.walk.urdf import walk_urdf
 
 _REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 URDF = os.environ.get("WALK_URDF") or os.path.join(_REPO, "sim/assets/go2_ur3/go2_ur3_lift.urdf")
@@ -48,11 +49,11 @@ RIG_TERRAIN = TerrainGeneratorCfg(
 )
 
 
-def robot_cfg(urdf: str = URDF) -> ArticulationCfg:
+def robot_cfg(urdf: str = "") -> ArticulationCfg:
     return ArticulationCfg(
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UrdfFileCfg(
-            asset_path=urdf, fix_base=False, merge_fixed_joints=True, make_instanceable=True,
+            asset_path=urdf or walk_urdf(URDF), fix_base=False, merge_fixed_joints=True, make_instanceable=True,
             activate_contact_sensors=True,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=False, retain_accelerations=False, linear_damping=0.0, angular_damping=0.0,
