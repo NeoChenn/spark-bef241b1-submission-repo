@@ -153,7 +153,7 @@ def worker(argv):
         primer = grid_to_mask(snap["painted"].astype(np.float32), H, W, flip_v=True)
         rgba = rgba.astype(np.float32)
         rgba[..., :3] *= 1.0 - 0.4 * wet[..., None]
-        rgba = repair_rgba(np.where((primer > 0.5)[..., None], 0, rgba).astype(np.uint8), np.zeros_like(wet), primer)
+        rgba = repair_rgba(np.where((primer > 0.5)[..., None], 0, rgba).astype(np.uint8), np.zeros_like(wet), primer, primer_rgb=(38, 52, 40))
         painter.provider.set_data_array(rgba, [W, H])
 
     def render(snap):
