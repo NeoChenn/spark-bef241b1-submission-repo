@@ -587,6 +587,23 @@ def debris(kit):
             for c, b in dg.chain_links(path, 0.05):
                 q = Gf.Matrix3d(*b.T.reshape(-1).tolist()).ExtractRotation().GetQuat()
                 kit.add(MAT["steel"], "link", c, (q.GetReal(), *q.GetImaginary()), (1, 1, 1))
+        elif kind == "nuts":
+            rng = np.random.default_rng(k)
+            for j in range(9):
+                px, py = x + rng.uniform(-0.25, 0.25), y + rng.uniform(-0.07, 0.07)
+                yaw = rng.uniform(0, math.pi)
+                if j % 3:
+                    kit.seg(MAT["steel"], "hex", (px, py, 0.0), (px, py, 0.016), 0.032)
+                else:
+                    kit.add(MAT["galv"], "torus", (px, py, 0.003), X_TO_Z, (0.018, 0.018, 0.018))
+                    kit.seg(MAT["steel"], "cyl", (px, py, 0.012), (px + 0.09 * math.cos(yaw), py + 0.09 * math.sin(yaw), 0.012), 0.022)
+        elif kind == "spanner":
+            a = math.radians(rot)
+            d = np.array((math.cos(a), math.sin(a), 0.0))
+            c = np.array((x, y, 0.006))
+            kit.seg(MAT["galv"], "box", tuple(c - d * 0.12), tuple(c + d * 0.12), 0.026, 0.009)
+            for end in (-1, 1):
+                kit.seg(MAT["galv"], "cyl", tuple(c + d * 0.135 * end + (0, 0, -0.0045)), tuple(c + d * 0.135 * end + (0, 0, 0.0045)), 0.05)
         elif kind == "gloves":
             for j, (dx, dy, rr) in enumerate(((0.0, 0.0, rot), (0.12, 0.05, rot + 35))):
                 a = math.radians(rr)
@@ -631,14 +648,14 @@ def build(path=g.LAYER) -> dict:
     UsdGeom.Xform.Define(stage, g.OFFLINE)
     offzone = UsdGeom.Xform.Define(stage, f"{g.OFFLINE}/Zone")
     offzone.AddTranslateOp().Set(Gf.Vec3d(*g.ZONE_T))
-    trays = Kit(f"{g.OFFLINE}/Zone/Kit")
-    UsdGeom.Scope.Define(stage, f"{g.OFFLINE}/Zone/Cables")
-    tray(trays, f"{g.OFFLINE}/Zone/Cables")
+    trays = Kit(f"{g.ZONE_ROOT}/TrayKit")
+    UsdGeom.Scope.Define(stage, f"{g.ZONE_ROOT}/Cables")
+    tray(trays, f"{g.ZONE_ROOT}/Cables")
     top_live, top_off = Kit(f"{g.ROOT}/Topside/Kit"), Kit(f"{g.OFFLINE}/Topside/Kit")
     UsdGeom.Xform.Define(stage, f"{g.ROOT}/Topside")
     UsdGeom.Xform.Define(stage, f"{g.OFFLINE}/Topside")
     topside_racks(top_live, top_off)
-    counts = {"zone_instances": kit.write(), "offline_instances": trays.write(), "topside_instances": top_live.write(),
+    counts = {"zone_instances": kit.write(), "tray_instances": trays.write(), "topside_instances": top_live.write(),
               "topside_offline": top_off.write()}
     stage.GetRootLayer().Save()
     counts["prims"] = sum(1 for _ in Usd.PrimRange(stage.GetPrimAtPath(g.ROOT)))
