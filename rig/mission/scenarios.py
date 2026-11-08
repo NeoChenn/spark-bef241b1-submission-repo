@@ -202,12 +202,12 @@ class Gas(Script):
 class Patrol(Script):
     id, name, main = "patrol", "Deck patrol", "R3"
     steps = ("Unit 3 walking the patrol route", "Re-routing around a blocked walkway", "Picking up a fallen can",
-             "Can stowed in the back tote", "Patrol done — back to the dock", "Unit 3 docked and charging")
+             "Can stowed in the back tote", "Patrol done — back to the dock", "Unit 3 back at the dock")
     disturbances = (("more_cans", "More small cans"), ("unfamiliar_object", "Unfamiliar object"),
                     ("drum", "205 L drum on the walkway"))
     robots = (("R1", [-12.0, 9.4, 42.5], 0.9), ("R2", [-21.0, 4.0, 31.25], 0.9), ("R3", [-1.0, -4.5, 42.5], 0.42))
     route = ("gauge_06", "gauge_05", "gauge_07", "gauge_05")
-    crate_xyz, puddle_xyz, drum_xyz, drum_edge = [9.0, -6.8, 42.5], [13.0, -4.5, 42.5], [14.0, -4.5, 42.5], "w5"
+    crate_xyz, puddle_xyz, drum_xyz, drum_edge = [9.0, -6.8, 42.5], [13.0, -9.0, 42.5], [14.0, -4.5, 42.5], "w5"
 
     def setup(self) -> None:
         self.task("rust", JUDGES_RUST[1][0], JUDGES_RUST[1][1], severity=0.6, exposure=0.6, only="R1")
@@ -231,9 +231,12 @@ class Patrol(Script):
             if self.k >= len(self.route) and more:
                 self.k, self.laps = 0, self.laps + 1
             self.leg = self.task("inspect", self.route[self.k], only="R3") if self.k < len(self.route) else None
-        if self.dropped is None and r is not None and r.legs and r.state == "TRANSIT":
+        if self.dropped is None and r is not None and r.legs and r.state == "TRANSIT" and r.pos[0] > 10.0:
             self.rr0 = len(f.reroutes)
-            self.run.hazard("drop_obstacle", kind="crate", at=self.crate_xyz)
+            try:
+                self.run.hazard("drop_obstacle", kind="crate", at={"robot": "R3", "ahead_m": 5.0})
+            except ValueError:
+                self.run.hazard("drop_obstacle", kind="crate", at=self.crate_xyz)
             self.run.hazard("drop_obstacle", kind="puddle", at=self.puddle_xyz)
             self.dropped = m.t
         if self.dropped is not None and self.can_dropped is None and m.t > self.dropped + 8.0 and r.state == "TRANSIT":
@@ -407,8 +410,11 @@ class Repair(Script):
             if self.state_of("R1") == "SCRUB":
                 self.gust()
                 return "Gust on the arm", " — the force shield holds the brush under 40 N"
-            self.gust_wait = True
-            return "Gust forecast", " — it hits when the brush is back on the pipe"
+            if self.open_tasks("rust", "R1"):
+                self.gust_wait = True
+                return "Gust forecast", " — it hits when the brush is back on the pipe"
+            self.gust()
+            return "Gust on the arm", " — no brush contact, Unit 1 holds the tool clear"
         return did, ""
 
 
@@ -558,11 +564,12 @@ class Scenarios:
         return {"selected": out}
 
     def tick(self) -> None:
-        self._approvals()
         s = self.cur
+        if s is not None:
+            s.tick()
+        self._approvals()
         if s is None:
             return
-        s.tick()
         if s.id != "flyby" and s.i != self.last_i:
             if self.last_i is not None:
                 self.m.flash(f"{s.name} · {s.steps[s.i]}", f" — {self.beat_caption(s)}" if self.beat_caption(s) else "",
