@@ -27,7 +27,7 @@ def main(argv):
     import numpy as np
     import torch
 
-    from policy.walk.gait import gait_period, loop_segment
+    from policy.walk.gait import best_loop, gait_period
     from policy.walk.walk_env_cfg import LEGS, WalkEnvCfg
     from policy.walk.walk_sim import deck_cfg, load_policy, make_env, place, set_cmd
 
@@ -52,10 +52,11 @@ def main(argv):
     names = list(r.joint_names)
     legs = [names.index(n) for n in LEGS]
     period = gait_period(q[:, legs], dt)
-    n = period * args.cycles
+    s0, n = best_loop(q[:, legs], period, args.cycles)
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     np.savez_compressed(args.out, joint_names=np.array(names), dt=dt, period_steps=period, cmd_vx=args.vx,
-                        q_loop=loop_segment(q, period, args.cycles), root_pos_loop=pos[-n:], root_quat_loop=quat[-n:],
+                        loop_start=s0, q_loop=q[s0:s0 + n], root_pos_loop=pos[s0:s0 + n],
+                        root_quat_loop=quat[s0:s0 + n],
                         q_full=q, root_pos_full=pos, root_quat_full=quat)
     v = float(np.linalg.norm(pos[-1, :2] - pos[0, :2]) / (len(pos) * dt))
     print("[gait] " + json.dumps({"period_s": period * dt, "loop_steps": n, "mean_speed_mps": v,

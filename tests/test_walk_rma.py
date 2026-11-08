@@ -169,3 +169,18 @@ def test_gait_period_and_loop_trim():
     assert len(seg) == 3 * n
     assert np.abs(seg[0] - q[len(q) - 3 * n]).max() < 1e-12
     assert np.abs(seg[-1] + (seg[1] - seg[0]) - seg[0]).max() < 0.15
+
+
+def test_best_loop_closes_seam_on_noisy_gait():
+    import numpy as np
+
+    from policy.walk.gait import best_loop
+
+    dt = 0.02
+    t = np.arange(400) * dt
+    rng = np.random.default_rng(0)
+    q = np.stack([np.sin(2 * np.pi * t / 0.37), np.cos(2 * np.pi * t / 0.37)], 1) + 0.02 * rng.standard_normal((400, 2))
+    s, n = best_loop(q, 18, cycles=2)
+    seam = np.abs(q[s + n] - q[s]).max()
+    assert 30 <= n <= 42 and s + n < len(q)
+    assert seam < 0.12
