@@ -20,7 +20,7 @@ def "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_weathered.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_weathered"
-                    float inputs:chip_amount = 0.22
+                    float inputs:chip_amount = 0
                     float inputs:grime_amount = 0.35
                     float inputs:macro_scale = 19
                     asset inputs:masks = @../assets/generated/rig_masks.png@ (
@@ -42,7 +42,7 @@ def "World"
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
-                    float inputs:rust_amount = 0.26
+                    float inputs:rust_amount = 0.3
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
                         colorSpace = "sRGB"
                     )
@@ -141,7 +141,7 @@ def "World"
                         colorSpace = "raw"
                     )
                     float inputs:metallic = 0
-                    color3f inputs:paint_color = (0.5, 0.4, 0.33)
+                    color3f inputs:paint_color = (0.62, 0.45, 0.34)
                     asset inputs:paint_diff = @../assets/third_party/textures/rusty_metal_02/diff.jpg@ (
                         colorSpace = "sRGB"
                     )
@@ -199,7 +199,7 @@ def "World"
                     )
                     float inputs:metallic = 0
                     float inputs:normal_strength = 1.4
-                    color3f inputs:paint_color = (1, 1, 1)
+                    color3f inputs:paint_color = (0.75, 1, 0.6)
                     asset inputs:paint_diff = @../assets/generated/marine_growth/diff.jpg@ (
                         colorSpace = "sRGB"
                     )
