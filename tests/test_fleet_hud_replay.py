@@ -23,9 +23,11 @@ def test_fleet_dir_replay_attaches_timeline_rows(tmp_path):
         assert c.get("/api/replay", params={"path": "runs_sample"}).status_code == 404
 
 
-def test_committed_fleet_sample_replays():
+def test_committed_live_run_replays():
     with TestClient(create_app(sim_port=0)) as c:
-        s = c.get("/api/replay", params={"path": "runs_sample/fleet_demo_hud"}).json()
-        kinds = [r["kind"] for x in s["snapshots"] for r in x.get("argon_rows", []) if r["type"] == "command"]
-        assert kinds == ["hold", "go_check", "fix_leak", "resume_rust"]
-        assert {r["id"] for r in s["snapshots"][0]["robots"]} == {"unit1", "unit2"}
+        for path in ("runs_sample/fleet_demo", "runs_sample/fleet_demo/live_hud_1hz.jsonl"):
+            s = c.get("/api/replay", params={"path": path}).json()
+            rows = [r for x in s["snapshots"] for r in x.get("argon_rows", [])]
+            assert [r["kind"] for r in rows if r["type"] == "command"] == ["log_sensor_fault", "hold", "go_check", "fix_leak", "resume_rust"]
+            assert [r["kind"] for r in rows if r["type"] == "vetoed"] == ["resume_rust"]
+            assert {r["id"] for r in s["snapshots"][0]["robots"]} == {"unit1", "unit2"}

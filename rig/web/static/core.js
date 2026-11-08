@@ -165,7 +165,7 @@
   function surface() {
     let want = null;
     if (dismissed && !live(P.get(dismissed))) dismissed = null;
-    if (auto && !presenter && S.started && !sheet.id) P.forEach((p) => { if (!pins.has(p.id) && p.id !== dismissed && live(p) && (!want || prio(p) > prio(want))) want = p; });
+    if (auto && !presenter && !S.guide && S.started && !sheet.id) P.forEach((p) => { if (!pins.has(p.id) && p.id !== dismissed && live(p) && (!want || prio(p) > prio(want))) want = p; });
     const id = want ? want.id : null;
     if (id === slot || now() - slotAt < DWELL / SPEED) return;
     if (slot && !pins.has(slot)) hide(slot);
@@ -411,9 +411,30 @@
     if (n === 1) setTimeout(() => { a.style.transform = ""; a.classList.add("orbit"); }, 4000);
   }
   let session = null, playT0 = null, cursor = 0, offset = +(Q.get("t") || 0);
+  let pausedAt = null;
+  const clock = () => ((pausedAt ?? now()) - playT0) * SPEED + offset;
+  function pause(on = pausedAt == null) {
+    if (on && pausedAt == null) pausedAt = now();
+    else if (!on && pausedAt != null) { if (playT0 != null) playT0 += now() - pausedAt; pausedAt = null; }
+    return pausedAt != null;
+  }
+  function jump(pt) {
+    if (!session) return false;
+    begin();
+    const el = clock();
+    if (pt < el - 0.05) return false;
+    seek(pt); offset += pt - el;
+    return true;
+  }
+  function layout(ids) {
+    [...open.keys()].forEach((id) => { pins.delete(id); hide(id, true); });
+    slot = null; dismissed = null;
+    ids.forEach((id) => P.has(id) && togglePin(id));
+    store.set("pins", [...pins]);
+  }
   function playMock() {
     if (!session || playT0 == null) return;
-    const el = (now() - playT0) * SPEED + offset, snaps = session.snapshots;
+    const el = clock(), snaps = session.snapshots;
     while (cursor < snaps.length && snaps[cursor].pt <= el) apply(snaps[cursor++]);
   }
   function seek(pt) {
@@ -484,7 +505,7 @@
   isl.onclick = () => (palOpen ? closePal() : openPal());
   $("p-keep").textContent = MAC ? "⌘↵" : "Ctrl ↵";
   B.classList.toggle("presenter", presenter);
-  window.HUD = { S, commands: () => [...C.values()], ask, panel, command, uncommand, view, on: (f) => hooks.push(f), apply, event, post, judge, banner, addLog, setState, focus, shot, openView, num, set, esc, q, fit, spark, push, icon, nice, now, json };
+  window.HUD = { S, commands: () => [...C.values()], begin, pause, paused: () => pausedAt != null, jump, layout, replayed: () => !!session, ask, panel, command, uncommand, view, on: (f) => hooks.push(f), apply, event, post, judge, banner, addLog, setState, focus, shot, openView, num, set, esc, q, fit, spark, push, icon, nice, now, json };
   addEventListener("DOMContentLoaded", () => {
     booted = true;
     pins.forEach((id) => show(id));

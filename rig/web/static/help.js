@@ -1,7 +1,7 @@
 (() => {
   const H = HUD, { esc } = H, MAC = /Mac|iP/.test(navigator.platform), MOD = MAC ? "⌘" : "Ctrl";
   const SECTIONS = [
-    ["Demo", (c) => ["start", "presenter", "closeall", "labels"].includes(c.id)],
+    ["Demo", (c) => ["guide", "start", "pause", "presenter", "closeall", "labels"].includes(c.id)],
     ["Panels", (c) => c.group === "Panels"],
     ["Views", (c) => c.group === "Views"],
     ["Argon", (c) => ["order", "intent", "u.link"].includes(c.id)],
@@ -29,11 +29,12 @@
   el.innerHTML = `<div class="hp glass hl"><header><b>Controls</b><span>Every key in this demo</span><kbd>H</kbd></header><div class="hp-b"></div></div>`;
   const tip = document.createElement("div");
   tip.id = "help-tip";
-  tip.innerHTML = `Press <kbd>H</kbd> for controls`;
+  tip.innerHTML = `New here? Press <kbd>T</kbd> Guide for a 2-minute walkthrough · <kbd>H</kbd> controls`;
   document.body.append(el, tip);
   let open = false;
   const fade = () => tip.classList.add("gone");
-  setTimeout(fade, 10000);
+  setTimeout(fade, 12000);
+  H.hideTip = fade;
   function toggle(on = !open) {
     open = on;
     if (on) { el.querySelector(".hp-b").innerHTML = body(); fade(); }

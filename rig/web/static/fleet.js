@@ -6,7 +6,7 @@
   const who = (id) => WHO[id] || (S.robots.find((r) => r.id === id)?.name || id || "").split(" ·")[0];
   const lel = (v) => (v == null ? "—" : (+v).toFixed(1));
   const ledOf = (v) => (v == null ? "grey" : v >= 10 ? "red" : v >= 5 ? "amber" : "green");
-  Object.assign(S, { findings: {}, commands: [], tickets: [] });
+  Object.assign(S, { findings: {}, commands: [], tickets: [], argonCalls: [] });
   function row(r, quiet) {
     if (r.type === "finding") {
       S.findings[r.sensor] = r;
@@ -20,8 +20,12 @@
       S.tickets.push(r);
       if (!quiet) H.addLog({ t: r.t, from: "Argon", to: "TICKET", reason: `${r.id} · ${r.sensor} · ${r.reason || "maintenance"}` });
     } else if (r.type === "vetoed") {
-      if (!quiet) H.addLog({ t: r.t, from: "Argon", to: "VETOED", reason: `${r.kind} ${who(r.robot)} · ${r.why || ""}` });
-    } else if (r.type === "argon_call") S.argonCall = r;
+      S.commands.unshift({ ...r, vetoed: true });
+      const label = (CMD[r.kind] || [, r.kind])[1], reason = `${label} for ${who(r.robot)} refused · ${r.why || ""}`;
+      const e = S.log.find((x) => +x.t === +r.t && x.to === String(r.kind).toUpperCase());
+      if (e) { Object.assign(e, { from: "Argon", to: "VETOED", reason }); S.logN++; } else H.addLog({ t: r.t, from: "Argon", to: "VETOED", reason });
+      H.banner("warn", `Refused · Argon's ${label.toLowerCase()}`, r.why || "safety envelope", "block", 3600);
+    } else if (r.type === "argon_call") { S.argonCall = r; S.argonCalls.push(r); }
   }
   H.on((h) => {
     if (h.argon) S.argon = h.argon;
@@ -43,15 +47,17 @@
   };
   function sensors(S) {
     const ids = new Set([...(S.detectors || []).map((d) => d.id), ...Object.keys(S.argon?.verdicts || {}), ...Object.keys(S.fusionNow || {}), ...Object.keys(S.findings)]);
-    return [...ids].filter((id) => id !== "zone").map((id) => {
+    const quiet = [], rows = [...ids].filter((id) => id !== "zone").map((id) => {
       const d = (S.detectors || []).find((x) => x.id === id), f = S.fusionNow?.[id] || S.findings[id], kind = f?.kind || S.argon?.verdicts?.[id];
+      if (ids.size > 3 && (kind || "OK") === "OK" && (d?.led || "green") === "green") { quiet.push(id); return ""; }
       const fixed = d ? d.lel : f?.fixed_lel, [vt, vl] = VERDICT[kind] || ["", kind ? kind.replace(/_/g, " ").toLowerCase() : "—"];
       const rob = f?.robot_lel != null ? `${who(f.robot)} ${lel(f.robot_lel)}${f.robot_dist != null ? " @ " + (+f.robot_dist).toFixed(1) + " m" : ""}` : "no sniffer near";
       return `<div class="fu-row"><i class="led ${esc(d?.led || ledOf(fixed))}"></i><b>${esc(id)}${d?.flange || f?.flange ? ` <em>${esc(d?.flange || f?.flange)}</em>` : ""}</b>${kind ? `<span class="vchip ${vt}">${esc(vl)}</span>` : "<span></span>"}<small class="tnum">fixed ${lel(fixed)} <em>vs</em> ${esc(rob)}</small></div>`;
     }).join("");
+    return rows + (quiet.length ? `<p class="fu-quiet"><i class="led green"></i>${esc(quiet.join(", "))} · OK</p>` : "");
   }
   const cmdRow = (c) => { const [tone, label] = CMD[c.kind] || ["act", c.kind]; const [sit, why] = String(c.reason || "").split(" | ");
-    return `<li><span class="tnum">${c.t != null ? (+c.t).toFixed(1) : ""}</span><b class="${tone}">${esc(label)}</b><span>${esc(who(c.robot))}${c.target ? " → " + esc(c.target) : ""}<small>${c.source === "edge" ? "Edge rule" : "Argon " + Math.round((c.confidence ?? 1) * 100)} · ${esc(why || sit)}</small></span></li>`; };
+    return `<li class="${c.vetoed ? "vetoed" : ""}"><span class="tnum">${c.t != null ? (+c.t).toFixed(1) : ""}</span><b class="${c.vetoed ? "stop" : tone}">${c.vetoed ? `<s>${esc(label)}</s> refused` : esc(label)}</b><span>${esc(who(c.robot))}${c.target ? " → " + esc(c.target) : ""}<small>${c.vetoed ? "Edge veto · " + esc(c.why || "") : `${c.source === "edge" ? "Edge rule" : "Argon " + Math.round((c.confidence ?? 1) * 100)} · ${esc(why || sit)}`}</small></span></li>`; };
   H.fusion = (S) => {
     if (!live()) return "";
     const a = S.argon || {}, cmds = S.commands.length ? S.commands : a.last_command ? [a.last_command] : [];

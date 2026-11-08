@@ -1,5 +1,7 @@
 # Offshore rig sim
 
+Showing the demo? See [docs/demo_guide.md](docs/demo_guide.md): one URL, a guided tour (press T), every key.
+
 Isaac Sim running headless in Docker on a GB10 (watson), streaming a camera view to a web page at
 `https://rig.zeecloud.org`. This first milestone is a test world (ground, lights, a few shapes, one spinning red cube,
 a fixed camera) to prove the plumbing. The rig itself, quadrupeds and policies come later.
