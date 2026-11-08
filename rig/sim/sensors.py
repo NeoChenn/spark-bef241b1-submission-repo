@@ -102,16 +102,11 @@ class SensorRig:
             print(f"rig sim: camera_params unavailable {exc!r}", flush=True)
         self.texture = getattr(self.rp, "hydra_texture", None)
         print(f"rig sim: sensor texture pausable={hasattr(self.texture, 'set_updates_enabled')}", flush=True)
-        self._live(False)
         self.rp_prim = self.stage.GetPrimAtPath(getattr(self.rp, "path", ""))
         if self.mode and self.rp_prim.IsValid():
             with self._session():
                 self.rp_prim.CreateAttribute("omni:rtx:rendermode", Sdf.ValueTypeNames.Token).Set(self.mode)
         print(f"rig sim: sensor render product {getattr(self.rp, 'path', None)} valid={self.rp_prim.IsValid()} mode={self.mode}", flush=True)
-
-    def _live(self, on: bool) -> None:
-        if self.texture is not None and hasattr(self.texture, "set_updates_enabled"):
-            self.texture.set_updates_enabled(bool(on))
 
     def _session(self):
         from pxr import Usd
@@ -148,7 +143,8 @@ class SensorRig:
         if ev.get("name") == "views":
             self.on = bool(a.get("on", True))
             self.pending = None
-            self._live(False)
+            if self.texture is not None and hasattr(self.texture, "set_updates_enabled"):
+                self.texture.set_updates_enabled(self.on)
             print(f"rig sim: views {'on' if self.on else 'off'}", flush=True)
             return True
         if ev.get("name") != "force":
@@ -174,14 +170,12 @@ class SensorRig:
                     return
                 self.stale += 1
                 self.pending = None
-                self._live(False)
                 return
             if p["left"] <= 0:
                 t1 = time.perf_counter()
                 rgb, depth = np.asarray(self.rgb.get_data()), np.asarray(self.depth.get_data())
                 self.read_ms = 0.8 * self.read_ms + 0.2 * (time.perf_counter() - t1) * 1e3
                 self.pending = None
-                self._live(False)
                 if rgb.ndim == 3 and rgb.size and depth.size:
                     field = self.leak.plume.field() if self.leak is not None and c["role"] == "gas" else None
                     self.seq += 1
@@ -197,7 +191,6 @@ class SensorRig:
             if rid is not None:
                 c = self.cams[rid]
                 self._aim(c["path"])
-                self._live(True)
                 path = (self.obstacles.paths.get(rid) or {}).get("path")
                 self.pending = {"rid": rid, "left": SETTLE, "cam": self._header(c), "pose": self._pose(rid), "path": path}
         self.main_ms = 0.9 * self.main_ms + 0.1 * (time.perf_counter() - t0) * 1e3
