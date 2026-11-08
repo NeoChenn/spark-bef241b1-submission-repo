@@ -123,3 +123,25 @@ def test_retorque_bolt_from_the_live_timeline():
     s = R.load_scenario(str(R.REPO / "runs_sample/fleet_demo/live_timeline.jsonl"))
     assert R.timeline_bolt(s) == 3
     assert R.parse_args(["--bolt", "5"]).bolt == 5
+
+
+def test_leak_crate_and_push_helpers():
+    rows = [{"type": "scenario", "name": "leak", "t": 18.0, "flange": "F5", "bolt": 3},
+            {"type": "scenario", "name": "source_off", "t": 56.8, "flange": "F5"},
+            {"type": "scenario", "name": "gas_decay", "t": 56.8, "tau_s": 2.5},
+            {"type": "scenario", "name": "object_dropped", "t": 30.0, "xyz": [25.0, -9.8, 42.5],
+             "size_m": [0.5, 0.5, 0.5], "yaw": 0.0},
+            {"type": "scenario", "name": "object_cleared", "t": 36.0},
+            {"type": "scenario", "name": "push", "t": 40.0, "robot": "unit2", "dxy": [0.0, 0.4]}]
+    s = R.parse_rows(rows)
+    lk = R.leak_info(s)
+    assert lk["bolt"] == 3 and R.leak_strength(lk, 17.9) == 0 and R.leak_strength(lk, 20) == 1
+    assert 0 < R.leak_strength(lk, 59) < 0.5 and R.leak_strength(lk, 70) < 0.01
+    puffs = R.plume_puffs([0, 0, 0], [0, 0, 1], 1.0, 3.0)
+    assert len(puffs) == 16 and max(a for _, _, a in puffs) > 0.1
+    cr = R.crate_info(s)
+    assert R.crate_state(cr, 29) is None and R.crate_state(cr, 30.1) > 0 and R.crate_state(cr, 33) == 0
+    assert R.crate_state(cr, 37) is None
+    pushes = R.push_list(s)
+    assert pushes == [(40.0, [0.0, 0.4])] and R.push_roll(pushes, 39.0, 0.0) == 0
+    assert abs(R.push_roll(pushes, 40.3, 0.0)) > 0.05 and abs(R.push_roll(pushes, 42.0, 0.0)) == 0

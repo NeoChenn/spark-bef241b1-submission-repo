@@ -446,6 +446,234 @@ class NavUnit:
     min_range: float = float("inf")
 
 
+def scenario_rows(scn: Scenario, name: str) -> list:
+    return [r for r in scn.rows if r.get("type") == "scenario" and r.get("name") == name]
+
+
+def leak_info(scn: Scenario):
+    on = scenario_rows(scn, "leak") or scenario_rows(scn, "leak_start")
+    if not on:
+        return None
+    off = scenario_rows(scn, "source_off") or scenario_rows(scn, "retorque_done")
+    decay = scenario_rows(scn, "gas_decay")
+    return {"t_on": float(on[0]["t"]), "t_off": float(off[0]["t"]) if off else None,
+            "tau": float(decay[0].get("tau_s", 2.5)) if decay else 2.5, "flange": on[0].get("flange", "F5"),
+            "bolt": int(on[0].get("bolt", 3))}
+
+
+def leak_strength(info, t: float, ramp: float = 1.5) -> float:
+    if info is None or t < info["t_on"]:
+        return 0.0
+    s = min(1.0, (t - info["t_on"]) / ramp)
+    if info["t_off"] is not None and t > info["t_off"]:
+        s *= math.exp(-(t - info["t_off"]) / info["tau"])
+    return float(s)
+
+
+def plume_puffs(origin, jet, strength: float, t: float, n: int = 16, wind=(0.0, -1.0, 0.0), life: float = 2.6):
+    out = []
+    o, j, w = (np.asarray(v, float) for v in (origin, jet, wind))
+    for k in range(n):
+        ph = (t / life + k / n) % 1.0
+        p = o + j * 0.35 * ph ** 0.5 + w * life * 0.45 * ph + np.array([0.0, 0.0, 0.5 * ph ** 1.2])
+        p = p + 0.06 * ph * np.array([math.sin(2.3 * k + 1.7 * t), math.cos(1.9 * k + 1.3 * t), 0.0])
+        r = 0.025 + 0.32 * ph
+        a = strength * 0.5 * min(ph * 8.0, 1.0) * (1.0 - ph) ** 1.3
+        out.append((p, r, a))
+    return out
+
+
+def crate_info(scn: Scenario):
+    d = scenario_rows(scn, "object_dropped")
+    if not d:
+        return None
+    c = scenario_rows(scn, "object_cleared")
+    r = d[0]
+    return {"xyz": [float(v) for v in r.get("xyz", [0, 0, 42.5])], "size": [float(v) for v in r.get("size_m", [0.5] * 3)],
+            "yaw": float(r.get("yaw", 0.0)), "t_drop": float(r["t"]), "t_clear": float(c[0]["t"]) if c else None}
+
+
+def crate_state(info, t: float, fall: float = 0.35):
+    if info is None or t < info["t_drop"]:
+        return None
+    if info["t_clear"] is not None and t > info["t_clear"] + 0.4:
+        return None
+    dt = t - info["t_drop"]
+    z = 0.8 * max(0.0, 1.0 - (dt / fall) ** 2) if dt < fall else 0.0
+    if info["t_clear"] is not None and t > info["t_clear"]:
+        z = 1.5 * (t - info["t_clear"])
+    return z
+
+
+def push_roll(pushes: list, t: float, yaw: float, amp: float = 0.2) -> float:
+    roll = 0.0
+    for tp, dxy in pushes:
+        dt = t - tp
+        if 0.0 <= dt < 1.5:
+            side = -math.sin(yaw) * dxy[0] + math.cos(yaw) * dxy[1]
+            sign = 1.0 if side >= 0 else -1.0
+            env = min(1.0, dt / 0.1) * math.exp(-dt / 0.35)
+            roll += -sign * amp * env * math.cos(2 * math.pi * dt / 0.6)
+    return roll
+
+
+def push_list(scn: Scenario, rid: str = "unit2") -> list:
+    return [(float(r["t"]), [float(v) for v in (r.get("dxy") or [0.0, 0.4])[:2]]) for r in scenario_rows(scn, "push")
+            if r.get("robot", rid) == rid]
+
+
+class FleetFx:
+    def __init__(self, stage, flanges, leak, crate, deck: float, n_puffs: int = 16, n_rays: int = 25):
+        from pxr import UsdGeom
+
+        self.stage, self.leak, self.crate, self.deck = stage, leak, crate, deck
+        self.root = "/World/Fleet/fx"
+        UsdGeom.Xform.Define(stage, self.root)
+        self.puffs, self.origin, self.jet, self.vis = [], None, None, {}
+        f = None if leak is None else next((x for x in (flanges or {}).get("flanges", [])
+                                             if x["id"] == leak["flange"]), None)
+        if f is not None:
+            from policy.leak.geometry import FlangeGeometry
+
+            fg = FlangeGeometry.from_meta(f)
+            self.origin, self.jet = fg.bolt_center(leak["bolt"]), fg.radial(leak["bolt"])
+            for k in range(n_puffs):
+                mat, sh = self._omni(f"gas_{k}", (0.8, 0.88, 0.76), (0.55, 0.8, 0.5), 250.0)
+                self.puffs.append((*self._prim("Sphere", f"gas/puff_{k}", mat), sh))
+        self.box = None
+        if crate is not None:
+            mat = self._preview("crate", (0.55, 0.32, 0.12), 0.7)
+            self.box = self._prim("Cube", "crate", mat)
+        self.rays = []
+        self.ray_mats = {False: self._preview("ray", (0.1, 0.6, 0.7), 0.5, (0.1, 1.2, 1.5)),
+                         True: self._preview("ray_hit", (0.8, 0.1, 0.05), 0.5, (3.0, 0.3, 0.1))}
+        for k in range(n_rays if crate is not None else 0):
+            self.rays.append([*self._prim("Cylinder", f"lidar/ray_{k}", self.ray_mats[False]), False])
+        for name in ("gas", "crate", "lidar"):
+            self._show(name, False)
+
+    def _preview(self, name, color, rough, emissive=None):
+        from pxr import Gf, Sdf, UsdShade
+
+        path = f"{self.root}/Looks/{name}"
+        mat = UsdShade.Material.Define(self.stage, path)
+        sh = UsdShade.Shader.Define(self.stage, path + "/surface")
+        sh.CreateIdAttr("UsdPreviewSurface")
+        sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
+        sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(rough)
+        if emissive is not None:
+            sh.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*emissive))
+        mat.CreateSurfaceOutput().ConnectToSource(sh.CreateOutput("surface", Sdf.ValueTypeNames.Token))
+        return mat
+
+    def _omni(self, name, color, emissive, nits):
+        from pxr import Gf, Sdf, UsdShade
+
+        path = f"{self.root}/Looks/{name}"
+        mat = UsdShade.Material.Define(self.stage, path)
+        sh = UsdShade.Shader.Define(self.stage, path + "/shader")
+        sh.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
+        sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
+        for k, typ, v in (("diffuse_color_constant", Sdf.ValueTypeNames.Color3f, Gf.Vec3f(*color)),
+                          ("reflection_roughness_constant", Sdf.ValueTypeNames.Float, 0.95),
+                          ("specular_level", Sdf.ValueTypeNames.Float, 0.0),
+                          ("enable_opacity", Sdf.ValueTypeNames.Bool, True),
+                          ("opacity_constant", Sdf.ValueTypeNames.Float, 0.0),
+                          ("opacity_threshold", Sdf.ValueTypeNames.Float, 0.0),
+                          ("enable_emission", Sdf.ValueTypeNames.Bool, True),
+                          ("emissive_color", Sdf.ValueTypeNames.Color3f, Gf.Vec3f(*emissive)),
+                          ("emissive_intensity", Sdf.ValueTypeNames.Float, float(nits))):
+            sh.CreateInput(k, typ).Set(v)
+        out = sh.CreateOutput("out", Sdf.ValueTypeNames.Token)
+        mat.CreateSurfaceOutput("mdl").ConnectToSource(out)
+        mat.CreateVolumeOutput("mdl").ConnectToSource(out)
+        mat.CreateDisplacementOutput("mdl").ConnectToSource(out)
+        return mat, sh
+
+    def _prim(self, kind, name, mat):
+        from pxr import UsdGeom, UsdShade
+
+        g = getattr(UsdGeom, kind).Define(self.stage, f"{self.root}/{name}")
+        if kind == "Sphere":
+            g.CreateRadiusAttr(1.0)
+        elif kind == "Cube":
+            g.CreateSizeAttr(1.0)
+        else:
+            g.CreateRadiusAttr(1.0)
+            g.CreateHeightAttr(1.0)
+            g.CreateAxisAttr("Z")
+        op = UsdGeom.Xformable(g).AddTransformOp()
+        UsdShade.MaterialBindingAPI.Apply(g.GetPrim()).Bind(mat)
+        return g, op
+
+    def _show(self, name, on):
+        from pxr import UsdGeom
+
+        if self.vis.get(name) == on:
+            return
+        prim = self.stage.GetPrimAtPath(f"{self.root}/{name}")
+        if prim.IsValid():
+            UsdGeom.Imageable(prim).MakeVisible() if on else UsdGeom.Imageable(prim).MakeInvisible()
+        self.vis[name] = on
+
+    @staticmethod
+    def _m(x, y, z, c):
+        from pxr import Gf
+
+        return Gf.Matrix4d(*[float(v) for v in (*x, 0, *y, 0, *z, 0, *c, 1)])
+
+    def update(self, t: float, u2_pose, u2_moving: bool) -> dict:
+        out = {"leak_strength": round(leak_strength(self.leak, t), 3), "crate_z": None, "lidar_fan": False}
+        if self.puffs:
+            st = out["leak_strength"]
+            self._show("gas", st > 0.01)
+            if st > 0.01:
+                for (g, op, sh), (p, r, a) in zip(self.puffs, plume_puffs(self.origin, self.jet, st, t)):
+                    op.Set(self._m((r, 0, 0), (0, r, 0), (0, 0, r * 0.85), p))
+                    sh.GetInput("opacity_constant").Set(float(a))
+        if self.box is None:
+            return out
+        z = crate_state(self.crate, t)
+        self._show("crate", z is not None)
+        if z is None:
+            self._show("lidar", False)
+            return out
+        out["crate_z"] = round(z, 3)
+        sx, sy, sz = self.crate["size"]
+        cx, cy = self.crate["xyz"][:2]
+        cyaw, syaw = math.cos(self.crate["yaw"]), math.sin(self.crate["yaw"])
+        self.box[1].Set(self._m((sx * cyaw, sx * syaw, 0), (-sy * syaw, sy * cyaw, 0), (0, 0, sz),
+                                (cx, cy, self.deck + sz / 2 + z)))
+        x, y, yaw = u2_pose
+        lx, ly = x + LIDAR_X * math.cos(yaw), y + LIDAR_X * math.sin(yaw)
+        fan = z == 0 and not u2_moving and math.hypot(cx - lx, cy - ly) < 4.0
+        out["lidar_fan"] = bool(fan)
+        self._show("lidar", fan)
+        if fan:
+            box = np.array([[cx - sx / 2, cy - sy / 2, cx + sx / 2, cy + sy / 2]])
+            n = len(self.rays)
+            rel = np.linspace(-math.radians(60), math.radians(60), n)
+            for (g, op, hit_was), a, ray in zip(self.rays, rel, self.rays):
+                d = scan_one(box, lx, ly, yaw + a)
+                hit = math.isfinite(d)
+                L = d if hit else 1.2
+                dirv = np.array([math.cos(yaw + a), math.sin(yaw + a), 0.0])
+                c = np.array([lx, ly, self.deck + 0.28]) + dirv * L / 2
+                side = np.array([-dirv[1], dirv[0], 0.0])
+                op.Set(self._m(side * 0.004, (0, 0, 0.004), dirv * L, c))
+                if hit != ray[2]:
+                    from pxr import UsdShade
+
+                    UsdShade.MaterialBindingAPI(g.GetPrim()).Bind(self.ray_mats[hit])
+                    ray[2] = hit
+        return out
+
+
+def scan_one(boxes, x: float, y: float, a: float, rmax: float = LIDAR_RANGE) -> float:
+    r, ang = scan_boxes(boxes, x, y, a, n=360, rmax=rmax)
+    return float(r[int(np.argmin(np.abs(ang)))])
+
+
 def make_controller(policy: str, path_xy):
     from patrol.controller import PatrolController
 
@@ -750,7 +978,7 @@ def main(argv=None):
     from PIL import Image
     from pxr import Gf, Usd, UsdGeom
 
-    from integration.kinematics import ARM_STOWED, STANDING, RobotModel, pose
+    from integration.kinematics import ARM_STOWED, STANDING, RobotModel, pose, rpy_matrix
     from integration.repair_scene import RobotPoser
 
     settings = carb.settings.get_settings()
@@ -850,6 +1078,10 @@ def main(argv=None):
     geom = PipeGeometry(pipe_c["origin"], pipe["axis"], pipe["ref"], pipe["radius"], seg_len, *shape0)
     overlay = RustOverlay(stage, geom)
     cone, cone_op = add_spray_cone(stage)
+    settings.set("/rtx/raytracing/fractionalCutoutOpacity", True)
+    fx = FleetFx(stage, flanges, leak_info(scn), crate_info(scn), float(meta["world"]["deck_z_m"]))
+    pushes = {rid: push_list(scn, rid) for rid in UNITS}
+    print(f"[fleet] fx leak={fx.leak} crate={fx.crate} pushes={pushes}", flush=True)
     brush = None
     try:
         from policy import night_look as nl
@@ -989,6 +1221,9 @@ def main(argv=None):
                 moving = moving or 0 < work_w < 1
             bz = deck + STAND_HEIGHT + (0.008 * abs(math.sin(u.dist / 0.18 * math.pi)) if moving else 0.0)
             base = pose(bx, by, bz, byaw)
+            roll = push_roll(pushes.get(rid, []), t, byaw)
+            if roll:
+                base[:3, :3] = base[:3, :3] @ rpy_matrix(roll, 0.0, 0.0)
             shown[rid] = (bx, by, byaw, bz)
             target_q = dict(q[rid])
             if trot_q is not None:
@@ -1045,6 +1280,7 @@ def main(argv=None):
         overlay.rust.update(np.clip(resample(masks.get("rust_grid", np.zeros(geom.shape)), geom.shape) / 0.1, 0, 1)
                             * ~painted)
         overlay.primer.update(painted.astype(np.float32))
+        fx_state = fx.update(t, shown["unit2"][:3], abs(units["unit2"].v) > 0.05 or abs(units["unit2"].w) > 0.15)
         dets = {}
         for did, st in scn.detectors(t).items():
             dets[did] = st
@@ -1076,6 +1312,7 @@ def main(argv=None):
             writer.append_data(rgb)
         evs = scn.events_between(t - max(1, args.every) / args.fps, t)
         row = header_row(rendered, t, c, args, units, dets, evs, acts, shown)
+        row["fx"] = fx_state
         if in_rt and retq[2] <= t:
             ph = retq[0].phase[min(int(np.searchsorted(retq[0].t, t - retq[2])), len(retq[0].phase) - 1)]
             row["retorque"] = {"phase": ph, "bolt": retq[0].bolt, "flange": retq[0].flange_id,
