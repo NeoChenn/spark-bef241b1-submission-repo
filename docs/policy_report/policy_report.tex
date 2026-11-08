@@ -76,7 +76,7 @@ GB10 edge (ONNX); \nm &
 \textbf{4 Can pick-up} &
 \textit{design}: gripper variant \fn{go2\_ur3\_lift\_grip.urdf} (UR3 gripper tip + tote on trunk) &
 arm + grip &
-\textcolor{note}{\textit{training in progress (branch pick-cans)}} & GB10 edge & \textcolor{note}{\textit{TBD}} \\
+\textcolor{note}{\textit{training in progress (branch pick-cans)}} & GB10 edge & policy \textcolor{note}{\textit{TBD}}; grasp-point VLM (Gemini Robotics-ER, 30 synthetic scenes): 97\% on target, \$0.06 for 35 calls \\
 \addlinespace[1pt]
 \textbf{5 Rust repair orchestrator} \newline \fn{policy/}\newline\fn{orchestrator.py} &
 detector confidence, rust fraction, contact force, person distance, lens quality, gust force, rain &
@@ -118,7 +118,7 @@ advisory actions + rationale; never approves &
 prompted LLM (\texttt{gemini-4-argon}) every 30\,s; edge rules always win ($F{>}40$\,N, $\geq$50\% LEL evacuate, person
 $<$3\,m); envelope refusals; cut-link $\to$ edge only &
 cloud; $\approx$10--12\,s/call, $\approx$\$0.008--0.02/call (est.), cap \$5/day &
-Orchestration bench with planner: \textcolor{note}{\textit{not run (needs key)}}; rule arm above is the baseline \\
+40 shifts, sim-verified plans (replay planner; live Gemini run cut for time): 0 unsafe, bad-plan leak isolation 437 $\to$ 406\,s \\
 \addlinespace[1pt]
 \textbf{10 Perception} \newline \fn{detection/} &
 RGB 224$\times$224 crop &
@@ -197,16 +197,16 @@ opinion; cutting the link drops to edge-only.
 \end{tikzpicture}
 \end{center}
 
-\hd{What's novel} {\scriptsize(one line each; \textcolor{note}{\textit{in progress}} = upgrade running, numbers land in \fn{runs\_sample/novelty/})}\par
+\hd{What's novel} {\scriptsize(one line each; \textcolor{note}{\textit{in progress}} = upgrade running, opt-in upgrades measured before/after in \fn{runs\_sample/novelty/})}\par
 {\scriptsize\begin{itemize}[label=--]
-\item \textbf{Scrub:} force is an RL action with a quadratic over-force cost --- 76.8\% $\to$ 1.0\% episodes $>$40\,N; CBF shield + PPO-Lagrangian \textcolor{note}{\textit{in progress}}.
+\item \textbf{Scrub:} force is an RL action with a quadratic over-force cost: 76.8\% $\to$ 1.0\% episodes $>$40\,N (CBF force shield \textcolor{note}{\textit{in progress}}).
 \item \textbf{Storm:} storm-randomised fine-tune cuts the worst-case contact force 274\,N $\to$ 69\,N at full storm.
-\item \textbf{Walking:} one gait for stowed \emph{and} deployed arm (payload $\alpha$ in obs), 1.94 falls/km; RMA payload/deck adaptation \textcolor{note}{\textit{in progress}}.
-\item \textbf{Pick-up:} Gemini Robotics-ER grounded grasp \textcolor{note}{\textit{in progress}}.
+\item \textbf{Walking:} one gait for stowed \emph{and} deployed arm (payload $\alpha$ in obs): 1.94 falls/km (RMA adaptation \textcolor{note}{\textit{in progress}}).
+\item \textbf{Pick-up:} Gemini Robotics-ER points at the grasp on unseen objects: on target 7\% $\to$ 97\%, 3-D error 26 $\to$ 0.5\,cm.
 \item \textbf{Repair FSM:} soak-before-scrub and verify-before-paint with lens/gust/person safety states; 0 force violations with the sensor in the loop.
-\item \textbf{Gas:} ultrasound bearing + cast-and-surge finds 60/60 leaks (22/60 without it); Bayesian source-term / infotaxis \textcolor{note}{\textit{in progress}}.
-\item \textbf{Fleet / Argon:} LLM advises, edge rules and envelope decide --- 0 unsafe actions in 100 shifts; simulation-verified Gemini plans \textcolor{note}{\textit{in progress}}.
-\item \textbf{Perception:} 2.5\,M-param LoRA detector at 0.35\,ms on the robot, F1 0.977; test-time adaptation \textcolor{note}{\textit{in progress}}.
+\item \textbf{Gas:} Bayesian particle filter + infotaxis finds the CH$_4$-only leak 64\% $\to$ 86\%, wrong-flange hand-offs 2 $\to$ 0.
+\item \textbf{Fleet / Argon:} plans are rehearsed in a fast sim before use: bad-plan leak isolation 437 $\to$ 406\,s, 0 unsafe.
+\item \textbf{Perception:} shift-gated test-time adaptation: storm-lens F1 0.47 $\to$ 0.95, clear-weather F1 0.993 unchanged.
 \end{itemize}}
 
 \hd{Honest caveats.} (i) The Isaac live repair run uses a \emph{colour stand-in} detector, not the LoRA model; the LoRA
