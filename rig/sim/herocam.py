@@ -25,6 +25,9 @@ WIDE_VIEW = {42.5: (-35.0, 42.0), 31.25: (-35.0, 22.0), 20.0: (-35.0, 22.0)}
 WIDE_D = (14.0, 80.0)
 WIDE_MIN_SPAN = 6.0
 W_WIDE = 1.2
+WIDE_TURNS = (0.0, 180.0, 90.0, -90.0)
+WIDE_MIN_D = 4.0
+WIDE_CHECK_S = 1.0
 
 
 def spring(x, v, target, omega, dt):
@@ -215,12 +218,22 @@ class HeroCam:
         for path in self.paths.values():
             pts += [(p[0], p[1], deck) for p in path if abs(p[2] - deck) < 1.5]
         center, d, az, el = wide_shot(pts, deck)
-        goal = list(center) + [d, el]
         s = self.s
         key = ("wide", deck)
-        if self.key != key:
+        fresh = self.key != key
+        if fresh:
             self.key = key
             s.clear()
+            s.update(turn=0.0, cap=None, check=-math.inf, clock=0.0)
+        s["clock"] += dt
+        if self.blocked is not None and s["clock"] >= s["check"]:
+            s["check"] = s["clock"] + WIDE_CHECK_S
+            s["turn"], s["cap"] = self._wide_pick(center, d, az, el, s["turn"])
+        az += s["turn"]
+        if s["cap"] is not None:
+            d = min(d, s["cap"])
+        goal = list(center) + [d, el]
+        if fresh or "w" not in s:
             s.update(w=list(goal), wv=[0.0] * len(goal))
         for i, g in enumerate(goal):
             s["w"][i], s["wv"][i] = spring(s["w"][i], s["wv"][i], g, W_WIDE, dt)
@@ -228,6 +241,24 @@ class HeroCam:
         b = view_dir(az, el)
         eye = (cx + d * b[0], cy + d * b[1], cz + d * b[2])
         return eye, (cx, cy, cz), WIDE_FOCAL
+
+
+    def _wide_clear(self, center, d, az, el):
+        b = view_dir(az, el)
+        hit = self.blocked(center, (center[0] + d * b[0], center[1] + d * b[1], center[2] + d * b[2]))
+        return None if hit is None or hit >= d else hit
+
+    def _wide_pick(self, center, d, az, el, cur):
+        if self._wide_clear(center, d, az + cur, el) is None:
+            return cur, None
+        best = (cur, -1.0)
+        for turn in WIDE_TURNS:
+            hit = self._wide_clear(center, d, az + turn, el)
+            if hit is None:
+                return turn, None
+            if hit > best[1]:
+                best = (turn, hit)
+        return best[0], max(WIDE_MIN_D, best[1] - 0.5)
 
 
 def robot_poses(stage, root=ROBOTS_ROOT):
@@ -266,3 +297,48 @@ def physx_ray():
         return float(hit["distance"]) if hit and hit.get("hit") else None
 
     return blocked
+
+
+def first_hit(*blockers):
+    live = [b for b in blockers if b is not None]
+
+    def blocked(a, b):
+        hits = [h for h in (f(a, b) for f in live) if h is not None]
+        return min(hits) if hits else None
+
+    return blocked
+
+
+def mesh_ray(build, cell=40.0):
+    cache = {}
+
+    def blocked(a, b):
+        span = math.dist(a, b)
+        if span < 1e-6:
+            return None
+        key = tuple(round(c / cell) for c in a)
+        if key not in cache:
+            cache[key] = build(tuple(k * cell for k in key))
+        caster = cache[key]
+        if caster is None:
+            return None
+        d = [(q - p) / span for p, q in zip(a, b)]
+        t = float(caster.cast(a, [d], span)[0])
+        return t if 0.0 < t < span else None
+
+    return blocked
+
+
+def stage_ray(stage, half=(60.0, 60.0, 12.0)):
+    def build(center):
+        try:
+            from rig.sim.sensors import stage_meshes
+            from rig.views.raycast import WarpCaster
+
+            verts, tris = stage_meshes(stage, center, half=half)
+            return WarpCaster(verts, tris) if len(tris) else None
+        except Exception as exc:
+            print(f"rig sim: hero camera mesh rays off ({exc})", flush=True)
+            return None
+
+    return mesh_ray(build)

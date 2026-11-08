@@ -93,3 +93,29 @@ def test_rain_shell_keeps_streaks_off_the_lens():
     r = np.hypot(p[:, 0], p[:, 1])
     assert r.min() >= wx.RAIN_CLEAR - 1e-9 and r.max() <= wx.RAIN_BOX[0] + 1e-9
     assert np.median(r) < (wx.RAIN_CLEAR + wx.RAIN_BOX[0]) / 2
+
+
+def test_rain_curtain_counts_match_points_and_is_local_only():
+    from pxr import Usd, UsdGeom
+
+    from rig.render.usdsync import skipped
+
+    stage = Usd.Stage.CreateInMemory()
+    c = wx.rain_curtain(stage, count=50)
+    curves = UsdGeom.BasisCurves(stage.GetPrimAtPath(f"{wx.RAIN_ROOT}/streaks"))
+    counts = list(curves.GetCurveVertexCountsAttr().Get())
+    assert sum(counts) == len(curves.GetPointsAttr().Get())
+    assert c["vis"] == "invisible"
+    assert all(skipped(p) for p in wx.RAIN_LOCAL) and not skipped(wx.RAIN_ROOT)
+    wx.rain_curtain(stage, count=50)
+    curves = UsdGeom.BasisCurves(stage.GetPrimAtPath(f"{wx.RAIN_ROOT}/streaks"))
+    assert sum(curves.GetCurveVertexCountsAttr().Get()) == len(curves.GetPointsAttr().Get())
+
+
+def test_latest_slot_drops_oldest():
+    from rig.render.state import Latest
+
+    q = Latest()
+    q.put(1)
+    q.put(2)
+    assert q.get(0.01) == 2 and q.dropped == 1 and q.get(0.01) is None

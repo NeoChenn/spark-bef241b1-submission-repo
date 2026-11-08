@@ -438,9 +438,10 @@ def main() -> None:
         tickers.append(cine_update)
         obstacles, obstacle_tick = make_obstacles(ctx.get_stage(), cine_update, args)
         tickers.append(obstacle_tick)
-        from rig.sim.herocam import physx_ray, robot_poses
+        from rig.sim.herocam import first_hit, physx_ray, robot_poses, stage_ray
 
-        cine_update.hero.poses, cine_update.hero.blocked = robot_poses(ctx.get_stage()), physx_ray()
+        cine_update.hero.poses = robot_poses(ctx.get_stage())
+        cine_update.hero.blocked = first_hit(physx_ray(), stage_ray(ctx.get_stage()))
         import weather as weather_mod
 
         weather = weather_mod.Controller(ctx.get_stage(), getattr(cine_update, "wave", None), args.cinematic)
