@@ -187,7 +187,10 @@ class MissionLive:
                           f"-> read bolts and re-torque")
                 self.valve_job = self.port.queue("valve_isolate", lk.fid, "SUPV", 1, by="coordinator",
                                                  why=f"Close the isolation valve upstream of {lk.fid} to starve the leak; "
-                                                     f"{unit_name(lk.robot_id)} re-torques meanwhile. Needs your approval.")
+                                                     + (f"{unit_name(self.valve_by)} turns the valve, {unit_name(lk.robot_id)} "
+                                                        "re-torques once it is shut." if self.valve_by else
+                                                        f"{unit_name(lk.robot_id)} re-torques meanwhile.")
+                                                     + " Needs your approval.")
                 self._finding()
         if lk.on and lk.found is not None and task is None:
             lk.stop("fixed")

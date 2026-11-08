@@ -321,13 +321,13 @@ class Repair(Script):
     robots = (("R1", [9.0, -4.5, 42.5], 0.95), ("R2", [-21.0, 4.0, 31.25], 0.9), ("R3", [10.0, 12.0, 20.0], 0.8))
 
     def setup(self) -> None:
-        self.rust = self.task("rust", self.poi, severity=0.9, exposure=1.0, only="R1", scenario="rust")
+        self.rust = self.task("rust", self.poi, severity=0.9, exposure=1.0, only="R1", scenario="repair")
         self.task("leak_check", "F1", only="R2", deadline=CHECK_DEADLINE_S)
         self.task("rust", JUDGES_RUST[2][0], JUDGES_RUST[2][1], severity=0.5, exposure=0.9, only="R3")
         self.paint_job = None
         self.weld = None
         self.gust_wait = False
-        tr = self.m.fleet.jobs.get("rust", "rust")
+        tr = self.m.fleet.jobs.get("rust", "repair")
         p = next((s[0] for s in tr.segments if s[1] == "PAINT"), None)
         self.paint_at = None if p is None else SETUP_S["rust"] + p
         self.m.note("Detector", "RUST", f"rust patch confirmed at {self.poi} -> repair queued for Unit 1")
@@ -381,7 +381,7 @@ class Repair(Script):
         if st in ("SPRAY", "SOAK", "SCRUB", "BACK_OFF"):
             return 2
         if st == "DETECT":
-            return 0
+            return 0 if self.i <= 1 else self.i
         if self.rust.status == "assigned" or w is not None:
             return 5 if w is not None and self.rust.status == "done" else 1
         return 0
@@ -402,8 +402,9 @@ class Repair(Script):
                     j["status"] = "CANCELLED"
                 self.paint_job = None
             else:
-                self.rust = self.task("rust", self.poi, severity=0.9, exposure=1.0, only="R1", scenario="rust")
+                self.rust = self.task("rust", self.poi, severity=0.9, exposure=1.0, only="R1", scenario="repair")
                 self.paint_job = None
+            self.i = 0
             m.note("Detector", "RUST_RETURNS", f"rust back at {self.poi} -> re-detect and re-scrub")
             return "Rust reappears", f" at {self.poi} — Unit 1 re-detects and re-scrubs"
         if did == "gust":
@@ -480,6 +481,7 @@ class Scenarios:
         self.selected = s.main or None
         self.camera = {"mode": "flyby" if sid == "flyby" else "wide", "robot": None}
         self.last_i = None
+        self.alerts = []
         m.note("Operator", "SCENARIO", f"{s.name} started")
         if sid != "flyby":
             m.flash(s.name, f" — {s.steps[0]}", "act", "SCENARIO", prio=3)
