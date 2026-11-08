@@ -56,3 +56,31 @@ def test_fog_rolls_only_when_foggy():
     assert wx.roll(3.0, 0.0) == 1.0
     vals = [wx.roll(t, 1.0) for t in range(0, 60, 3)]
     assert max(vals) > 1.0 > min(vals) and all(0.7 < v < 1.3 for v in vals)
+
+
+def test_rain_and_fog_combine_and_level_toggles():
+    assert wx.mix(level="calm") == (0.0, 0.0, 0.0)
+    both = wx.mix(rain=1.0, fog=1.0)
+    assert both == (0.6, 1.0, 1.0)
+    assert wx.mix(wx.mix(level="rain"), level="fog") == (0.6, 1.0, 1.0)
+    assert wx.mix(both, level="calm") == (0.0, 0.0, 0.0)
+    assert wx.mix(level="storm") == (1.0, 1.0, 0.6)
+    assert wx.mix(level=0.5) == (0.5, 0.5, 0.3)
+    t = wx.target(both)
+    assert t["rain"] == 1.0 and t["fog"] == 1.0 and math.isclose(t["fog_dist"], wx.FOG["dist"][1])
+
+
+def test_parse_default_weather_env():
+    assert wx.parse_default("") == {} and wx.parse_default("calm@0,storm@20") == {}
+    assert wx.parse_default("rain+fog") == {"rain": 1.0, "fog": 1.0}
+    assert wx.parse_default("rain=1,fog=0.5") == {"rain": 1.0, "fog": 0.5}
+    assert wx.parse_default("storm") == {"level": "storm"} and wx.parse_default("0.7") == {"level": 0.7}
+    assert wx.atmos_kind("rain+fog") == "rain" and wx.atmos_kind("fog=1") == "fog" and wx.atmos_kind("storm") == "storm"
+
+
+def test_rain_curtain_wraps_around_camera():
+    for t in (0.0, 1.3, 3.33, 10.0):
+        x, y, z = wx.curtain_offset((5.0, -2.0, 40.0), t)
+        assert (x, y) == (5.0, -2.0)
+        lo, hi = z, z + 2 * wx.RAIN_BOX[1]
+        assert lo <= 40.0 - wx.RAIN_BELOW and hi >= 40.0 + 9.0

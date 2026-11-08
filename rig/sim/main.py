@@ -126,7 +126,9 @@ def load_atmosphere(stage, cam_path: str, args):
     import atmos
     from atmos_fx import Atmosphere
 
-    schedule = atmos.parse_schedule(args.weather)
+    import weather as weather_mod
+
+    schedule = atmos.parse_schedule(weather_mod.atmos_kind(args.weather))
     first = atmos.schedule_at(schedule, 0.0)
     atm = Atmosphere(stage, args.cinematic, args.atmos, first, cam_path=cam_path)
     if first is not None:
@@ -415,6 +417,8 @@ def main() -> None:
 
         weather = weather_mod.Controller(ctx.get_stage(), getattr(cine_update, "wave", None), args.cinematic)
         tickers.append(weather.tick)
+        if weather_mod.parse_default(args.weather):
+            weather.set(**weather_mod.parse_default(args.weather))
     else:
         open_scene(app, ctx, args.scene)
         cam_path = args.camera
