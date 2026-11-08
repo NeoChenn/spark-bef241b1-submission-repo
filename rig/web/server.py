@@ -438,8 +438,13 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
     @app.get("/api/mock")
     async def mock() -> Response:
         if not mock_path.exists():
-            from rig.hud import record_mock
-            await asyncio.to_thread(record_mock, mock_path, str(mock_path.parent / "decisions.jsonl"))
+            try:
+                from rig.hud import record_mock
+                await asyncio.to_thread(record_mock, mock_path, str(mock_path.parent / "decisions.jsonl"))
+            except (ImportError, OSError):
+                if not MOCK_SAMPLE.exists():
+                    raise HTTPException(503, "no mock session")
+                return FileResponse(MOCK_SAMPLE, media_type="application/json")
         return FileResponse(mock_path, media_type="application/json")
 
     @app.get("/api/mock/shot/{n}")
