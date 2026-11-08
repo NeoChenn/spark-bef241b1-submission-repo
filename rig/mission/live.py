@@ -687,7 +687,11 @@ class MissionLive:
 
     def for_sim(self) -> dict:
         s = self.snapshot_fleet()
-        return {"t": s["t"], "hazards": s["hazards"],
+        lk = self.leak
+        w = lk.wind_unit
+        leak = {"xyz": [round(float(v), 2) for v in lk.source()], "on": lk.on, "wind": [round(float(w[0]), 3), round(float(w[1]), 3)]} \
+            if lk.fid is not None else None
+        return {"t": s["t"], "hazards": s["hazards"], "leak": leak,
                 "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state", "task", "job_state", "rollout", "rust")}
                            for r in s["robots"]]}
 

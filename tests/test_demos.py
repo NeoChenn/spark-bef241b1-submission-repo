@@ -76,7 +76,7 @@ def test_fixed_shot_lens_overrides():
     assert eye == (1.0, 2.0, 3.0)
 
 
-def test_gas_demo_finds_the_flange_in_shot_and_recuts_on_beat():
+def test_gas_demo_searches_isolates_and_stops_the_vapour():
     m = MissionLive(obs=False)
     clock = [0.0]
     m.scen.clock = lambda: clock[0]
@@ -84,17 +84,34 @@ def test_gas_demo_finds_the_flange_in_shot_and_recuts_on_beat():
     first = m.take_sim()
     assert [e["name"] for e in first] == ["set_weather", "camera", "select", "views"]
     assert first[3]["args"] == {"robot": "R2", "on": True, "kind": "fpv"}
-    cams, xs, w = [], [], 0.0
-    while m.leak.found is None and w < 40:
+    assert m.for_sim()["leak"]["on"]
+    cams, xs, states, w = [], [], set(), 0.0
+    while m.scen.cur.i < 4 and w < 30:
         w += 0.25
         clock[0] = w
         m.advance(0.25)
         cams += [e for e in m.take_sim() if e["name"] == "camera"]
         r2 = next(r for r in m.for_sim()["robots"] if r["id"] == "R2")
         xs.append((r2["pose"]["x"], r2["pose"]["y"]))
-    assert m.scen.cur.id == "demo_gas" and m.leak.fid == "F5" and w < 30
-    assert m.leak.found["err_m"] < 1.5 and m.scen.cur.i == 4
+        states.add(r2.get("job_state"))
+    s = m.scen.cur
+    assert s.id == "demo_gas" and 15 < w < 25 and not m.leak.on and not m.for_sim()["leak"]["on"]
+    assert {"LEAK_APPROACH", "VALVE_TURN"} <= states and not m.port.extra
     a = np.asarray(xs)
-    assert a[:, 0].min() > 7.0 and a[:, 0].max() < 23.0 and a[:, 1].min() > -13.0
-    assert len(cams) == 1 and cams[0]["args"]["at"][0] > first[1]["args"]["at"][0]
-    assert "flange" in m.scen.targets()
+    assert a[:, 0].min() >= 11.9 and a[:, 0].max() < 21.0 and -10.4 < a[:, 1].min() and a[:, 1].max() < -9.5
+    assert len(cams) == 1 and cams[0]["args"]["lens"]["dist"] < first[1]["args"]["lens"]["dist"]
+    assert [x["kind"] for x in m.scen.alerts] == ["gas_alarm"]
+    m.event("demo", {"id": "reset"})
+    assert "F5" in m.leak.flanges and "F7" not in m.leak.flanges
+
+
+def test_valve_turn_reaches_and_spins_the_wrist():
+    from rig.sim.gait import ARM
+    from rig.sim.taskmotion import TaskMotion
+
+    t = TaskMotion.load()
+    r = {"state": "WORK", "task": "gas:demo", "job_state": "VALVE_TURN"}
+    a, b = t.step(r, 0.0), t.step(r, 2.0)
+    q = t.step(r, 3.0)
+    w = ARM.index("ur3_wrist_3_joint")
+    assert q[w] - b[w] > 1.0 and t.source == "valve handwheel turn (scripted)" and not np.allclose(a, b)

@@ -12,6 +12,8 @@ PICK_PHASES = {"APPROACH": ("APPROACH",), "GRASP": ("DESCEND",), "LIFT": ("LIFT"
 WELD_WORK = {"lift_joint": 0.3, "ur3_shoulder_pan_joint": 0.0, "ur3_shoulder_lift_joint": -1.1,
              "ur3_elbow_joint": 1.5, "ur3_wrist_1_joint": -1.95, "ur3_wrist_2_joint": -1.57, "ur3_wrist_3_joint": 0.0}
 WELD_SOURCE = "weld seam-tracking sweep (scripted)"
+VALVE_SOURCE = "valve handwheel turn (scripted)"
+VALVE_DROP = 0.2
 SCRUB_TIP = (-0.058, -0.404, 0.904)
 BRUSH_R = 0.025
 
@@ -124,6 +126,8 @@ def task_kind(r: dict):
         return None
     kind = (r.get("task") or "").split(":")[0]
     js = r.get("job_state") or ""
+    if js == "VALVE_TURN":
+        return "valve"
     if kind == "weld" or js.startswith("WELD"):
         return "weld"
     if kind == "pick_can":
@@ -151,9 +155,14 @@ class TaskMotion:
         e = t - self.t0
         if kind == "weld":
             return weld_sweep(e), WELD_SOURCE
-        clip = self.clips.get(kind)
+        clip = self.clips.get("scrub" if kind == "valve" else kind)
         if clip is None:
             return self.park, None
+        if kind == "valve":
+            q = clip.frame(min(1.5, clip.duration / 3) * clip.hz).copy()
+            q[ARM.index("lift_joint")] -= VALVE_DROP
+            q[ARM.index("ur3_wrist_3_joint")] += 1.6 * max(e - BLEND_S, 0.0)
+            return q, VALVE_SOURCE
         if kind == "scrub":
             start = min(1.5, clip.duration / 3)
             return (clip.frame(start * clip.hz) if js in SCRUB_HOLD else clip.pingpong(e, start)), clip.source
