@@ -134,7 +134,7 @@ def test_cut_link_mid_leak_edge_makes_the_same_dispatch_within_one_tick(tmp_path
     beat = cut_link(link, at=1.0, until=5.0)
     assert beat.tick(0.0) is None and banner(link) == ""
     hold = leak_tick(link, 0.0, beat, d2, 0.14)
-    assert kinds(hold) == [(HOLD, SCRUBBER, "G-F5")] and link.pending is not None
+    assert kinds(hold) == [(HOLD, SCRUBBER, "F5")] and link.pending is not None
     ev = beat.tick(1.0)
     assert ev["event"] == "link_cut" and ev["banner"] == BANNER_OFFLINE == "CLOUD OFFLINE — edge rules only"
     assert ev["dropped"] == ["G-F5:UNVERIFIED"] and banner(link) == BANNER_OFFLINE
@@ -158,4 +158,4 @@ def test_cut_link_with_a_new_alarm_goes_edge_on_the_same_tick():
     beat = cut_link(link, at=0.0)
     beat.tick(0.0)
     cmds = leak_tick(link, 0.0, beat, d2, 0.14)
-    assert kinds(cmds) == [(HOLD, SCRUBBER, "G-F5"), (GO_CHECK, FIXER, "F5")] and link.calls == []
+    assert kinds(cmds) == [(HOLD, SCRUBBER, "F5"), (GO_CHECK, FIXER, "F5")] and link.calls == []
