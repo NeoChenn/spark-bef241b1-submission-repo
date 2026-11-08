@@ -62,7 +62,19 @@ def load_environment(stage, preset: str, sea_level: float):
     return env
 
 
-def load_cinematic(app, ctx, preset: str):
+def merged_camera(args, scene_path):
+    import json
+    import math
+
+    from rig.sim.zoom import ZoomPath
+
+    meta = json.loads(scene_path.with_name("rig_merged_meta.json").read_text())
+    zoom = ZoomPath(wide_target=tuple(meta["zoom"]["wide_target"]), close_target=tuple(meta["zoom"]["close_target"]),
+                    hold_s=args.merged_hold or math.inf)
+    return lambda t: zoom.at(t + args.merged_start)
+
+
+def load_cinematic(app, ctx, preset: str, args=None):
     import sys
 
     sys.path.insert(0, "/rig/sim")
@@ -70,24 +82,33 @@ def load_cinematic(app, ctx, preset: str):
     import ocean
     from pxr import Gf, UsdGeom
 
-    open_scene(app, ctx, str(cinematic.SCENE_PATH))
+    merged = bool(args is not None and args.merged)
+    scene_path = cinematic.SCENE_PATH.with_name("rig_merged.usda") if merged else cinematic.SCENE_PATH
+    open_scene(app, ctx, str(scene_path))
     stage = ctx.get_stage()
     path = "/World/Cinematic/Cameras/stream"
     cam = UsdGeom.Camera.Define(stage, path)
-    cam.CreateClippingRangeAttr(Gf.Vec2f(0.5, 60000))
+    cam.CreateClippingRangeAttr(Gf.Vec2f(0.05 if merged else 0.5, 60000))
     cam.CreateFocalLengthAttr(28.0)
-    UsdGeom.Xformable(cam).AddTransformOp().Set(Gf.Matrix4d(1))
+    op = UsdGeom.Xformable(cam).AddTransformOp()
+    op.Set(Gf.Matrix4d(1))
     cinematic.apply_preset(stage, preset)
     rest, distance, _, _ = ocean.make_grid()
     height = cinematic.PRESETS[preset]["wave_height"]
+    view = merged_camera(args, scene_path) if merged else None
 
     def update(t: float) -> None:
         cinematic.animate_ocean(stage, rest, distance, t, height)
         cinematic.animate_effects(stage, t)
-        cinematic.set_camera(stage, path, t % cinematic.SEQUENCE_SECONDS)
+        if view is None:
+            cinematic.set_camera(stage, path, t % cinematic.SEQUENCE_SECONDS)
+            return
+        eye, target, focal = view(t)
+        cam.GetFocalLengthAttr().Set(focal)
+        op.Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*eye), Gf.Vec3d(*target), Gf.Vec3d(0, 0, 1)).GetInverse())
 
     update(0.0)
-    print(f"rig sim: cinematic preset {preset}", flush=True)
+    print(f"rig sim: cinematic preset {preset} scene {scene_path.name}", flush=True)
     return path, update
 
 
@@ -146,7 +167,7 @@ def main() -> None:
         cam_path = CAMERA_PATH
         tickers.append(lambda t: spin(scene, t))
     elif args.cinematic:
-        cam_path, cine_update = load_cinematic(app, ctx, args.cinematic)
+        cam_path, cine_update = load_cinematic(app, ctx, args.cinematic, args)
         tickers.append(cine_update)
     else:
         open_scene(app, ctx, args.scene)

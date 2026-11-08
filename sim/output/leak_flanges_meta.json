@@ -1,0 +1,229 @@
+{
+  "flanges": [
+    {
+      "id": "F1",
+      "center_m": [
+        -20.5652,
+        23.8043,
+        43.6
+      ],
+      "normal": [
+        -0.1305,
+        -0.9915,
+        0.0
+      ],
+      "ref": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "pipe_radius_m": 0.08,
+      "bolt_circle_m": 0.13,
+      "head_radius_m": 0.016,
+      "outer_radius_m": 0.17,
+      "n_bolts": 8,
+      "valve_id": "valve_01",
+      "prim": "/World/Leak/F1",
+      "bolt_prims": [
+        "/World/Leak/F1/bolt_0",
+        "/World/Leak/F1/bolt_1",
+        "/World/Leak/F1/bolt_2",
+        "/World/Leak/F1/bolt_3",
+        "/World/Leak/F1/bolt_4",
+        "/World/Leak/F1/bolt_5",
+        "/World/Leak/F1/bolt_6",
+        "/World/Leak/F1/bolt_7"
+      ],
+      "crack_prim": "/World/Leak/F1/crack",
+      "loosen_attr": "xformOp:rotateX:loosen"
+    },
+    {
+      "id": "F2",
+      "center_m": [
+        -5.882,
+        23.9774,
+        43.6
+      ],
+      "normal": [
+        -0.764,
+        -0.6452,
+        0.0
+      ],
+      "ref": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "pipe_radius_m": 0.08,
+      "bolt_circle_m": 0.13,
+      "head_radius_m": 0.016,
+      "outer_radius_m": 0.17,
+      "n_bolts": 8,
+      "valve_id": "valve_02",
+      "prim": "/World/Leak/F2",
+      "bolt_prims": [
+        "/World/Leak/F2/bolt_0",
+        "/World/Leak/F2/bolt_1",
+        "/World/Leak/F2/bolt_2",
+        "/World/Leak/F2/bolt_3",
+        "/World/Leak/F2/bolt_4",
+        "/World/Leak/F2/bolt_5",
+        "/World/Leak/F2/bolt_6",
+        "/World/Leak/F2/bolt_7"
+      ],
+      "crack_prim": "/World/Leak/F2/crack",
+      "loosen_attr": "xformOp:rotateX:loosen"
+    },
+    {
+      "id": "F3",
+      "center_m": [
+        -15.9423,
+        23.1668,
+        43.35
+      ],
+      "normal": [
+        -0.8846,
+        -0.4664,
+        0.0
+      ],
+      "ref": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "pipe_radius_m": 0.08,
+      "bolt_circle_m": 0.13,
+      "head_radius_m": 0.016,
+      "outer_radius_m": 0.17,
+      "n_bolts": 8,
+      "valve_id": "valve_03",
+      "prim": "/World/Leak/F3",
+      "bolt_prims": [
+        "/World/Leak/F3/bolt_0",
+        "/World/Leak/F3/bolt_1",
+        "/World/Leak/F3/bolt_2",
+        "/World/Leak/F3/bolt_3",
+        "/World/Leak/F3/bolt_4",
+        "/World/Leak/F3/bolt_5",
+        "/World/Leak/F3/bolt_6",
+        "/World/Leak/F3/bolt_7"
+      ],
+      "crack_prim": "/World/Leak/F3/crack",
+      "loosen_attr": "xformOp:rotateX:loosen"
+    },
+    {
+      "id": "F4",
+      "center_m": [
+        -1.4759,
+        23.2467,
+        43.35
+      ],
+      "normal": [
+        -0.9518,
+        -0.3067,
+        0.0
+      ],
+      "ref": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "pipe_radius_m": 0.08,
+      "bolt_circle_m": 0.13,
+      "head_radius_m": 0.016,
+      "outer_radius_m": 0.17,
+      "n_bolts": 8,
+      "valve_id": "valve_04",
+      "prim": "/World/Leak/F4",
+      "bolt_prims": [
+        "/World/Leak/F4/bolt_0",
+        "/World/Leak/F4/bolt_1",
+        "/World/Leak/F4/bolt_2",
+        "/World/Leak/F4/bolt_3",
+        "/World/Leak/F4/bolt_4",
+        "/World/Leak/F4/bolt_5",
+        "/World/Leak/F4/bolt_6",
+        "/World/Leak/F4/bolt_7"
+      ],
+      "crack_prim": "/World/Leak/F4/crack",
+      "loosen_attr": "xformOp:rotateX:loosen"
+    },
+    {
+      "id": "F5",
+      "center_m": [
+        20.4602,
+        -10.5044,
+        43.4
+      ],
+      "normal": [
+        0.9203,
+        0.3911,
+        0.0
+      ],
+      "ref": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "pipe_radius_m": 0.08,
+      "bolt_circle_m": 0.13,
+      "head_radius_m": 0.016,
+      "outer_radius_m": 0.17,
+      "n_bolts": 8,
+      "valve_id": "valve_05",
+      "prim": "/World/Leak/F5",
+      "bolt_prims": [
+        "/World/Leak/F5/bolt_0",
+        "/World/Leak/F5/bolt_1",
+        "/World/Leak/F5/bolt_2",
+        "/World/Leak/F5/bolt_3",
+        "/World/Leak/F5/bolt_4",
+        "/World/Leak/F5/bolt_5",
+        "/World/Leak/F5/bolt_6",
+        "/World/Leak/F5/bolt_7"
+      ],
+      "crack_prim": "/World/Leak/F5/crack",
+      "loosen_attr": "xformOp:rotateX:loosen"
+    },
+    {
+      "id": "F6",
+      "center_m": [
+        31.0124,
+        -10.5895,
+        43.4
+      ],
+      "normal": [
+        -0.9753,
+        0.2211,
+        0.0
+      ],
+      "ref": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "pipe_radius_m": 0.08,
+      "bolt_circle_m": 0.13,
+      "head_radius_m": 0.016,
+      "outer_radius_m": 0.17,
+      "n_bolts": 8,
+      "valve_id": "valve_06",
+      "prim": "/World/Leak/F6",
+      "bolt_prims": [
+        "/World/Leak/F6/bolt_0",
+        "/World/Leak/F6/bolt_1",
+        "/World/Leak/F6/bolt_2",
+        "/World/Leak/F6/bolt_3",
+        "/World/Leak/F6/bolt_4",
+        "/World/Leak/F6/bolt_5",
+        "/World/Leak/F6/bolt_6",
+        "/World/Leak/F6/bolt_7"
+      ],
+      "crack_prim": "/World/Leak/F6/crack",
+      "loosen_attr": "xformOp:rotateX:loosen"
+    }
+  ],
+  "units": "m",
+  "up": "Z",
+  "note": "Placement is a guess from valve positions; check it in Isaac Sim. Bolt prims carry xformOp:rotateX:loosen (degrees); crack prims start invisible."
+}
