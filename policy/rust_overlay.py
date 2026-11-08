@@ -88,3 +88,18 @@ def camera_path(keys, t: float):
             return (np.asarray(e0, float) + s * (np.asarray(e1, float) - np.asarray(e0, float)),
                     np.asarray(l0, float) + s * (np.asarray(l1, float) - np.asarray(l0, float)))
     return np.asarray(keys[-1][1], float), np.asarray(keys[-1][2], float)
+
+
+def repair_rgba(rgba: np.ndarray, wet: np.ndarray, primer: np.ndarray, wet_rgb=(22, 28, 34), wet_alpha: float = 0.55,
+                primer_rgb=(118, 128, 116)) -> np.ndarray:
+    out = rgba.astype(np.float32)
+    w = np.clip(wet, 0, 1)[..., None] * wet_alpha
+    a = out[..., 3:4] / 255.0
+    rgb = out[..., :3] * a * (1 - w) + np.asarray(wet_rgb, np.float32) * w
+    alpha = a + w * (1 - a)
+    out[..., :3] = np.where(alpha > 1e-6, rgb / np.maximum(alpha, 1e-6), 0.0)
+    out[..., 3:4] = alpha * 255.0
+    p = np.clip(primer, 0, 1)[..., None] > 0.5
+    out = np.where(p, np.concatenate([np.broadcast_to(np.asarray(primer_rgb, np.float32), out[..., :3].shape),
+                                      np.full(out[..., 3:4].shape, 255.0, np.float32)], -1), out)
+    return out.round().clip(0, 255).astype(np.uint8)
