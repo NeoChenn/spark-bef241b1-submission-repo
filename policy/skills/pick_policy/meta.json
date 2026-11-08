@@ -1,0 +1,35 @@
+{
+  "obs_dim": 23,
+  "act_dim": 5,
+  "control_hz": 30,
+  "episode_steps": 240,
+  "obs": "policy.envs.pick_state.PickState.observe",
+  "actions": "policy.envs.pick_cpu_env (docstring)",
+  "checkpoint": "model_40.pt",
+  "eval": {
+    "policy": {
+      "success": 0.8838,
+      "knocks_per_pick": 1.859,
+      "drops_per_pick": 0.0,
+      "median_s": 1.83
+    },
+    "scripted": {
+      "success": 0.8545,
+      "knocks_per_pick": 3.329,
+      "drops_per_pick": 0.0,
+      "median_s": 1.63
+    },
+    "policy_perfect_camera": {
+      "success": 1.0,
+      "knocks_per_pick": 0.0,
+      "drops_per_pick": 0.0,
+      "median_s": 1.83
+    },
+    "scripted_perfect_camera": {
+      "success": 0.9688,
+      "knocks_per_pick": 0.902,
+      "drops_per_pick": 0.0,
+      "median_s": 1.6
+    }
+  }
+}

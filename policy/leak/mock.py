@@ -190,6 +190,11 @@ DEBRIS_SCENES = {
 }
 
 
+def _rl_pick():
+    from policy.deck.pick_skill import RLPickSkill
+    return RLPickSkill.default()
+
+
 def deck_job(debris=True, person=True) -> DeckJob | None:
     """The shipped debris and person models (None for any whose checkpoint is missing)."""
     from detection.rig_vision import DebrisDetector, PersonDetector
@@ -199,7 +204,7 @@ def deck_job(debris=True, person=True) -> DeckJob | None:
 
 
 def build_rig(log_path=None, leak="none", rust=True, glare=False, dust=0.0, verbose=False, seed=0, crack_ckpt=None,
-              deck: DeckJob | None = None, debris="none", person_m=None, deck_dust=0.0):
+              deck: DeckJob | None = None, debris="none", person_m=None, deck_dust=0.0, pick_skill=None):
     pipe, dmg_theta = scene_geometry()
     world = MockRustWorld(H=pipe.n_z, W=pipe.n_theta, length=pipe.length, radius=pipe.radius)
     world.set_rust(world.blob(dmg_theta, 0.0, size=0.05, level=0.85) if rust
@@ -220,6 +225,7 @@ def build_rig(log_path=None, leak="none", rust=True, glare=False, dust=0.0, verb
     bridge = RigMockBridge(pipe, world, perc, arm, leak_world, work, verbose=verbose)
     bridge.dmg_theta = dmg_theta
     bridge._deck_init([Debris(**vars(d)) for d in DEBRIS_SCENES[debris]], person_m=person_m, deck_dust=deck_dust)
+    bridge.pick_skill = pick_skill
     loc = RustLocalizer(fake_colour_classifier, patch=16, stride=8, threshold=0.5, temperature=1.0)
     orch = RigOrchestrator(bridge, perc, loc, world, arm, GreedyScrub(pipe),
                            OrchestratorConfig(log_path=log_path, scrub_steps=200, scrub_redetect_every=40),
@@ -246,7 +252,8 @@ def main(argv=None):
                                                                   dust=0.4 if a.leak == "dust" else 0.0, verbose=True,
                                                                   crack_ckpt=a.crack_ckpt or None,
                                                                   deck=None if a.no_deck else deck_job(),
-                                                                  debris=a.debris, person_m=a.person_at)
+                                                                  debris=a.debris, person_m=a.person_at,
+                                                                  pick_skill=None if a.no_deck else _rl_pick())
     leave = None
     if a.person_at is not None:          # the person walks away after a few seconds
         leave = (bridge.t + 4.0, f"person at {a.person_at} m walks away", lambda: setattr(bridge, "camera_person_m", None))
@@ -268,6 +275,8 @@ def main(argv=None):
         print(f"ALERT [{al['severity']}] {al['message']}")
     if orch.deck is not None:
         print(f"deck: picked {len(bridge.picked)} object(s), {len(bridge.debris)} left")
+        for p in bridge.pick_log:
+            print(f"  RL pick {p['kind']}: {'ok' if p['ok'] else 'missed'} in {p['seconds']} s, knocks {p['knocks']}")
     print(f"\nfinal: {orch.state.value}  flange truth: {leak_world.truth('F1')}  torques: {arm.torques}  "
           f"rust left={float(world.fraction_remaining()[0]):.3f}  decisions={len(orch.records)}  wall={time.time() - t0:.1f}s")
     return orch
