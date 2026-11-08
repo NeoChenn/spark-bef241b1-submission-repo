@@ -70,7 +70,8 @@ def force_vs_time(run: Path, out: Path):
     m = slice(i0, i1 + 1)
     tt, ff, ss = t[m], f[m], st[m]
     fig, ax = plt.subplots(figsize=(12, 4.4))
-    other = ~np.isin(ss, ["SCRUB", "BACK_OFF"])
+    parked = np.array([r.get("parked", False) for r in rows])[m]
+    other = ~np.isin(ss, ["SCRUB", "BACK_OFF"]) | (parked & (ss == "SCRUB"))
     for a, b in intervals(list(tt), list(other)):
         ax.axvspan(a, b, color=AXIS, alpha=0.35, lw=0)
     bo = intervals(list(tt), list(ss == "BACK_OFF"))
@@ -81,7 +82,7 @@ def force_vs_time(run: Path, out: Path):
     ax.set_ylim(0, max(60.0, float(ff.max()) * 1.08))
     limit_lines(ax)
     k = int(np.argmax(ff))
-    ax.annotate(f"weld bead spike {ff[k]:.0f} N", (tt[k], ff[k]), xytext=(12, -4), textcoords="offset points",
+    ax.annotate(f"peak {ff[k]:.0f} N", (tt[k], ff[k]), xytext=(12, -4), textcoords="offset points",
                 color=INK, fontsize=9, va="center")
     ax.set_xlabel("sim time (s)")
     ax.set_ylabel("normal force (N)")
@@ -89,7 +90,7 @@ def force_vs_time(run: Path, out: Path):
     from matplotlib.patches import Patch
 
     handles = ax.get_legend_handles_labels()[0] + [Patch(color=CRIT, alpha=0.3, label="BACK_OFF (retract 5 cm)"),
-                                                   Patch(color=AXIS, alpha=0.6, label="arm parked: re-detect / spray / verify")]
+                                                   Patch(color=AXIS, alpha=0.6, label="arm moving off-policy: park / re-detect / unpark")]
     ax.legend(handles=handles, loc="lower left", bbox_to_anchor=(0.0, 1.0), ncol=3, fontsize=9)
     save(fig, out, "force_vs_time")
     preview(out, "force_vs_time")

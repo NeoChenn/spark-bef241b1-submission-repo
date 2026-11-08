@@ -206,7 +206,7 @@ class LabRepairBridge:
         fn = b._sensor_normal_force(n.expand(b.num_envs, 3))[0].cpu().numpy()[::-1]
         for k, f in enumerate(fn):
             self.force_log.append({"t": round(self.t - (len(fn) - 1 - k) * self.phys_dt, 4), "force_n": round(float(f), 3),
-                                   "state": self.state_fn()})
+                                   "state": self.state_fn(), "parked": self.parked or self.press is None})
         self.force_now = float(b.force_sensor[0])
         self.force_peak = float(b.force_peak[0])
         self.force_model = float(b.force_model[0])
