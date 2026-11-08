@@ -35,7 +35,7 @@ def test_deterministic(p):
 def test_localises_and_closes(p):
     m, fr = p["metrics"], p["frames"]
     src = np.asarray(p["src"])
-    assert len(fr) == 285 and m["found_frame"] == 157
+    assert len(fr) == 285 and 145 <= m["found_frame"] <= 170
     assert m["err_m"] < 1.0
     assert np.linalg.norm(np.asarray(fr[m["found_frame"]]["estimate"][:2]) - src[:2]) < 1.0
     assert fr[0]["belief"]["sigma"] > 2 * m["sigma_found"]

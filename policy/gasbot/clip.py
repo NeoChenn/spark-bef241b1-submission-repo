@@ -20,7 +20,7 @@ FLUCT_TAU = 0.3
 
 class Run:
     def __init__(self, seed=0, dt=0.05, stop=None, turn_s=4.0, walk_ms=DemoGas.walk_ms, near_m=DemoGas.near_m,
-                 seek_max_s=DemoGas.seek_max_s, alarm_s=DemoGas.alarm_s, wait_s=DemoGas.seek_wait_s, n_particles=400):
+                 seek_max_s=24.0, alarm_s=DemoGas.alarm_s, wait_s=DemoGas.seek_wait_s, n_particles=400):
         D = DemoGas
         self.dt, self.turn_s, self.walk_ms, self.near_m, self.seek_max_s = dt, turn_s, walk_ms, near_m, seek_max_s
         self.deck, self.src, self.n_particles = D.deck, np.asarray(D.src, float), n_particles
@@ -141,7 +141,7 @@ def grid_axes(deck, g=GRID):
 
 def plan(frames=285, fps=30, cuts=(75, 90, 165, 180), seed=0, stop=None, turn_s=4.0, dt=0.05, seek_end=None,
          close_frame=None, turn_frames=None, tail_s=2.5, walk_ms=DemoGas.walk_ms, near_m=DemoGas.near_m,
-         seek_max_s=DemoGas.seek_max_s, n_particles=400, grid=None) -> dict:
+         seek_max_s=24.0, n_particles=400, grid=None) -> dict:
     kw = dict(seed=seed, dt=dt, stop=stop, turn_s=turn_s, walk_ms=walk_ms, near_m=near_m, seek_max_s=seek_max_s,
               n_particles=n_particles)
     probe = Run(**kw)
