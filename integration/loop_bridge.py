@@ -77,6 +77,12 @@ class LoopBridge(LabRepairBridge):
         s["base"] = self._base_env().tolist()
         return s
 
+    def record_decision(self, rec: dict) -> None:
+        super().record_decision(rec)
+        to = rec.get("to")
+        if to and self.sub is None and self.timeline.mark(self.t, mission_phase(to, None)):
+            self.pending_events.append({"t": round(self.t, 3), "type": "phase", "phase": mission_phase(to, None)})
+
     def _with_sub(self, sub, fn, *a, **kw):
         prev, self.sub = self.sub, sub
         t0, f0 = self.t, len(self.force_log)

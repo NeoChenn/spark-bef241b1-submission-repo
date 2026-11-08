@@ -101,6 +101,8 @@ def plan_reposition(err: Callable, targets, dxs=(0.0, 0.1, -0.1, 0.2, -0.2, 0.3,
         return sum(err(dx, lift, t) < tol for t in targets)
 
     before = score(0.0, lift0)
+    if before == len(targets):
+        return {"dx": 0.0, "lift": float(lift0), "reached": before, "before": before, "targets": len(targets)}
     cands = sorted(((score(dx, l), -(abs(dx) + abs(l - lift0)), dx, l) for dx in dxs for l in lifts), reverse=True)
     n, _, dx, lift = cands[0]
     if n <= before:
