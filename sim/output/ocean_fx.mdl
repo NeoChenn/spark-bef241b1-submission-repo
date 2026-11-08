@@ -181,8 +181,8 @@ sea sea_eval(float2 p, float t, float height, float chop, float near_chop, float
         float4 a = WAVE_A[i];
         float4 b = WAVE_B[i];
         float lambda = 6.2831853 / a.z;
-        float w = math::smoothstep(2.0, 4.0, lambda / footprint);
-        float wj = math::smoothstep(1.0, 2.5, lambda / footprint);
+        float w = math::smoothstep(1.0, 2.5, lambda / footprint);
+        float wj = math::smoothstep(0.7, 1.6, lambda / footprint);
         float amp = a.w * (lambda < 3.0 ? near_chop : chop);
         float th = a.z * (a.x * p.x + a.y * p.y) - (b.x * t - b.y);
         float s = math::sin(th);
@@ -194,7 +194,7 @@ sea sea_eval(float2 p, float t, float height, float chop, float near_chop, float
         jxx += qs * a.x * a.x;
         jyy += qs * a.y * a.y;
         jxy += qs * a.x * a.y;
-        lost += 0.5 * ka * ka * (1.0 - w * w);
+        lost += 0.35 * ka * ka * (1.0 - w * w);
     }
     float jac = (1.0 - jxx) * (1.0 - jyy) - jxy * jxy;
     float3 n = float3(-jxy * sy - sx * (1.0 - jyy), -jxy * sx - sy * (1.0 - jxx), math::max(jac, 0.15));
@@ -264,7 +264,7 @@ export material OceanFx(
     float3 to_cam = camera_position - pw;
     float dist = math::length(to_cam);
     float stretch = math::sqrt(1.0 / math::max(math::abs(to_cam.z) / math::max(dist, 1e-3), 0.05));
-    float footprint = math::max(min_footprint, dist * pixel_angle * stretch);
+    float footprint = math::max(min_footprint, dist * pixel_angle * math::sqrt(stretch));
 
     float2 perp = float2(-DRIFT.y, DRIFT.x);
     float3 lg = legs_eval(p);
@@ -273,7 +273,7 @@ export material OceanFx(
     float wake = lg.z;
     float near = math::max(ring, wash) * leg_foam;
     sea o = sea_eval(p, time, height, chop, chop * (1.0 + leg_chop * near), footprint);
-    float alpha = math::min(math::sqrt(roughness * roughness + 2.0 * o.lost), 0.45);
+    float alpha = math::min(math::sqrt(roughness * roughness + 2.0 * o.lost), 0.3);
 
     float2 adv = p - DRIFT * (time * drift_speed);
     float2 dc = float2(math::dot(adv, DRIFT), math::dot(adv, perp));
