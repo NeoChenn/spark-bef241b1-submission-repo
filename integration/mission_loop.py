@@ -10,7 +10,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-WIDE = ((2.9, 2.3, 2.0), (-0.9, -0.3, 0.75))
+WIDE = ((3.5, 2.9, 2.5), (-0.9, -0.4, 0.4))
 CLOSE = ((0.75, -0.02, 1.62), (0.0, -0.42, 1.18))
 SOAK_NOTE = "soak shortened for the demo"
 
@@ -140,7 +140,7 @@ def worker(argv):
     origin = base.scene.env_origins[0].cpu().numpy()
     cams = {}
     if not args.no_video:
-        for name, (eye, look), focal in (("wide", WIDE, 20.0), ("close", CLOSE, 40.0)):
+        for name, (eye, look), focal in (("wide", WIDE, 18.0), ("close", CLOSE, 40.0)):
             cam = rsc.Camera(stage, f"/World/Cameras/loop_{name}", focal=focal)
             cam.look(np.asarray(eye) + origin, np.asarray(look) + origin)
             rp = rep.create.render_product(cam.path, (W_out, H_out) if name == "wide" else (W_out // 2, H_out // 2))
@@ -150,7 +150,7 @@ def worker(argv):
     world = LabWorld(base.rust)
 
     os.makedirs(args.out_dir, exist_ok=True)
-    composer = FrameComposer(size=(W_out, H_out))
+    composer = FrameComposer(size=(1280, 720))
     writer = None if args.no_video else imageio.get_writer(os.path.join(args.out_dir, "mission_loop.mp4"), fps=args.fps,
                                                             quality=7, macro_block_size=8)
     tele, hud, history, orch_ref, keyframes = [], [], [], {}, {}

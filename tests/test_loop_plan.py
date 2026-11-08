@@ -97,6 +97,18 @@ def test_staged_paths_never_get_closer_than_the_endpoints(fk):
 def test_stage_steps_from_joint_and_lift_rates():
     from integration.loop_plan import stage_steps
 
-    assert stage_steps({"a": 0.0}, {"a": 1.4}, 1 / 30) == 30
-    assert stage_steps({"lift_joint": 0.0}, {"lift_joint": 0.42}, 1 / 30) == 42
+    assert stage_steps({"a": 0.0}, {"a": 2.0}, 1 / 30) == 30
+    assert stage_steps({"lift_joint": 0.0}, {"lift_joint": 0.4}, 1 / 30) == 30
     assert stage_steps({"a": 0.0}, {"a": 0.0}, 1 / 30) == 6
+
+
+def test_cyl_lerp_goes_around_the_pipe_not_through_it():
+    from integration.loop_plan import cyl_lerp
+
+    a = np.array([0.0, -0.5 + 0.21, 1.1])
+    b = np.array([0.2, -0.5, 1.1 + 0.21])
+    assert np.allclose(cyl_lerp(a, b, PIPE, 0.0), a) and np.allclose(cyl_lerp(a, b, PIPE, 1.0), b)
+    straight = min(clearance(a + (b - a) * s, PIPE, BR) for s in np.linspace(0, 1, 21))
+    arc = min(clearance(cyl_lerp(a, b, PIPE, s), PIPE, BR) for s in np.linspace(0, 1, 21))
+    assert straight < 0.0 < arc
+    assert arc == pytest.approx(0.21 - 0.15 - BR, abs=1e-6)

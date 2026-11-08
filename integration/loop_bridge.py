@@ -9,8 +9,8 @@ import torch
 from integration import repair_scene as rs
 from integration.kinematics import ARM_STOWED, LIFT_JOINT, RobotModel, pose
 from integration.lab_bridge import LEGS, LabRepairBridge, smooth
-from integration.loop_plan import (PipeCyl, brush_fk, ik_error, plan_reposition, plan_staged, retract_target,
-                                   stage_steps)
+from integration.loop_plan import (PipeCyl, brush_fk, cyl_lerp, ik_error, plan_reposition, plan_staged,
+                                   retract_target, stage_steps)
 from integration.loop_timeline import MissionTimeline, mission_phase
 from integration.walk_obs import leg_targets, speed_profile, walk_obs
 
@@ -208,9 +208,19 @@ class LoopBridge(LabRepairBridge):
         self.parked = False
         self.chunk_peak = 0.0
 
+    def _goto_cyl(self, centre: np.ndarray, steps: int) -> float:
+        b = self.base
+        start = b.p_tgt[0].detach().cpu().numpy().astype(float)
+        end = np.asarray(centre, float) - self.origin
+        for k in range(1, steps + 1):
+            p = cyl_lerp(start, end, self.pipe_cyl, smooth(k / steps))
+            b.p_tgt[0] = torch.as_tensor(p, device=self.dev, dtype=torch.float32)
+            self._step()
+        return float(np.linalg.norm(self._brush() - centre))
+
     def _goto_wp(self, wp, steps: int) -> float:
         centre = np.asarray(wp.position, float) - self.brush_r * np.asarray(wp.approach, float)
-        return self._goto(centre, steps)
+        return self._goto_cyl(centre, steps)
 
     def move_to(self, waypoints) -> list[bool]:
         if self.state_fn() != "PAINT":

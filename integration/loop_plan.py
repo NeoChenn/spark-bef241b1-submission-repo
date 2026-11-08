@@ -86,7 +86,7 @@ def plan_staged(fk, q_from: dict, q_to: dict, pipe: PipeCyl, brush_r: float, gro
     return best, best_c
 
 
-def stage_steps(q0: dict, q1: dict, dt: float, joint_rate: float = 1.4, lift_rate: float = 0.3,
+def stage_steps(q0: dict, q1: dict, dt: float, joint_rate: float = 2.0, lift_rate: float = 0.4,
                 min_steps: int = 6) -> int:
     t = 0.0
     for k, v in q1.items():
@@ -131,3 +131,16 @@ def ik_error(model, base: np.ndarray, q: dict, target, joints, iterations: int =
             j = model.joints[name]
             q[name] = float(np.clip(q[name] + dq[k], j.lower, j.upper))
     return float(np.linalg.norm(target - fk(q)))
+
+
+def cyl_lerp(p0, p1, pipe: PipeCyl, s: float) -> np.ndarray:
+    o, a = np.asarray(pipe.origin, float), np.asarray(pipe.axis, float)
+    z0, r0 = _split(p0, pipe)
+    z1, r1 = _split(p1, pipe)
+    rho0, rho1 = float(np.linalg.norm(r0)), float(np.linalg.norm(r1))
+    e = r0 / max(rho0, 1e-9)
+    b = np.cross(a, e)
+    th1 = float(np.arctan2(r1 @ b, r1 @ e))
+    th = th1 * s
+    rho = rho0 + (rho1 - rho0) * s
+    return o + (z0 + (z1 - z0) * s) * a + rho * (np.cos(th) * e + np.sin(th) * b)
