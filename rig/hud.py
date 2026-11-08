@@ -81,6 +81,8 @@ class HudFeed:
             "soak": {"left": round(max(0.0, o.soak_until - o.t), 2), "total": float(o.cfg.soak_s)}
             if o.state.value == "SOAK" else None,
         }
+        if hasattr(o, "gas_telemetry"):
+            out["gas"] = o.gas_telemetry()
         if o.last is not None and o.last is not self.last_perceived and o.last_image is not None:
             self.last_perceived = o.last
             out["inspection"] = thumb(o.last_image, o.last.result.mask)
