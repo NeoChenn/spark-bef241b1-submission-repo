@@ -1,0 +1,18 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/korean_fire_extinguisher_01/korean_fire_extinguisher_01_1k.usdc@
+    )
+    {
+        double3 xformOp:translate = (-7.450580596923828e-9, 0.06048116832971573, 3.978568940965488e-8)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}
+

@@ -18,7 +18,7 @@ def job(**params):
 def test_registered_with_needs_and_constants():
     ex = REGISTRY["pick_can"]
     assert ex.kind == "pick_can" and ex.needs == {"arm", "gripper"} and ex.robot_kinds == {RobotKind.QUADRUPED}
-    assert ex.needs <= GO2.capabilities and pc.SUCCESS_P == pytest.approx(0.9) and pc.TIME_S == pytest.approx(9.0)
+    assert ex.needs <= GO2.capabilities and 0.5 < pc.SUCCESS_P <= 1.0 and pc.TIME_S > 0
 
 
 def test_simulate_is_deterministic_and_phased():

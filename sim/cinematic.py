@@ -77,7 +77,7 @@ PRESETS = {
         "sea_color": (0.01, 0.03, 0.04),
     },
     "dusk": {
-        "sky": ASSETS / "third_party" / "hdris" / "belfast_sunset_puresky.hdr",
+        "sky": ASSETS / "hdris" / "belfast_sunset_puresky.hdr",
         "dome": 180.0,
         "sky_rotation": 333.0,
         "sun": 1200.0,

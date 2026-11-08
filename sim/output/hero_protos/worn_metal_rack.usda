@@ -1,0 +1,67 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/worn_metal_rack/worn_metal_rack_1k.usdc@
+    )
+    {
+        double3 xformOp:translate = (0.002291738986968994, -0, 4.783835549915239e-10)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        over "_materials"
+        {
+            over "worn_metal_rack"
+            {
+                over "Image_Texture"
+                {
+                    asset inputs:file = @../../assets/third_party/models/worn_metal_rack/textures/worn_metal_rack_diff_1k.jpg@
+                }
+
+                over "Image_Texture_001"
+                {
+                    asset inputs:file = @../../assets/third_party/models/worn_metal_rack/textures/worn_metal_rack_metal_1k.exr@
+                }
+
+                over "Image_Texture_002"
+                {
+                    asset inputs:file = @../../assets/third_party/models/worn_metal_rack/textures/worn_metal_rack_rough_1k.exr@
+                }
+
+                over "Image_Texture_003"
+                {
+                    asset inputs:file = @../../assets/third_party/models/worn_metal_rack/textures/worn_metal_rack_nor_gl_1k.exr@
+                }
+
+                over "NodeGraphs"
+                {
+                    over "bnode__Image_Texture_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/worn_metal_rack/textures/worn_metal_rack_diff_1k.jpg@
+                    }
+
+                    over "bnode__Image_Texture_001_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/worn_metal_rack/textures/worn_metal_rack_metal_1k.exr@
+                    }
+
+                    over "bnode__Image_Texture_002_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/worn_metal_rack/textures/worn_metal_rack_rough_1k.exr@
+                    }
+
+                    over "bnode__Image_Texture_003_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/worn_metal_rack/textures/worn_metal_rack_nor_gl_1k.exr@
+                    }
+                }
+            }
+        }
+    }
+}
+

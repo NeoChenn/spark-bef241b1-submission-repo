@@ -595,3 +595,14 @@ def route(points, bend: float, steps: int = 6) -> np.ndarray:
             out.append((1 - t) ** 2 * p0 + 2 * (1 - t) * t * b + t ** 2 * p1)
     out.append(pts[-1])
     return np.array(out)
+
+
+def stations_along(p0, p1, spacing: float) -> dict:
+    p0, p1 = np.asarray(p0, float), np.asarray(p1, float)
+    d = p1 - p0
+    length = float(np.linalg.norm(d))
+    u = d / length
+    n = np.array((-u[1], u[0]))
+    count = max(1, round(length / spacing))
+    pts = [p0 + d * i / count for i in range(count + 1)]
+    return {"points": pts, "dir": u, "normal": n, "length": length, "angle": math.degrees(math.atan2(u[1], u[0]))}

@@ -1,0 +1,18 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/fuel_euro_pallet/fuel_euro_pallet.usdc@
+    )
+    {
+        double3 xformOp:translate = (-0, -0, 4.768369876728684e-8)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}
+

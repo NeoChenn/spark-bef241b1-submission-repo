@@ -1,6 +1,6 @@
 (() => {
   const $ = (id) => document.getElementById(id);
-  const S = { fleet: null, map: null, deck: null, level: "calm", time: "night", seen: null, last: {}, dirty: true };
+  const S = { fleet: null, map: null, deck: null, time: "dusk", rain: true, fog: true, seen: null, last: {}, dirty: true };
   const NAMES = { calm: "Clear", wind: "Wind", rain: "Rain", fog: "Fog", storm: "Storm", dusk: "Dusk", night: "Night" };
   const SHOW = { reroute: "warn", blocked: "stop", barrel_stopped: "ok", needs_human: "stop" };
   const pretty = (m) => String(m || "").replace(/ -> /g, " → ").replace(/ deg\b/g, "°").replace(/_/g, " ");
@@ -32,7 +32,7 @@
   }
   const drop = (kind, title) => () => ["drop_obstacle", { kind, at: mover() }, title];
   const ACTS = {
-    large: drop("barrel", "Large can rolling"),
+    large: () => { setDeck("top_deck"); return ["drop_obstacle", { kind: "barrel", at: "spur_hero_bay" }, "Large can rolling"]; },
     puddle: drop("puddle", "Puddle"),
     small: () => ["drop_can", { size: "small", at: mover() }, "Small can"],
     crate: drop("crate", "Crate"),
@@ -66,13 +66,15 @@
     const [name, args, title] = ACTS[b.dataset.act]();
     press(b, name, args, title);
   }));
-  const weather = (btn, level, time) => press(btn, "set_weather", { level, time }, `${NAMES[time]} · ${NAMES[level] || level}`, () => { S.level = level; S.time = time; paintWeather(); });
-  document.querySelectorAll("[data-level]").forEach((b) => b.addEventListener("click", () => weather(b, b.dataset.level, S.time)));
-  document.querySelectorAll("[data-time]").forEach((b) => b.addEventListener("click", () => weather(b, S.level, b.dataset.time)));
+  const wxName = (w) => [NAMES[w.time], w.rain ? "Rain" : "", w.fog ? "Fog" : ""].filter(Boolean).join(" + ") + (w.rain || w.fog ? "" : " · Clear");
+  const wxArgs = (w) => ({ level: w.rain ? "rain" : w.fog ? "fog" : "calm", time: w.time, rain: w.rain ? 1 : 0, fog: w.fog ? 1 : 0 });
+  const weather = (btn, w) => press(btn, "set_weather", wxArgs(w), wxName(w), () => { Object.assign(S, w); S.wxSet = true; paintWeather(); });
+  document.querySelectorAll("[data-cond]").forEach((b) => b.addEventListener("click", () => weather(b, { time: S.time, rain: S.rain, fog: S.fog, [b.dataset.cond]: !S[b.dataset.cond] })));
+  document.querySelectorAll("[data-time]").forEach((b) => b.addEventListener("click", () => weather(b, { time: b.dataset.time, rain: S.rain, fog: S.fog })));
   function paintWeather() {
-    document.querySelectorAll("[data-level]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.level === S.level));
+    document.querySelectorAll("[data-cond]").forEach((b) => b.setAttribute("aria-pressed", !!S[b.dataset.cond]));
     document.querySelectorAll("[data-time]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.time === S.time));
-    $("wx").textContent = `${NAMES[S.time]} · ${NAMES[S.level] || S.level}`;
+    $("wx").textContent = wxName(S);
   }
 
   function setDeck(d) {
@@ -106,8 +108,8 @@
     if (!S.seen) S.seen = new Set(evs.map((e) => e.t + e.kind + e.message));
     else evs.forEach(showEvent);
     const w = f.hazards?.weather;
-    if (w?.level) S.level = w.level;
-    if (w?.time) S.time = w.time;
+    if (w?.time) Object.assign(S, { time: w.time, rain: w.wet > 0, fog: w.fog > 0, wxSet: true });
+    else if (w && !S.wxSet && !S.wxSent) { S.wxSent = true; post("set_weather", wxArgs(S)); }
     paintWeather();
     if (!S.deck && robots().length && S.map) setDeck(robots().find((r) => r.state === "TRANSIT")?.deck || "top_deck");
     $("map-t").textContent = `t ${Math.round(f.t || 0)} s · ${(f.hazards?.obstacles || []).length} on deck`;
