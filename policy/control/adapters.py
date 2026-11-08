@@ -82,11 +82,23 @@ def from_header(h: dict, robot_id: Optional[str] = None, zone: str = "") -> Sens
     captions = h.get("captions") or {}
     for r in s.robots:
         r.caption = captions.get(r.id, r.caption)
-    s.gas = [GasSensor.from_dict(g) for g in h.get("gas") or []]
+    gas = h.get("gas") or []
     plume = h.get("plume") or {}
     s.plume_kg_h, s.plume_source = _f(plume.get("flow_kg_h")), plume.get("source")
-    s.storm_level = float(h.get("storm_level") or 0.0)
     s.wind_deg = _f(h.get("wind_deg"))
+    if isinstance(gas, dict):
+        db = _f((gas.get("acoustic") or {}).get("db"))
+        s.gas = [GasSensor(g["id"], zone=g.get("at", ""), lel=round((_f(g.get("lel")) or 0.0) * LEL_PER_FRACTION, 2),
+                           acoustic_db=db) for g in gas.get("sensors") or []]
+        src = gas.get("source")
+        if src and s.plume_source is None:
+            s.plume_kg_h = _f(gas.get("flow_kg_h"))
+            s.plume_source = gas.get("flange") or f"x={src['x']:.1f} y={src['y']:.1f} +/-{src['sigma_m']:.1f} m"
+        if s.wind_deg is None:
+            s.wind_deg = _f((gas.get("wind") or {}).get("dir_deg"))
+    else:
+        s.gas = [GasSensor.from_dict(g) for g in gas]
+    s.storm_level = float(h.get("storm_level") or 0.0)
     s.jobs = [dict(j) for j in h.get("tasks") or h.get("jobs") or []]
     s.verdicts += [Verdict.from_dict(v) for v in h.get("verdicts") or []]
     return s

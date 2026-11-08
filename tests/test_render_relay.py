@@ -128,6 +128,14 @@ def test_ws_state_keeps_flowing_without_render(client):
         assert ws.receive_json()["fleet"] == {"robots": [{"id": "b"}]}
 
 
+def test_plume_meta_in_state_reaches_hud(client):
+    with local(client) as sim, client.websocket_connect("/ws/state") as ws:
+        sim.sendall(state(0, plume={"flange": "F2", "stats": {"vol_10lel_m3": 1.5}}))
+        msg = ws.receive_json()
+        assert msg["plume"]["flange"] == "F2"
+        assert "settings" not in msg and "ocean" not in msg
+
+
 def test_local_sim_frames_win_over_render_frames(client):
     with local(client) as sim, lan(client) as r:
         r.sendall(hello())

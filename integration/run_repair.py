@@ -37,6 +37,22 @@ parser.add_argument("--hero-size", default="1280x720")
 parser.add_argument("--no-events", action="store_true", help="skip the unscripted scene changes")
 parser.add_argument("--glare", action="store_true", help="add glare on the nominal inspection view")
 parser.add_argument("--stream", default="", help="host:port of the web viewer's sim socket, e.g. 127.0.0.1:9000")
+parser.add_argument("--job", default="rust", choices=["rust", "leak"],
+                    help="rust: unit 1 rust repair; leak: unit 2 gas bot patrols, localises and fixes a flange leak")
+parser.add_argument("--leak", default="loose", choices=["loose", "crack", "big"])
+parser.add_argument("--leak-flange", default="M3")
+parser.add_argument("--wind-dir", type=float, default=20.0, help="degrees, direction the wind blows toward")
+parser.add_argument("--wind-speed", type=float, default=3.0)
+parser.add_argument("--h2s-ratio", type=float, default=2e-4)
+parser.add_argument("--seed", type=int, default=10)
+parser.add_argument("--start", type=float, nargs=2, default=[6.6, 1.25])
+parser.add_argument("--plume", default="gauss", choices=["gauss", "solver"],
+                    help="gauss: Gaussian stand-in; solver: sim.plume Warp advection-diffusion solver (gas-plume)")
+parser.add_argument("--leak-flow", type=float, default=0.0, help="g/s; 0 = random from --seed")
+parser.add_argument("--hole-mm", type=float, default=2.0)
+parser.add_argument("--bar", type=float, default=10.0)
+parser.add_argument("--max-sim-s", type=float, default=90.0)
+parser.add_argument("--storm", type=float, default=0.0, help="storm level 0-1 that starts 20 s into the soak")
 parser.add_argument("--no-gemini", action="store_true",
                     help="skip the Gemini second opinion even if GEMINI_API_KEY is set")
 parser.add_argument("--control", choices=["off", "auto", "live", "replay"], default="auto",
@@ -148,6 +164,10 @@ def main() -> None:
         old.unlink()
     stage = open_deck()
     theta, hero, shots = setup_scene(stage)
+    if args.job == "leak":
+        from integration import gas_job
+        gas_job.run(app, rep, stage, args, OUT, hero, (hero_w, hero_h), lambda n: encode_video(n, "leakbot.mp4"))
+        return
     pipe = rs.read_pipe(rs.find_main_pipe(stage))
     world = make_world(pipe, theta)
 
@@ -265,6 +285,9 @@ def main() -> None:
         now = bridge.sim_time()
         if args.no_events:
             continue
+        if args.storm > 0 and prev == S.SPRAY and "storm" not in fired:
+            fired.add("storm")
+            bridge.schedule(now + 20.0, f"storm_level {args.storm:.1f}", lambda: bridge.storm_level(args.storm))
         if prev == S.SPRAY and "patch" not in fired:
             fired.add("patch")
             th_new, z_new = theta - 0.3, 0.12
@@ -298,11 +321,11 @@ def main() -> None:
     encode_video(state["frame"])
 
 
-def encode_video(count: int) -> None:
+def encode_video(count: int, name: str = "repair.mp4") -> None:
     if not count:
         print("no frames recorded", flush=True)
         return
-    path = OUT / "repair.mp4"
+    path = OUT / name
     encoder = get_video_encoding_interface()
     if not encoder.start_encoding(str(path), float(args.fps), count, True):
         raise RuntimeError(f"could not start video encoding for {path}")

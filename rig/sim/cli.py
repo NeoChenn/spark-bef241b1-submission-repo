@@ -17,6 +17,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--merged", action=argparse.BooleanOptionalAction, default=os.environ.get("RIG_MERGED", "") == "1", help="with --cinematic: open sim/output/rig_merged.usda (repair zone on the top deck) and fly wide orbit -> pipe close-up")
     p.add_argument("--merged-hold", type=float, default=float(os.environ.get("RIG_MERGED_HOLD", "8")), help="seconds at the pipe close-up before flying back out; 0 = stay at the close-up")
     p.add_argument("--merged-start", type=float, default=0.0, help="time offset into the merged camera path")
+    p.add_argument("--fleet-log", default=os.environ.get("RIG_FLEET_LOG", ""), help="with --cinematic: replay a policy.fleet fleet_log.jsonl (obstacles, closures, weather, robot routes) in the scene")
+    p.add_argument("--fleet-speed", type=float, default=4.0, help="fleet sim seconds per stream second for --fleet-log")
+    p.add_argument("--path-radius", type=float, default=0.06, help="radius of the planned-route tube in metres")
     p.add_argument("--orbit-target", type=vec3, default=None, metavar="X,Y,Z", help="orbit target; default = view ray hit on --orbit-z")
     p.add_argument("--orbit-radius", type=float, default=0.0, help="orbit radius; 0 = keep the camera's distance")
     p.add_argument("--orbit-eye-z", type=float, default=None, help="orbit eye height; default = the camera's height")
@@ -34,9 +37,25 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--duration", type=float, default=0.0, help="seconds to run; 0 = forever")
     p.add_argument("--snapshot", default="", help="save frames as PNG here (first good frame, then every --snapshot-every s)")
     p.add_argument("--snapshot-every", type=float, default=0.0)
+    p.add_argument("--leak", default="", help="flange id (F1..F6) to leak gas from; empty = no plume")
+    p.add_argument("--leak-mm", type=float, default=3.0)
+    p.add_argument("--leak-bar", type=float, default=20.0)
+    p.add_argument("--leak-h2s", type=float, default=0.0)
+    p.add_argument("--leak-wind", type=float, default=5.0)
+    p.add_argument("--leak-heading", type=float, default=90.0)
+    p.add_argument("--leak-storm", type=float, default=0.0)
+    p.add_argument("--leak-side", type=float, default=-1.0)
+    p.add_argument("--leak-dt", type=float, default=1 / 12, help="seconds of wall time between plume steps")
+    p.add_argument("--pip-every", type=float, default=0.25)
+    p.add_argument("--pip-size", type=size, default=(480, 270), metavar="WxH")
     p.add_argument("--render-mode", choices=("local", "remote"), default=os.environ.get("RENDER_MODE") or "local",
                    help="remote: skip the main view render and publish scene state for rig.render on another box")
     return p.parse_args(argv)
+
+
+def size(text: str) -> tuple[int, int]:
+    w, h = text.lower().split("x")
+    return (int(w), int(h))
 
 
 def vec3(text: str) -> tuple[float, float, float]:

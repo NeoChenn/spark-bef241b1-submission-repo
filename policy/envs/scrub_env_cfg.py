@@ -127,6 +127,14 @@ class ScrubEnvCfg(DirectRLEnvCfg):
     w_dist: float = 0.2
 
     viz: bool = False
+    storm_level_range: tuple = (0.0, 0.0)
+    storm_gust_peak: tuple = (10.0, 30.0)
+    storm_gust_mean: tuple = (0.0, 4.0)
+    storm_deck_amp: tuple = (0.02, 0.05)
+    storm_deck_freq: tuple = (0.1, 0.3)
+    storm_trunk_sway: float = 0.0006
+    storm_gust_bodies: tuple = ("ur3_forearm_link", "ur3_wrist_1_link", "ur3_wrist_2_link", "ur3_wrist_3_link",
+                                "scrubber_link")
 
     def __post_init__(self):
         j = self.num_arm_joints
@@ -176,6 +184,13 @@ class ScrubLiftV2EnvCfg(ScrubLiftEnvCfg):
         self.abrasion_coef_range = (0.5, 1.5)
         self.n_patches_range = (1, 4)
         self.yaw_range = (-0.1745, 0.1745)
+        super().__post_init__()
+
+
+@configclass
+class ScrubLiftV3EnvCfg(ScrubLiftV2EnvCfg):
+    def __post_init__(self):
+        self.storm_level_range = (0.0, 1.0)
         super().__post_init__()
 
 

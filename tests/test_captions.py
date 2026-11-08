@@ -208,3 +208,11 @@ def test_mock_session_captions_and_fleet(tmp_path):
     assert {"on", "edge", "occluded"} <= modes
     states = {r["state"] for x in fleet for r in x["robots"]}
     assert {"LEAK_APPROACH", "RETORQUE", "SCRUB"} <= states
+
+
+def test_storm_states():
+    assert text("WIPE_LENS", storm={"lens_q": 0.42}) == "Wiping the lens — view 42 % clear"
+    assert text("WIPE_LENS") == "Wiping the lens — rain on the camera"
+    assert text("WAIT_LULL", storm={"gust_n": 17.6}) == "Waiting for a lull — gust 18 N"
+    assert text("WAIT_LULL") == "Waiting for a lull in the storm"
+    assert caption("WAIT_LULL", {})["tone"] == "warn" and caption("WIPE_LENS", {})["tone"] == "warn"

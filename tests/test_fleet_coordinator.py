@@ -204,6 +204,68 @@ def test_person_within_radius_pauses_robot():
     assert events(c, "person_pause") and events(c, "person_clear")
 
 
+def _paused(jobs=("j",)):
+    world = World()
+    q = Robot("q1", Q, {"camera"}, (0, 0, 0), speed_mps=1.0)
+    c = Coordinator([q], world, {"look": Exec("look", duration=5)})
+    c.submit(job("j", pos=(20, 0, 0), priority=4, params={"standoff": 0.0}))
+    run(c, 5)
+    world.people = [(q.position[0] + PERSON_RADIUS_M - 0.5, 0, 0)]
+    c.tick()
+    assert c.rt["q1"].state == "PAUSED_PERSON"
+    return c, q, world
+
+
+def test_urgent_preemption_never_moves_a_robot_paused_for_a_person():
+    c, q, world = _paused()
+    held = q.position
+    c.submit(job("urgent", target="b", pos=(-20, 0, 0), priority=1, params={"standoff": 0.0}))
+    run(c, 10)
+    assert c.rt["q1"].state == "PAUSED_PERSON" and q.position == held
+    assert c.rt["q1"].job == "urgent"
+    world.people = []
+    run(c, 60)
+    assert c.status["urgent"] == JobStatus.DONE
+
+
+def test_released_job_while_paused_keeps_robot_paused():
+    c, q, world = _paused()
+    held = q.position
+    c.cancel("j", by="operator", reason="test")
+    assert c.rt["q1"].state == "PAUSED_PERSON"
+    c.submit(job("next", target="b", pos=(-20, 0, 0), params={"standoff": 0.0}))
+    c.assign()
+    assert c.rt["q1"].state == "PAUSED_PERSON"
+    run(c, 10)
+    assert c.rt["q1"].state == "PAUSED_PERSON" and q.position == held
+    world.people = []
+    run(c, 60)
+    assert c.status["next"] == JobStatus.DONE
+
+
+def test_person_at_the_edge_of_the_radius_does_not_release_the_pause():
+    c, q, world = _paused()
+    held = q.position
+    world.people = [(q.position[0] + PERSON_RADIUS_M + 0.2, 0, 0)]
+    run(c, 5)
+    assert c.rt["q1"].state == "PAUSED_PERSON" and q.position == held
+    world.people = [(q.position[0] + PERSON_RADIUS_M + 1.5, 0, 0)]
+    c.tick()
+    assert c.rt["q1"].state != "PAUSED_PERSON"
+
+
+def test_robot_never_steps_into_the_person_radius():
+    world = World()
+    q = Robot("q1", Q, {"camera"}, (0, 0, 0), speed_mps=1.5)
+    c = Coordinator([q], world, {"look": Exec("look", duration=5)})
+    c.submit(job("j", pos=(30, 0, 0), params={"standoff": 0.0}))
+    for k in range(30):
+        world.people = [(min(4.2 + 1.2 * k, 12.0), 0.0, 0.0)]
+        c.tick()
+        assert math.dist(q.position, world.people[0]) >= PERSON_RADIUS_M
+    assert events(c, "person_pause")
+
+
 def test_low_battery_docks_and_requeues():
     q = Robot("q1", Q, {"camera"}, (0, 0, 0), battery=0.95)
     c = Coordinator([q], World(), {"look": Exec("look", duration=500)}, docks={"q1": (0, 0, 0)})

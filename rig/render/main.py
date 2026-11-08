@@ -38,7 +38,7 @@ def _load_scene(app, ctx, scene: dict):
         rest, distance, _, _ = ocean.make_grid()
         height = cinematic.PRESETS[scene["cinematic"]]["wave_height"]
         print(f"rig render: cinematic {scene['cinematic']} scene {path.name}", flush=True)
-        return stage, lambda t: cinematic.animate_ocean(stage, rest, distance, t, height)
+        return stage, lambda t, ocean=None: cinematic.animate_ocean(stage, rest, distance, t, (ocean or {}).get("height", height))
     if scene.get("scene") == "test":
         from rig.sim.scene import build_scene
 
@@ -47,7 +47,25 @@ def _load_scene(app, ctx, scene: dict):
     open_scene(app, ctx, scene["scene"])
     stage = ctx.get_stage()
     env = load_environment(stage, scene.get("env", ""), scene.get("sea_level", 0.0))
-    return stage, (lambda t: env.update(t, camera=CAMERA)) if env is not None else None
+    return stage, (lambda t, ocean=None: env.update(t, camera=CAMERA)) if env is not None else None
+
+
+def apply_settings(values: dict) -> None:
+    if not values:
+        return
+    import carb
+
+    st = carb.settings.get_settings()
+    for key, value in values.items():
+        if isinstance(value, list):
+            st.set_float_array(key, [float(v) for v in value])
+        else:
+            st.set(key, value)
+
+
+def apply_state(applier, msg: dict) -> None:
+    applier.apply(msg)
+    apply_settings(msg.get("settings"))
 
 
 def make_camera(stage):
@@ -150,7 +168,7 @@ def run_live(args) -> None:
     timeline.play()
     encode = make_encoder(args.jpeg, args.quality)
     msg = first
-    applier.apply(msg)
+    apply_state(applier, msg)
     for _ in range(WARMUP_STEPS):
         renderer.frame(False)
     period = 1.0 / args.fps if args.fps else 0.0
@@ -168,13 +186,13 @@ def run_live(args) -> None:
                 print(f"rig render: scene changed to {msg['scene']}, restarting", flush=True)
                 os._exit(3)
             t0 = time.perf_counter()
-            applier.apply(msg)
+            apply_state(applier, msg)
             head = msg
             acc["apply"] += time.perf_counter() - t0
         if head.get("view"):
             set_view(head["view"])
         if tick is not None:
-            tick(head.get("t", 0.0))
+            tick(head.get("t", 0.0), head.get("ocean"))
         if msg is not None or now - last_render >= args.keepalive:
             t1 = time.perf_counter()
             rgb = renderer.frame(args.wait_render)
@@ -259,7 +277,7 @@ def run_offline(args) -> None:
     t_start = time.monotonic()
     for deltas, state in replay_plan(log, args.fps):
         for d in deltas:
-            applier.apply(d)
+            apply_state(applier, d)
         t = state.get("t", 0.0)
         if t < args.start:
             continue
@@ -270,7 +288,7 @@ def run_offline(args) -> None:
         if state.get("view"):
             set_view(state["view"])
         if tick is not None:
-            tick(t)
+            tick(t, state.get("ocean"))
         if first:
             for _ in range(WARMUP_STEPS):
                 renderer.frame(True)

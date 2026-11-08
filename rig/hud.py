@@ -15,6 +15,7 @@ SCENARIO = ("set_weather", "drop_obstacle", "close_walkway", "close_stairs", "cl
             "battery_fault", "approve", "reject")
 EVENTS = HOOKS + EXTRA + CONTROL_EVENTS + SCENARIO
 WEATHER = ("calm", "wind", "rain", "fog", "storm")
+FLEET = ("drop_obstacle", "close_walkway", "close_stairs", "clear", "set_weather")
 RATES = {"SOAK": 0.15, "SCRUB": 0.35}
 DWELL = 1.3
 THUMB_W = 320
@@ -111,6 +112,8 @@ class HudFeed:
             "soak": {"left": round(max(0.0, o.soak_until - o.t), 2), "total": float(o.cfg.soak_s)}
             if o.state.value == "SOAK" else None,
         }
+        if hasattr(o, "gas_telemetry"):
+            out["gas"] = o.gas_telemetry()
         rob = self.robot(out)
         out["caption"] = rob["caption"]
         out["robots"] = [rob] + [p.robot() for p in self.peers]
@@ -170,9 +173,18 @@ def check_event(event: dict) -> dict:
     return {"name": name, "args": args}
 
 
-def apply_event(bridge, event: dict, control=None) -> bool:
+def is_fleet_event(name: str, args: dict) -> bool:
+    return name in FLEET or (name == "person_at" and any(k in args for k in ("xy", "xyz", "at")))
+
+
+def apply_event(bridge, event: dict, control=None, fleet=None) -> bool:
     ev = check_event(event)
     name, args = ev["name"], ev["args"]
+    if is_fleet_event(name, args):
+        if fleet is not None:
+            fleet.event(name, args)
+        if name == "person_at":
+            return fleet is not None
     if name in CONTROL_EVENTS:
         if control is None:
             raise ValueError("no control centre attached")

@@ -3,8 +3,12 @@ import math
 
 import numpy as np
 
-SCENE_KEYS = ("type", "seq", "t", "ts", "scene", "view", "specs", "attrs", "key")
-HEAD_KEYS = ("seq", "t", "ts", "scene", "view")
+SCENE_KEYS = ("type", "seq", "t", "ts", "scene", "view", "specs", "attrs", "key", "settings", "ocean")
+HEAD_KEYS = ("seq", "t", "ts", "scene", "view", "ocean")
+SYNC_SETTINGS = ("/rtx/fog/enabled", "/rtx/fog/fogZup/enabled", "/rtx/fog/fogColor", "/rtx/fog/fogColorIntensity",
+                 "/rtx/fog/fogStartHeight", "/rtx/fog/fogHeightDensity", "/rtx/fog/fogHeightFalloff",
+                 "/rtx/fog/fogDistanceDensity", "/rtx/post/lensFlares/enabled", "/rtx/post/lensFlares/flareScale",
+                 "/rtx/post/lensFlares/physicalSettings")
 LERP_TYPES = ("float", "double", "half", "float2", "float3", "float4", "double2", "double3", "double4", "half3",
               "color3f", "vector3f", "point3f", "normal3f", "vector3d", "point3d")
 QUAT_TYPES = ("quatf", "quatd", "quath")
@@ -19,6 +23,7 @@ class StateLog:
         self.head: dict = {}
         self.specs: dict[str, str | None] = {}
         self.attrs: dict[tuple[str, str], tuple[str, object]] = {}
+        self.settings: dict[str, object] = {}
 
     def merge(self, msg: dict) -> "StateLog":
         self.head.update({k: msg[k] for k in HEAD_KEYS if k in msg})
@@ -29,19 +34,20 @@ class StateLog:
         for path, name, kind, value in msg.get("attrs") or ():
             self.attrs.pop((path, name), None)
             self.attrs[(path, name)] = (kind, value)
+        self.settings.update(msg.get("settings") or {})
         return self
 
     def message(self, key: bool = False) -> dict:
         return {"type": "state", **self.head, "key": key, "specs": [[p, u] for p, u in self.specs.items()],
-                "attrs": [[p, n, k, v] for (p, n), (k, v) in self.attrs.items()]}
+                "attrs": [[p, n, k, v] for (p, n), (k, v) in self.attrs.items()], "settings": dict(self.settings)}
 
     def take(self) -> dict:
         msg = self.message()
-        self.specs, self.attrs = {}, {}
+        self.specs, self.attrs, self.settings = {}, {}, {}
         return msg
 
     def empty(self) -> bool:
-        return not self.specs and not self.attrs
+        return not self.specs and not self.attrs and not self.settings
 
 
 def merge_messages(old: dict, new: dict) -> dict:
@@ -123,6 +129,28 @@ def interpolate(a: dict, b: dict, u: float) -> dict:
     if b.get("view"):
         out["view"] = blend_view(a.get("view"), b["view"], u)
     return out
+
+
+def _plain(v):
+    return [_plain(x) for x in v] if isinstance(v, (list, tuple)) else v
+
+
+class SettingsWatch:
+    def __init__(self, get, keys) -> None:
+        self.get, self.keys = get, tuple(keys)
+        self.last: dict = {}
+
+    def poll(self) -> dict:
+        out = {}
+        for k in self.keys:
+            v = _plain(self.get(k))
+            if v is not None and self.last.get(k) != v:
+                out[k] = self.last[k] = v
+        return out
+
+    def all(self) -> dict:
+        self.poll()
+        return dict(self.last)
 
 
 class Inbox:

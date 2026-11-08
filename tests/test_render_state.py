@@ -109,6 +109,30 @@ def test_resample_maps_output_frames_to_segments():
     assert resample([], 30) == []
 
 
+def test_log_merges_settings_and_ocean():
+    log = StateLog().merge(msg(1, settings={"/rtx/fog/fogHeightDensity": 0.01, "/rtx/fog/enabled": True}, ocean={"height": 1.5}))
+    log.merge(msg(2, settings={"/rtx/fog/fogHeightDensity": 0.03}, ocean={"height": 3.2}))
+    key = log.message(True)
+    assert key["settings"] == {"/rtx/fog/fogHeightDensity": 0.03, "/rtx/fog/enabled": True}
+    assert key["ocean"] == {"height": 3.2}
+    assert log.take()["settings"]
+    assert log.take()["settings"] == {} and log.message()["ocean"] == {"height": 3.2}
+    scene, meta = split({**msg(3), "settings": {"/a": 1}, "ocean": {"height": 1}, "plume": {"x": 1}})
+    assert "settings" in scene and "ocean" in scene and meta["plume"] == {"x": 1}
+
+
+def test_settings_watch_reports_changes_only():
+    from rig.render.state import SettingsWatch
+
+    store = {"/a": 1.0, "/b": [0.1, 0.2], "/c": None}
+    watch = SettingsWatch(store.get, ["/a", "/b", "/c"])
+    assert watch.poll() == {"/a": 1.0, "/b": [0.1, 0.2]}
+    assert watch.poll() == {}
+    store["/b"] = (0.3, 0.2)
+    assert watch.poll() == {"/b": [0.3, 0.2]}
+    assert watch.all() == {"/a": 1.0, "/b": [0.3, 0.2]}
+
+
 def test_inbox_merges_until_taken():
     from rig.render.state import Inbox
 

@@ -34,6 +34,8 @@ class FrameSender:
                     header = merge_messages(old, header)
                 elif old.get("events"):
                     header = {**header, "events": old["events"] + list(header.get("events") or [])}
+                if old.get("plume"):
+                    header = {**header, "plume": {**old["plume"], **(header.get("plume") or {})}}
             self._slot = (header, payload)
         self._ready.set()
 
