@@ -26,9 +26,21 @@ def main(argv=None) -> int:
     ap.add_argument("--snapshot", default="", help="HUD header JSON/JSONL file instead of the mock fleet")
     ap.add_argument("--log", default=str(REPO / "runs/control/calls.jsonl"))
     ap.add_argument("--full", action="store_true", help="print the whole control header")
+    ap.add_argument("--intent", default="", help="operator intent for the mission planner (function calling)")
     a = ap.parse_args(argv)
-    centre = from_env(a.mode, a.log, sync=True, interval_s=0.0, alarm_gap_s=0.0)
+    fleet = FleetScenario()
+    centre = from_env(a.mode, a.log, sync=True, interval_s=0.0, alarm_gap_s=0.0, port=fleet.port)
     print(f"backend: {centre.backend.name if centre.backend else 'none (edge rules only)'}")
+    if a.intent:
+        rec = centre.intent(a.intent)
+        print(f"planner: status={rec['status']} turns={rec['turns']} latency={rec.get('latency_ms')} ms "
+              f"tokens in/out/thought={rec.get('tokens_in')}/{rec.get('tokens_out')}/{rec.get('tokens_thought')} "
+              f"cost=${rec.get('cost_usd')} {rec['error'] or ''}")
+        for c in rec["calls"]:
+            print(f"   {'OK ' if c['ok'] else 'NO '} {c['name']} {json.dumps(c['args'])}" +
+                  (f"  REFUSED: {c['refused']}" if c["refused"] else ""))
+        print("   >", rec["text"])
+        return 0
     if a.snapshot:
         snaps = [(0.0, from_file(a.snapshot))]
     else:

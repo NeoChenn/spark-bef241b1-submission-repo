@@ -22,6 +22,7 @@
     { id: "mist", label: "Lens mist", key: "3", toggle: true, ev: (on) => ({ name: "occlude_camera", args: { on } }) },
     { id: "bead", label: "Weld bead", key: "4", ev: () => ({ name: "force_spike", args: {} }) },
     { id: "worker", label: "Worker walks up", key: "5", toggle: true, ev: (on) => ({ name: "person_at", args: { distance: on ? 2.4 : null } }) },
+    { id: "link", label: "Cut Gemini link", key: "6", toggle: true, ev: (on) => ({ name: "cut_link", args: { on } }) },
   ];
   const FORCE_LIMIT = 40, FORCE_CAP = 38, VITAL_WINDOW = 30, FORCE_WINDOW = 20;
 
@@ -276,8 +277,11 @@
   }
 
   const CC_TOP = 3;
-  function showControl(c) {
-    S.control = c;
+  const CUT = { mode: "EDGE", banner: "GEMINI LINK CUT — EDGE ONLY", pending: false, link: "CUT" };
+  function showControl(raw) {
+    S.control = raw;
+    const c = S.linkCut ? { ...raw, ...CUT, agent: raw.agent && { ...raw.agent, link: "CUT" } } : raw;
+    S.controlView = c;
     const mode = $("cc-mode");
     mode.textContent = c.mode;
     mode.className = "badge" + (c.mode === "CLOUD" ? " cloud" : "") + (c.pending ? " pending" : "");
@@ -300,8 +304,12 @@
     $("cc-chips").innerHTML = chips.concat(gas).join("");
     const veto = (c.vetoed || []).slice(0, 2).map((v) => `<span class="veto"><b>Edge veto</b> <s>${esc(v.label)}</s><em>${esc(v.why)}</em></span>`);
     $("cc-foot").innerHTML = veto.join("");
+    const ag = c.agent;
+    $("cc-agent").innerHTML = !ag ? "" : `<div class="ag-head"><i>Mission planner</i><span class="${ag.link === "CUT" ? "cut" : ""}">link ${ag.link}</span></div>` +
+      (ag.intent ? `<p class="ag-intent">“${esc(ag.intent)}”</p>` : "") +
+      (ag.calls || []).slice(-2).reverse().map((x) => `<div class="ag-call ${x.ok ? "" : "no"}"><b>${x.ok ? "✓" : "✗"}</b><span>${esc(x.label)}</span><em>${esc(x.ok ? x.why : "refused: " + x.refused)}</em></div>`).join("");
   }
-  window.hudControl = () => S.control || null;
+  window.hudControl = () => S.controlView || null;
 
   const NUM = /\d+(?:\.\d+)?/g, LIFT = 0.85, EDGE = 28;
   const CAP = { key: null, c: null, nums: [], layer: 0 };
@@ -466,6 +474,7 @@
       judge("BACK_OFF", "contact force 65 N > 40 N limit -> retract");
       setState("BACK_OFF");
     }
+    if (a.id === "link") { S.linkCut = a.on; judge(a.on ? "EDGE ONLY" : "CLOUD", a.on ? "Gemini link cut -> coordinator and robots keep the last plan" : "Gemini link restored"); if (S.control) showControl(S.control); }
     if (a.id === "worker") { judge(a.on ? "PAUSE_PERSON" : "SCRUB", a.on ? "person at 2.4 m < 3.0 m -> pause" : "person clear -> resume"); if (a.on) setState("PAUSE_PERSON"); }
   }
 

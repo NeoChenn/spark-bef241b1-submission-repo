@@ -19,6 +19,7 @@ from policy.control.snapshot import SensorSnapshot
 OFFLINE_BANNER = "CLOUD OFFLINE — edge rules only"
 CAP_BANNER = "COST CAP REACHED — edge rules only"
 NO_CLOUD_BANNER = "NO CLOUD KEY — edge rules only"
+CUT_BANNER = "GEMINI LINK CUT — EDGE ONLY"
 ALARM_STATES = {"BACK_OFF", "PAUSE_PERSON", "HOLD", "ESCALATE_TO_HUMAN", "GAS_CHECK", "GAS_RETREAT", "DONE"}
 LEAK_ALARM_LEL = 10.0
 LEAK_ALARM_TREND = 3.0
@@ -48,8 +49,8 @@ class ControlCentre:
     def __init__(self, backend, log_path="runs/control/calls.jsonl", interval_s: float = 6.0,
                  alarm_gap_s: float = 1.5, per_minute: int = 12, cap_usd_day: float = 5.0, timeout_s: float = 30.0,
                  sync: bool = True, today=date.today, max_images: int = 1, sim_latency: bool = False,
-                 auto_conf: float = AUTO_CONF):
-        self.backend = backend
+                 auto_conf: float = AUTO_CONF, agent=None):
+        self.backend, self.agent, self.link_cut = backend, agent, False
         self.log_path = Path(log_path) if log_path else None
         self.limiter = RateLimiter(interval_s, alarm_gap_s, per_minute)
         self.budget = Budget(cap_usd_day)
@@ -81,13 +82,29 @@ class ControlCentre:
         self.unserved |= cur - self.seen
         self.seen = cur
         self._collect(now)
-        if self.cloud and self.pending is None:
+        if self.cloud and not self.link_cut and self.pending is None:
             if not self.budget.allows(self.today()):
                 self.status = "capped"
             elif self.limiter.due(now, alarm=bool(self.unserved)):
                 self._start(snap, edge, now)
         final, vetoed = arbitrate(edge, self.plan.actions if self.plan else [], snap)
         return self._header(snap, edge, final, vetoed, now)
+
+    def cut_link(self, on: bool) -> None:
+        self.link_cut = bool(on)
+        self.pending = None
+        if on:
+            self.status = "cut"
+        elif self.status == "cut":
+            self.status = "ok" if self.plan is not None else "idle"
+        if self.agent is not None:
+            self.agent.cut_link(on)
+
+    def intent(self, text: str, now: float = 0.0):
+        return None if self.agent is None else self.agent.handle(intent=text, now=now)
+
+    def finding(self, finding: dict, now: float = 0.0):
+        return None if self.agent is None else self.agent.handle(findings=[finding], now=now)
 
     def wait(self) -> None:
         if self.pending is not None and "future" in self.pending:
@@ -170,13 +187,15 @@ class ControlCentre:
             f.write(json.dumps(rec, default=str) + "\n")
 
     def _banner(self) -> Optional[str]:
+        if self.link_cut:
+            return CUT_BANNER
         if not self.cloud:
             return NO_CLOUD_BANNER
         return {"offline": OFFLINE_BANNER, "invalid": OFFLINE_BANNER, "capped": CAP_BANNER}.get(self.status)
 
     def _header(self, snap, edge, final, vetoed, now) -> dict:
         day = self.today()
-        online = self.cloud and self.status in ("ok", "idle")
+        online = self.cloud and not self.link_cut and self.status in ("ok", "idle")
         plan = self.plan
         return {
             "mode": "CLOUD" if online and plan is not None else "EDGE",
@@ -204,17 +223,23 @@ class ControlCentre:
             "gas": [{"id": g.id, "zone": g.zone, "lel": round(g.lel, 1), "db": g.acoustic_db, "trend": g.lel_trend}
                     for g in sorted(snap.gas, key=lambda g: -g.lel)[:TOP_GAS]],
             "storm_level": round(snap.storm_level, 2),
+            "link": "CUT" if self.link_cut else "UP",
+            "agent": self.agent.summary() if self.agent is not None else None,
         }
 
 
-def from_env(mode: str = "auto", log_path="runs/control/calls.jsonl", sync: bool = False, **kw) -> ControlCentre:
+def from_env(mode: str = "auto", log_path="runs/control/calls.jsonl", sync: bool = False, port=None,
+             **kw) -> ControlCentre:
+    from policy.control.agent import ArgonAgentBackend, OrchestrationAgent, ReplayAgentBackend
     from policy.control.backend import ArgonBackend, ReplayBackend
     live = ArgonBackend()
     if mode == "live" or (mode == "auto" and live.available):
-        backend = live
+        backend, planner = live, ArgonAgentBackend()
     elif mode == "edge":
-        backend = None
+        backend = planner = None
     else:
-        backend = ReplayBackend()
+        backend, planner = ReplayBackend(), ReplayAgentBackend()
+    if port is not None:
+        kw["agent"] = OrchestrationAgent(port, planner, log_path=Path(log_path).with_name("agent_calls.jsonl"))
     kw.setdefault("cap_usd_day", float(os.environ.get("CONTROL_CAP_USD", "5")))
     return ControlCentre(backend, log_path=log_path, sync=sync, **kw)

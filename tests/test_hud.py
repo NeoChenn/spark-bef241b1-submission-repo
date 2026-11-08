@@ -127,6 +127,22 @@ def test_record_mock_session(tmp_path):
     assert any(a["kind"] == "probable_leak" for c in ctl for a in c["anomalies"])
     assert snaps[-1]["control"]["key"] == "done"
     assert (tmp_path / "control_calls.jsonl").read_text().count("\n") >= 8
+    agent = snaps[-1]["control"]["agent"]
+    assert agent["intent"].startswith("Inspect deck 2") and agent["reserved"] == ["paint"]
+    assert any(not c["ok"] and "own SUPV" in c["refused"] for c in agent["calls"])
+    lines = [json.loads(x) for x in (tmp_path / "agent_calls.jsonl").read_text().splitlines()]
+    assert len(lines) == 3 and {"reprioritise", "queue_job"} <= {n for x in lines for n in x["decision"]}
+
+
+def test_apply_event_routes_control_events():
+    seen = []
+    ctl = type("C", (), {"cut_link": lambda self, on: seen.append(("cut", on)),
+                         "intent": lambda self, text: seen.append(("intent", text))})()
+    apply_event(FakeBridge(), {"name": "cut_link", "args": {"on": True}}, ctl)
+    apply_event(FakeBridge(), {"name": "intent", "args": {"text": "inspect deck 2"}}, ctl)
+    assert seen == [("cut", True), ("intent", "inspect deck 2")]
+    with pytest.raises(ValueError):
+        apply_event(FakeBridge(), {"name": "cut_link", "args": {"on": True}})
 
 
 def test_header_includes_control_when_attached(orch):

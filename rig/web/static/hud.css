@@ -231,6 +231,7 @@ kbd { font-family: var(--mono); letter-spacing: 0.02em; color: var(--faint); bor
 .cc-acts .bar { grid-column: 2 / 4; height: 3px; }
 .cc-acts li.edge .bar span { background: var(--stop); }
 .cc-acts .why { grid-column: 2 / 4; font-size: 11px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-acts li:not(:first-child) .why { display: none; }
 .cc-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .cc-chips:empty { display: none; }
 .cc-chips span { font-size: 10px; letter-spacing: .04em; padding: 3px 8px; border-radius: 6px; color: var(--dim); background: rgba(245,244,238,.07); }
@@ -241,9 +242,20 @@ kbd { font-family: var(--mono); letter-spacing: 0.02em; color: var(--faint); bor
 .cc-foot .veto s { color: var(--dim); }
 .cc-foot .veto b { color: var(--stop); font-weight: 500; text-transform: uppercase; font-size: 9.5px; letter-spacing: .06em; }
 .cc-foot .veto em { flex-basis: 100%; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-agent:empty { display: none; }
+.cc-agent { display: flex; flex-direction: column; gap: 4px; padding-top: 7px; border-top: 1px solid var(--line); }
+.ag-head { display: flex; justify-content: space-between; align-items: center; }
+.ag-head span { font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ok); }
+.ag-head span.cut { color: var(--stop); }
+.ag-intent { margin: 0; font-size: 11.5px; color: var(--dim); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ag-call { display: grid; grid-template-columns: 12px 1fr; column-gap: 7px; font-size: 11.5px; }
+.ag-call b { color: var(--ok); font-weight: 500; }
+.ag-call.no b, .ag-call.no em { color: var(--stop); }
+.ag-call span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ag-call em { grid-column: 2; font-size: 10.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-height: 800px) {
   .control { left: calc(var(--edge) + 248px); top: 164px; width: 340px; max-height: calc(100vh - 164px - 186px); gap: 7px; padding: 12px 14px; }
-  .cc-acts .why { display: none; }
+  .cc-acts .why, .ag-intent, .ag-call em, .cc-foot { display: none; }
 }
 #help { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -48%); width: 340px; padding: 16px 18px; opacity: 0; pointer-events: none; transition: opacity var(--fade) ease, transform var(--fade) ease; z-index: 20; }
 #help.open { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%); }
