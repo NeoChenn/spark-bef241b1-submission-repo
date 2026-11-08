@@ -169,11 +169,6 @@ class Atmosphere:
         self.spray = atmos.Particles(self.q["spray"], (np.array([-200, -200, -0.5]), np.array([200, 200, 40.0])),
                                      gravity=-9.8, drag=0.9, life=(0.8, 2.4), source=leg_sources(stage), seed=3)
         self.spray_curves = _curves(stage, "spray", 0.035, self.spray_mat)
-        mist = atmos.Particles(max(24, self.q["spray"] // 10), (np.array([-200, -200, -0.5]), np.array([200, 200, 40.0])),
-                               gravity=-1.0, drag=0.6, life=(2.0, 4.5), source=leg_sources(stage), seed=4)
-        self.mist = Puffs(stage, "leg_mist", mist, (0.62, 0.66, 0.68), (1.2, 5.5), emissive=0.03, alpha=0.3)
-        for k in range(self.mist.levels):
-            UsdShade.Shader.Get(stage, f"{ROOT}/Looks/leg_mist_{k}/surface").GetInput("opacityThreshold").Set(0.0)
         self._build_exhaust()
         self.flow = self._build_flow() if (flow if flow is not None else self.q["flow"]) else None
         self.puffs = [] if self.flow is not None else self._build_puffs()
@@ -294,8 +289,7 @@ class Atmosphere:
             puff.update(dt, wind, eye)
         self.spray.step(dt, wind)
         k = int(len(self.spray.pos) * 0.15 * min(1.0, 0.15 + self.w["spray"]))
-        _set_curves(self.spray_curves, atmos.streak_points(self.spray.pos[:k], self.spray.vel[:k], 0.35))
-        self.mist.update(dt, wind, eye)
+        _set_curves(self.spray_curves, atmos.streak_points(self.spray.pos[:k], self.spray.vel[:k], 0.3))
         tip = self.stage.GetPrimAtPath("/World/Cinematic/Lamps/lamp_400/light")
         if tip:
             base = tip.GetAttribute("spark:baseIntensity")
