@@ -5,14 +5,15 @@ import math
 import numpy as np
 from PIL import Image, ImageChops
 
-EV_KEYS = ((1.5, -1.5), (8.0, -1.0), (30.0, 0.0), (120.0, 0.8), (330.0, 1.2))
+EV_KEYS = ((1.9, -0.2), (8.0, 0.0), (40.0, 0.4), (120.0, 0.8), (330.0, 1.0))
 VIEWS = {
-    "wide": {"ev": 1.2, "fstop": 0.0},
-    "deck_mid": {"ev": -0.8, "fstop": 0.0},
-    "repair": {"ev": -1.5, "fstop": 2.8},
+    "wide": {"ev": 1.0, "fstop": 0.0},
+    "deck_mid": {"ev": 0.0, "fstop": 0.0},
+    "repair": {"ev": -0.2, "fstop": 2.0},
     "waterline": {"ev": 0.8, "fstop": 0.0},
-    "flare": {"ev": 0.6, "fstop": 0.0},
+    "flare": {"ev": 0.3, "fstop": 0.0},
 }
+LENS_SCALE = 100.0
 BASE_ISO = 100.0
 KELVIN = {2000.0: 2100.0, 4000.0: 4500.0, 6000.0: 7000.0}
 FIXTURES = {
@@ -27,16 +28,18 @@ TONEMAP = {
 TIERS = {
     "none": {"rtx": {}, "grade": None},
     "live": {
-        "rtx": {**TONEMAP, "/rtx/post/lensFlares/enabled": True, "/rtx/post/lensFlares/flareScale": 0.1},
-        "grade": {"contrast": 0.18, "gamma": (1.08, 1.0, 0.92), "gain": (1.06, 1.0, 0.9), "lift": (0.0, 0.006, 0.012),
+        "rtx": {**TONEMAP, "/rtx/post/lensFlares/enabled": True, "/rtx/post/lensFlares/physicalSettings": False,
+                "/rtx/post/lensFlares/flareScale": 0.08},
+        "grade": {"contrast": 0.1, "gamma": (1.2, 0.98, 0.78), "gain": (1.08, 1.0, 0.86), "lift": (0.0, 0.015, 0.025),
                   "vignette": 0.35, "saturation": 1.0, "grain": 0.0},
     },
     "offline": {
-        "rtx": {**TONEMAP, "/rtx/post/lensFlares/enabled": True, "/rtx/post/lensFlares/flareScale": 0.15,
+        "rtx": {**TONEMAP, "/rtx/post/lensFlares/enabled": True, "/rtx/post/lensFlares/physicalSettings": True,
+                "/rtx/post/lensFlares/flareScale": 0.25,
                 "/rtx/post/motionblur/enabled": True, "/rtx/post/chromaticAberration/enabled": True,
-                "/rtx/post/chromaticAberration/strengthR": -0.012, "/rtx/post/chromaticAberration/strengthG": 0.0,
-                "/rtx/post/chromaticAberration/strengthB": 0.012},
-        "grade": {"contrast": 0.18, "gamma": (1.08, 1.0, 0.92), "gain": (1.06, 1.0, 0.9), "lift": (0.0, 0.006, 0.012),
+                "/rtx/post/chromaticAberration/strengthR": -0.006, "/rtx/post/chromaticAberration/strengthG": 0.0,
+                "/rtx/post/chromaticAberration/strengthB": 0.006},
+        "grade": {"contrast": 0.1, "gamma": (1.2, 0.98, 0.78), "gain": (1.08, 1.0, 0.86), "lift": (0.0, 0.015, 0.025),
                   "vignette": 0.35, "saturation": 0.9, "grain": 0.025},
     },
 }
@@ -76,7 +79,7 @@ def fixture(kind: str, kelvin: float, intensity: float, cone: float | None = Non
 
 
 def lens(distance: float, fstop: float) -> dict:
-    return {"fStop": float(fstop), "focusDistance": float(distance)}
+    return {"fStop": float(fstop) * LENS_SCALE, "focusDistance": float(distance)}
 
 
 def curves(p: dict) -> np.ndarray:

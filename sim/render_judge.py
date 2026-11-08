@@ -90,7 +90,7 @@ if args.atmos != "none":
 overrides = dict(parse_setting(item) for item in args.set)
 looks = args.look.split(",")
 keys = {k for lk in looks for k in look.rtx_settings(lk)}
-neutral = {k: settings.get(k) for k in keys}
+neutral = {k: settings.get(k) if settings.get(k) is not None else (False if k.endswith("enabled") else None) for k in keys}
 
 
 def use_look(lk, ev, eye, target, fstop):

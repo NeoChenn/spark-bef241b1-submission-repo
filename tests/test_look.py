@@ -40,7 +40,8 @@ def test_view_look_table_and_fallback():
 
 
 def test_lens():
-    assert look.lens(2.5, 2.8) == {"fStop": 2.8, "focusDistance": 2.5}
+    assert look.lens(2.5, 2.8) == {"fStop": pytest.approx(2.8 * look.LENS_SCALE), "focusDistance": 2.5}
+    assert look.lens(9.0, 0.0)["fStop"] == 0.0
 
 
 def test_curves_monotone_split_tone():
