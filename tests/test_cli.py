@@ -58,3 +58,9 @@ def test_atmosphere_flags():
     assert a.atmos == "" and a.weather == "" and a.wind_dir is None and a.gust is None and not a.lens
     b = parse_args(["--atmos", "live", "--weather", "calm@0,storm@20", "--wind-dir", "120", "--gust", "30", "--lens"])
     assert (b.atmos, b.weather, b.wind_dir, b.gust, b.lens) == ("live", "calm@0,storm@20", 120.0, 30.0, True)
+
+
+def test_look_tier(monkeypatch):
+    monkeypatch.delenv("RIG_LOOK", raising=False)
+    assert parse_args([]).look == "live"
+    assert parse_args(["--look", "none"]).look == "none"
