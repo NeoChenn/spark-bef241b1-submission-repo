@@ -177,8 +177,8 @@ def make_obstacles(stage, cine_update, args):
 def handle_event(scene, event: dict, atm=None) -> None:
     name, args = event.get("name"), event.get("args") or {}
     if atm is not None and name == "set_weather":
-        keys = ("level", "wind_dir", "gust") + (("time",) if "time" in inspect.signature(atm.set_weather).parameters else ())
-        atm.set_weather(**{k: args[k] for k in keys if k in args})
+        ok = inspect.signature(atm.set_weather).parameters
+        atm.set_weather(**{k: args[k] for k in ("level", "wind_dir", "gust", "time", "rain", "fog") if k in args and k in ok})
     if scene is not None and name == "fleet":
         scene.sync(args)
         return

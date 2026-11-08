@@ -215,8 +215,13 @@ class Fleet:
                 at = d.get("at") if d.get("at") is not None else self.robots[0].id
                 rid = at if isinstance(at, str) else at.get("robot") if isinstance(at, dict) else None
                 rob = next((r for r in self.robots if r.id == rid), None)
+                spur = next((c for c in self.rm.coarse if c["id"] == rid and c["kind"] == "spur"), None)
+                if spur is not None:
+                    u = np.subtract(spur["b"], spur["a"])
+                    h["xyz"] = (np.asarray(spur["a"]) + u * 0.3 / max(float(np.linalg.norm(u)), 1e-9)).tolist()
+                toward = rob.pos if rob is not None else spur["b"] if spur is not None else None
                 try:
-                    barrel.start(self.rm, h, None if rob is None else rob.pos, barrel.wind_xy(self.hz.weather))
+                    barrel.start(self.rm, h, toward, barrel.wind_xy(self.hz.weather))
                 except ValueError:
                     del self.hz.obstacles[h["id"]]
                     raise
@@ -240,10 +245,11 @@ class Fleet:
             h = {"id": ",".join(gone) or "none"}
             msg, cause = f"cleared {h['id']} -> routes restored", f"cleared {h['id']}"
         else:
-            w = self.hz.set_weather(d.get("level", "calm"), d.get("wind_dir"), d.get("gust"), d.get("time"))
+            w = self.hz.set_weather(d.get("level", "calm"), d.get("wind_dir"), d.get("gust"), d.get("time"),
+                                    d.get("rain"), d.get("fog"))
             h = {"id": w["level"]}
             when = f" at {w['time']}" if w.get("time") else ""
-            msg = f"weather calm{when} -> normal speed and sight" if w["level"] == "calm" else (f"weather {w['level']}{when}: wind {w['wind']:.1f} toward {w['wind_dir']:.0f} deg, wet {w['wet']:.1f}, "
+            msg = f"weather clear{when} -> normal speed and sight" if w["label"] == "calm" else (f"weather {w['label']}{when}: wind {w['wind']:.1f} toward {w['wind_dir']:.0f} deg, wet {w['wet']:.1f}, "
                    f"fog {w['fog']:.1f} -> speed x{w['speed']['walk']:.2f}, stairs x{w['speed']['stairs']:.2f}, "
                    f"sight {w['perception_range_m']:.0f} m" + (", windward walkways closed" if w["closes_outer"] else ""))
             cause = f"weather {w['level']}"
