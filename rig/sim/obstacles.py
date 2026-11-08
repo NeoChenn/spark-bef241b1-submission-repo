@@ -65,11 +65,7 @@ class ObstacleScene:
     def __init__(self, stage, wave=None, radius=0.06, robot_model=True):
         self.stage, self.wave, self.radius, self.robot_model = stage, wave if wave is not None else {}, radius, robot_model
         self.b = SceneBuilder(stage)
-        UsdGeom.Scope.Define(stage, ROOT)
-        for g in ("Props", "Paths", "Closed", "Robots"):
-            UsdGeom.Scope.Define(stage, f"{ROOT}/{g}")
-        self.coral, _ = _emissive(stage, "obst_coral", CORAL)
-        self.red, _ = _emissive(stage, "obst_closed", CLOSED)
+        self._roots()
         self.now = 0.0
         self.props: dict[str, dict] = {}
         self.paths: dict[str, dict] = {}
@@ -88,6 +84,20 @@ class ObstacleScene:
             self.flames.append((op, op.Get()))
         self.tip_z = min((p[2] for _, p in self.flames), default=0.0)
         self.n = 0
+
+    def _roots(self):
+        UsdGeom.Scope.Define(self.stage, ROOT)
+        for g in ("Props", "Paths", "Closed", "Robots"):
+            UsdGeom.Scope.Define(self.stage, f"{ROOT}/{g}")
+        self.coral, _ = _emissive(self.stage, "obst_coral", CORAL)
+        self.red, _ = _emissive(self.stage, "obst_closed", CLOSED)
+
+    def republish(self):
+        for p in (ROOT, "/World/Looks/obst_coral", "/World/Looks/obst_closed"):
+            self.stage.RemovePrim(p)
+        self.props, self.paths, self.robots, self.closed_key = {}, {}, {}, None
+        self.b.materials = {k: v for k, v in self.b.materials.items() if not k.startswith("obst_")}
+        self._roots()
 
     def _id(self, s):
         self.n += 1
