@@ -308,7 +308,7 @@ def worker(argv):
             base.sim.set_camera_view((eye + origin).tolist(), (look + origin).tolist())
             rgb = render_frame()
             if args.storm > 0 and rgb is not None and rgb.size:
-                rgb = storm_grade(rgb, 0.8 * args.storm, t)
+                rgb = storm_grade(rgb, args.storm, t)
             force = float(base.force[0])
             lines = [state, f"rust remaining   {100 * frac:5.1f} %",
                      f"contact force    {force:5.1f} N   (limit 40 N)",

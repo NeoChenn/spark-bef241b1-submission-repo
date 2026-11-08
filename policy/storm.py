@@ -199,8 +199,8 @@ def storm_grade(rgb: np.ndarray, level: float, t: float, seed: int = 0) -> np.nd
 
     f = rgb[..., :3].astype(np.float32)
     grey = f.mean(-1, keepdims=True)
-    f = f + (grey - f) * 0.45 * level
-    f = f * (1 - 0.35 * level) + np.array([18.0, 26.0, 38.0]) * 0.35 * level
+    f = f + (grey - f) * 0.55 * level
+    f = f * (1 - 0.45 * level) + np.array([14.0, 22.0, 34.0]) * 0.45 * level
     im = Image.fromarray(np.clip(f, 0, 255).astype(np.uint8)).convert("RGBA")
     over = Image.new("RGBA", im.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(over)
