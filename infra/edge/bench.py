@@ -92,7 +92,7 @@ class Trt:
         self.r.activate()
 
     def __call__(self, feed):
-        return list(self.r.infer(feed, check_inputs=False).values())[0]
+        return list(self.r.infer(feed, check_inputs=False).values())[0].copy()
 
     def device_mem(self) -> int:
         return int(self.r.context.engine.device_memory_size_v2)
@@ -179,7 +179,7 @@ def main(argv=None):
             if a.rebuild or not eng.exists():
                 cache = engdir / f"{'img' if is_img else 'obs'}_int8.cache"
                 builds[f"{name}_{prec}"] = build(bundle / cfg["onnx"], eng, prec, cfg["input"], calib.shape[1:],
-                                                 cfg["batch"], cfg["max"], calib, cache)
+                                                 cfg["batch"], cfg["max"], calib[:512], cache)
                 print("built", name, prec, f"{builds[f'{name}_{prec}']:.0f}s", flush=True)
     if a.build_only:
         os._exit(0)

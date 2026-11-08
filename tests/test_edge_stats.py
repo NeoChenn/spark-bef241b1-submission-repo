@@ -93,21 +93,59 @@ def test_window_samples_assigns_by_time_and_skips_settle():
     assert window_samples(samples, [], settle=0.0) == []
 
 
+def _e(ms, w=45.0):
+    return {"latency": {"p50_ms": ms, "p99_ms": 2 * ms}, "power": {"load_mean_w": w, "delta_w": 1.5}}
+
+
 def _fake_run(det_ms, pol_ms):
-    def e(ms, w):
-        return {"latency": {"p50_ms": ms, "p99_ms": 2 * ms}, "power": {"load_mean_w": w, "delta_w": 1.5}}
     return {"background": {"gpu_util_mean": 90.0, "gpu_power_mean_w": 40.0},
-            "models": {"rust_detector": {"trt": {"fp16": e(det_ms, 45.0)}},
-                       "leak_crack": {"trt": {"fp16": e(5.0, 46.0)}},
-                       "scrub_policy": {"trt": {"fp16": e(pol_ms, 44.0)}}}}
+            "models": {"rust_detector": {"trt": {"fp16": _e(det_ms), "fp32": _e(det_ms * 3)},
+                                         "cpu": {"ort_fp32_4thr": _e(det_ms * 2, 41.0)}},
+                       "leak_crack": {"trt": {"int8": _e(5.0, 46.0)}, "cpu": {}},
+                       "scrub_policy": {"trt": {"fp16": _e(5.0)}, "cpu": {"ort_fp32_1thr": _e(pol_ms, 40.0)}}}}
+
+
+def test_best_backend_picks_lowest_p50_across_trt_and_cpu():
+    from infra.edge.report import best
+
+    m = _fake_run(2.0, 0.5)["models"]
+    assert best(m["rust_detector"]) == ("trt_fp16", m["rust_detector"]["trt"]["fp16"])
+    assert best(m["scrub_policy"])[0] == "ort_fp32_1thr"
+
+
+def test_best_skips_backends_that_change_decisions():
+    from infra.edge.report import best
+
+    m = {"trt": {"int8": {**_e(1.0), "vs_fp32_cpu": {"decision_agreement": 0.95}},
+                 "fp16": {**_e(2.0), "vs_fp32_cpu": {"decision_agreement": 1.0}}},
+         "cpu": {"ort_fp32_4thr": _e(3.0)}}
+    assert best(m)[0] == "trt_fp16"
+    p = {"trt": {"int8": {**_e(0.1), "vs_fp32_cpu": {"max_force_setpoint_diff_n": 2.0}}}, "cpu": {"ort": _e(0.2)}}
+    assert best(p)[0] == "ort"
+
+
+def test_merge_accuracy_overwrites_only_accuracy_fields():
+    from infra.edge.report import merge_accuracy
+
+    run = _fake_run(2.0, 0.5)
+    run["models"]["rust_detector"]["trt"]["fp16"]["vs_fp32_cpu"] = {"decision_agreement": 0.4}
+    acc = {"time": "t", "models": {"rust_detector": {"accuracy_fp32_cpu": {"x": 1},
+                                                     "trt": {"fp16": {"vs_fp32_cpu": {"decision_agreement": 1.0},
+                                                                      "latency": {"p50_ms": 99.0}}}}}}
+    merge_accuracy(run, acc)
+    e = run["models"]["rust_detector"]["trt"]["fp16"]
+    assert e["vs_fp32_cpu"]["decision_agreement"] == 1.0
+    assert e["latency"]["p50_ms"] == 2.0
+    assert run["models"]["rust_detector"]["accuracy_fp32_cpu"] == {"x": 1}
 
 
 def test_headline_and_summary():
     from infra.edge.report import headline, summary
 
     h = headline({"contended": _fake_run(2.0, 0.5)}, "contended")
+    assert h["detector"] == "trt_fp16" and h["policy"] == "ort_fp32_1thr"
     assert h["loop_hz_p50"] == pytest.approx(400.0)
     assert h["loop_hz_p99"] == pytest.approx(200.0)
     assert h["detector_gpu_w"] == 45.0
-    s = summary(h)
+    s = summary({"contended": h})
     assert "400 Hz" in s and "Gemini" in s
