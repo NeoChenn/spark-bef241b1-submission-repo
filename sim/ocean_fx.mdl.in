@@ -122,7 +122,8 @@ export material OceanFx(
     float drift_speed = 0.6,
     float3 camera_position = float3(0.0, 0.0, 40.0),
     float pixel_angle = 0.0008,
-    float min_footprint = 0.01
+    float min_footprint = 0.01,
+    float debug = 0.0
 )
 = let {
     float2 p = float2(state::texture_coordinate(0).x, state::texture_coordinate(0).y) * uv_tile;
@@ -170,6 +171,9 @@ export material OceanFx(
         base: df::diffuse_reflection_bsdf(tint: foam_color * (0.75 + 0.25 * pattern), roughness: 0.6)
     );
 } in material(
-    surface: material_surface(scattering: df::weighted_layer(weight: foam, layer: froth, base: water)),
+    surface: material_surface(
+        scattering: df::weighted_layer(weight: foam, layer: froth, base: water),
+        emission: material_emission(emission: df::diffuse_edf(), intensity: debug * color(math::frac(p.x / 20.0), m, foam), mode: intensity_radiant_exitance)
+    ),
     geometry: material_geometry(normal: n)
 );

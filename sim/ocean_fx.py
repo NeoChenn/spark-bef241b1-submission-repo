@@ -150,6 +150,8 @@ def apply(stage, name: str, height: float) -> bool:
             shader.CreateInput(key, Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*value))
         else:
             shader.CreateInput(key, Sdf.ValueTypeNames.Float).Set(float(value))
+    shader.CreateInput("debug", Sdf.ValueTypeNames.Float).Set(float(os.environ.get("RIG_OCEAN_FX_DEBUG", "0")))
+    print(f"ocean_fx: preset={name} height={height} threshold={threshold:.3f}", flush=True)
     _state.update(stage=stage, time=shader.CreateInput("time", Sdf.ValueTypeNames.Float),
                   cam=shader.CreateInput("camera_position", Sdf.ValueTypeNames.Float3),
                   angle=shader.CreateInput("pixel_angle", Sdf.ValueTypeNames.Float))
@@ -169,4 +171,6 @@ def animate(stage, time: float) -> None:
             eye = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()).ExtractTranslation()
             _state["cam"].Set(Gf.Vec3f(*eye))
             _state["angle"].Set(pixel_angle(cam.GetHorizontalApertureAttr().Get(), cam.GetFocalLengthAttr().Get()))
+            if os.environ.get("RIG_OCEAN_FX_DEBUG"):
+                print(f"ocean_fx: t={time:.2f} cam={path} eye={tuple(round(v, 1) for v in eye)}", flush=True)
             return
