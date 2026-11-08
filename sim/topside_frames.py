@@ -180,10 +180,14 @@ def kelvin_rgb(kelvin: float) -> tuple[float, float, float]:
     return tuple(float(c) for c in rgb)
 
 
-def horizon_gain(elevation_deg, floor: float = 0.05, top: float = 25.0):
-    u = np.clip(np.asarray(elevation_deg, dtype=float) / top, 0.0, 1.0)
-    smooth = u * u * (3 - 2 * u)
-    return floor + (1 - floor) * smooth
+def aim_from_down(direction):
+    d = np.asarray(direction, dtype=float)
+    d = d / np.linalg.norm(d)
+    dot = -d[2]
+    if dot < -1 + 1e-12:
+        return np.array((0.0, 1.0, 0.0, 0.0))
+    quat = np.array((1.0 + dot, d[1], -d[0], 0.0))
+    return quat / np.linalg.norm(quat)
 
 
 ENCLOSED = (((-25.2, -37.7, 18.0), (0.5, -22.7, 41.4)),)

@@ -3,10 +3,11 @@ import math
 import numpy as np
 import pytest
 
+from sim.hdri import horizon_gain
 from sim.topside_frames import (
+    aim_from_down,
     clear_of,
     frame,
-    horizon_gain,
     kelvin_rgb,
     ladder,
     pipe_rack,
@@ -143,3 +144,11 @@ def test_keep_facade_keeps_quarters_and_fascias_only():
     assert keep_facade((-25.0, 25.0, 18.8), (25.0, 25.0, 20.0))
     assert not keep_facade((25.3, -37.5, 31.2), (37.5, -37.5, 40.0))
     assert not keep_facade((-24.5, -10.0, 42.5), (-17.0, -10.0, 48.8))
+
+
+@pytest.mark.parametrize("d", [(0, 0, -1), (1, 0, -1), (0, -1, -0.3), (1, 1, 0), (0, 0, 1)])
+def test_aim_from_down_points_minus_z_along_direction(d):
+    q = aim_from_down(d)
+    unit = np.array(d, dtype=float) / np.linalg.norm(d)
+    assert math.isclose(np.linalg.norm(q), 1.0, rel_tol=1e-9)
+    assert np.allclose(rotate(q, (0, 0, -1)), unit, atol=1e-9)
