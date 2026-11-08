@@ -71,6 +71,18 @@ def test_from_header_reads_forward_compatible_fleet_keys():
     assert s.jobs[0]["id"] == "L-F3"
 
 
+def test_from_header_caption_robots_alias_primary():
+    h = {"t": 1.0, "state": "SCRUB", "force_n": 20.0, "caption": {"text": "Unit 1 scrubbing rust", "tone": "act"},
+         "robots": [{"id": "unit-1", "name": "Unit 1", "state": "SCRUB", "caption": {"text": "Unit 1 scrubbing rust"},
+                     "world_pos": [1.0, 2.0, 0.0]},
+                    {"id": "unit-2", "name": "Unit 2", "state": "GAS_CHECK", "caption": {"text": "Unit 2 checking gas"},
+                     "world_pos": [4.0, 5.0, 0.0]}]}
+    s = from_header(h, "go2-1", zone="A")
+    assert [r.id for r in s.robots] == ["go2-1", "unit-2"]
+    assert s.robot("go2-1").caption == "Unit 1 scrubbing rust" and s.robot("go2-1").pose == (1.0, 2.0, 0.0)
+    assert s.robot("unit-2").pose == (4.0, 5.0, 0.0) and s.robot("unit-2").caption == "Unit 2 checking gas"
+
+
 def test_merge_overrides_non_none_and_unions():
     a = snap()
     b = SensorSnapshot(t=12.0, robots=[Robot("go2-1", battery=0.5), Robot("go2-2", zone="B")],

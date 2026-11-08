@@ -134,5 +134,7 @@ def attach_control(snaps: list[dict], log_path=None, robot_id: str = "go2-1", ta
     while centre.pending is not None and pt < end:
         pt = round(pt + 0.5, 3)
         ctl = tick({**last, "events": []}, pt)
-        snaps.append({"t": last["t"], "pt": pt, "state": last["state"], "events": [], "control": ctl or state["prev"]})
+        keep = {k: last[k] for k in ("caption", "robots", "camera") if k in last}
+        snaps.append({"t": last["t"], "pt": pt, "state": last["state"], "events": [], **keep,
+                      "control": ctl or state["prev"]})
     return snaps

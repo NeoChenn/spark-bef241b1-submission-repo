@@ -14,6 +14,7 @@
     { id: "gemini", name: "Gemini", key: "g" }, { id: "log", name: "Decision log", key: "l" },
     { id: "force", name: "Force sensor", key: "f" }, { id: "pip", name: "Inspection PiP", key: "p" },
     { id: "control", name: "Control centre", key: "o" },
+    { id: "captions", name: "Captions", key: "t" },
   ];
   const ACTIONS = [
     { id: "rust", label: "New rust", key: "1", ev: () => ({ name: "spawn_patch", args: {} }) },
@@ -24,7 +25,7 @@
   ];
   const FORCE_LIMIT = 40, FORCE_CAP = 38, VITAL_WINDOW = 30, FORCE_WINDOW = 20;
 
-  const S = { state: null, t: 0, grid: null, sprayed: null, painted: null, target: null, brush: null, gemini: null, insp: null, peak: 0, log: [], started: false };
+  const S = { robots: [], camera: null, shot: 0, shotEl: null, state: null, t: 0, grid: null, sprayed: null, painted: null, target: null, brush: null, gemini: null, insp: null, peak: 0, log: [], started: false };
   const series = { force: [], rust: [], conf: [] };
   const now = () => performance.now() / 1000;
   const RAMP = [[0, [184, 182, 174]], [10, [184, 182, 174]], [18, [181, 200, 74]], [25, [63, 185, 80]], [35, [63, 185, 80]], [38, [227, 179, 65]], [40, [227, 179, 65]], [40.01, [248, 81, 73]]];
@@ -229,7 +230,7 @@
       [...$("steps").children].forEach((li, n) => { li.className = n < k ? "done" : n === k ? "cur" : ""; });
     }
     if (st === "DONE") untag("RE-PLAN");
-    if (st === "DONE" && MOCK) setTimeout(() => shot(1), 3500);
+    if (st === "DONE" && MOCK) setTimeout(() => { if (S.state === "DONE") shot(1); }, 3500);
   }
 
   function addEvents(events) {
@@ -302,8 +303,105 @@
   }
   window.hudControl = () => S.control || null;
 
+  const NUM = /\d+(?:\.\d+)?/g, LIFT = 0.85, EDGE = 28;
+  const CAP = { key: null, c: null, nums: [], layer: 0 };
+  function setCaption(c) {
+    const box = $("subtitle");
+    box.classList.toggle("hide", !c);
+    if (!c) { CAP.key = null; return; }
+    const whole = c.lead + "\u0001" + c.rest;
+    const key = c.tone + whole.replace(NUM, "#");
+    const nums = whole.match(NUM) || [];
+    if (key === CAP.key) { CAP.nums.forEach((n, k) => { n.to = +nums[k]; if (RM) n.v = n.to; }); return; }
+    CAP.key = key; CAP.c = c;
+    CAP.nums = nums.map((x) => ({ v: +x, to: +x, d: (x.split(".")[1] || "").length }));
+    const [a, b] = box.children;
+    CAP.layer ^= 1;
+    const on = CAP.layer ? b : a, off = CAP.layer ? a : b;
+    on.className = "sub on " + c.tone;
+    renderCaption(on);
+    off.classList.remove("on");
+    setTimeout(() => { if (!off.classList.contains("on")) off.innerHTML = ""; }, 170);
+  }
+  function renderCaption(el) {
+    let k = 0;
+    const fill = (t) => esc(t.replace(NUM, () => { const n = CAP.nums[k++]; return n.v.toFixed(n.d); }));
+    el.innerHTML = `<b>${fill(CAP.c.lead)}</b>${fill(CAP.c.rest)}`;
+  }
+  function stepCaption() {
+    if (!CAP.c || !CAP.nums.some((n) => n.v !== n.to)) return;
+    CAP.nums.forEach((n) => { n.v += (n.to - n.v) * 0.16; if (Math.abs(n.to - n.v) < Math.pow(10, -n.d) / 2) n.v = n.to; });
+    renderCaption($("subtitle").children[CAP.layer]);
+  }
+
+  function placeSubtitle() {
+    const box = $("subtitle"), pill = $("status-pill").getBoundingClientRect(), st = $("stepper").getBoundingClientRect();
+    const cx = innerWidth / 2, room = 2 * Math.min(cx - pill.right, st.left - cx) - 32;
+    const low = box.scrollWidth > room;
+    box.style.top = low ? `${Math.max(pill.bottom, st.bottom) + 12}px` : "";
+  }
+
+  function project(cam, p) {
+    const T = cam.T, K = cam.K, d = [p[0] - T[0][3], p[1] - T[1][3], p[2] + LIFT - T[2][3]];
+    const c = [0, 1, 2].map((j) => d[0] * T[0][j] + d[1] * T[1][j] + d[2] * T[2][j]);
+    return [K[0][0] * c[0] / c[2] + K[0][2], K[1][1] * c[1] / c[2] + K[1][2], c[2]];
+  }
+  function frameRect(cam) {
+    const el = MOCK ? S.shotEl : $("view");
+    const r = el ? el.getBoundingClientRect() : { left: 0, top: 0, width: innerWidth, height: innerHeight };
+    const k = Math.max(r.width / cam.w, r.height / cam.h);
+    return { k, x: r.left + (r.width - cam.w * k) / 2, y: r.top + (r.height - cam.h * k) / 2 };
+  }
+  function labelEl(r) {
+    let el = document.querySelector(`.lbl[data-id="${r.id}"]`);
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "lbl";
+      el.dataset.id = r.id;
+      el.innerHTML = `<span class="l-stem"></span><span class="l-pin"></span><span class="l-arrow"></span><div class="l-card"><b><i class="l-dot"></i><span class="l-name"></span></b><span class="l-txt"></span></div>`;
+      $("labels").appendChild(el);
+    }
+    return el;
+  }
+  function placeLabels() {
+    const multi = S.robots.length > 1 && S.camera;
+    const keep = new Set(multi ? S.robots.map((r) => r.id) : []);
+    [...$("labels").children].forEach((el) => { if (!keep.has(el.dataset.id)) el.remove(); });
+    if (!multi) return;
+    const cam = S.camera, f = frameRect(cam), W = innerWidth, H = innerHeight;
+    S.robots.forEach((r) => {
+      if (!r.world_pos) return;
+      const el = labelEl(r), card = el.lastChild;
+      const [u, v, z] = project(cam, r.world_pos);
+      let x = f.x + u * f.k, y = f.y + v * f.k, mode = z <= 0.1 ? "behind" : r.occluded ? "occ" : "on";
+      if (mode !== "behind" && (x < EDGE || x > W - EDGE || y < EDGE || y > H - EDGE)) {
+        const dx = x - W / 2, dy = y - H / 2, s = Math.min((W / 2 - EDGE) / Math.abs(dx || 1e-9), (H / 2 - EDGE) / Math.abs(dy || 1e-9));
+        x = W / 2 + dx * s; y = H / 2 + dy * s; mode = "edge";
+        const a = Math.atan2(dy, dx), cw = card.offsetWidth, ch = card.offsetHeight;
+        el.querySelector(".l-arrow").style.transform = `rotate(${a}rad)`;
+        const cx = Math.min(Math.max(x - Math.cos(a) * (cw / 2 + 16), cw / 2 + 8), W - cw / 2 - 8);
+        const cy = Math.min(Math.max(y - Math.sin(a) * (ch / 2 + 16), ch / 2 + 8), H - ch / 2 - 8);
+        card.style.left = `${cx - x - cw / 2}px`; card.style.top = `${cy - y - ch / 2}px`;
+      } else {
+        card.style.left = card.style.top = "";
+      }
+      el.className = `lbl ${r.caption.tone} ${mode === "on" ? "" : mode}`;
+      el.style.transform = `translate(${x}px, ${y}px)`;
+      el.querySelector(".l-name").textContent = r.name;
+      el.querySelector(".l-txt").textContent = r.caption.text;
+    });
+  }
+
   function apply(h) {
     if (h.control) showControl(h.control);
+    if (h.robots) S.robots = h.robots;
+    if (h.camera) S.camera = h.camera;
+    if (h.robots || h.caption) {
+      const one = S.robots.length <= 1 ? S.robots[0] : !S.camera ? S.robots[0] : null;
+      const c = one ? one.caption : S.robots.length ? null : h.caption;
+      setCaption(c && S.robots.length > 1 ? { ...c, lead: `${one.name} · ${c.lead}` } : c);
+    }
+    if (MOCK && h.shot && h.shot !== S.shot) shot(h.shot);
     if (h.state) setState(h.state);
     if (h.t != null) num($("st-time"), h.t, 1);
     if (h.events) addEvents(h.events);
@@ -376,6 +474,7 @@
   function shot(n) {
     if (!MOCK) { post({ name: "camera", args: { shot: n } }); return; }
     const a = $(shotSide ? "shotA" : "shotB"), b = $(shotSide ? "shotB" : "shotA");
+    S.shot = n; S.shotEl = a;
     shotSide ^= 1;
     a.classList.remove("orbit");
     a.style.transition = "none";
@@ -461,6 +560,9 @@
   function loop() {
     playMock();
     stepTweens();
+    stepCaption();
+    placeSubtitle();
+    placeLabels();
     drawCharts();
     drawMap();
     frames++;
@@ -481,7 +583,7 @@
   if (MOCK) {
     $("status").textContent = "mock replay";
     shot(1);
-    fetch("/api/mock").then((r) => r.json()).then((s) => { session = s; if (playT0 != null && offset) seek(offset); });
+    fetch("/api/mock").then((r) => r.json()).then((s) => { s.snapshots = s.snapshots.concat(s.fleet || []); session = s; if (playT0 != null && offset) seek(offset); });
   } else {
     liveState();
   }

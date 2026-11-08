@@ -32,6 +32,9 @@ def _add_backdrop(usd_path: str, translation) -> None:
     prim = stage.DefinePrim("/World/Backdrop", "Xform")
     prim.GetReferences().AddReference(usd_path)
     UsdGeom.XformCommonAPI(prim).SetTranslate(Gf.Vec3d(*translation))
+    robots = stage.GetPrimAtPath("/World/Backdrop/Robots")
+    if robots.IsValid():
+        robots.SetActive(False)
     for p in list(Usd.PrimRange(prim)):
         if p.IsA(UsdPhysics.Scene):
             p.SetActive(False)

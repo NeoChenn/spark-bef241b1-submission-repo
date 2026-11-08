@@ -36,13 +36,30 @@ def _person(events: list[dict]) -> Optional[float]:
     return None
 
 
+def _cap(v) -> str:
+    return (v.get("text") or "") if isinstance(v, dict) else (v or "")
+
+
+def _robot(d: dict) -> Robot:
+    d = dict(d)
+    d["caption"] = _cap(d.get("caption"))
+    p = d.get("pose")
+    if isinstance(p, dict):
+        d["pose"] = [p[k] for k in ("x", "y", "z")] if {"x", "y", "z"} <= set(p) else None
+    if d.get("pose") is None and d.get("world_pos") is not None:
+        d["pose"] = d["world_pos"]
+    if isinstance(d.get("battery"), dict):
+        d["battery"] = d["battery"].get("soc")
+    return Robot.from_dict(d)
+
+
 def from_header(h: dict, robot_id: Optional[str] = None, zone: str = "") -> SensorSnapshot:
     s = SensorSnapshot(t=float(h.get("t") or 0.0), sources=["hud"])
     events = [dict(e) for e in h.get("events") or []]
     if robot_id is not None and h.get("state"):
         st = h["state"]
         rust = _f(h.get("rust_fraction"))
-        s.robots.append(Robot(robot_id, state=st, caption=h.get("caption") or CAPTIONS.get(st, st.lower()),
+        s.robots.append(Robot(robot_id, state=st, caption=_cap(h.get("caption")) or CAPTIONS.get(st, st.lower()),
                               zone=zone, rust_conf=_f(h.get("detector_conf")),
                               rust_pct=None if rust is None else round(rust * 100.0, 2), force_n=_f(h.get("force_n")),
                               battery=_f(h.get("battery")), person_m=_f(h.get("person_m")) or _person(events),
@@ -56,7 +73,12 @@ def from_header(h: dict, robot_id: Optional[str] = None, zone: str = "") -> Sens
         if (h.get("inspection") or {}).get("jpg"):
             s.images.append(h["inspection"]["jpg"])
     s.events = events
-    s.robots += [Robot.from_dict(r) for r in h.get("robots") or []]
+    entries = [_robot(r) for r in h.get("robots") or []]
+    if s.robots and entries and (entries[0].id == robot_id or "caption" in h):
+        head = entries.pop(0)
+        s.robots[0].pose = head.pose or s.robots[0].pose
+        s.robots[0].caption = _cap(h.get("caption")) or head.caption or s.robots[0].caption
+    s.robots += entries
     captions = h.get("captions") or {}
     for r in s.robots:
         r.caption = captions.get(r.id, r.caption)

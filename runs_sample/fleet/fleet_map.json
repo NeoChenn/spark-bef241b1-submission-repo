@@ -1,0 +1,966 @@
+{
+ "schema": "fleet_map.v1",
+ "units": "m, Z up, sea level z=0",
+ "decks": [
+  {
+   "name": "lower_deck",
+   "z": 20.0
+  },
+  {
+   "name": "middle_deck",
+   "z": 31.25
+  },
+  {
+   "name": "top_deck",
+   "z": 42.5
+  }
+ ],
+ "walkways": [
+  {
+   "a": [
+    -21.0,
+    20.5,
+    42.5
+   ],
+   "b": [
+    -10.0,
+    20.5,
+    42.5
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -10.0,
+    20.5,
+    42.5
+   ],
+   "b": [
+    -10.0,
+    11.0,
+    42.5
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -10.0,
+    11.0,
+    42.5
+   ],
+   "b": [
+    -1.0,
+    11.0,
+    42.5
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -1.0,
+    11.0,
+    42.5
+   ],
+   "b": [
+    -1.0,
+    -4.5,
+    42.5
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -1.0,
+    -4.5,
+    42.5
+   ],
+   "b": [
+    9.0,
+    -4.5,
+    42.5
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    9.0,
+    -4.5,
+    42.5
+   ],
+   "b": [
+    24.0,
+    -4.5,
+    42.5
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    24.0,
+    -4.5,
+    42.5
+   ],
+   "b": [
+    24.0,
+    -9.0,
+    42.5
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    24.0,
+    -9.0,
+    42.5
+   ],
+   "b": [
+    9.0,
+    -9.0,
+    42.5
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    9.0,
+    -9.0,
+    42.5
+   ],
+   "b": [
+    9.0,
+    -4.5,
+    42.5
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -10.0,
+    11.0,
+    42.5
+   ],
+   "b": [
+    -21.0,
+    11.0,
+    42.5
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -21.0,
+    11.0,
+    42.5
+   ],
+   "b": [
+    -21.0,
+    20.5,
+    42.5
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -21.0,
+    -6.0,
+    31.25
+   ],
+   "b": [
+    0.0,
+    -6.0,
+    31.25
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "middle_deck"
+  },
+  {
+   "a": [
+    0.0,
+    -6.0,
+    31.25
+   ],
+   "b": [
+    22.0,
+    -6.0,
+    31.25
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "middle_deck"
+  },
+  {
+   "a": [
+    22.0,
+    -6.0,
+    31.25
+   ],
+   "b": [
+    22.0,
+    2.0,
+    31.25
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "middle_deck"
+  },
+  {
+   "a": [
+    22.0,
+    2.0,
+    31.25
+   ],
+   "b": [
+    22.0,
+    14.0,
+    31.25
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "middle_deck"
+  },
+  {
+   "a": [
+    22.0,
+    14.0,
+    31.25
+   ],
+   "b": [
+    0.0,
+    14.0,
+    31.25
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "middle_deck"
+  },
+  {
+   "a": [
+    0.0,
+    14.0,
+    31.25
+   ],
+   "b": [
+    -21.0,
+    14.0,
+    31.25
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "middle_deck"
+  },
+  {
+   "a": [
+    -21.0,
+    14.0,
+    31.25
+   ],
+   "b": [
+    -21.0,
+    0.0,
+    31.25
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "middle_deck"
+  },
+  {
+   "a": [
+    -21.0,
+    0.0,
+    31.25
+   ],
+   "b": [
+    -21.0,
+    -6.0,
+    31.25
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "middle_deck"
+  },
+  {
+   "a": [
+    -18.0,
+    -4.0,
+    20.0
+   ],
+   "b": [
+    1.0,
+    -4.0,
+    20.0
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "lower_deck"
+  },
+  {
+   "a": [
+    1.0,
+    -4.0,
+    20.0
+   ],
+   "b": [
+    20.0,
+    -4.0,
+    20.0
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "lower_deck"
+  },
+  {
+   "a": [
+    20.0,
+    -4.0,
+    20.0
+   ],
+   "b": [
+    20.0,
+    12.0,
+    20.0
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "lower_deck"
+  },
+  {
+   "a": [
+    20.0,
+    12.0,
+    20.0
+   ],
+   "b": [
+    1.0,
+    12.0,
+    20.0
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "lower_deck"
+  },
+  {
+   "a": [
+    1.0,
+    12.0,
+    20.0
+   ],
+   "b": [
+    -18.0,
+    12.0,
+    20.0
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "lower_deck"
+  },
+  {
+   "a": [
+    -18.0,
+    12.0,
+    20.0
+   ],
+   "b": [
+    -18.0,
+    5.0,
+    20.0
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "lower_deck"
+  },
+  {
+   "a": [
+    -18.0,
+    5.0,
+    20.0
+   ],
+   "b": [
+    -18.0,
+    -4.0,
+    20.0
+   ],
+   "kind": "walk",
+   "narrow": false,
+   "corridor": null,
+   "deck": "lower_deck"
+  },
+  {
+   "a": [
+    0.0,
+    -6.0,
+    31.25
+   ],
+   "b": [
+    0.0,
+    14.0,
+    31.25
+   ],
+   "kind": "catwalk",
+   "narrow": true,
+   "corridor": "catwalk_mid",
+   "deck": "middle_deck"
+  },
+  {
+   "a": [
+    1.0,
+    -4.0,
+    20.0
+   ],
+   "b": [
+    1.0,
+    3.0,
+    20.0
+   ],
+   "kind": "catwalk",
+   "narrow": true,
+   "corridor": "catwalk_low",
+   "deck": "lower_deck"
+  },
+  {
+   "a": [
+    1.0,
+    3.0,
+    20.0
+   ],
+   "b": [
+    1.0,
+    12.0,
+    20.0
+   ],
+   "kind": "catwalk",
+   "narrow": true,
+   "corridor": "catwalk_low",
+   "deck": "lower_deck"
+  },
+  {
+   "a": [
+    -21.0,
+    11.0,
+    42.5
+   ],
+   "b": [
+    -21.0,
+    0.0,
+    31.25
+   ],
+   "kind": "stairs",
+   "narrow": true,
+   "corridor": "stairs_west_upper",
+   "deck": "top_deck/middle_deck"
+  },
+  {
+   "a": [
+    24.0,
+    -9.0,
+    42.5
+   ],
+   "b": [
+    22.0,
+    2.0,
+    31.25
+   ],
+   "kind": "stairs",
+   "narrow": true,
+   "corridor": "stairs_east_upper",
+   "deck": "top_deck/middle_deck"
+  },
+  {
+   "a": [
+    0.0,
+    14.0,
+    31.25
+   ],
+   "b": [
+    1.0,
+    3.0,
+    20.0
+   ],
+   "kind": "stairs",
+   "narrow": true,
+   "corridor": "stairs_north_lower",
+   "deck": "middle_deck/lower_deck"
+  },
+  {
+   "a": [
+    -21.0,
+    -6.0,
+    31.25
+   ],
+   "b": [
+    -18.0,
+    5.0,
+    20.0
+   ],
+   "kind": "stairs",
+   "narrow": true,
+   "corridor": "stairs_west_lower",
+   "deck": "middle_deck/lower_deck"
+  },
+  {
+   "a": [
+    -20.565,
+    20.5,
+    42.5
+   ],
+   "b": [
+    -20.565,
+    22.954,
+    42.5
+   ],
+   "kind": "spur",
+   "narrow": true,
+   "corridor": "spur_F1",
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -10.0,
+    20.5,
+    42.5
+   ],
+   "b": [
+    -6.531,
+    23.429,
+    42.5
+   ],
+   "kind": "spur",
+   "narrow": true,
+   "corridor": "spur_F2",
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -15.942,
+    20.5,
+    42.5
+   ],
+   "b": [
+    -15.942,
+    22.317,
+    42.5
+   ],
+   "kind": "spur",
+   "narrow": true,
+   "corridor": "spur_F3",
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -10.0,
+    20.5,
+    42.5
+   ],
+   "b": [
+    -2.285,
+    22.986,
+    42.5
+   ],
+   "kind": "spur",
+   "narrow": true,
+   "corridor": "spur_F4",
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    20.46,
+    -9.0,
+    42.5
+   ],
+   "b": [
+    20.46,
+    -9.654,
+    42.5
+   ],
+   "kind": "spur",
+   "narrow": true,
+   "corridor": "spur_F5",
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    24.0,
+    -9.0,
+    42.5
+   ],
+   "b": [
+    30.183,
+    -10.402,
+    42.5
+   ],
+   "kind": "spur",
+   "narrow": true,
+   "corridor": "spur_F6",
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -21.0,
+    20.5,
+    42.5
+   ],
+   "b": [
+    -22.942,
+    22.729,
+    42.5
+   ],
+   "kind": "spur",
+   "narrow": true,
+   "corridor": "spur_gauge_01",
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -17.5,
+    20.5,
+    42.5
+   ],
+   "b": [
+    -17.5,
+    22.52,
+    42.5
+   ],
+   "kind": "spur",
+   "narrow": true,
+   "corridor": "spur_gauge_02",
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -12.0,
+    20.5,
+    42.5
+   ],
+   "b": [
+    -12.0,
+    22.52,
+    42.5
+   ],
+   "kind": "spur",
+   "narrow": true,
+   "corridor": "spur_gauge_03",
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -10.0,
+    20.5,
+    42.5
+   ],
+   "b": [
+    -7.157,
+    22.831,
+    42.5
+   ],
+   "kind": "spur",
+   "narrow": true,
+   "corridor": "spur_gauge_04",
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    17.8,
+    -9.0,
+    42.5
+   ],
+   "b": [
+    17.8,
+    -9.82,
+    42.5
+   ],
+   "kind": "spur",
+   "narrow": true,
+   "corridor": "spur_gauge_05",
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    24.0,
+    -9.0,
+    42.5
+   ],
+   "b": [
+    24.256,
+    -9.856,
+    42.5
+   ],
+   "kind": "spur",
+   "narrow": true,
+   "corridor": "spur_gauge_06",
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    24.0,
+    -9.0,
+    42.5
+   ],
+   "b": [
+    32.164,
+    -10.515,
+    42.5
+   ],
+   "kind": "spur",
+   "narrow": true,
+   "corridor": "spur_gauge_07",
+   "deck": "top_deck"
+  },
+  {
+   "a": [
+    -12.0,
+    11.0,
+    42.5
+   ],
+   "b": [
+    -12.0,
+    9.4,
+    42.5
+   ],
+   "kind": "spur",
+   "narrow": true,
+   "corridor": "spur_dock",
+   "deck": "top_deck"
+  }
+ ],
+ "dock": {
+  "xyz": [
+   -12.0,
+   9.4,
+   42.5
+  ],
+  "pads": 2
+ },
+ "flanges": [
+  {
+   "id": "F1",
+   "xyz": [
+    -20.565,
+    23.804,
+    43.6
+   ],
+   "work_xyz": [
+    -20.565,
+    22.954,
+    42.5
+   ]
+  },
+  {
+   "id": "F2",
+   "xyz": [
+    -5.882,
+    23.977,
+    43.6
+   ],
+   "work_xyz": [
+    -6.531,
+    23.429,
+    42.5
+   ]
+  },
+  {
+   "id": "F3",
+   "xyz": [
+    -15.942,
+    23.167,
+    43.35
+   ],
+   "work_xyz": [
+    -15.942,
+    22.317,
+    42.5
+   ]
+  },
+  {
+   "id": "F4",
+   "xyz": [
+    -1.476,
+    23.247,
+    43.35
+   ],
+   "work_xyz": [
+    -2.285,
+    22.986,
+    42.5
+   ]
+  },
+  {
+   "id": "F5",
+   "xyz": [
+    20.46,
+    -10.504,
+    43.4
+   ],
+   "work_xyz": [
+    20.46,
+    -9.654,
+    42.5
+   ]
+  },
+  {
+   "id": "F6",
+   "xyz": [
+    31.012,
+    -10.589,
+    43.4
+   ],
+   "work_xyz": [
+    30.183,
+    -10.402,
+    42.5
+   ]
+  }
+ ],
+ "inspection_points": [
+  {
+   "id": "gauge_01",
+   "type": "gauge",
+   "xyz": [
+    -23.5,
+    23.37,
+    43.8
+   ],
+   "work_xyz": [
+    -22.942,
+    22.729,
+    42.5
+   ]
+  },
+  {
+   "id": "gauge_02",
+   "type": "gauge",
+   "xyz": [
+    -17.5,
+    23.37,
+    43.8
+   ],
+   "work_xyz": [
+    -17.5,
+    22.52,
+    42.5
+   ]
+  },
+  {
+   "id": "gauge_03",
+   "type": "gauge",
+   "xyz": [
+    -12.0,
+    23.37,
+    43.8
+   ],
+   "work_xyz": [
+    -12.0,
+    22.52,
+    42.5
+   ]
+  },
+  {
+   "id": "gauge_04",
+   "type": "gauge",
+   "xyz": [
+    -6.5,
+    23.37,
+    43.8
+   ],
+   "work_xyz": [
+    -7.157,
+    22.831,
+    42.5
+   ]
+  },
+  {
+   "id": "gauge_05",
+   "type": "gauge",
+   "xyz": [
+    17.8,
+    -10.67,
+    43.86
+   ],
+   "work_xyz": [
+    17.8,
+    -9.82,
+    42.5
+   ]
+  },
+  {
+   "id": "gauge_06",
+   "type": "gauge",
+   "xyz": [
+    24.5,
+    -10.67,
+    43.86
+   ],
+   "work_xyz": [
+    24.256,
+    -9.856,
+    42.5
+   ]
+  },
+  {
+   "id": "gauge_07",
+   "type": "gauge",
+   "xyz": [
+    33.0,
+    -10.67,
+    43.86
+   ],
+   "work_xyz": [
+    32.164,
+    -10.515,
+    42.5
+   ]
+  }
+ ],
+ "bounds": {
+  "xmin": -25.941695403695626,
+  "xmax": 35.16426576938398,
+  "ymin": -13.51492487054125,
+  "ymax": 26.428998350599244
+ }
+}
