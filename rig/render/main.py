@@ -18,7 +18,7 @@ class Post:
         self.grade = self.atm = None
         self.stage, self.cinematic = stage, cinematic
         self.beams, self.weather, self.lens = [], None, bool(scene.get("lens"))
-        tier = scene.get("look") or "none"
+        tier = self.tier = scene.get("look") or "none"
         if tier != "none":
             import carb
             import look
@@ -57,7 +57,8 @@ class Post:
                 rgb = self.shafts.add(rgb, self.shafts.layer(cam, self.beams, t))
             now = self.cinematic.CURRENT["time"]
             if cam is not None and depth is not None and now in self.look.INSCATTER:
-                rgb = self.look.inscatter(rgb, depth, cam, now, self.look.sun_direction(self.cinematic.PRESETS[now]["sun_rotation"]))
+                rgb = self.look.inscatter(rgb, depth, cam, now, self.look.sun_direction(self.cinematic.PRESETS[now]["sun_rotation"]),
+                                          tier=self.tier)
             rgb = self.grade(rgb, t)
         return rgb
 
@@ -166,12 +167,15 @@ class Renderer:
         self.rp = rep.create.render_product(CAMERA, (args.width, args.height))
         self.ann = rep.AnnotatorRegistry.get_annotator("rgb")
         self.ann.attach(self.rp)
-        self.dist = rep.AnnotatorRegistry.get_annotator("distance_to_camera")
-        self.dist.attach(self.rp)
+        self.dist = None
 
     def depth(self):
         import numpy as np
 
+        if self.dist is None:
+            self.dist = self.rep.AnnotatorRegistry.get_annotator("distance_to_camera")
+            self.dist.attach(self.rp)
+            return None
         return np.asarray(self.dist.get_data())
 
     def frame(self, wait: bool):
@@ -259,7 +263,7 @@ def run_live(args) -> None:
             rgb = renderer.frame(args.wait_render)
             if rgb is not None and post is not None:
                 cam = camera_header(head["view"], rgb.shape[1], rgb.shape[0]) if head.get("view") else None
-                rgb = post(rgb, cam, head.get("t", 0.0), renderer.depth())
+                rgb = post(rgb, cam, head.get("t", 0.0), renderer.depth)
             t2 = time.perf_counter()
             if rgb is not None:
                 mean = float(rgb[::8, ::8].mean())
@@ -365,7 +369,7 @@ def run_offline(args) -> None:
         if rgb is None:
             continue
         if post is not None and state.get("view"):
-            rgb = post(rgb, camera_header(state["view"], rgb.shape[1], rgb.shape[0]), t, renderer.depth())
+            rgb = post(rgb, camera_header(state["view"], rgb.shape[1], rgb.shape[0]), t, renderer.depth)
         Image.fromarray(rgb).save(out / f"frame_{n:05d}.png")
         print(f"offline frame {n} t={t:.2f}s {time.perf_counter() - t0:.2f}s/frame", flush=True)
         n += 1

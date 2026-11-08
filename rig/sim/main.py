@@ -474,7 +474,7 @@ def main() -> None:
     ann = rep.AnnotatorRegistry.get_annotator("rgb")
     ann.attach(rp)
     dist_ann = None
-    if grade is not None:
+    if grade is not None and args.look == "offline":
         dist_ann = rep.AnnotatorRegistry.get_annotator("distance_to_camera")
         dist_ann.attach(rp)
     omni.timeline.get_timeline_interface().play()
@@ -520,8 +520,8 @@ def main() -> None:
                 now = cinematic.CURRENT["time"]
                 rgb = shafts.add(rgb, shafts.layer(camera_header(), beams, t)) if beams else rgb
                 if now in look.INSCATTER:
-                    rgb = look.inscatter(rgb, np.asarray(dist_ann.get_data()), camera_header(), now,
-                                         look.sun_direction(cinematic.PRESETS[now]["sun_rotation"]))
+                    rgb = look.inscatter(rgb, lambda: np.asarray(dist_ann.get_data()), camera_header(), now,
+                                         look.sun_direction(cinematic.PRESETS[now]["sun_rotation"]), tier=args.look)
                 rgb = grade(rgb, args.look, t, now)
             mean = float(rgb.mean())
             buf = io.BytesIO()

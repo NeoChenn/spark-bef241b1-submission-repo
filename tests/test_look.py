@@ -156,3 +156,16 @@ def test_inscatter_glows_toward_sun_and_with_distance():
     assert a[..., 0].mean() > a[..., 2].mean()
     assert look.inscatter(img, far, toward, "night", sun) is img
     assert look.inscatter(img, None, toward, "dusk", sun) is img
+
+
+def test_live_tier_skips_haze_without_reading_depth():
+    img = np.full((180, 320, 3), 20, np.uint8)
+    sun = look.sun_direction((85.0, 0.0, 205.0))
+    cam = _cam((0.0, 0.0, 10.0), np.add((0.0, 0.0, 10.0), np.multiply(sun, 100.0)))
+
+    def boom():
+        raise AssertionError("depth read")
+
+    assert look.inscatter(img, boom, cam, "dusk", sun, tier="live") is img
+    out = look.inscatter(img, lambda: np.full((180, 320), 800.0, np.float32), cam, "dusk", sun)
+    assert out.mean() > img.mean()

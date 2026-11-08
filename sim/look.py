@@ -50,9 +50,16 @@ INSCATTER = {
 }
 
 
-def inscatter(rgb: np.ndarray, depth, cam: dict, preset: str, sun_dir, strength: float = 1.0) -> np.ndarray:
+LIVE_HAZE = False
+
+
+def inscatter(rgb: np.ndarray, depth, cam: dict, preset: str, sun_dir, strength: float = 1.0,
+              tier: str = "offline") -> np.ndarray:
     p = INSCATTER.get(preset)
-    if not p or depth is None:
+    if not p or depth is None or (tier == "live" and not LIVE_HAZE):
+        return rgb
+    depth = depth() if callable(depth) else depth
+    if depth is None:
         return rgb
     h, w = rgb.shape[:2]
     s = p["scale"]
