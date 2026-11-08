@@ -1,5 +1,6 @@
-"""Local live demo: CPU mock repair + fleet scenario with live gemini-4-argon, streamed to the web HUD."""
+import argparse
 import io
+import json
 import queue
 import subprocess
 import threading
@@ -24,35 +25,37 @@ def frame(text: str) -> bytes:
     return buf.getvalue()
 
 
-RUNS = "/Users/desmondzee/Software/spark-bef241b1-submission-repo/runs/scrub_look/"
-CLIPS = ["demo_close"]
+CLIP = "runs/scrub_look/demo_close"
 
 
-def video_frames():
-    import json
+def video_frames(clip):
     while True:
-        for clip in CLIPS:
-            log = json.load(open(RUNS + clip + ".json"))["log"]
-            cmd = ["ffmpeg", "-loglevel", "error", "-re", "-i", RUNS + clip + ".mp4", "-vf", "scale=1280:720",
-                   "-f", "image2pipe", "-vcodec", "mjpeg", "-q:v", "4", "-"]
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, bufsize=0)
-            buf, k = b"", 0
+        log = json.load(open(clip + ".json"))["log"]
+        cmd = ["ffmpeg", "-loglevel", "error", "-re", "-i", clip + ".mp4", "-vf", "scale=1280:720",
+               "-f", "image2pipe", "-vcodec", "mjpeg", "-q:v", "4", "-"]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, bufsize=0)
+        buf, k = b"", 0
+        while True:
+            chunk = proc.stdout.read(65536)
+            if not chunk:
+                break
+            buf += chunk
             while True:
-                chunk = proc.stdout.read(65536)
-                if not chunk:
+                i = buf.find(b"\xff\xd8")
+                j = buf.find(b"\xff\xd9", i + 2)
+                if i < 0 or j < 0:
                     break
-                buf += chunk
-                while True:
-                    i = buf.find(b"\xff\xd8")
-                    j = buf.find(b"\xff\xd9", i + 2)
-                    if i < 0 or j < 0:
-                        break
-                    yield buf[i:j + 2], log[min(k, len(log) - 1)]
-                    buf, k = buf[j + 2:], k + 1
-            proc.wait()
+                yield buf[i:j + 2], log[min(k, len(log) - 1)]
+                buf, k = buf[j + 2:], k + 1
+        proc.wait()
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--clip", default=CLIP)
+    ap.add_argument("--sim-port", type=int, default=9077)
+    ap.add_argument("--web-port", type=int, default=8077)
+    args = ap.parse_args()
     orch, bridge, world, perception, arm, pipe = build("runs/demo/decisions.jsonl", verbose=False)
     orch.advisor = ScriptedAdvisor()
     fleet = FleetScenario()
@@ -60,13 +63,13 @@ def main():
     control = from_env("live", "runs/demo/control_calls.jsonl", sync=False, port=fleet.port, timeout_s=120)
     control.backend = ArgonBackend(timeout=120)
     feed = HudFeed(orch, control=control, extra=lambda: fleet.at(time.time() - t0))
-    sender = FrameSender("127.0.0.1", 9077).start()
-    print("streaming to the web HUD; open http://localhost:8077", flush=True)
+    sender = FrameSender("127.0.0.1", args.sim_port).start()
+    print(f"streaming to the web HUD; open http://localhost:{args.web_port}", flush=True)
     seq, last_step = 0, 0.0
     latest = {"jpeg": frame("loading video"), "log": None}
 
     def pump():
-        for j, entry in video_frames():
+        for j, entry in video_frames(args.clip):
             latest["jpeg"], latest["log"] = j, entry
     threading.Thread(target=pump, daemon=True).start()
     while True:
