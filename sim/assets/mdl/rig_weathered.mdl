@@ -132,7 +132,7 @@ surface_sample weathered(
     float metallic, float normal_strength, float detail_strength, float detail_scale,
     float macro_scale, float grime_amount, float3 streak_color, float streak_amount, float streak_width, float streak_height,
     float salt_amount, float3 salt_color, float porosity, float wetness, float puddles, float puddle_scale,
-    bool triplanar, bool use_opacity, float opacity_scale)
+    bool triplanar, bool use_opacity, float opacity_scale, bool lite)
 {
     float3 p = world_position();
     float3 n = world_normal();
@@ -166,9 +166,9 @@ surface_sample weathered(
     rough = math::lerp(rough, math::min(rough + 0.25, 1.0), math::saturate(salt * salt_amount));
 
     float3 np = tri_normal(paint_normal, p, w, paint_scale, normal_strength, n);
-    float3 nr = tri_normal(rust_normal, p, w, rust_scale, normal_strength, n);
+    float3 nr = lite ? np : tri_normal(rust_normal, p, w, rust_scale, normal_strength, n);
     float3 nb = math::normalize(math::lerp(nr, np, paint));
-    float3 nd = tri_normal(rust_normal, p, wd, detail_scale, detail_strength, nb);
+    float3 nd = lite ? nb : tri_normal(rust_normal, p, wd, detail_scale, detail_strength, nb);
 
     float up = smooth(0.82, 0.96, n.z);
     float wet = math::saturate(wetness * math::lerp(0.55 + 0.45 * macro, 1.0, up));
@@ -228,6 +228,8 @@ export material rig_weathered(
     float puddles = 0.0 [[ anno::in_group("Weather"), anno::hard_range(0.0, 1.0) ]],
     float puddle_scale = 9.0 [[ anno::in_group("Weather") ]],
     uniform bool triplanar = true [[ anno::in_group("Quality") ]],
+    uniform bool lite = false [[ anno::in_group("Quality") ]],
+    uniform bool wet_coat = true [[ anno::in_group("Quality") ]],
     uniform bool use_opacity = false [[ anno::in_group("Opacity") ]],
     uniform texture_2d opacity_tex = texture_2d() [[ anno::in_group("Opacity") ]],
     float opacity_scale = 1.0 [[ anno::in_group("Opacity") ]]
@@ -240,17 +242,18 @@ export material rig_weathered(
         metallic, normal_strength, detail_strength, detail_scale,
         macro_scale, grime_amount, float3(streak_color), streak_amount, streak_width, streak_height,
         salt_amount, float3(salt_color), porosity, wetness, puddles, puddle_scale,
-        triplanar, use_opacity, opacity_scale);
+        triplanar, use_opacity, opacity_scale, lite);
     float a = s.rough * s.rough;
     bsdf dielectric = df::fresnel_layer(
         ior: 1.5,
         layer: df::microfacet_ggx_smith_bsdf(roughness_u: a, roughness_v: a, tint: color(1.0), mode: df::scatter_reflect),
         base: df::diffuse_reflection_bsdf(tint: color(s.albedo)));
     bsdf metal = df::microfacet_ggx_smith_bsdf(roughness_u: a, roughness_v: a, tint: color(s.albedo), mode: df::scatter_reflect);
-    bsdf base = df::normalized_mix(
+    bsdf mixed = df::normalized_mix(
         components: df::bsdf_component[](
             df::bsdf_component(weight: 1.0 - s.metal, component: dielectric),
             df::bsdf_component(weight: s.metal, component: metal)));
+    bsdf base = lite ? dielectric : mixed;
     float ca = s.coat_rough * s.coat_rough;
     bsdf coated = df::fresnel_layer(
         ior: 1.33,
@@ -258,8 +261,9 @@ export material rig_weathered(
         layer: df::microfacet_ggx_smith_bsdf(roughness_u: ca, roughness_v: ca, tint: color(1.0), mode: df::scatter_reflect),
         base: base,
         normal: state::normal());
+    bsdf top = wet_coat ? coated : base;
 } in material(
-    surface: material_surface(scattering: coated),
+    surface: material_surface(scattering: top),
     geometry: material_geometry(normal: s.normal, cutout_opacity: s.opacity)
 );
 

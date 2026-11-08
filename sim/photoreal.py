@@ -156,6 +156,48 @@ def shader_inputs(recipe: dict) -> tuple[str, dict]:
     return "rig_weathered", values
 
 
+DECK_HEIGHTS = (20.0, 31.25, 42.5)
+FLOOR_MESHES = ("upper_structure_frame", "legs_and_lower_deck_frame", "top_deck_rail")
+
+
+def floor_faces(points, tris, heights=DECK_HEIGHTS, tol: float = 0.06):
+    import numpy as np
+
+    t = np.asarray(points, float)[np.asarray(tris)]
+    n = np.cross(t[:, 1] - t[:, 0], t[:, 2] - t[:, 0])
+    up = n[:, 2] / np.maximum(np.linalg.norm(n, axis=1), 1e-12) > 0.95
+    z = t[:, :, 2].mean(1)
+    level = np.min(np.abs(z[:, None] - np.asarray(heights)[None, :]), axis=1) < tol
+    return np.flatnonzero(up & level)
+
+
+def bind_floors(stage) -> int:
+    import numpy as np
+    from pxr import UsdGeom, UsdShade
+
+    deck = UsdShade.Material(stage.GetPrimAtPath("/World/Looks/deck"))
+    if not deck:
+        return 0
+    count = 0
+    for name in FLOOR_MESHES:
+        prim = stage.GetPrimAtPath(f"/World/Rig/{name}")
+        if not prim.IsValid() or stage.GetPrimAtPath(f"{prim.GetPath()}/deck_floor").IsValid():
+            continue
+        mesh = UsdGeom.Mesh(prim)
+        counts = np.asarray(mesh.GetFaceVertexCountsAttr().Get())
+        if counts.size == 0 or (counts != 3).any():
+            continue
+        tris = np.asarray(mesh.GetFaceVertexIndicesAttr().Get()).reshape(-1, 3)
+        faces = floor_faces(np.asarray(mesh.GetPointsAttr().Get()), tris)
+        if faces.size == 0:
+            continue
+        subset = UsdGeom.Subset.CreateGeomSubset(mesh, "deck_floor", UsdGeom.Tokens.face, faces.tolist(),
+                                                 UsdShade.Tokens.materialBind)
+        UsdShade.MaterialBindingAPI.Apply(subset.GetPrim()).Bind(deck)
+        count += int(faces.size)
+    return count
+
+
 def material_paths(name: str) -> list[str]:
     return [f"{root}/{name}" for root in ROOTS]
 
@@ -173,7 +215,7 @@ def rain_for(preset: str) -> float:
 
 def quality_settings(quality: str) -> dict:
     offline = quality == "offline"
-    return {"triplanar": offline, "offline_props": offline}
+    return {"triplanar": offline, "lite": not offline, "offline_props": offline}
 
 
 def current_quality() -> str:
@@ -216,7 +258,8 @@ def apply(stage, preset: str, quality: str | None = None) -> dict:
         if sub == "rig_weathered":
             shader.CreateInput("puddles", Sdf.ValueTypeNames.Float).Set(w["puddles"])
             shader.CreateInput("triplanar", Sdf.ValueTypeNames.Bool).Set(q["triplanar"])
+            shader.CreateInput("lite", Sdf.ValueTypeNames.Bool).Set(q["lite"])
     offline = stage.GetPrimAtPath(OFFLINE_SCOPE)
     if offline.IsValid():
         offline.SetActive(q["offline_props"])
-    return {**w, **q}
+    return {**w, **q, "floor_faces": bind_floors(stage)}

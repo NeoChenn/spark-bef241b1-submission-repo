@@ -19,6 +19,7 @@ parser.add_argument("--views", default="wide,deck_mid,repair,waterline")
 parser.add_argument("--prefix", default="pt")
 parser.add_argument("--out", default="/rig/runs/photoreal")
 parser.add_argument("--fps-seconds", type=float, default=0.0)
+parser.add_argument("--variants", default="")
 args = parser.parse_args()
 modes = [m for m in args.modes.split(",") if m]
 os.environ["RIG_PHOTOREAL"] = "1" if modes[0] == "after" else "0"
@@ -146,4 +147,29 @@ for mode in modes:
         shoot(tag, name)
     if args.fps_seconds > 0:
         measure(tag)
+
+
+def set_inputs(name, value):
+    from pxr import Sdf
+
+    import photoreal
+
+    for shader in photoreal.rig_shaders(stage):
+        if shader.GetSourceAssetSubIdentifier("mdl") == "rig_weathered":
+            shader.CreateInput(name, Sdf.ValueTypeNames.Bool).Set(value)
+
+
+VARIANTS = {
+    "full": lambda: set_inputs("lite", False),
+    "lite": lambda: set_inputs("lite", True),
+    "nocoat": lambda: set_inputs("wet_coat", False),
+    "nodress": lambda: stage.GetPrimAtPath("/World/Photoreal").SetActive(False),
+    "off": lambda: stage.GetRootLayer().subLayerPaths.remove("photoreal.usda"),
+}
+for variant in (v for v in args.variants.split(",") if v):
+    VARIANTS[variant]()
+    settle(300)
+    for _ in range(60):
+        rep.orchestrator.step(rt_subframes=1, pause_timeline=False)
+    measure(f"{args.prefix}_{variant}")
 os._exit(0)
