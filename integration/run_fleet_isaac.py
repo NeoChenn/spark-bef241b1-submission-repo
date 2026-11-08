@@ -65,7 +65,7 @@ def parse_args(argv=None):
     p.add_argument("--scrub-log", default="", help="render_demo raw_*.json with recorded PPO brush positions")
     p.add_argument("--unit2-usd", default="")
     p.add_argument("--unit2-urdf", default="")
-    p.add_argument("--camera", default="auto", choices=["auto", "wide"])
+    p.add_argument("--camera", default="auto", choices=["auto", "wide", "unit1", "unit2"])
     p.add_argument("--focal", type=float, default=24.0)
     p.add_argument("--jpeg", type=int, default=95)
     p.add_argument("--no-video", action="store_true")
@@ -586,11 +586,26 @@ def beat_times(scn: Scenario, start: float = 0.0) -> dict:
     b["green"] = first([(t, st) for t, d, st in scn.leds if d == red_id], lambda v: v == "ok", b["red"])
     b["resume"] = first(s1, lambda v: activity("unit1", v) != "stow", b["step_back"])
     b["end"] = start + min(60.0, max(1.0, scn.end - start))
-    return {k: v for k, v in b.items() if v is not None}
+    out, prev = {}, None
+    for k in ("start", "push", "amber", "red", "step_back", "arrive", "fixed", "green", "resume"):
+        v = b.get(k)
+        if v is None or (prev is not None and v <= prev + 0.2):
+            continue
+        out[k] = prev = v
+    out["end"] = max(b["end"], (prev or start) + 1.0)
+    return out
 
 
 def camera_source(args, scn: Scenario, meta: dict):
     wide = wide_shot(scn, meta, args.focal)
+    if args.camera in UNITS:
+        deck = float(meta["world"]["deck_z_m"])
+
+        def follow(t):
+            x, y, _ = scn.pose(args.camera, t)
+            return [x - 1.6, y + 2.4, deck + 1.9], [x, y, deck + 0.8], 24.0
+
+        return follow, f"follow {args.camera}"
     if args.camera == "auto":
         try:
             from integration import fleet_camera as fc
@@ -774,7 +789,7 @@ def main(argv=None):
     sx0, sy0, _ = scrub_stance(pipe, scn.pose("unit1", first)[:2] if "unit1" in scn.poses else spawn[:2])
     rel0 = np.array([sx0, sy0, pipe["origin"][2]]) - np.asarray(pipe["origin"])
     side0 = 1.0 if rel0 @ np.asarray(pipe["ref"]) >= 0 else -1.0
-    z_rust = float(np.clip(rel0 @ np.asarray(pipe["axis"]), -seg_len / 2 + 0.15, seg_len / 2 - 0.15))
+    z_rust = float(rel0 @ np.asarray(pipe["axis"]))
     pipe_c = dict(pipe)
     pipe_c["origin"] = (np.asarray(pipe["origin"]) + z_rust * np.asarray(pipe["axis"])).tolist()
     pipe_c["z"] = 0.0
