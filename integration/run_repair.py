@@ -39,6 +39,8 @@ parser.add_argument("--glare", action="store_true", help="add glare on the nomin
 parser.add_argument("--stream", default="", help="host:port of the web viewer's sim socket, e.g. 127.0.0.1:9000")
 parser.add_argument("--no-gemini", action="store_true",
                     help="skip the Gemini second opinion even if GEMINI_API_KEY is set")
+parser.add_argument("--control", choices=["off", "auto", "live", "replay"], default="auto",
+                    help="fleet control centre: gemini-4-argon when a key is set (auto/live), else offline replay")
 args = parser.parse_args()
 
 from isaacsim import SimulationApp
@@ -184,7 +186,7 @@ def main() -> None:
         while not sender.inbox.empty():
             event = sender.inbox.get_nowait()
             try:
-                apply_event(bridge, event)
+                apply_event(bridge, event, state["feed"].control)
                 print(f"   >>> [web event t={bridge.sim_time():5.1f}s] {event}", flush=True)
             except Exception as e:
                 print(f"   >>> [web event rejected] {event}: {e}", flush=True)
@@ -235,6 +237,15 @@ def main() -> None:
 
     state["captions"] = HudFeed(orch, pose=lambda: bridge.state.base[:3, 3], camera=view_camera)
     if sender is not None:
+        if args.control != "off":
+            from policy.control.centre import from_env
+            from policy.control.port import MemoryCoordinator
+            port = MemoryCoordinator([{"id": "unit-1", "state": "PATROL", "zone": "A"}],
+                                     [{"id": "R-1", "kind": "rust_repair", "target": "main pipe", "level": "SUPV",
+                                       "status": "RUNNING"}], clock=bridge.sim_time)
+            state["captions"].control = from_env(args.control, OUT / "control_calls.jsonl", port=port)
+            backend = state["captions"].control.backend
+            print(f"CONTROL CENTRE {backend.name if backend else 'edge only'}", flush=True)
         state["feed"] = state["captions"]
     if args.glare:
         bridge.set_glare(True)
