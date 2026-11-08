@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-KIND_BASE = {"gas": 100.0, "crack": 50.0, "rust": 10.0, "leak_check": 3.0, "inspect": 1.0}
+KIND_BASE = {"gas": 100.0, "crack": 50.0, "weld": 30.0, "rust": 10.0, "leak_check": 3.0, "inspect": 1.0}
 DEADLINE_W = 5.0
 DEADLINE_WINDOW_S = 600.0
 OPEN = {"pending", "assigned", "active"}
