@@ -88,7 +88,7 @@ def test_stuck_head_reads_clean_and_is_reported():
 
 
 def test_head_fault_fuses_while_unit_stands_by_it():
-    w, det, fx = rig(stuck=30.0)
+    w, det, fx = rig(stuck=15.0)
     fx.command(command(GO_CHECK, "M2", "argon", "check"))
     run(w, det, fx, lambda f: f.state == SNIFF and f.sniff_done and f.wait_t > 0.5)
     assert fuse_fleet(det, {FIXER: fx.sniffer()}).kind == PIPE_SENSOR_FAULT
