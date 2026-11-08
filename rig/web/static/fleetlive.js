@@ -10,7 +10,7 @@
     const d = ds.reduce((a, b) => (Math.abs(b.z - z) < Math.abs(a.z - z) ? b : a), ds[0] || { z: 0 });
     return d && Math.abs(d.z - z) < 1.5 ? d.name : null;
   };
-  const onDeck = (p, deck) => deck === "all" || deckOf(p[2]) === deck;
+  const onDeck = (p, deck) => Array.isArray(p) && (deck === "all" || deckOf(p[2]) === deck);
 
   function line(g, o, pts, deck, color, width, dash, frac) {
     const segs = [];
@@ -35,13 +35,13 @@
     (hz?.closed || []).forEach((c) => line(g, o, [c.a, c.b], o.deck, RED, 2.4 * wide, [5, 4]));
     (hz?.obstacles || []).forEach((ob) => {
       if (!onDeck(ob.xyz, o.deck)) return;
-      const x = o.X(ob.xyz[0]), y = o.Y(ob.xyz[1]), r = Math.max(4, ob.radius * o.k);
+      const x = o.X(ob.xyz[0]), y = o.Y(ob.xyz[1]), r = Math.max(4, (ob.radius || 0.5) * o.k);
       g.fillStyle = ob.effect === "slip" ? "rgba(90,160,255,.35)" : "rgba(255,159,67,.4)";
       g.strokeStyle = ob.effect === "slip" ? "#5AA0FF" : "#FF9F43"; g.lineWidth = 1.5;
       g.beginPath(); g.rect(x - r, y - r, 2 * r, 2 * r); g.fill(); g.stroke();
       if (o.big) { g.fillStyle = "rgba(255,255,255,.85)"; g.font = "500 11px -apple-system, system-ui, sans-serif"; g.fillText(ob.kind, x + r + 4, y + 4); }
     });
-    (f.robots || []).forEach((r) => {
+    (f.robots || []).filter((r) => r?.id).forEach((r) => {
       const a = anim[r.id] || (anim[r.id] = {});
       if (r.prev_path && a.k !== r.reroute_t) { a.k = r.reroute_t; a.t0 = t; a.prev = r.prev_path; }
       const age = a.t0 ? t - a.t0 : Infinity;
@@ -51,14 +51,15 @@
     const w = hz?.weather;
     if (o.big && w && w.level !== "calm") {
       g.font = "600 12px -apple-system, system-ui, sans-serif"; g.fillStyle = w.closes_outer ? RED : "rgba(227,179,65,.95)";
-      g.fillText(`${w.level.toUpperCase()} · wind ${w.wind.toFixed(1)} → ${Math.round(w.wind_dir)}° · walk ×${w.speed.walk.toFixed(2)} · sight ${Math.round(w.perception_range_m)} m`, 12, 18);
+      g.fillText([String(w.level || "").toUpperCase(), w.wind != null ? `wind ${(+w.wind).toFixed(1)} → ${Math.round(w.wind_dir || 0)}°` : "", w.speed?.walk != null ? `walk ×${(+w.speed.walk).toFixed(2)}` : "", w.perception_range_m != null ? `sight ${Math.round(w.perception_range_m)} m` : ""].filter(Boolean).join(" · "), 12, 18);
     }
   };
 
   function onState(snap) {
     H.apply({ fleet: snap });
     if (snap.hazards?.weather) S.weather = { ...(S.weather || {}), ...snap.hazards.weather };
-    (snap.recent_events || []).filter((e) => SHOW.has(e.kind)).forEach((e) => {
+    (Array.isArray(snap.recent_events) ? snap.recent_events : []).filter((e) => e && SHOW.has(e.kind)).forEach((e) => {
+      e = { ...e, message: String(e.message || e.kind) };
       const key = e.t + e.kind + e.message;
       if (seen.has(key)) return;
       seen.add(key);
