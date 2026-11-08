@@ -80,6 +80,7 @@ def parse_args(argv=None):
     p.add_argument("--edl", default="", help="EDL module (default integration.film_edl) or a .json file")
     p.add_argument("--shots", default="", help="comma-separated shot names to render (film mode)")
     p.add_argument("--half-shots", default="", help="film: shots rendered at half rate with duplicated frames")
+    p.add_argument("--f5-fill", type=float, default=2.5e4, help="film: soft fill light intensity at F5")
     p.add_argument("--colors", action="store_true", help="unit paint colours (on in film mode)")
     p.add_argument("--control-room", default="", help="x,y,z,w,d,h[,yaw] bare lit interior")
     return p.parse_args(argv)
@@ -1262,6 +1263,13 @@ def main(argv=None):
               flush=True)
     if args.film:
         print(f"[fleet] flange patch F5 double-sided prims {patch_flange(stage, flanges, 'F5')}", flush=True)
+        from pxr import UsdLux
+
+        f5 = UsdLux.SphereLight.Define(stage, "/World/Fleet/f5_fill")
+        f5.CreateRadiusAttr(0.35)
+        f5.CreateIntensityAttr(args.f5_fill)
+        f5.CreateColorAttr(Gf.Vec3f(1.0, 0.93, 0.85))
+        UsdGeom.Xformable(f5).AddTranslateOp().Set(Gf.Vec3d(21.9, -9.4, 44.9))
     if args.colors:
         print(f"[fleet] paint {[(rid, paint_unit(stage, f'/World/Fleet/{rid}', UNIT_COLORS[rid])) for rid in UNITS]}",
               flush=True)
@@ -1492,7 +1500,7 @@ def main(argv=None):
                 res = model.solve_ik(base, seed, np.asarray(pt, float), np.asarray(appr, float), iterations=60,
                                      tip=tools[rid])
                 if res.position_error >= 0.03:
-                    alt = dict(model.default_q(), **ARM_START, lift_joint=seed["lift_joint"])
+                    alt = {**model.default_q(), **ARM_START, "lift_joint": seed["lift_joint"]}
                     res2 = model.solve_ik(base, alt, np.asarray(pt, float), np.asarray(appr, float), iterations=120,
                                           tip=tools[rid])
                     res = res2 if res2.position_error < res.position_error else res
