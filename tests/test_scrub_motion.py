@@ -1,8 +1,10 @@
 import math
+import xml.etree.ElementTree as ET
 
 import numpy as np
 import pytest
 
+from integration.kinematics import LIFT_URDF
 from integration.scrub_motion import (
     CONE,
     FACE_GAP,
@@ -11,6 +13,7 @@ from integration.scrub_motion import (
     SPRING_K,
     WEAR,
     ScrubJob,
+    scrub_track,
     windows_from_timeline,
     wrap,
 )
@@ -58,10 +61,12 @@ def test_the_brush_rides_the_pipe_surface_within_the_squish(job, ticks):
 
 
 def test_the_brush_presses_and_eases_within_the_pad_range(job, ticks):
-    work = [s for s in contacts(ticks) if FILM["scrub"] + 0.5 <= s["t"] <= FILM["verify"] - 0.5]
+    work = [s for s in contacts(ticks) if FILM["scrub"] <= s["t"] <= FILM["verify"] - 2.0]
     f = np.array([s["brush_contact"]["force_N"] for s in work])
     assert 3.0 - 1e-6 <= f.min() and f.max() <= 35.0
-    assert (f >= 20).mean() > 0.05
+    assert (f >= 15).mean() > 0.1
+    p = job.plan_
+    assert np.abs(np.diff(p.force)).max() <= 40.0 * job.dt + 1e-6
     assert 0.3 < max(s["brush_contact"]["squish"] for s in work) <= 0.6
 
 
@@ -83,9 +88,28 @@ def test_joints_move_continuously_without_a_branch_switch(job, ticks):
     q = np.array([[s["q"][j] for j in JOINTS] for s in ticks])
     step = np.abs(np.diff(q, axis=0))
     assert step[:, 0].max() <= 0.15 / 30 + 1e-6
-    assert step[:, 1:].max() < 0.16
+    assert step[:, 1:].max() < 0.11
     assert (q[:, JOINTS.index("ur3_elbow_joint")] > 0.15).all()
     assert (q[:, JOINTS.index("ur3_wrist_2_joint")] < -0.15).all()
+
+
+def test_joint_speeds_stay_under_the_urdf_limits(job):
+    root = ET.parse(LIFT_URDF).getroot()
+    limit = {j.get("name"): float(j.find("limit").get("velocity")) for j in root.findall("joint")
+             if j.find("limit") is not None}
+    v = np.abs(np.diff(job.plan_.q, axis=0)).max(0) / job.dt
+    for name, speed in zip(JOINTS, v):
+        assert speed <= limit[name] + 1e-6, name
+
+
+def test_the_track_matches_the_render(job):
+    tr = scrub_track(job)
+    assert tr["fps"] == 30 and tr["rows"][0]["t"] == pytest.approx(job.plan_.t[0])
+    for row in tr["rows"][::15]:
+        s = job.at(row["t"])
+        assert row["rust_fraction"] == pytest.approx(s["rust_fraction"], abs=1e-3)
+        assert row["force_N"] == pytest.approx(s["brush_contact"]["force_N"], abs=0.01)
+        assert row["phase"] == s["phase"]
 
 
 def test_the_arm_never_passes_through_the_pipe(job):

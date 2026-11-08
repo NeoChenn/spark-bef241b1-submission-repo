@@ -22,7 +22,9 @@ PAD_RADIUS = 0.036
 FACE_GAP = 0.004
 CONE = 0.275
 AIM = (0.7, 2.0)
-SEAT = 0.06
+SEAT = 0.08
+DEPLOY_S = 3.2
+FORCE_RATE = 40.0
 LIFT_SPEED = 0.15
 ARM_LINKS = ("ur3_upper_arm_link", "ur3_forearm_link", "ur3_wrist_1_link", "ur3_wrist_2_link", "ur3_wrist_3_link")
 ARM_LINK_RADIUS = 0.045
@@ -229,11 +231,35 @@ class ScrubJob:
         out = {}
         for name, h, margin in (("spray", self.spray_h, 0.012), ("paint", self.paint_h, 0.008)):
             fp = CONE * (h + FACE_GAP)
-            out[name] = boustrophedon(u0 - margin + 0.5 * fp, u1 + margin - 0.5 * fp,
-                                      z0 - margin + 0.5 * fp, z1 + margin - 0.5 * fp, 1.3 * fp)
+            out[name] = self.fitted_rows(u0 - margin + 0.5 * fp, u1 + margin - 0.5 * fp, 1.75 * fp,
+                                         margin - 0.5 * fp, 1.75 * fp)
         inset = 0.25 * PAD_RADIUS
         out["scrub"] = boustrophedon(u0 + inset, u1 - inset, z0 + inset, z1 - inset, 0.6 * PAD_RADIUS)
         return out
+
+    def fitted_rows(self, u0, u1, step, margin, reach, ds=0.002) -> np.ndarray:
+        n = max(1, int(math.ceil((u1 - u0) / step - 1e-9)))
+        rows = np.linspace(u0, u1, n + 1)
+        m = self.rust0 > WEAR["rust_eps"]
+        cu = wrap(self.cell_theta[m] - self.theta0) * self.pipe.radius
+        cz = self.cell_z[m]
+        ends = []
+        for u in rows:
+            near = np.abs(cu - u) <= reach
+            zz = cz[near] if near.any() else cz
+            ends.append((float(zz.min()) - margin, float(zz.max()) + margin))
+        pts = []
+        for k, u in enumerate(rows):
+            za, zb = ends[k] if k % 2 == 0 else ends[k][::-1]
+            m_ = max(2, int(math.ceil(abs(zb - za) / ds)))
+            pts += [(u, za + (zb - za) * s_) for s_ in np.linspace(0, 1, m_)]
+            if k + 1 < len(rows):
+                zn = ends[k + 1][1] if k % 2 == 0 else ends[k + 1][0]
+                rad = (rows[k + 1] - u) / 2
+                sgn = 1.0 if zb >= za else -1.0
+                for a in np.linspace(0, math.pi, max(4, int(math.ceil(math.pi * rad / ds))))[1:-1]:
+                    pts.append((u + rad * (1 - math.cos(a)), zb + (zn - zb) * a / math.pi + sgn * rad * math.sin(a)))
+        return np.asarray(pts, float)
 
     def natural_windows(self, t0: float = 0.0, soak_s: float = 5.7, deploy_s: float = 2.2) -> dict:
         P = {k: arclength(v)[-1] for k, v in self.paths().items()}
@@ -382,6 +408,7 @@ class ScrubJob:
                 w[k] = float(given[k]) if given[k] is not None else w[prev] + nat[k] - nat[prev]
                 prev = k
             w["deploy"] = float(t_deploy) if t_deploy is not None else w["spray"] - (nat["spray"] - nat["deploy"])
+            w["deploy"] = min(w["deploy"], w["spray"] - DEPLOY_S)
         if w["verify"] <= w["scrub"]:
             w["verify"] = w["scrub"] + nat["verify"] - nat["scrub"]
         r = self.pipe.radius
@@ -427,7 +454,7 @@ class ScrubJob:
             speeds[name] = L / dur
             return full
 
-        tr = 0.5
+        tr = 0.35
         sp = paths["spray"]
         ii = idx(w["spray"], w["soak"] - tr)
         trace(ii, sp, self.spray_h, "spray")
@@ -438,14 +465,14 @@ class ScrubJob:
         p_scrub0 = (sc[0], sc[1], self.hover)
         ii = idx(w["soak"] - tr, w["soak"])
         move(ii, (sp[-1, 0], sp[-1, 1], self.spray_h), (sp[-1, 0], sp[-1, 1], self.hover))
-        ii2 = idx(w["soak"], w["scrub"])
+        down = 1.3
+        ii2 = idx(w["soak"], w["scrub"] - down)
         move(ii2[: max(1, min(len(ii2), int(1.5 / self.dt)))], (sp[-1, 0], sp[-1, 1], self.hover), p_scrub0)
         tail = ii2[max(1, min(len(ii2), int(1.5 / self.dt))):]
         U[tail], Z[tail], H[tail], cart[tail] = p_scrub0[0], p_scrub0[1], self.hover, True
         for k in np.concatenate([ii, ii2]):
             phase[k] = "soak" if t[k] >= w["soak"] else "spray"
-        down = 0.4
-        ii_s = idx(w["scrub"] + down, w["verify"] - down)
+        ii_s = idx(w["scrub"], w["verify"] - down)
         th_s = th_of(U)
         k_spr = [k for k in range(n) if noz[k] and phase[k] == "spray"]
         tip_s, d_s = self.surface(th_s[k_spr], Z[k_spr], H[k_spr])
@@ -458,8 +485,14 @@ class ScrubJob:
         F[ii_s] = Fs
         H[ii_s] = -Fs / SPRING_K
         speeds["scrub"] = float(np.mean(np.hypot(np.diff(Us), np.diff(Zs))) / self.dt)
-        ii = idx(w["scrub"], w["scrub"] + down)
-        move(ii, p_scrub0, (Us[0], Zs[0], H[ii_s[0]]))
+        press = Fs[0] / FORCE_RATE
+        ii = idx(w["scrub"] - down, w["scrub"])
+        move(ii[t[ii] < w["scrub"] - press], p_scrub0, (Us[0], Zs[0], 0.0))
+        ip = ii[t[ii] >= w["scrub"] - press]
+        U[ip], Z[ip], cart[ip] = Us[0], Zs[0], True
+        H[ip] = -(t[ip] - (w["scrub"] - press)) * FORCE_RATE / SPRING_K
+        for k in ii:
+            phase[k] = "soak"
         full = np.stack([Us, Zs], -1)
         pt = paths["paint"]
         p_paint0 = (pt[0, 0], pt[0, 1], self.hover)
@@ -567,7 +600,7 @@ class ScrubJob:
         before = [v for t, v in pts if t <= w["scrub"]]
         tr = np.asarray([(w["scrub"], before[-1] if before else 1.0)] + [(t, v) for t, v in pts if t > w["scrub"]],
                         float)
-        t_fin = w["verify"] - 1.6
+        t_fin = w["verify"] - 1.9
         t = np.arange(w["scrub"], w["verify"] + self.dt, self.dt)
         base = np.interp(t, tr[:, 0], tr[:, 1])
         low = np.flatnonzero(base <= 0.077)
@@ -583,7 +616,7 @@ class ScrubJob:
         cur = self.rust0.astype(np.float64).copy()
         total0 = max(float(cur.sum()), 1e-9)
         omega = math.pi * self.scrub_speed / (2 * amp)
-        u, z, phi, k, f_prev = rows[0], zc - amp, 0.0, 0, self.force_mean
+        u, z, phi, k, f_prev = rows[0], zc - amp, 0.0, 0, 16.0
         U, Z, F = [], [], []
         for i, t in enumerate(ts):
             if i:
@@ -600,8 +633,10 @@ class ScrubJob:
             else:
                 goal = float(np.interp(t, target[0], target[1]))
                 err = cur.sum() / total0 - goal
-                f = 3.0 if err < -0.005 else float(np.clip(20.0 + 400.0 * err, 14.0 if goal > 0.15 else 6.0, 32.0))
-            f = float(np.clip(f, f_prev - 150 * self.dt, f_prev + 150 * self.dt))
+                base = 5.5 + 10.5 * float(np.clip((goal - 0.08) / 0.1, 0.0, 1.0))
+                f = float(np.clip(base + 500.0 * err, 3.0, 30.0))
+            f = min(f, FORCE_RATE * 0.8 * float(ts[-1] - t))
+            f = float(np.clip(f, f_prev - FORCE_RATE * self.dt, f_prev + FORCE_RATE * self.dt))
             f_prev = f
             if i:
                 vel = math.hypot(u - U[-1], z - Z[-1]) / self.dt
@@ -672,6 +707,17 @@ class ScrubJob:
             "painted": p.painted[0 if before else k],
             "rust_fraction": float(p.rust[0 if before else k].sum() / max(self.rust0.sum(), 1e-9)),
         }
+
+
+def scrub_track(job: ScrubJob, fps: int = 30) -> dict:
+    p = job.plan_
+    rows = []
+    for t in np.arange(p.t[0], p.t[-1] + 1e-9, 1.0 / fps):
+        k = job.index(t)
+        rows.append({"t": round(float(t), 4), "rust_fraction": round(float(p.rust[k].sum() / job.rust0.sum()), 4),
+                     "force_N": round(float(p.force[k]), 2), "phase": p.phase[k]})
+    return {"source": "integration/scrub_motion.py", "unit": "unit1", "fps": fps, "clean_t": p.clean_t,
+            "windows": {k: round(float(v), 4) for k, v in p.windows.items()}, "rows": rows}
 
 
 def film_job(timeline, scrub_pose=(18.225, -5.262, 0.0)) -> ScrubJob:
@@ -768,8 +814,11 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--timeline", default=str(REPO / "runs_sample/film/timeline.jsonl"))
     ap.add_argument("--out", default=str(REPO / "runs/scrub_motion"))
+    ap.add_argument("--track", default="")
     a = ap.parse_args()
     j = film_job(a.timeline)
+    if a.track:
+        Path(a.track).write_text(json.dumps(scrub_track(j)))
     print(json.dumps({"stance": j.scrub_pose, "windows": j.plan_.windows, "speeds": j.plan_.speeds,
                       "clean_t": j.plan_.clean_t, "warnings": j.plan_.warnings,
                       "png": [str(x) for x in check_png(j, a.out)]}, indent=1, default=float))
