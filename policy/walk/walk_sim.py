@@ -245,36 +245,16 @@ def backdrop_layer(scene: str, out: str):
 
 
 def dress(stage, work, args):
-    from pxr import UsdGeom, UsdLux
+    from pxr import UsdGeom
 
     UsdGeom.Imageable(stage.GetPrimAtPath("/World/ground")).MakeInvisible()
-    sky = stage.GetPrimAtPath("/World/Backdrop/Environment/sky")
-    if sky.IsValid():
-        lux = UsdLux.DomeLight(sky)
-        lux.GetIntensityAttr().Set(lux.GetIntensityAttr().Get() * args.dome_gain)
-    for k in range(300, 303):
-        lamp = stage.GetPrimAtPath(f"/World/Backdrop/Cinematic/Lamps/lamp_{k}/light")
-        if lamp.IsValid():
-            a = lamp.GetAttribute("inputs:intensity")
-            a.Set(a.Get() * args.flood_gain)
     try:
         from policy import night_look
     except ImportError:
         return {}
-    from pxr import Usd, UsdShade
-
-    for _ in range(4):
-        inst = [p for p in Usd.PrimRange(stage.GetPrimAtPath("/World/envs/env_0/Robot")) if p.IsInstance()]
-        for p in inst:
-            p.SetInstanceable(False)
-    info = night_look.apply(stage, "/World/Backdrop/RepairZone", work, full=True, lamp_gain=args.lamp_gain,
-                            robot_root="/World/envs/env_0/Robot", robot_color=args.robot_color)
-    for prim in Usd.PrimRange(stage.GetPrimAtPath("/World/envs/env_0/Robot"), Usd.TraverseInstanceProxies()):
-        if prim.IsA(UsdGeom.Mesh) and "visual" in str(prim.GetPath()):
-            m, _ = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()
-            print("[walk] MAT", prim.GetPath(), prim.IsInstanceProxy(), m.GetPath() if m else None, flush=True)
-            break
-    return info
+    return night_look.apply(stage, "/World/Backdrop/RepairZone", work, full=True, dome=args.dome,
+                            lamp_gain=args.lamp_gain, rig_gain=args.rig_gain, robot_root="/World/envs/env_0/Robot",
+                            robot_color=args.robot_color)
 
 
 def chase_camera(p, yaw, back=2.6, side=1.5, up=1.1):
@@ -435,8 +415,8 @@ def main(argv):
     p.add_argument("--max_s", type=float, default=30.0)
     p.add_argument("--renderer", default="RaytracedLighting")
     p.add_argument("--robot_color", default="graphite")
-    p.add_argument("--dome_gain", type=float, default=0.25)
-    p.add_argument("--flood_gain", type=float, default=0.3)
+    p.add_argument("--dome", type=float, default=120.0)
+    p.add_argument("--rig_gain", type=float, default=0.25)
     p.add_argument("--lamp_gain", type=float, default=1.0)
     from isaaclab.app import AppLauncher
 
