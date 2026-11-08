@@ -51,9 +51,24 @@
 
   const SOUNDS = {
     gas_alarm(t) {
-      const lp = ctx.createBiquadFilter();
-      lp.type = "lowpass"; lp.frequency.value = 2200; lp.connect(out);
-      for (let i = 0; i < 8; i++) tone(i % 2 ? 784 : 587, t + i * 0.375, 0.14, 0.02, 0.33, "triangle", lp);
+      const lp = ctx.createBiquadFilter(), g = ctx.createGain();
+      lp.type = "lowpass"; lp.frequency.value = 3200; g.gain.value = 0.42;
+      lp.connect(g); g.connect(out);
+      for (let i = 0; i < 4; i++) {
+        const s = t + i * 0.9;
+        [["sawtooth", 1, 0.5], ["square", 0.5, 0.3]].forEach(([type, k, peak]) => {
+          const o = ctx.createOscillator(), e = ctx.createGain();
+          o.type = type;
+          o.frequency.setValueAtTime(520 * k, s);
+          o.frequency.exponentialRampToValueAtTime(1150 * k, s + 0.6);
+          o.frequency.exponentialRampToValueAtTime(520 * k, s + 0.85);
+          e.gain.setValueAtTime(0.0001, s);
+          e.gain.exponentialRampToValueAtTime(peak, s + 0.03);
+          e.gain.setValueAtTime(peak, s + 0.78);
+          e.gain.exponentialRampToValueAtTime(0.0001, s + 0.88);
+          o.connect(e); e.connect(lp); o.start(s); o.stop(s + 0.9);
+        });
+      }
     },
     approval(t) {
       [[659.3, 0], [987.8, 0.14]].forEach(([f, d]) => { tone(f, t + d, 0.12, 0.005, 0.9); tone(f * 2, t + d, 0.025, 0.005, 0.4); });
@@ -64,7 +79,7 @@
   };
   SOUNDS.weld = SOUNDS.toast;
 
-  const GAP = { gas_alarm: 3, approval: 1, disturbance: 0.8 }, at = {};
+  const GAP = { gas_alarm: 4, approval: 1, disturbance: 0.8 }, at = {};
   function play(kind) {
     const f = SOUNDS[kind];
     if (!f || !live()) return false;
