@@ -12,7 +12,7 @@
   const MODS = [
     { id: "hud", name: "HUD", key: "h" }, { id: "map", name: "Pipe map", key: "m" },
     { id: "gemini", name: "Gemini", key: "g" }, { id: "log", name: "Decision log", key: "l" },
-    { id: "force", name: "Force sensor", key: "f" }, { id: "pip", name: "Inspection PiP", key: "p" },
+    { id: "pip", name: "Inspection PiP", key: "p" },
     { id: "control", name: "Control centre", key: "o" },
     { id: "captions", name: "Captions", key: "t" },
   ];
@@ -589,6 +589,16 @@
   $("pip").classList.add("hide");
   $("gemini").classList.add("hide");
   addEventListener("keydown", keys);
+  $("cc-order").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const box = $("cc-order-text"), text = box.value.trim();
+    if (!text) return;
+    post({ name: "intent", args: { text } });
+    box.value = "";
+    box.blur();
+    $("cc-order").classList.add("sent");
+    setTimeout(() => $("cc-order").classList.remove("sent"), 1200);
+  });
   if (MOCK) {
     $("status").textContent = "mock replay";
     shot(1);

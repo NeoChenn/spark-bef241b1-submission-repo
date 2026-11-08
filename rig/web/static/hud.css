@@ -5,8 +5,8 @@
   --fg: #F5F4EE;
   --dim: rgba(245, 244, 238, 0.62);
   --faint: rgba(245, 244, 238, 0.34);
-  --accent: #D97757;
-  --accent-soft: rgba(217, 119, 87, 0.18);
+  --accent: #2EC4B6;
+  --accent-soft: rgba(46, 196, 182, 0.18);
   --ok: #3FB950;
   --warn: #E3B341;
   --stop: #F85149;
@@ -81,7 +81,7 @@ kbd { font-family: var(--mono); letter-spacing: 0.02em; color: var(--faint); bor
 .unscripted.open .u-body { display: flex; }
 .u-body button { all: unset; cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 9px; font-size: 13px; color: var(--fg); background: rgba(245,244,238,.04); transition: background var(--fade); }
 .u-body button:hover { background: var(--accent-soft); }
-.u-body button:active { background: rgba(217,119,87,.32); }
+.u-body button:active { background: rgba(46,196,182,.32); }
 .u-body button.fired { box-shadow: inset 0 0 0 1px var(--accent); }
 
 .stepper { top: var(--edge); right: var(--edge); padding: 14px 18px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
@@ -91,7 +91,7 @@ kbd { font-family: var(--mono); letter-spacing: 0.02em; color: var(--faint); bor
 #steps li:first-child::before { display: none; }
 #steps li span { width: 10px; height: 10px; border-radius: 50%; background: #3a3a37; transition: all var(--fade); }
 #steps li.done { color: var(--dim); }
-#steps li.done span, #steps li.done::before, #steps li.cur::before { background: rgba(217,119,87,.55); }
+#steps li.done span, #steps li.done::before, #steps li.cur::before { background: rgba(46,196,182,.55); }
 #steps li.cur { color: var(--fg); }
 #steps li.cur span { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
 #steps.ok li.cur span { background: var(--ok); box-shadow: 0 0 0 4px rgba(63,185,80,.2); }
@@ -293,3 +293,10 @@ body.cine .captions:not(.off) { opacity: 1; transform: none; }
 .lbl.edge .l-arrow { display: block; }
 .lbl.edge .l-stem, .lbl.edge .l-pin { display: none; }
 .lbl.edge .l-card { bottom: auto; transform: none; }
+.cc-order { display: flex; gap: 6px; }
+.cc-order input { flex: 1; min-width: 0; font: inherit; font-size: 12px; color: var(--fg); background: rgba(245,244,238,.06); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; outline: none; }
+.cc-order input:focus { border-color: var(--accent); }
+.cc-order button { font: inherit; font-size: 11px; font-weight: 600; color: var(--bg); background: var(--accent); border: 0; border-radius: 8px; padding: 0 10px; cursor: pointer; }
+.cc-order.sent input { border-color: var(--ok); }
+
+.forcemod { display: none !important; }
