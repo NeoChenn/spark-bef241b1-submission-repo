@@ -298,6 +298,7 @@ export material OceanFx(
     float mask_lo = 0.02,
     float mask_hi = 0.13,
     float glitter = 0.2,
+    float foam_glow = 0.0,
     float glitter_roughness = 0.14,
     float drift_speed = 0.6,
     float3 camera_position = float3(0.0, 0.0, 40.0),
@@ -367,7 +368,7 @@ export material OceanFx(
 } in material(
     surface: material_surface(
         scattering: df::weighted_layer(weight: foam, layer: froth, base: water),
-        emission: material_emission(emission: df::diffuse_edf(), intensity: debug * (debug_mode > 0.5 ? color(0.5 + 0.5 * o.n.x, 0.5 + 0.5 * o.n.y, alpha * 3.0) : color(math::frac(p.x / 20.0) * 0.2, m, foam)), mode: intensity_radiant_exitance)
+        emission: material_emission(emission: df::diffuse_edf(), intensity: foam_glow * foam * math::max(contact, 0.5 * ring * leg_foam) * foam_color + debug * (debug_mode > 0.5 ? color(0.5 + 0.5 * o.n.x, 0.5 + 0.5 * o.n.y, alpha * 3.0) : color(math::frac(p.x / 20.0) * 0.2, m, foam)), mode: intensity_radiant_exitance)
     ),
     geometry: material_geometry(normal: n)
 );

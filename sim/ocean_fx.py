@@ -26,13 +26,13 @@ CAMERAS = ("/World/Judge/Cam", "/World/Cinematic/Cameras/stream")
 REFERENCE_WIDTH_PX = 1280.0
 
 FX = {
-    "night": {"chop": 1.0, "slope_gain": 2.5, "coverage": 0.035, "foam_amount": 1.0, "leg_foam": 1.0, "roughness": 0.015,
+    "night": {"foam_glow": 60.0, "chop": 1.0, "slope_gain": 2.5, "coverage": 0.035, "foam_amount": 1.0, "leg_foam": 1.0, "roughness": 0.015,
               "deep_color": (0.0015, 0.007, 0.010), "crest_color": (0.006, 0.03, 0.032),
               "aerated_color": (0.03, 0.09, 0.085), "foam_color": (0.9, 0.93, 0.93)},
-    "storm": {"chop": 1.45, "slope_gain": 3.0, "coverage": 0.09, "foam_amount": 1.25, "leg_foam": 1.35, "roughness": 0.03,
+    "storm": {"foam_glow": 60.0, "chop": 1.45, "slope_gain": 3.0, "coverage": 0.09, "foam_amount": 1.25, "leg_foam": 1.35, "roughness": 0.03,
               "deep_color": (0.004, 0.012, 0.014), "crest_color": (0.012, 0.045, 0.045),
               "aerated_color": (0.05, 0.12, 0.11), "foam_color": (0.7, 0.74, 0.75)},
-    "golden": {"chop": 0.85, "slope_gain": 2.0, "coverage": 0.015, "foam_amount": 0.9, "leg_foam": 0.9, "roughness": 0.015,
+    "golden": {"foam_glow": 0.0, "chop": 0.85, "slope_gain": 2.0, "coverage": 0.015, "foam_amount": 0.9, "leg_foam": 0.9, "roughness": 0.015,
                "deep_color": (0.005, 0.02, 0.03), "crest_color": (0.02, 0.07, 0.07),
                "aerated_color": (0.06, 0.16, 0.15), "foam_color": (0.8, 0.8, 0.78)},
 }
@@ -112,7 +112,7 @@ def build_mdl(big, detail: Waves, legs) -> str:
 def preset_inputs(name: str, height: float, threshold: float) -> dict:
     fx = FX.get(name, FX["night"])
     return {"height": float(height), "chop": fx["chop"], "slope_gain": fx["slope_gain"], "foam_threshold": threshold,
-            "foam_amount": fx["foam_amount"], "leg_foam": fx["leg_foam"], "roughness": fx["roughness"],
+            "foam_amount": fx["foam_amount"], "foam_glow": fx["foam_glow"], "leg_foam": fx["leg_foam"], "roughness": fx["roughness"],
             "deep_color": fx["deep_color"], "crest_color": fx["crest_color"],
             "aerated_color": fx["aerated_color"], "foam_color": fx["foam_color"]}
 
