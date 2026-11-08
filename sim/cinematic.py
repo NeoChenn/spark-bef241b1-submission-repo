@@ -501,7 +501,7 @@ DECK_FLOODS = (
 
 
 DECK_Z = 42.5
-ZONE_SPOT = ((20.2, -3.6, 44.8), (18.26, -5.25, 43.1), LED, 2.0e7, 12.0)
+ZONE_SPOT = ((20.2, -3.6, 44.8), (18.26, -5.25, 43.1), LED, 9.0e7, 12.0)
 
 
 def add_zone_spot(stage) -> None:
