@@ -26,7 +26,7 @@ def heat_shimmer(img: np.ndarray, source, radius: float, t: float, strength: flo
 
 
 class LensDrops:
-    def __init__(self, seed: int = 0, rate: float = 6.0, max_drops: int = 48, life: float = 9.0):
+    def __init__(self, seed: int = 0, rate: float = 3.0, max_drops: int = 24, life: float = 9.0):
         self.rng = np.random.default_rng(seed)
         self.rate, self.max_drops, self.life = rate, max_drops, life
         self.drops = np.zeros((0, 4))
@@ -49,7 +49,7 @@ class LensDrops:
         h, w = img.shape[:2]
         m = min(h, w)
         f = img[..., :3].astype(np.float32)
-        blur = np.asarray(Image.fromarray(img[..., :3]).filter(ImageFilter.GaussianBlur(m * 0.012)), np.float32)
+        blur = np.asarray(Image.fromarray(img[..., :3]).filter(ImageFilter.GaussianBlur(m * 0.02)), np.float32)
         out = f.copy()
         for x, y, r, age in self.drops:
             rr = max(2.0, r * m)
@@ -61,10 +61,10 @@ class LensDrops:
             u, v = (xx - cx) / rr, (yy - cy) / rr
             q = u * u + v * v
             fade = min(1.0, (self.life - age) / 2.0)
-            a = (np.clip((1 - q) * 3.0, 0, 1) * 0.9 * fade)[..., None]
+            a = (np.clip(1 - q, 0, 1) ** 0.7 * 0.6 * fade)[..., None]
             sx = np.clip(cx - u * rr * 0.8, 0, w - 1).astype(np.intp)
             sy = np.clip(cy - v * rr * 0.8, 0, h - 1).astype(np.intp)
-            lens = blur[sy, sx] * (1.08 - 0.25 * q[..., None]) + 6.0 * np.exp(-((u + 0.35) ** 2 + (v + 0.4) ** 2) * 18)[..., None] * 18
+            lens = blur[sy, sx] * (1.04 - 0.1 * q[..., None]) + 25.0 * np.exp(-((u + 0.3) ** 2 + (v + 0.35) ** 2) * 12)[..., None]
             out[ya:yb, xa:xb] = out[ya:yb, xa:xb] * (1 - a) + lens * a
         res = np.clip(out, 0, 255).astype(np.uint8)
         return np.concatenate([res, img[..., 3:]], -1) if img.shape[-1] == 4 else res
