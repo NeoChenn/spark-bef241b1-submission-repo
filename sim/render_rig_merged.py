@@ -60,7 +60,7 @@ def grab(cam, t, subframes, warm=2):
 
 
 grab.products = {}
-for item in args.stills.split(","):
+for item in filter(None, args.stills.split(",")):
     name, spec = item.split("=")
     kind, value = spec.split(":", 1)
     cam, t = (stream, float(value)) if kind == "t" else (value, 11.0)
