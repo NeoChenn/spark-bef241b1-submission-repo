@@ -265,8 +265,9 @@ class MissionLive:
         args = dict(args or {})
         with self.lock:
             if name in SCEN_EVENTS:
-                out = self.scen.start(str(args.get("id") or "")) if name in ("scenario", "demo") else \
+                out = self.scen.start(str(args.get("id") or "")) if name == "scenario" else \
                     self.scen.disturb() if name == "disturb" else self.scen.set_camera(args) if name == "camera" else \
+                    self.scen.demo(str(args.get("id") or "")) if name == "demo" else \
                     self.scen.select(args.get("robot"))
                 self._fleet_events()
                 return out
@@ -514,7 +515,10 @@ class MissionLive:
                 d["pose"] = {"x": round(float(o["xy"][0]), 2), "y": round(float(o["xy"][1]), 2), "z": round(o["z"], 2),
                              "yaw": round(float(o["yaw"]), 3)}
                 d["path"] = [[d["pose"]["x"], d["pose"]["y"], d["pose"]["z"]]]
-                if o["mode"] != "RETURN":
+                d["prev_path"] = None
+                if o["mode"] == "DEMO":
+                    d.update({k: o.get(k) for k in ("state", "task", "job_state", "rollout")})
+                elif o["mode"] != "RETURN":
                     d["job_state"] = "LEAK_APPROACH"
                     d["seek"] = o["mode"]
             kind = inf.get("kind")
@@ -684,7 +688,7 @@ class MissionLive:
     def for_sim(self) -> dict:
         s = self.snapshot_fleet()
         return {"t": s["t"], "hazards": s["hazards"],
-                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state", "task", "job_state")}
+                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state", "task", "job_state", "rollout")}
                            for r in s["robots"]]}
 
     def state(self) -> dict:
