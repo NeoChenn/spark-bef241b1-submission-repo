@@ -91,6 +91,7 @@ def build() -> Path:
         place(stage, f"{ah.ROOT}/Hung", f"{asset}_{index:02d}", asset, (x, y, ah.DECK + height), rot, 1.0, centre_z=True)
     for path in ah.HIDE:
         stage.OverridePrim(path).SetActive(False)
+    stage.GetRootLayer().GetPrimAtPath("/World").specifier = Sdf.SpecifierOver
     stage.GetRootLayer().Save()
     print(f"ASSETS_HERO_WRITTEN {ah.LAYER} items={len(ah.PLACE) + len(ah.WALL) + len(ah.HUNG)} hidden={len(ah.HIDE)}")
     return ah.LAYER
