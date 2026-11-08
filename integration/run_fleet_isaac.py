@@ -50,6 +50,7 @@ def parse_args(argv=None):
     p.add_argument("--max-frames", type=int, default=0)
     p.add_argument("--every", type=int, default=1, help="render every n-th frame (quick tests)")
     p.add_argument("--at", default="", help="comma-separated times: render only these frames (checks)")
+    p.add_argument("--from-frame", type=int, default=0, help="resume: render from this frame into the same --out")
     p.add_argument("--renderer", default="RaytracedLighting",
                    choices=["RaytracedLighting", "PathTracing", "RealTimePathTracing"])
     p.add_argument("--spp", type=int, default=16)
@@ -893,7 +894,15 @@ def camera_source(args, scn: Scenario, meta: dict):
                         print(f"[fleet] summary beats unusable ({exc}), using timeline beats", flush=True)
                         beats = fc.Beats.from_events(beat_times(scn, args.start))
                     base_fn = fn
-                    fn = lambda t: base_fn(t, beats)
+                    scene = None
+                    if hasattr(fc, "Scene") and hasattr(fc, "crate_from_timeline"):
+                        crate = fc.crate_from_timeline(scn.rows)
+                        if crate is not None:
+                            import dataclasses
+
+                            scene = dataclasses.replace(fc.Scene(), crate=crate)
+                            args.camera_crate = list(crate)
+                    fn = (lambda t: base_fn(t, beats)) if scene is None else (lambda t: base_fn(t, beats, scene))
                     args.beats_used = {f.name: getattr(beats, f.name) for f in __import__("dataclasses").fields(beats)}
                     print(f"[fleet] camera beats {beats}", flush=True)
                 except Exception as exc:
@@ -1134,12 +1143,18 @@ def main(argv=None):
     ann = rep.AnnotatorRegistry.get_annotator("rgb")
     ann.attach(rp)
     writer = None
-    if not args.no_video:
+    if not args.no_video and not args.from_frame:
         import imageio
 
         writer = imageio.get_writer(str(out / "fleet_isaac.mp4"), fps=max(1, args.fps // max(1, args.every)),
                                     codec="libx264", quality=9, macro_block_size=8, pixelformat="yuv420p")
-    head = (out / "fleet_isaac_header.jsonl").open("w")
+    head_path = out / "fleet_isaac_header.jsonl"
+    kept = []
+    if args.from_frame and head_path.exists():
+        kept = [ln for ln in head_path.read_text().splitlines() if ln.strip()
+                and json.loads(ln).get("frame", 0) < args.from_frame]
+    head = head_path.open("w")
+    head.write("".join(ln + "\n" for ln in kept))
     nav_t = args.start
     scrub_t, t_prev, rendered, work_w, fix_w, fix_pose = 0.0, args.start, 0, 0.0, 0.0, None
     retq = None
@@ -1295,6 +1310,8 @@ def main(argv=None):
         cam_op.Set(Gf.Matrix4d(*look_rows(c[0], c[1]).reshape(-1)))
         if at_frames is not None and k not in at_frames:
             continue
+        if k < args.from_frame:
+            continue
         if at_frames is None and k % max(1, args.every):
             continue
         warm = args.warmup if rendered == 0 else 1
@@ -1307,11 +1324,11 @@ def main(argv=None):
                 break
         if rgb is None:
             raise RuntimeError(f"annotator stayed empty at t={t:.2f}")
-        Image.fromarray(rgb).save(frames_dir / f"{rendered:05d}.jpg", quality=args.jpeg)
+        Image.fromarray(rgb).save(frames_dir / f"{(k if args.from_frame else rendered):05d}.jpg", quality=args.jpeg)
         if writer is not None:
             writer.append_data(rgb)
         evs = scn.events_between(t - max(1, args.every) / args.fps, t)
-        row = header_row(rendered, t, c, args, units, dets, evs, acts, shown)
+        row = header_row(k if args.from_frame else rendered, t, c, args, units, dets, evs, acts, shown)
         row["fx"] = fx_state
         if in_rt and retq[2] <= t:
             ph = retq[0].phase[min(int(np.searchsorted(retq[0].t, t - retq[2])), len(retq[0].phase) - 1)]
@@ -1336,6 +1353,7 @@ def main(argv=None):
         "nav_policy": args.nav_policy if Path(args.nav_policy).exists() else "pure_pursuit", "camera": cam_kind,
         "unit2_usd": str(u2_usd) if u2_usd else None, "scrub": "recorded" if brush_log is not None else "scripted",
         "detectors": detectors is not None, "beats": getattr(args, "beats_used", None),
+        "camera_crate": getattr(args, "camera_crate", None), "from_frame": args.from_frame,
         "retorque": None if retq is None else {"flange": retq[0].flange_id, "bolt": retq[0].bolt, "t0": retq[2],
                                                "duration": retq[0].duration,
                                                "bolt_center": [round(float(v), 4) for v in retq[0].bolt_center],
