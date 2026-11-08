@@ -4,7 +4,7 @@ import math
 
 LEVELS = {"calm": (0.0, 0.0, 0.0), "fog": (0.15, 0.0, 1.0), "wind": (0.6, 0.0, 0.0), "rain": (0.6, 1.0, 0.3),
           "storm": (1.0, 1.0, 0.6)}
-FOG = {"height": (0.002, 0.14), "dist": (0.0, 0.032), "color": ((0.05, 0.16, 0.18), (0.2, 0.25, 0.27))}
+FOG = {"height": (0.002, 0.28), "dist": (0.0, 0.064), "color": ((0.05, 0.16, 0.18), (0.2, 0.25, 0.27))}
 ROLL = 0.25
 PRESET_LEVEL = {"storm": 1.0}
 RAMP_S = 4.0
@@ -15,6 +15,9 @@ OCEAN = {"chop": (1.0, 1.45), "slope_gain": (2.5, 3.0), "coverage": (0.035, 0.09
          "leg_foam": (1.0, 1.35), "roughness": (0.015, 0.03)}
 SKIP = ("/World/Looks/HeroRustOverlay", "/World/RepairZone/Looks/rust_coarse_01")
 ATM_EVERY_S = 0.25
+ROLL_EVERY_S = 0.25
+RAIN_ROOT = "/World/Weather/rain"
+RAIN_COUNT, RAIN_BOX, RAIN_STREAK, RAIN_WIDTH, RAIN_SPEED, RAIN_BELOW = 1400, (18.0, 30.0), 0.9, 0.012, 9.0, 20.0
 
 _flare = {"wind": None}
 
@@ -32,6 +35,38 @@ def level_of(level) -> float:
     return components(level)[0]
 
 
+def mix(current=(0.0, 0.0, 0.0), level=None, rain=None, fog=None) -> tuple[float, float, float]:
+    sea, r, f = 0.0, current[1], current[2]
+    if level is not None:
+        if level == "rain":
+            r = 1.0
+        elif level == "fog":
+            f = 1.0
+        else:
+            sea, r, f = components(level)
+    r = r if rain is None else min(max(float(rain), 0.0), 1.0)
+    f = f if fog is None else min(max(float(fog), 0.0), 1.0)
+    return max(sea, 0.6 * r, 0.15 * f), r, f
+
+
+def parse_default(text: str) -> dict:
+    text = (text or "").strip()
+    if not text or "@" in text:
+        return {}
+    if "=" in text:
+        return {k.strip(): float(v) for k, v in (p.split("=") for p in text.split(",") if "=" in p) if k.strip() in ("rain", "fog")}
+    if "+" in text:
+        return {part: 1.0 for part in text.split("+") if part in ("rain", "fog")}
+    return {"level": float(text) if text.replace(".", "", 1).isdigit() else text}
+
+
+def atmos_kind(text: str) -> str:
+    d = parse_default(text)
+    if "level" in d or not d:
+        return text
+    return "rain" if d.get("rain", 0.0) > 0 else ("fog" if d.get("fog", 0.0) > 0 else "calm")
+
+
 def lerp(a, b, s):
     if isinstance(a, tuple):
         return tuple(x + (y - x) * s for x, y in zip(a, b))
@@ -44,7 +79,7 @@ def ease(x: float) -> float:
 
 
 def target(level, wind_dir=None, gust=None, base_height: float = 1.5, fog_base=None) -> dict:
-    u, rain, fog = components(level)
+    u, rain, fog = level if isinstance(level, tuple) else components(level)
     speed = lerp(CALM_WIND, STORM_WIND, u) * (float(gust) / GUST_REF if gust is not None else 1.0)
     a = math.radians(DEFAULT_DIR if wind_dir is None else float(wind_dir))
     out = {k: lerp(lo, hi, u) for k, (lo, hi) in OCEAN.items()}
@@ -107,7 +142,9 @@ class Controller:
                              float(puddles.Get()) if puddles and puddles.Get() is not None else 0.0))
         self.args, self.now, self.atm_at, self.live = {}, 0.0, -1.0, False
         self.fog_base = self._fog_base()
-        start = self._target(PRESET_LEVEL.get(preset, 0.0), None, None)
+        self.mixed = mix(level=PRESET_LEVEL.get(preset, 0.0))
+        self.curtain, self.roll_at = None, -1.0
+        start = self._target(self.mixed, None, None)
         self.ramp = Ramp(start, 0.0)
 
     def _fog_base(self) -> dict:
@@ -124,7 +161,7 @@ class Controller:
         w["foam_threshold"] = self.fx.foam_threshold(self.fx.big_waves(), self.fx.detail_waves(), w["chop"], w["coverage"])
         return w
 
-    def set(self, level=None, wind_dir=None, gust=None, time=None) -> None:
+    def set(self, level=None, wind_dir=None, gust=None, time=None, rain=None, fog=None) -> None:
         if time:
             import cinematic
 
@@ -132,24 +169,53 @@ class Controller:
                 cinematic.set_time(self.stage, time)
                 self.fog_base = self._fog_base()
                 print(f"rig sim: time of day {time}", flush=True)
-        if level is None:
-            level = self.args.get("level", "calm")
-        self.args = {"level": level, "wind_dir": wind_dir, "gust": gust}
-        self.ramp.set(self._target(level, wind_dir, gust), self.now)
+        self.mixed = mix(self.mixed, level, rain, fog)
+        self.args = {"level": level if level is not None else self.args.get("level"), "wind_dir": wind_dir, "gust": gust}
+        self.ramp.set(self._target(self.mixed, wind_dir, gust), self.now)
         self.live = True
         import photoreal
 
         if hasattr(photoreal, "set_rain"):
-            photoreal.set_rain(self.stage, components(level)[1])
-        print(f"rig sim: weather ramp to {level} ({level_of(level):.2f})", flush=True)
+            photoreal.set_rain(self.stage, self.mixed[1])
+        print(f"rig sim: weather sea={self.mixed[0]:.2f} rain={self.mixed[1]:.2f} fog={self.mixed[2]:.2f}", flush=True)
+
+    def _rain(self, t: float, amount: float) -> None:
+        from pxr import Gf, Usd, UsdGeom
+
+        if self.curtain is None:
+            if amount < 0.1:
+                return
+            self.curtain = rain_curtain(self.stage)
+        vis = "inherited" if amount >= 0.1 else "invisible"
+        if self.curtain["vis"] != vis:
+            self.curtain["vis"] = vis
+            UsdGeom.Imageable(self.curtain["prim"]).GetVisibilityAttr().Set(vis)
+        if vis == "invisible":
+            return
+        for path in self.fx.CAMERAS:
+            prim = self.stage.GetPrimAtPath(path)
+            if prim.IsValid():
+                eye = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()).ExtractTranslation()
+                x, y, z = curtain_offset(tuple(eye), t)
+                self.curtain["op"].Set(Gf.Vec3d(x, y, z))
+                return
 
     def tick(self, t: float) -> None:
         from pxr import Sdf
 
         self.now = t
+        w = self.ramp.at(t) if (self.live or self.mixed[2] > 0.05 or self.mixed[1] > 0.05) else None
+        if w is None:
+            return
+        self._rain(t, w["rain"])
+        import carb
+
+        st = carb.settings.get_settings()
+        if w["fog"] > 0.05 and t - self.roll_at >= ROLL_EVERY_S:
+            self.roll_at = t
+            st.set_float("/rtx/fog/fogHeightDensity", float(w["fog_height"]) * roll(t, w["fog"]))
         if not self.live:
             return
-        w = self.ramp.at(t)
         if self.wave is not None:
             self.wave["height"] = w["wave_height"]
         if self.ocean:
@@ -162,9 +228,6 @@ class Controller:
             if puddles is not None:
                 puddles.Set(pv)
         _flare["wind"] = tuple(w["wind"])
-        import carb
-
-        st = carb.settings.get_settings()
         st.set_bool("/rtx/fog/enabled", True)
         st.set_float("/rtx/fog/fogHeightDensity", float(w["fog_height"]) * roll(t, w["fog"]))
         st.set_float("/rtx/fog/fogDistanceDensity", float(w["fog_dist"]))
@@ -172,5 +235,38 @@ class Controller:
         if self.atm is not None and not isinstance(self.args.get("level"), str) and t - self.atm_at >= ATM_EVERY_S:
             self.atm_at = t
             self.atm.set_weather(level=w["level"], wind_dir=self.args.get("wind_dir"), gust=self.args.get("gust"))
-        if self.ramp.done(t) and w["fog"] < 0.05:
+        if self.ramp.done(t):
             self.live = False
+
+
+def rain_curtain(stage, count: int = RAIN_COUNT, seed: int = 5) -> dict:
+    import numpy as np
+    from pxr import Gf, Sdf, UsdGeom, UsdShade, Vt
+
+    rng = np.random.default_rng(seed)
+    root = UsdGeom.Xform.Define(stage, RAIN_ROOT)
+    op = root.AddTranslateOp()
+    curves = UsdGeom.BasisCurves.Define(stage, f"{RAIN_ROOT}/streaks")
+    curves.CreateTypeAttr("linear")
+    p = rng.uniform((-RAIN_BOX[0], -RAIN_BOX[0], 0.0), (RAIN_BOX[0], RAIN_BOX[0], RAIN_BOX[1]), (count, 3))
+    p = np.concatenate([p, p + (0.0, 0.0, RAIN_BOX[1])])
+    pts = np.repeat(p, 2, axis=0)
+    pts[1::2] += (0.12, 0.07, -RAIN_STREAK)
+    curves.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
+    curves.CreateCurveVertexCountsAttr(Vt.IntArray.FromNumpy(np.full(len(p), 2, np.int32)))
+    curves.CreateWidthsAttr(Vt.FloatArray([RAIN_WIDTH]))
+    curves.SetWidthsInterpolation(UsdGeom.Tokens.constant)
+    mat = UsdShade.Material.Define(stage, f"{RAIN_ROOT}/look")
+    sh = UsdShade.Shader.Define(stage, f"{RAIN_ROOT}/look/surface")
+    sh.CreateIdAttr("UsdPreviewSurface")
+    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.45, 0.48, 0.5))
+    sh.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.03, 0.033, 0.036))
+    sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.2)
+    mat.CreateSurfaceOutput().ConnectToSource(sh.CreateOutput("surface", Sdf.ValueTypeNames.Token))
+    UsdShade.MaterialBindingAPI.Apply(curves.GetPrim()).Bind(mat)
+    return {"prim": root.GetPrim(), "op": op, "vis": "inherited"}
+
+
+def curtain_offset(eye, t: float) -> tuple[float, float, float]:
+    fall = (t * RAIN_SPEED) % RAIN_BOX[1]
+    return eye[0], eye[1], eye[2] - RAIN_BELOW - fall
