@@ -499,7 +499,7 @@ def capture_specs(shots: list[Shot], cards: str) -> list[tuple[str, str, list[st
 
 
 def capture_overlays(shots: list[Shot], root, length=60.0, size=(1920, 1080), jobs: int = 4) -> list[str]:
-    root = Path(root)
+    root = Path(root).resolve()
     shutil.rmtree(root, ignore_errors=True)
     cards = "long" if length is None or (isinstance(length, (int, float)) and length > 60) else "short"
     script = REPO / "integration/film_overlays/capture.py"
@@ -518,14 +518,21 @@ def capture_overlays(shots: list[Shot], root, length=60.0, size=(1920, 1080), jo
         return list(ex.map(run, capture_specs(shots, cards)))
 
 
+def cut_out(out: Path, cut: str) -> Path:
+    if cut != "long":
+        return out
+    stem = out.stem.replace("film", "film_long", 1) if "film" in out.stem else out.stem + "_long"
+    return out.with_name(stem + out.suffix)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Assemble the fleet film from the EDL, Isaac shot frames and overlays.")
     ap.add_argument("--edl", default=None, help="EDL JSON path or module[:attr]; default integration.film_edl")
     ap.add_argument("--summary", help="run summary.json; builds film_edl.edl(FilmBeats.load(summary))")
-    ap.add_argument("--length", default="60", help="60 for the short cut, long for the 66 s cut")
-    ap.add_argument("--capture", action="store_true", help="capture every per-shot overlay into --overlays first")
-    ap.add_argument("--frames", help="Isaac --film output root: <root>/<shot>/frames/*.jpg (or shots/<shot>/...)")
-    ap.add_argument("--overlays", help="overlay root: <root>/<name>/<film_frame:05d>.png, optional manifest.json")
+    ap.add_argument("--cuts", default="60", help="comma list of 60 and/or long (66 s); long outputs get film_long")
+    ap.add_argument("--capture", action="store_true", help="recapture overlays (they are captured anyway if missing)")
+    ap.add_argument("--frames", default="runs/film_isaac", help="Isaac --film root: <root>/<shot>/frames/*.jpg")
+    ap.add_argument("--overlays", default="runs/film/overlays", help="overlay root; each cut uses <root>_<cut>")
     ap.add_argument("--out", default="runs/film/film.mp4")
     ap.add_argument("--size", default="1920x1080")
     ap.add_argument("--chime-at", type=float, default=None)
@@ -533,14 +540,16 @@ def main(argv=None) -> int:
     ap.add_argument("--no-teaser", action="store_true")
     a = ap.parse_args(argv)
     w, h = (int(x) for x in a.size.split("x"))
-    length = None if a.length in ("long", "none", "None") else float(a.length)
-    if a.capture:
-        shots, _ = load_edl(a.edl, a.summary, length)
-        a.overlays = a.overlays or str(Path(a.out).with_name(Path(a.out).stem + "_overlays"))
-        print("captured", capture_overlays(shots, a.overlays, length, (w, h)), file=sys.stderr)
-    r = assemble(a.edl, a.out, a.frames, a.overlays, (w, h), a.chime_at, not a.no_bed, not a.no_teaser, a.summary,
-                 length)
-    print(json.dumps(r, indent=2))
+    reports = []
+    for cut in [c.strip() for c in a.cuts.split(",") if c.strip()]:
+        length = None if cut in ("long", "none", "None") else float(cut)
+        ovl = Path(f"{a.overlays}_{cut}").resolve()
+        if a.capture or not ovl.is_dir() or not any(ovl.iterdir()):
+            shots, _ = load_edl(a.edl, a.summary, length)
+            print("captured", capture_overlays(shots, ovl, length, (w, h)), file=sys.stderr)
+        reports.append(assemble(a.edl, cut_out(Path(a.out), cut), a.frames, str(ovl), (w, h), a.chime_at,
+                                not a.no_bed, not a.no_teaser, a.summary, length))
+    print(json.dumps(reports, indent=2))
     return 0
 
 
