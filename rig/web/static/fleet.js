@@ -55,8 +55,8 @@
     const lat = r.lateral_m != null ? Math.abs(+r.lateral_m).toFixed(2) + " m" : "";
     if (r.event === "object_on_walkway") H.banner("warn", `${who(r.robot)} · lidar stop`, `Object ${(+r.ahead_m).toFixed(1)} m ahead · reporting it`, "eye", 3000);
     else if (r.event === "cleared") H.addLog({ t: r.t, from: "Nav", to: "WALKS_ON", reason: `${who(r.robot)} path clear, walking on` });
-    else if (r.event === "off_path" && S.pushAt != null && +r.t - S.pushAt < 8) H.addLog({ t: r.t, from: "Nav", to: "OFF_PATH", reason: `${who(r.robot)} ${lat} off its path` });
-    else if (r.event === "recovered" && S.pushAt != null && +r.t - S.pushAt < 8) {
+    else if (r.event === "off_path" && S.pushAt != null && +r.t - S.pushAt < 5) H.addLog({ t: r.t, from: "Nav", to: "OFF_PATH", reason: `${who(r.robot)} ${lat} off its path` });
+    else if (r.event === "recovered" && S.pushAt != null && +r.t - S.pushAt < 5) {
       H.addLog({ t: r.t, from: "Nav", to: "BACK_ON_PATH", reason: `${who(r.robot)} back within ${lat} of its path` });
       H.banner("ok", `${who(r.robot)} back on its path`, `Recovered ${(+r.t - S.pushAt).toFixed(1)} s after the push`, "check", 3000);
     }

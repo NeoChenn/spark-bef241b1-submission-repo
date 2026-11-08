@@ -31,3 +31,15 @@ def test_committed_live_run_replays():
             assert [r["kind"] for r in rows if r["type"] == "command"] == ["log_sensor_fault", "hold", "go_check", "hold_for_crew", "fix_leak", "resume_rust"]
             assert [r["kind"] for r in rows if r["type"] == "vetoed"] == ["resume_rust"]
             assert {r["id"] for r in s["snapshots"][0]["robots"]} == {"unit1", "unit2"}
+
+
+def test_live_run_folder_is_full_rate_with_disturbances_and_gzip():
+    with TestClient(create_app(sim_port=0)) as c:
+        r = c.get("/api/replay", params={"path": "runs_sample/fleet_demo"}, headers={"Accept-Encoding": "gzip"})
+        assert r.headers["content-encoding"] == "gzip"
+        s = r.json()
+        assert len(s["snapshots"]) > 400
+        rows = [x for h in s["snapshots"] for x in h.get("argon_rows", [])]
+        assert [x["type"] for x in rows if x["type"] == "object_report"] == ["object_report"]
+        assert {x.get("name") for x in rows if x["type"] == "scenario"} >= {"object_dropped", "object_cleared", "push"}
+        assert any(x["type"] == "nav_event" and x["event"] == "recovered" for x in rows)

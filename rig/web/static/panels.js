@@ -226,7 +226,7 @@
     if (S.crate?.xyz) {
       const x = X(S.crate.xyz[0]), y = Y(S.crate.xyz[1]), sz = Math.max(big ? 8 : 6, (S.crate.size?.[0] || 0.5) * k);
       g.fillStyle = COL.warn; g.fillRect(x - sz / 2, y - sz / 2, sz, sz);
-      g.fillStyle = "rgba(255,255,255,.85)"; g.font = `500 ${big ? 11 : 10}px -apple-system, system-ui, sans-serif`; g.fillText(S.crate.kind || "object", x + sz / 2 + 4, y + 4);
+      g.fillStyle = "rgba(255,255,255,.85)"; g.font = `500 ${big ? 11 : 10}px -apple-system, system-ui, sans-serif`; g.textAlign = "center"; g.fillText(S.crate.kind || "object", x, y + sz / 2 + (big ? 13 : 11)); g.textAlign = "start";
     }
     const hits = [];
     rs.forEach((r) => {
