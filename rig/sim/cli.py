@@ -54,6 +54,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--leak-dt", type=float, default=1 / 12, help="seconds of wall time between plume steps")
     p.add_argument("--pip-every", type=float, default=0.25)
     p.add_argument("--pip-size", type=size, default=(480, 270), metavar="WxH")
+    p.add_argument("--views", action=argparse.BooleanOptionalAction, default=os.environ.get("RIG_VIEWS", "") == "1",
+                   help="per-robot head cameras rendered at low res with policy overlays in the outgoing meta 'views'")
+    p.add_argument("--views-rate", type=float, default=float(os.environ.get("RIG_VIEWS_RATE", "2")), help="captures per robot per second")
+    p.add_argument("--views-size", type=size, default=(256, 192), metavar="WxH")
+    p.add_argument("--views-mode", default=os.environ.get("RIG_VIEWS_MODE", "RaytracedLighting"),
+                   help="omni:rtx:rendermode on the sensor render products; empty = the app renderer")
     p.add_argument("--render-mode", choices=("local", "remote"), default=os.environ.get("RENDER_MODE") or "local",
                    help="remote: skip the main view render and publish scene state for rig.render on another box")
     return p.parse_args(argv)

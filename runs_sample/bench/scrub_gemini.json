@@ -1,0 +1,589 @@
+{
+ "benchmark": "scrub control vs Gemini as the controller",
+ "model": "gemini-4-argon",
+ "thinking": "low",
+ "seeds": [
+  1927673051,
+  4143869090,
+  3197638755,
+  1899575002,
+  1790469401,
+  1742236079,
+  2528214200,
+  1240322160,
+  1468094305,
+  2000326737,
+  1264494441,
+  4198321246,
+  3742280914,
+  2074616766,
+  3174615962,
+  727796140,
+  2352641057,
+  166942162,
+  2089980261,
+  829989066,
+  40428325,
+  3038438697,
+  3037366219,
+  3209253571,
+  961915744,
+  3523275373,
+  1434517658,
+  1910695746,
+  3491394053,
+  2436913481
+ ],
+ "time_budget_s": 7.4495,
+ "hold_s_unlimited": 0.5,
+ "api_spend_usd": 2.6084,
+ "price_usd_per_mtok": [
+  2.0,
+  10.0
+ ],
+ "arms": {
+  "Random": {
+   "episodes": 30,
+   "success": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.1135,
+    "n": 30
+   },
+   "time_to_clean_s": {
+    "mean": null,
+    "lo": null,
+    "hi": null,
+    "n": 0
+   },
+   "peak_force_N": {
+    "mean": 39.792,
+    "lo": 35.6308,
+    "hi": 43.9532,
+    "n": 30
+   },
+   "p95_peak_force_N": 56.13,
+   "over_40N": {
+    "mean": 0.4667,
+    "lo": 0.3023,
+    "hi": 0.6386,
+    "n": 30
+   },
+   "fraction_removed": {
+    "mean": 0.3053,
+    "lo": 0.2471,
+    "hi": 0.3634,
+    "n": 30
+   },
+   "removed_pct_per_s": {
+    "mean": 2.0396,
+    "lo": 1.6512,
+    "hi": 2.428,
+    "n": 30
+   },
+   "compute": "CPU",
+   "decision_latency_ms": {
+    "median": 0.0449,
+    "p90": 0.0837,
+    "n": 13470
+   },
+   "api_cost_usd_per_episode": 0.0,
+   "success_within_ppo_time": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.1135,
+    "n": 30,
+    "budget_s": 7.449
+   },
+   "wall_s_per_episode": 2.603,
+   "sim_s_per_episode": 14.967
+  },
+  "Greedy scripted (before RL)": {
+   "episodes": 30,
+   "success": {
+    "mean": 0.3,
+    "lo": 0.1666,
+    "hi": 0.4788,
+    "n": 30
+   },
+   "time_to_clean_s": {
+    "mean": 12.5296,
+    "lo": 11.4071,
+    "hi": 13.6522,
+    "n": 9
+   },
+   "peak_force_N": {
+    "mean": 34.392,
+    "lo": 30.995,
+    "hi": 37.789,
+    "n": 30
+   },
+   "p95_peak_force_N": 46.63,
+   "over_40N": {
+    "mean": 0.3333,
+    "lo": 0.1923,
+    "hi": 0.5122,
+    "n": 30
+   },
+   "fraction_removed": {
+    "mean": 0.6876,
+    "lo": 0.598,
+    "hi": 0.7771,
+    "n": 30
+   },
+   "removed_pct_per_s": {
+    "mean": 4.9929,
+    "lo": 4.1892,
+    "hi": 5.7965,
+    "n": 30
+   },
+   "compute": "CPU, Python",
+   "decision_latency_ms": {
+    "median": 0.0811,
+    "p90": 0.3331,
+    "n": 12812
+   },
+   "api_cost_usd_per_episode": 0.0,
+   "success_within_ppo_time": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.1135,
+    "n": 30,
+    "budget_s": 7.449
+   },
+   "wall_s_per_episode": 2.512,
+   "sim_s_per_episode": 14.236
+  },
+  "PPO v2 (after RL)": {
+   "episodes": 30,
+   "success": {
+    "mean": 0.9333,
+    "lo": 0.7868,
+    "hi": 0.9815,
+    "n": 30
+   },
+   "time_to_clean_s": {
+    "mean": 7.5702,
+    "lo": 6.6659,
+    "hi": 8.4746,
+    "n": 28
+   },
+   "peak_force_N": {
+    "mean": 33.5607,
+    "lo": 31.3489,
+    "hi": 35.7725,
+    "n": 30
+   },
+   "p95_peak_force_N": 42.06,
+   "over_40N": {
+    "mean": 0.1667,
+    "lo": 0.0734,
+    "hi": 0.3356,
+    "n": 30
+   },
+   "fraction_removed": {
+    "mean": 0.9454,
+    "lo": 0.9314,
+    "hi": 0.9593,
+    "n": 30
+   },
+   "removed_pct_per_s": {
+    "mean": 13.3189,
+    "lo": 11.4619,
+    "hi": 15.1758,
+    "n": 30
+   },
+   "compute": "CPU, ONNX Runtime 1 thread",
+   "decision_latency_ms": {
+    "median": 0.0741,
+    "p90": 0.1095,
+    "n": 7257
+   },
+   "api_cost_usd_per_episode": 0.0,
+   "success_within_ppo_time": {
+    "mean": 0.5333,
+    "lo": 0.3614,
+    "hi": 0.6977,
+    "n": 30,
+    "budget_s": 7.449
+   },
+   "wall_s_per_episode": 1.165,
+   "sim_s_per_episode": 8.063
+  },
+  "Gemini, real time": {
+   "episodes": 30,
+   "success": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.1135,
+    "n": 30
+   },
+   "time_to_clean_s": {
+    "mean": null,
+    "lo": null,
+    "hi": null,
+    "n": 0
+   },
+   "peak_force_N": {
+    "mean": 33.598,
+    "lo": 26.9001,
+    "hi": 40.296,
+    "n": 30
+   },
+   "p95_peak_force_N": 54.63,
+   "over_40N": {
+    "mean": 0.4,
+    "lo": 0.2459,
+    "hi": 0.5768,
+    "n": 30
+   },
+   "fraction_removed": {
+    "mean": 0.032,
+    "lo": 0.0121,
+    "hi": 0.0519,
+    "n": 30
+   },
+   "removed_pct_per_s": {
+    "mean": 0.2137,
+    "lo": 0.0806,
+    "hi": 0.3468,
+    "n": 30
+   },
+   "compute": "cloud API, gemini-4-argon, thinking low",
+   "decision_latency_ms": {
+    "median": 8002.9197,
+    "p90": 17542.2171,
+    "n": 65
+   },
+   "api_cost_usd_per_episode": 0.00595,
+   "success_within_ppo_time": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.1135,
+    "n": 30,
+    "budget_s": 7.449
+   },
+   "wall_s_per_episode": 109.648,
+   "sim_s_per_episode": 14.967,
+   "calls_per_episode": 2.17,
+   "decision_rate_hz": 0.145,
+   "errors": 0,
+   "tokens_per_call": 1129.3,
+   "batch_wall_s": 431.5
+  },
+  "Gemini, unlimited time": {
+   "episodes": 30,
+   "success": {
+    "mean": 0.3667,
+    "lo": 0.2187,
+    "hi": 0.5449,
+    "n": 30
+   },
+   "time_to_clean_s": {
+    "mean": 11.4879,
+    "lo": 10.1106,
+    "hi": 12.8652,
+    "n": 11
+   },
+   "peak_force_N": {
+    "mean": 40.5486,
+    "lo": 37.2517,
+    "hi": 43.8455,
+    "n": 30
+   },
+   "p95_peak_force_N": 53.15,
+   "over_40N": {
+    "mean": 0.6333,
+    "lo": 0.4551,
+    "hi": 0.7813,
+    "n": 30
+   },
+   "fraction_removed": {
+    "mean": 0.8296,
+    "lo": 0.7698,
+    "hi": 0.8894,
+    "n": 30
+   },
+   "removed_pct_per_s": {
+    "mean": 6.3466,
+    "lo": 5.5448,
+    "hi": 7.1484,
+    "n": 30
+   },
+   "compute": "cloud API, gemini-4-argon, thinking low",
+   "decision_latency_ms": {
+    "median": 8470.5258,
+    "p90": 18270.3597,
+    "n": 825
+   },
+   "api_cost_usd_per_episode": 0.081,
+   "success_within_ppo_time": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.1135,
+    "n": 30,
+    "budget_s": 7.449
+   },
+   "wall_s_per_episode": 297.831,
+   "sim_s_per_episode": 13.691,
+   "calls_per_episode": 27.67,
+   "decision_rate_hz": 2.021,
+   "errors": 5,
+   "tokens_per_call": 1152.3,
+   "batch_wall_s": 1336.6
+  }
+ },
+ "cpu_mock_n200": {
+  "PPO v2 (after RL)": {
+   "episodes": 200,
+   "success": {
+    "mean": 0.97,
+    "lo": 0.9361,
+    "hi": 0.9862,
+    "n": 200
+   },
+   "time_to_clean_s": {
+    "mean": 7.4495,
+    "lo": 7.0503,
+    "hi": 7.8487,
+    "n": 194
+   },
+   "peak_force_N": {
+    "mean": 34.8344,
+    "lo": 33.6524,
+    "hi": 36.0165,
+    "n": 200
+   },
+   "p95_peak_force_N": 43.08,
+   "over_40N": {
+    "mean": 0.195,
+    "lo": 0.1461,
+    "hi": 0.2554,
+    "n": 200
+   },
+   "fraction_removed": {
+    "mean": 0.9487,
+    "lo": 0.9456,
+    "hi": 0.9518,
+    "n": 200
+   },
+   "removed_pct_per_s": {
+    "mean": 14.8152,
+    "lo": 13.8267,
+    "hi": 15.8037,
+    "n": 200
+   },
+   "compute": "CPU, ONNX Runtime 1 thread, batch 1",
+   "decision_latency_ms": {
+    "median": 0.0127,
+    "p90": 0.0145,
+    "n": 87136
+   },
+   "api_cost_usd_per_episode": 0.0,
+   "wall_s": 9.7
+  },
+  "Greedy scripted (before RL)": {
+   "episodes": 200,
+   "success": {
+    "mean": 0.32,
+    "lo": 0.2593,
+    "hi": 0.3875,
+    "n": 200
+   },
+   "time_to_clean_s": {
+    "mean": 10.8667,
+    "lo": 10.2515,
+    "hi": 11.4818,
+    "n": 64
+   },
+   "peak_force_N": {
+    "mean": 35.7937,
+    "lo": 34.3307,
+    "hi": 37.2568,
+    "n": 200
+   },
+   "p95_peak_force_N": 49.11,
+   "over_40N": {
+    "mean": 0.35,
+    "lo": 0.2873,
+    "hi": 0.4184,
+    "n": 200
+   },
+   "fraction_removed": {
+    "mean": 0.6809,
+    "lo": 0.6468,
+    "hi": 0.715,
+    "n": 200
+   },
+   "removed_pct_per_s": {
+    "mean": 5.492,
+    "lo": 5.0504,
+    "hi": 5.9336,
+    "n": 200
+   },
+   "compute": "CPU, Python",
+   "decision_latency_ms": {
+    "median": 0.0078,
+    "p90": 0.1469,
+    "n": 81928
+   },
+   "api_cost_usd_per_episode": 0.0,
+   "wall_s": 11.6
+  },
+  "Random": {
+   "episodes": 200,
+   "success": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.0188,
+    "n": 200
+   },
+   "time_to_clean_s": {
+    "mean": null,
+    "lo": null,
+    "hi": null,
+    "n": 0
+   },
+   "peak_force_N": {
+    "mean": 42.5694,
+    "lo": 40.73,
+    "hi": 44.4087,
+    "n": 200
+   },
+   "p95_peak_force_N": 59.08,
+   "over_40N": {
+    "mean": 0.58,
+    "lo": 0.5107,
+    "hi": 0.6463,
+    "n": 200
+   },
+   "fraction_removed": {
+    "mean": 0.1499,
+    "lo": 0.1306,
+    "hi": 0.1693,
+    "n": 200
+   },
+   "removed_pct_per_s": {
+    "mean": 1.0019,
+    "lo": 0.8723,
+    "hi": 1.1314,
+    "n": 200
+   },
+   "compute": "CPU",
+   "decision_latency_ms": {
+    "median": 0.0213,
+    "p90": 0.0378,
+    "n": 1796
+   },
+   "api_cost_usd_per_episode": 0.0,
+   "wall_s": 7.4
+  }
+ },
+ "isaac_n256": {
+  "PPO v2 (after RL)": {
+   "success": {
+    "mean": 0.9531,
+    "lo": 0.9199,
+    "hi": 0.973,
+    "n": 256
+   },
+   "time_to_clean_s": {
+    "mean": 7.0531,
+    "lo": 6.7242,
+    "hi": 7.382,
+    "n": 244
+   },
+   "peak_force_N": {
+    "mean": 30.6504,
+    "lo": 29.6639,
+    "hi": 31.6368,
+    "n": 256
+   },
+   "over_40N": {
+    "mean": 0.0195,
+    "lo": 0.0084,
+    "hi": 0.0449,
+    "n": 256
+   },
+   "removed_pct_per_s": {
+    "mean": 15.2172,
+    "lo": 14.3457,
+    "hi": 16.0887,
+    "n": 256
+   }
+  },
+  "Greedy scripted (before RL)": {
+   "success": {
+    "mean": 0.3203,
+    "lo": 0.2662,
+    "hi": 0.3798,
+    "n": 256
+   },
+   "time_to_clean_s": {
+    "mean": 10.9598,
+    "lo": 10.3288,
+    "hi": 11.5907,
+    "n": 82
+   },
+   "peak_force_N": {
+    "mean": 38.8291,
+    "lo": 37.3879,
+    "hi": 40.2703,
+    "n": 256
+   },
+   "over_40N": {
+    "mean": 0.4648,
+    "lo": 0.4047,
+    "hi": 0.526,
+    "n": 256
+   },
+   "removed_pct_per_s": {
+    "mean": 5.6453,
+    "lo": 5.1722,
+    "hi": 6.1185,
+    "n": 256
+   }
+  },
+  "Random": {
+   "success": {
+    "mean": 0.0,
+    "lo": 0.0,
+    "hi": 0.0148,
+    "n": 256
+   },
+   "time_to_clean_s": {
+    "mean": null,
+    "lo": null,
+    "hi": null,
+    "n": 0
+   },
+   "peak_force_N": {
+    "mean": 49.2099,
+    "lo": 47.4066,
+    "hi": 51.0132,
+    "n": 256
+   },
+   "over_40N": {
+    "mean": 0.6836,
+    "lo": 0.6243,
+    "hi": 0.7375,
+    "n": 256
+   },
+   "removed_pct_per_s": {
+    "mean": 0.9467,
+    "lo": 0.8366,
+    "hi": 1.0569,
+    "n": 256
+   }
+  }
+ },
+ "notes": {
+  "scenarios": "first 30 of the 200 seeded CPU-mock training scenarios (bench.stats.episode_seeds(200, base=0)); every arm sees the same ones",
+  "unlimited time": "sim paused while Gemini thinks; each reply applied immediately and held for 0.5 s of sim time (2 decisions per sim second), best case for Gemini",
+  "real time": "sim keeps running during the measured API latency; the brush holds the last command (starts lifted) and each reply is applied when it arrives, computed from the state at request time",
+  "success within PPO time": "cleaned (<= 5% rust left) within 7.45 s, PPO's mean CPU-mock clean time (n=200)",
+  "forces": "CPU-mock contact forces are not reliable; use the Isaac numbers for force claims",
+  "wall time": "local arms: CPU compute per episode; Gemini unlimited: sum of API round trips (~20x slower than the 15 s sim episode it controls). Gemini real time: a deployment is bound to the 15 s episode; the measured 110 s/ep here is CPU contention from 8 concurrent Python sims in one process, not API time (~2.2 calls x 8 s)",
+  "latency": "all arms in this run share a contended CPU; uncontended PPO ONNX latency is 0.013 ms median (scrub.json, n=200 run)"
+ }
+}

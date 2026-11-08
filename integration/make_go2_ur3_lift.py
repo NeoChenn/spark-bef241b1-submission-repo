@@ -7,7 +7,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 SRC = HERE.parent / "sim/assets/go2_ur3/go2_ur3.urdf"
 DST = HERE.parent / "sim/assets/go2_ur3/go2_ur3_lift.urdf"
 GRIP_DST = HERE.parent / "sim/assets/go2_ur3/go2_ur3_lift_grip.urdf"
-TOTE = {"x": -0.2, "y": 0.0, "z": 0.062, "lx": 0.26, "ly": 0.22, "h": 0.09, "t": 0.008}
+TOTE = {"x": -0.27, "y": 0.0, "z": 0.062, "lx": 0.26, "ly": 0.22, "h": 0.09, "t": 0.008}
 
 
 def inertial(parent, mass, sx, sy, sz, xyz="0 0 0"):

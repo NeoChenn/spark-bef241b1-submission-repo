@@ -118,6 +118,7 @@ class FrameHub:
         self._bump()
 
     def publish_mission(self, h: dict) -> None:
+        h = self.take_plume(h)
         self.log.extend(h.get("events") or [])
         self.mission = {k: v for k, v in h.items() if k != "events"}
         self._trim()
@@ -345,6 +346,7 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
 
     app = FastAPI(lifespan=lifespan)
     app.state.hub = hub
+    app.include_router(__import__("rig.web.views_api", fromlist=["views_router"]).views_router(hub))
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
     @app.get("/")

@@ -52,7 +52,7 @@ def can_spawn_cfg(nominal_mass: float = 0.3):
 @configclass
 class PickCanEnvCfg(DirectRLEnvCfg):
     decimation = 4
-    episode_length_s = 12.0
+    episode_length_s = 16.0
     action_space = 5
     observation_space = 57
     state_space = 0
@@ -83,20 +83,27 @@ class PickCanEnvCfg(DirectRLEnvCfg):
     det_sigma_yaw: float = 0.1
     det_jitter: float = 0.003
     det_close: float = 0.3
+    depth_cam_z: float = 0.84
+    depth_rays: int = 32
+    depth_fov: float = 0.4
+    depth_noise: float = 0.004
+    depth_dropout: float = 0.2
 
-    action_scale: float = 0.012
+    action_scale: float = 0.02
     lift_scale: float = 0.005
     lift_max: float = 0.3
     max_target_gap: float = 0.06
     work_lo: tuple = (-0.5, -0.6, 0.02)
     work_hi: tuple = (0.6, 0.6, 0.85)
     rot_weight: float = 0.6
+    max_dq: float = 0.1
+    ik_step: float = 0.01
 
     seal_gap: float = 0.012
     seal_margin: float = 0.01
     seal_align: float = 0.9
     suction_force_cap: float = 25.0
-    suction_torque_cap: float = 0.8
+    suction_torque_cap: float = 1.0
     seal_tear: float = 0.03
 
     lift_goal: float = 0.15
@@ -105,15 +112,16 @@ class PickCanEnvCfg(DirectRLEnvCfg):
     force_limit: float = 20.0
 
     w_reach: float = 1.0
-    w_seal_bonus: float = 5.0
-    w_hold: float = 0.5
-    w_lift: float = 2.0
-    w_carry: float = 3.0
-    w_place: float = 4.0
-    w_success: float = 60.0
-    w_drop: float = 10.0
+    w_hold: float = 1.5
+    w_lift: float = 1.0
+    w_carry: float = 2.0
+    w_place: float = 6.0
+    w_progress: float = 10.0
+    w_success: float = 50.0
+    w_drop: float = 5.0
     w_action_rate: float = 0.01
     w_force: float = 0.05
+    w_time: float = 0.01
     w_idle_suction: float = 0.02
 
     def __post_init__(self):

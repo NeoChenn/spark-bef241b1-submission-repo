@@ -1332,7 +1332,7 @@
     </inertial>
   </link>
   <joint name="go2_tote_mount" type="fixed">
-    <origin xyz="-0.2 0.0 0.062" rpy="0 0 0" />
+    <origin xyz="-0.27 0.0 0.062" rpy="0 0 0" />
     <parent link="base" />
     <child link="tote_link" />
   </joint>

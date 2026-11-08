@@ -89,10 +89,10 @@ def test_scripted_picker_walks_through_phases():
     assert sp.phase.item() == LIFT and a[0, 3].item() > 0 and a[0, 2].item() > 0
     sp.act(_t(0.3, 0.3, 0.70), _t(0.3, 0.3, 0.70), grasp, torch.tensor([True]))
     assert sp.phase.item() == CARRY
-    sp.act(_t(-0.2, 0.0, 0.72), _t(-0.2, 0.0, 0.72), grasp, torch.tensor([True]))
+    sp.act(_t(-0.27, 0.0, 0.72), _t(-0.27, 0.0, 0.72), grasp, torch.tensor([True]))
     assert sp.phase.item() == RELEASE
     for _ in range(20):
-        a = sp.act(_t(-0.2, 0.0, 0.72), _t(-0.2, 0.0, 0.72), grasp, torch.tensor([False]))
+        a = sp.act(_t(-0.27, 0.0, 0.72), _t(-0.27, 0.0, 0.72), grasp, torch.tensor([False]))
     assert sp.phase.item() == DONE and a[0, 3].item() < 0
 
 
@@ -123,7 +123,7 @@ def test_scripted_carry_arcs_around_shoulder_and_raises_lift():
     assert sp.phase.item() == CARRY
     assert a[0, 1].abs().item() > 0.5 and a[0, 4].item() > 0
     sp.phase[:] = LOWER
-    a = sp.act(_t(-0.2, 0.0, 0.85), _t(-0.2, 0.0, 0.85), _t(0.33, 0.0, 0.05), torch.tensor([True]), torch.tensor([0.13]))
+    a = sp.act(_t(-0.27, 0.0, 0.85), _t(-0.27, 0.0, 0.85), _t(0.33, 0.0, 0.05), torch.tensor([True]), torch.tensor([0.13]))
     assert sp.phase.item() == LOWER and a[0, 4].item() < 0 and a[0, 3].item() > 0
-    sp.act(_t(-0.2, 0.0, 0.85), _t(-0.2, 0.0, 0.85), _t(0.33, 0.0, 0.05), torch.tensor([False]), torch.tensor([0.13]))
+    sp.act(_t(-0.27, 0.0, 0.85), _t(-0.27, 0.0, 0.85), _t(0.33, 0.0, 0.05), torch.tensor([False]), torch.tensor([0.13]))
     assert sp.phase.item() == ABOVE

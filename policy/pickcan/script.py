@@ -4,16 +4,18 @@ import math
 
 import torch
 
-from policy.pickcan.core import TOTE_CENTER, wrap
+from policy.pickcan.core import TOTE_CENTER
 
 ABOVE, DESCEND, LIFT, CARRY, LOWER, RELEASE, DONE = range(7)
 NAMES = ("APPROACH", "DESCEND", "LIFT", "CARRY", "LOWER", "RELEASE", "DONE")
 HOVER = 0.10
 CARRY_Z = 0.72
 SHOULDER = (-0.01, 0.0)
-ARC_R = 0.34
+ARC_R = 0.30
 ARC_STEP = 0.6
-LIFT_UP = 0.15
+ARC_SWITCH = 0.6
+LIFT_UP = 0.1
+LIFT_CLEAR = 0.25
 
 
 class ScriptedPicker:
@@ -54,7 +56,7 @@ class ScriptedPicker:
         m = (ph == DESCEND) & ~sealed & (self.t_phase > self.timeout)
         self.tries[m] += 1
         self._go(m, ABOVE)
-        m = (ph == LIFT) & sealed & (tip[:, 2] > carry_z - 0.04)
+        m = (ph == LIFT) & sealed & (tip[:, 2] > self.hold[:, 2] + LIFT_CLEAR - 0.02)
         self._go(m, CARRY)
         m = ((ph == LIFT) | (ph == CARRY) | (ph == LOWER)) & ~sealed
         self._go(m, ABOVE)
@@ -67,14 +69,14 @@ class ScriptedPicker:
         ph = self.phase
 
         th = torch.atan2(tip[:, 1] - SHOULDER[1], tip[:, 0] - SHOULDER[0])
-        dth = wrap(math.pi - th)
-        a_next = th + dth.clamp(-ARC_STEP, ARC_STEP)
+        dth = torch.remainder(math.pi - th, 2 * math.pi)
+        a_next = th + dth.clamp(0.0, ARC_STEP)
         arc = torch.stack([SHOULDER[0] + ARC_R * torch.cos(a_next), SHOULDER[1] + ARC_R * torch.sin(a_next), carry_z], -1)
-        carry = torch.where((dth.abs() > 0.35)[:, None], arc, tote)
+        carry = torch.where(((dth > ARC_SWITCH) & (dth < 2 * math.pi - 0.2))[:, None], arc, tote)
 
         target = above.clone()
         target = torch.where((ph == DESCEND)[:, None], grasp - torch.tensor([0.0, 0.0, self.press], device=dev), target)
-        lift_t = torch.cat([self.hold[:, :2], carry_z[:, None]], -1)
+        lift_t = self.hold + torch.tensor([0.0, 0.0, LIFT_CLEAR], device=dev)
         target = torch.where((ph == LIFT)[:, None], lift_t, target)
         target = torch.where((ph == CARRY)[:, None], carry, target)
         target = torch.where(((ph == LOWER) | (ph == RELEASE) | (ph == DONE))[:, None], tote, target)
