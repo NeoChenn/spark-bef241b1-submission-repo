@@ -228,7 +228,7 @@
     const c = S.h.control || {}, ag = c.agent || S.h.orchestrator?.planner || {};
     const th = (Array.isArray(c.thoughts) ? c.thoughts : []).filter((x) => x && x.text).slice(-6);
     const calls = (Array.isArray(ag.calls) ? ag.calls : []).filter(Boolean).slice(-5).reverse();
-    const vet = (Array.isArray(c.vetoed) ? c.vetoed : []).filter(Boolean).slice(0, 3);
+    const vet = (Array.isArray(c.refused) ? c.refused : Array.isArray(c.vetoed) ? c.vetoed : []).filter(Boolean).slice(-4).reverse();
     const cut = c.link === "CUT" || ag.link === "CUT";
     const meta = [cut ? "link cut · fleet on rules" : c.mode === "CLOUD" ? "cloud" : c.mode ? "edge" : "", c.calls_today != null ? c.calls_today + " calls today" : "", c.cost_today_usd != null ? "$" + (+c.cost_today_usd).toFixed(2) : ""].filter(Boolean).join(" · ");
     const sit = Array.isArray(c.situation) ? c.situation[0] : c.situation;
@@ -236,7 +236,7 @@
       : ag.text || sit ? `<ol class="th"><li class="new">${esc(String(ag.text || sit).split("\n")[0])}</li></ol>` : `<p class="none">Waiting for Argon's first thought</p>`;
     const callRows = calls.map((x) => `<div class="call ${x.ok === false ? "no" : ""}"><b>${esc(x.label || x.name || "call")}</b>${x.why || x.note ? `<p>${esc(x.why || x.note)}</p>` : ""}${x.ok === false && x.refused ? `<p class="ref">Refused · ${esc(x.refused)}</p>` : ""}</div>`).join("");
     const vetRows = vet.map((v) => `<div class="call no"><b>${esc(v.label || v.kind || "action")}</b>${v.why ? `<p class="ref">${esc(v.why)}</p>` : ""}</div>`).join("");
-    return `<header><b>Gemini 4 Argon</b><span class="tnum">${esc(meta)}</span></header><h3>Thinking</h3>${think}<h3>Calls</h3>${callRows || `<p class="none">No calls yet</p>`}${vetRows ? `<h3>Refused by the safety envelope</h3>${vetRows}` : ""}`;
+    return `<header><b>Gemini 4 Argon</b><span class="tnum">${esc(meta)}</span></header><h3>${c.thoughts_mode === "decisions" ? "Decisions" : "Thinking"}</h3>${think}<h3>Calls</h3>${callRows || `<p class="none">No calls yet</p>`}${vetRows ? `<h3>Refused by the safety envelope</h3>${vetRows}` : ""}`;
   }
   function left() {
     const el = $("left"), what = S.g ? "g" : mode() === "mc" ? "mc" : "";
