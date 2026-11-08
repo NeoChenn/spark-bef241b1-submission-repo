@@ -68,10 +68,10 @@ def robot_cfg(urdf: str = "") -> ArticulationCfg:
         soft_joint_pos_limit_factor=0.9,
         actuators={
             "hip_thigh": DCMotorCfg(joint_names_expr=[".*_hip_joint", ".*_thigh_joint"], effort_limit=23.7,
-                                    saturation_effort=23.7, velocity_limit=30.0, stiffness=50.0, damping=1.2,
+                                    saturation_effort=23.7, velocity_limit=30.0, stiffness=50.0, damping=1.2, armature=0.01,
                                     friction=0.0),
             "calf": DCMotorCfg(joint_names_expr=[".*_calf_joint"], effort_limit=45.4, saturation_effort=45.4,
-                               velocity_limit=15.7, stiffness=50.0, damping=1.2, friction=0.0),
+                               velocity_limit=15.7, stiffness=50.0, damping=1.2, armature=0.01, friction=0.0),
             "arm": ImplicitActuatorCfg(joint_names_expr=["ur3_.*"], stiffness=800.0, damping=40.0),
             "lift": ImplicitActuatorCfg(joint_names_expr=["lift_joint"], stiffness=2.0e4, damping=2.0e3),
         },
