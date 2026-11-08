@@ -8,6 +8,8 @@ OUTPUT = SIM_DIR / "output"
 ASSETS = SIM_DIR / "assets" / "third_party"
 GENERATED = SIM_DIR / "assets" / "generated"
 MDL = SIM_DIR / "assets" / "mdl" / "rig_weathered.mdl"
+PUDDLE_MDL = SIM_DIR / "assets" / "mdl" / "rig_puddle.mdl"
+PUDDLE_ATTR = "rig:puddle"
 LAYER = OUTPUT / "photoreal.usda"
 ROOTS = ("/World/Looks", "/World/RepairZone/Looks")
 KINDS = ("paint", "textured", "tread", "grating", "concrete", "brushed")
@@ -270,3 +272,58 @@ def apply(stage, preset: str, quality: str | None = None) -> dict:
     if offline.IsValid():
         offline.SetActive(q["offline_props"])
     return {**w, **q, "floor_faces": bind_floors(stage)}
+
+
+def make_puddle(stage, path: str, center_xyz, radius_m: float, seed: int = 0, mdl_path: str | None = None, rain: float = 0.0):
+    from pxr import Sdf, UsdGeom, UsdShade, Vt
+
+    import puddle_geometry as pg
+
+    m = pg.mesh(center_xyz, radius_m, seed)
+    holder = UsdGeom.Xform.Define(stage, path)
+    mesh = UsdGeom.Mesh.Define(stage, f"{path}/geom")
+    mesh.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(m["points"].astype("float32")))
+    mesh.CreateFaceVertexCountsAttr(Vt.IntArray.FromNumpy(m["counts"].astype("int32")))
+    mesh.CreateFaceVertexIndicesAttr(Vt.IntArray.FromNumpy(m["indices"].astype("int32")))
+    mesh.CreateNormalsAttr(Vt.Vec3fArray.FromNumpy(m["normals"].astype("float32")))
+    mesh.SetNormalsInterpolation(UsdGeom.Tokens.vertex)
+    mesh.CreateSubdivisionSchemeAttr("none")
+    mesh.CreateDoubleSidedAttr(False)
+    lo, hi = m["points"].min(0), m["points"].max(0)
+    mesh.CreateExtentAttr([tuple(map(float, lo)), tuple(map(float, hi))])
+    UsdGeom.PrimvarsAPI(mesh).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex).Set(
+        Vt.Vec2fArray.FromNumpy(m["uvs"].astype("float32")))
+    prim = holder.GetPrim()
+    prim.CreateAttribute(PUDDLE_ATTR, Sdf.ValueTypeNames.Bool, custom=True).Set(True)
+    material = UsdShade.Material.Define(stage, f"{path}/look")
+    shader = UsdShade.Shader.Define(stage, f"{path}/look/shader")
+    shader.SetSourceAsset(Sdf.AssetPath(mdl_path or str(PUDDLE_MDL)), "mdl")
+    shader.SetSourceAssetSubIdentifier("rig_puddle", "mdl")
+    shader.CreateInput("rain", Sdf.ValueTypeNames.Float).Set(float(rain))
+    out = shader.CreateOutput("out", Sdf.ValueTypeNames.Token)
+    material.CreateSurfaceOutput("mdl").ConnectToSource(out)
+    material.CreateSurfaceOutput().ConnectToSource(out)
+    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material)
+    return prim
+
+
+def puddles(stage):
+    from pxr import Usd
+
+    for prim in Usd.PrimRange(stage.GetPseudoRoot()):
+        attr = prim.GetAttribute(PUDDLE_ATTR)
+        if attr and attr.Get():
+            yield prim
+
+
+def set_rain(stage, amount: float) -> int:
+    from pxr import Sdf, UsdShade
+
+    amount = min(max(float(amount), 0.0), 1.0)
+    count = 0
+    for prim in puddles(stage):
+        shader = UsdShade.Shader.Get(stage, prim.GetPath().AppendPath(Sdf.Path("look/shader")))
+        if shader:
+            shader.CreateInput("rain", Sdf.ValueTypeNames.Float).Set(amount)
+            count += 1
+    return count

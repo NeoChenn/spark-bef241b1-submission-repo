@@ -204,6 +204,41 @@ def tag():
     return img, None
 
 
+def puddle_masks(size=1024):
+    rng = np.random.default_rng(21)
+    half = size // 2
+    out = np.zeros((size, size), np.float32)
+    yy, xx = np.mgrid[0:half, 0:half].astype(np.float32) / half - 0.5
+    for q in range(4):
+        field = np.zeros((half, half), np.float32)
+        for _ in range(11):
+            cx, cy = rng.uniform(-0.27, 0.27, 2)
+            r = rng.uniform(0.05, 0.14)
+            field += np.exp(-((xx - cx) ** 2 + ((yy - cy) * rng.uniform(0.7, 1.4)) ** 2) / (2 * r * r))
+        noise = np.asarray(Image.fromarray((rng.random((20, 20)) * 255).astype(np.uint8)).resize((half, half), Image.BICUBIC),
+                           np.float32) / 255.0
+        field = field * (0.35 + 1.3 * noise)
+        mask = np.clip((field - 0.55) / 0.35, 0, 1)
+        mask *= np.clip((0.5 - np.maximum(np.abs(xx), np.abs(yy))) / 0.06, 0, 1)
+        r0, c0 = (q // 2) * half, (q % 2) * half
+        out[r0:r0 + half, c0:c0 + half] = mask
+    img = Image.fromarray((out * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(6))
+    return img
+
+
+def wet_sign():
+    img = Image.new("RGB", (512, 768), YELLOW)
+    d = ImageDraw.Draw(img)
+    d.polygon(((256, 60), (430, 360), (82, 360)), fill=BLACK)
+    d.polygon(((256, 110), (392, 340), (120, 340)), fill=YELLOW)
+    d.ellipse((236, 150, 276, 190), fill=BLACK)
+    d.polygon(((250, 195), (275, 200), (300, 260), (330, 300), (300, 305), (262, 262), (225, 330), (200, 320), (240, 250)), fill=BLACK)
+    centred(d, (256, 470), "CAUTION", 84, BLACK, 3)
+    centred(d, (256, 580), "WET FLOOR", 70, BLACK, 2)
+    centred(d, (256, 680), "SLIP HAZARD", 40, BLACK, 1)
+    return weather(img, 55, 0.7)
+
+
 def id_board():
     w, h = 2048, 512
     img = Image.new("RGB", (w, h), (14, 30, 62))
@@ -236,6 +271,8 @@ def build() -> dict:
         if mask is not None:
             mask.save(TEXTURES / f"{name}_mask.png")
     Image.new("L", (8, 8), 255).save(TEXTURES / "solid_mask.png")
+    puddle_masks().save(TEXTURES / "puddles_mask.png")
+    wet_sign().save(TEXTURES / "wet_sign.jpg", quality=90)
     board, emit = id_board()
     board.save(TEXTURES / "id_board.jpg", quality=90)
     emit.save(TEXTURES / "id_board_emit.jpg", quality=90)

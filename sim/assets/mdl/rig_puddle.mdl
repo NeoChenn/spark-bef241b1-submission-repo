@@ -1,0 +1,71 @@
+mdl 1.7;
+
+import ::anno::*;
+import ::df::*;
+import ::math::*;
+import ::state::*;
+
+float3 world_position() {
+    return state::transform_point(state::coordinate_internal, state::coordinate_world, state::position());
+}
+
+float3 to_internal(float3 n) {
+    return math::normalize(state::transform_normal(state::coordinate_world, state::coordinate_internal, n));
+}
+
+float hash(float2 c) {
+    return math::frac(math::sin(math::dot(c, float2(12.9898, 78.233))) * 43758.5453);
+}
+
+float2 ripple_grad(float3 p, float t, float scale, float speed) {
+    float2 q = float2(p.x, p.y) * scale;
+    float2 cell = math::floor(q);
+    float2 g = float2(0.0);
+    for (int i = -1; i <= 1; i++) {
+        for (int j = -1; j <= 1; j++) {
+            float2 c = cell + float2(float(i), float(j));
+            float h = hash(c);
+            float2 o = c + float2(h, math::frac(h * 7.13));
+            float phase = math::frac(t * speed * (0.6 + 0.4 * h) + h);
+            float2 d = q - o;
+            float dist = math::length(d);
+            float ring = dist - phase * 0.9;
+            float wave = math::sin(ring * 30.0) * math::exp(-ring * ring * 60.0) * (1.0 - phase);
+            g += d / math::max(dist, 0.001) * wave;
+        }
+    }
+    float2 w = float2(p.x, p.y);
+    g += float2(math::cos(w.x * 7.0 + t * 1.3), math::cos(w.y * 9.0 - t * 1.1)) * 0.08;
+    return g;
+}
+
+export material rig_puddle(
+    float rain = 0.0,
+    float roughness = 0.012,
+    float ior = 1.33,
+    color water = color(0.012, 0.014, 0.016),
+    color rim_color = color(0.022, 0.02, 0.018),
+    float rim_start = 0.72,
+    float rim_roughness = 0.18,
+    float edge_soft = 0.14,
+    float ripple_scale = 2.5,
+    float ripple_speed = 0.9,
+    float ripple_strength = 0.35
+)
+= let {
+    float2 uv = float2(state::texture_coordinate(0).x, state::texture_coordinate(0).y) * 2.0 - float2(1.0);
+    float f = math::length(uv);
+    float rim = math::smoothstep(rim_start, 1.0, f);
+    float alpha = 1.0 - math::smoothstep(1.0 - edge_soft, 1.0, f);
+    float3 p = world_position();
+    float2 g = ripple_grad(p, state::animation_time(), ripple_scale, ripple_speed) * (rain * ripple_strength) * (1.0 - rim);
+    float3 n = math::normalize(float3(-g.x, -g.y, 1.0));
+    float r = math::lerp(roughness, rim_roughness, rim);
+    float a = r * r;
+    bsdf spec = df::microfacet_ggx_smith_bsdf(roughness_u: a, roughness_v: a, tint: color(1.0), mode: df::scatter_reflect);
+    bsdf base = df::diffuse_reflection_bsdf(tint: math::lerp(water, rim_color, rim));
+    bsdf layered = df::fresnel_layer(ior: ior, layer: spec, base: base);
+} in material(
+    surface: material_surface(scattering: layered),
+    geometry: material_geometry(cutout_opacity: alpha, normal: to_internal(n))
+);
