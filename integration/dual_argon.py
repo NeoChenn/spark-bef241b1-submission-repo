@@ -5,7 +5,7 @@ import math
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Callable, Optional
@@ -229,7 +229,7 @@ SCHEMA = {
 
 
 def build_prompt(fd: Optional[Finding], robots: dict, detectors: list[FixedDetector], t: float,
-                 event: str = "") -> str:
+                 event: str = "", findings=None, faulted=()) -> str:
     snap = {"t_s": round(t, 1), "event": event, "finding": fd.to_dict() if fd else None, "robots": robots,
             "fixed_detectors": [{"id": d.id, "flange": d.flange, "pos": [round(float(v), 2) for v in d.pos],
                                  "lel": d.last, "led": led(d.last, d.fault)} for d in detectors],
@@ -400,6 +400,8 @@ class ArgonLink:
         for fd in findings:
             self.findings[fd.sensor] = fd
             cracked = fd.flange in crack if isinstance(crack, (set, frozenset, list, tuple)) else bool(crack)
+            if fd.sensor in self.faulted and fd.kind == UNVERIFIED and not (fd.hazard or cracked):
+                fd = replace(fd, kind=PIPE_SENSOR_FAULT, reason=f"known fault (ticketed): {fd.reason}")
             if fd.kind == PIPE_SENSOR_FAULT and fd.sensor not in self.faulted:
                 t0 = self.fault_since.setdefault(fd.sensor, t)
                 close = fd.robot_dist is not None and fd.robot_dist <= CLOSE_M and t - t0 >= CLOSE_CONFIRM_S
@@ -422,11 +424,11 @@ class ArgonLink:
             key = f"{fd.sensor}:{fd.kind}" + (":HAZARD" if state[1] else "")
             if state[1]:
                 out += self._issue(t, edge_rule(fd, crack=cracked))
-                self._ask(t, key, fd, build_prompt(fd, robots, detectors, t), [], advisory=True)
+                self._ask(t, key, fd, self._prompt(fd, robots, detectors, t), [], advisory=True)
                 continue
             if fd.kind == OK:
                 continue
-            self._ask(t, key, fd, build_prompt(fd, robots, detectors, t), edge_rule(fd))
+            self._ask(t, key, fd, self._prompt(fd, robots, detectors, t), edge_rule(fd))
         for d in detectors:
             d.fault = d.id in self.faulted
         out += self._collect(t, ids, wait)
@@ -438,11 +440,15 @@ class ArgonLink:
         quiet = all(v in (OK, PIPE_SENSOR_FAULT) for v in self.verdict.values())
         if self.held and not hot and quiet and not self.clear_asked:
             self.clear_asked = True
-            self._ask(t, "zone:clear", None, build_prompt(None, robots, detectors, t, event="zone clear: every "
+            self._ask(t, "zone:clear", None, self._prompt(None, robots, detectors, t, event="zone clear: every "
                                                           "detector near unit1 green, no open leak"),
                       [command(RESUME_RUST, "", "edge", "zone clear: detectors near unit1 green, no open leak")])
         out += self._pump(t, ids, wait)
         return out
+
+    def _prompt(self, fd, robots, detectors, t, event: str = "") -> str:
+        return build_prompt(fd, robots, detectors, t, event=event, findings=list(self.findings.values()),
+                            faulted=set(self.faulted))
 
     def _ask(self, t, key, fd, text, fallback, advisory: bool = False) -> None:
         if not self.cloud:
