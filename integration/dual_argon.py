@@ -169,7 +169,7 @@ def edge_rule(fd: Finding, robot: Optional[str] = None, crack: bool = False) -> 
         if fd.robot and (in_gas or near):
             out.append(command(RETREAT, fd.flange, "edge", why, fd.kind, robot=fd.robot))
         elif fd.kind == UNVERIFIED:
-            out.append(command(GO_CHECK, fd.flange, "edge", why, fd.kind))
+            out.append(command(ESCALATE, fd.flange, "edge", why + " -> operator confirms before any dispatch", fd.kind))
         return out
     if fd.kind == UNVERIFIED:
         return [command(HOLD, fd.flange, "edge", why, fd.kind), command(GO_CHECK, fd.flange, "edge", why, fd.kind)]

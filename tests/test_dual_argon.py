@@ -137,7 +137,7 @@ def test_stuck_head_above_stop_is_real_gas_not_a_fault():
     assert (fd.kind, fd.hazard) == (LEAK_CONFIRMED, True)
     assert kinds(edge_rule(fd)) == [(HOLD, SCRUBBER, "F2"), (RETREAT, FIXER, "F2")]
     far = fuse(det(0.0, stuck=30.0), 0.8, 9.0, robot=FIXER)
-    assert kinds(edge_rule(far)) == [(HOLD, SCRUBBER, "F2"), (GO_CHECK, FIXER, "F2")]
+    assert kinds(edge_rule(far)) == [(HOLD, SCRUBBER, "F2"), ("escalate", "supv", "F2")]
 
 
 def test_robot_high_beyond_near_needs_a_check():
