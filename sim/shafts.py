@@ -4,7 +4,7 @@ import math
 
 import numpy as np
 
-SEGS, RINGS = 40, 12
+RINGS, COLS = 12, 9
 DECK_Z, SEA_Z = 42.5, 0.3
 PICKS = (
     ("area", 0, DECK_Z, 30.0, 1.0, True),
@@ -39,21 +39,26 @@ def basis(aim):
     return u, np.cross(w, u), w
 
 
-def cone(spec: dict, segs: int = SEGS, rings: int = RINGS):
-    u, v, w = basis(spec["aim"])
-    ta = math.tan(math.radians(spec["angle"]))
+def card(spec: dict, eye, rings: int = RINGS, cols: int = COLS) -> np.ndarray:
+    w = np.asarray(spec["aim"], float)
+    apex = np.asarray(spec["apex"], float)
     s = np.linspace(0.0, 1.0, rings)
-    a = np.arange(segs) * 2 * math.pi / segs
-    ring = np.cos(a)[:, None] * u + np.sin(a)[:, None] * v
-    pts = (np.asarray(spec["apex"]) + (s * spec["length"])[:, None, None] * (w + ta * ring[None]))
-    ca, sa = math.cos(math.atan(ta)), math.sin(math.atan(ta))
-    nrm = np.broadcast_to(ca * ring - sa * w, (rings, segs, 3))
-    r, k = np.meshgrid(np.arange(rings - 1), np.arange(segs), indexing="ij")
-    a0 = r * segs + k
-    a1 = r * segs + (k + 1) % segs
-    quads = np.stack((a0, a1, a1 + segs, a0 + segs), -1).reshape(-1)
-    return (pts.reshape(-1, 3), nrm.reshape(-1, 3).copy(), np.repeat(s, segs), np.full(len(quads) // 4, 4),
-            quads.astype(np.int32))
+    centre = apex + (s * spec["length"])[:, None] * w
+    view = np.asarray(eye, float) - centre
+    side = np.cross(w, view)
+    n = np.linalg.norm(side, axis=-1, keepdims=True)
+    side = np.where(n > 1e-6, side / np.maximum(n, 1e-6), basis(w)[0])
+    r = s * spec["length"] * math.tan(math.radians(spec["angle"]))
+    u = np.linspace(-1.0, 1.0, cols)
+    return (centre[:, None] + (r[:, None] * u[None])[..., None] * side[:, None]).reshape(-1, 3)
+
+
+def topology(rings: int = RINGS, cols: int = COLS):
+    r, c = np.meshgrid(np.arange(rings - 1), np.arange(cols - 1), indexing="ij")
+    a = r * cols + c
+    quads = np.stack((a, a + 1, a + cols + 1, a + cols), -1).reshape(-1).astype(np.int32)
+    v, u = np.meshgrid(np.linspace(0.0, 1.0, rings), np.linspace(0.0, 1.0, cols), indexing="ij")
+    return np.full(len(quads) // 4, 4, np.int32), quads, np.stack((u.reshape(-1), v.reshape(-1)), -1)
 
 
 def inside(eye, spec: dict, margin: float = 1.15) -> bool:
@@ -63,21 +68,3 @@ def inside(eye, spec: dict, margin: float = 1.15) -> bool:
     if h <= 0 or h >= spec["length"]:
         return False
     return float(np.linalg.norm(rel - h * w)) < h * math.tan(math.radians(spec["angle"])) * margin
-
-
-def smooth(e0: float, e1: float, x):
-    t = np.clip((x - e0) / (e1 - e0), 0.0, 1.0)
-    return t * t * (3 - 2 * t)
-
-
-def alpha(points, normals, s, eye, spec: dict, t: float = 0.0) -> np.ndarray:
-    if inside(eye, spec):
-        return np.zeros(len(points))
-    view = np.asarray(eye, float) - points
-    d = np.linalg.norm(view, axis=-1)
-    facing = np.abs(np.einsum("ij,ij->i", normals, view / np.maximum(d, 1e-6)[:, None]))
-    along = smooth(0.0, 0.08, s) * (1 - s) ** 1.3 * smooth(1.0, 0.7, s)
-    near = smooth(2.0, 8.0, d)
-    p = points * 0.35
-    motes = 0.82 + 0.18 * np.sin(p[:, 0] + 0.7 * t) * np.sin(p[:, 1] * 1.3 - 0.5 * t) * np.sin(p[:, 2] * 0.9 + 1.1 * t)
-    return np.clip(facing ** 1.5 * along * near * motes, 0.0, 1.0)
