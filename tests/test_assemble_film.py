@@ -115,3 +115,43 @@ def test_end_to_end_with_stand_ins(tmp_path):
     assert abs(float(j["format"]["duration"]) - 6.2) < 0.1
     assert r["chime_at"] == 1.45 and set(r["overlays"]) == {"board", "readout", "conclusion"}
     assert "board" in r["crossfades"] and r["frames"]["board"] == 4
+
+
+def test_camera_shots_edl_shape():
+    from dataclasses import dataclass
+    from typing import Callable, Optional
+
+    @dataclass(frozen=True)
+    class S:
+        name: str
+        film: tuple
+        sim: Optional[tuple]
+        rate: float
+        camera: Callable
+        t_in: str = "cut"
+        t_out: str = "cut"
+        two_d: bool = False
+        badge: str = ""
+
+        def to_dict(self):
+            return {"name": self.name, "film": list(self.film), "sim": self.sim, "rate": self.rate, "in": self.t_in,
+                    "out": self.t_out, "two_d": self.two_d, "badge": self.badge}
+
+    cam = lambda u, t: None
+    rows = [S("rig", (0.0, 7.0), (0.0, 7.0), 1.0, cam, "fade", "xfade"),
+            S("control_push", (7.0, 12.0), (7.0, 12.0), 1.0, cam, "xfade", "xfade"),
+            S("board", (12.0, 22.0), None, 1.0, cam, "xfade", "xfade", True),
+            S("unit2_walk", (22.0, 24.0), (38.0, 40.0), 1.0, cam, "xfade", "cut"),
+            S("unit1_soak", (24.0, 25.5), (74.0, 84.0), 6.7, cam, "cut", "cut", badge="7x"),
+            S("walk_back", (25.5, 29.5), (98.0, 108.0), 2.5, cam, "xfade", "xfade", badge="2.5x"),
+            S("conclusion", (29.5, 33.5), None, 1.0, cam, "xfade", "fade", True)]
+    shots, _ = af.load_edl_rows(rows)
+    by = {s.name: s for s in shots}
+    assert by["rig"].fade_in and by["rig"].xfade == 0.5 and by["conclusion"].fade_out
+    assert by["board"].blur and by["conclusion"].blur and not by["control_push"].blur
+    assert not by["unit2_walk"].ff and by["walk_back"].ff and by["walk_back"].badge_text == "2.5×"
+    assert by["unit1_soak"].ff and by["unit1_soak"].badge_text == "7×" and by["unit2_walk"].xfade == 0.5
+    im = Image.new("RGB", (160, 90), (200, 200, 200))
+    k0 = af.compose(by["rig"], [], [], 0, (160, 90), im)
+    k1 = af.compose(by["rig"], [], [], 30, (160, 90), im)
+    assert np.asarray(k0).mean() < 5 and np.asarray(k1).mean() > 190

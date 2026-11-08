@@ -25,9 +25,9 @@ from policy.hud import font
 FPS = 30
 SR = 48000
 XFADE_S = 0.5
-BLUR = ("board", "conclusion", "control", "outro", "end")
+BLUR = ("board", "conclusion", "outro")
 READOUT = ("unit1", "unit2", "job", "fixer", "scrubber")
-FF = ("walk", "return", "dock")
+FF = ("back", "return")
 TEXT = (238, 242, 246)
 TEAL = (46, 196, 182)
 CHIME_DBFS = -18.0
@@ -44,10 +44,14 @@ class Shot:
     xfade: float = 0.0
     frames: Optional[str] = None
     extra: dict = field(default_factory=dict)
+    two_d: bool = False
+    badge: str = ""
+    fade_in: bool = False
+    fade_out: bool = False
 
     @property
     def blur(self) -> bool:
-        return any(k in self.kind for k in BLUR)
+        return self.two_d or any(k in self.kind for k in BLUR)
 
     @property
     def readout(self) -> bool:
@@ -55,7 +59,12 @@ class Shot:
 
     @property
     def ff(self) -> bool:
-        return any(k in self.kind for k in FF)
+        return bool(self.badge) or (self.rate > 1 and any(k in self.kind for k in FF))
+
+    @property
+    def badge_text(self) -> str:
+        b = self.badge.strip()
+        return b.replace("x", "×") if b else f"{self.rate:g}×"
 
 
 def _get(d: dict, *keys, default=None):
@@ -71,8 +80,10 @@ def _span(d: dict, keys) -> Optional[tuple]:
 
 
 def shot_from(d, prev_end: float = 0.0) -> Shot:
-    if dataclasses.is_dataclass(d):
-        d = dataclasses.asdict(d)
+    if hasattr(d, "to_dict"):
+        d = dict(d.to_dict(), **{k: getattr(d, k) for k in ("two_d", "badge") if hasattr(d, k)})
+    elif dataclasses.is_dataclass(d):
+        d = {f.name: getattr(d, f.name) for f in dataclasses.fields(d)}
     elif not isinstance(d, dict):
         d = {k: getattr(d, k) for k in dir(d) if not k.startswith("_") and not callable(getattr(d, k))}
     name = str(_get(d, "name", "id", "shot", default="shot"))
@@ -81,23 +92,27 @@ def shot_from(d, prev_end: float = 0.0) -> Shot:
     end = span[1] if span else _get(d, "film_end", "film_t1", "end", "t1")
     if end is None:
         end = start + float(_get(d, "duration", "dur", default=0.0))
-    tr = _get(d, "transition", "transition_in", "in", default="cut")
+    tr = _get(d, "transition", "transition_in", "t_in", "in", default="cut")
     xf = 0.0
     if isinstance(tr, dict):
         xf = float(_get(tr, "duration", "s", default=XFADE_S)) if "cut" not in str(_get(tr, "kind", "type", default="")) else 0.0
     elif isinstance(tr, (int, float)):
         xf = float(tr)
-    elif any(k in str(tr).lower() for k in ("fade", "dissolve", "xf", "cross")):
+    elif any(k in str(tr).lower() for k in ("xf", "dissolve", "cross")) or str(tr).lower() == "fade":
         xf = XFADE_S
     kind = str(_get(d, "kind", "type", "role", default=name)).lower()
     known = {"name", "id", "shot", "film", "film_span", "span", "film_start", "film_t0", "start", "t0", "film_end",
              "film_t1", "end", "t1", "duration", "dur", "transition", "transition_in", "in", "kind", "type", "role",
-             "rate", "playback", "speed", "frames"}
+             "rate", "playback", "speed", "frames", "two_d", "badge", "t_in", "t_out", "out", "transition_out",
+             "camera", "sim"}
+    out = str(_get(d, "t_out", "out", "transition_out", default="cut")).lower()
     return Shot(name, start, float(end), kind, float(_get(d, "rate", "playback", "speed", default=1.0)), xf,
-                _get(d, "frames"), {k: v for k, v in d.items() if k not in known})
+                _get(d, "frames"), {k: v for k, v in d.items() if k not in known and not callable(v)},
+                bool(_get(d, "two_d", default=False)), str(_get(d, "badge", default="") or ""),
+                str(tr).lower() == "fade", out == "fade")
 
 
-def load_edl(spec: Optional[str] = None) -> tuple[list[Shot], dict]:
+def load_edl(spec: Optional[str] = None, summary: Optional[str] = None) -> tuple[list[Shot], dict]:
     if spec and Path(spec).exists():
         raw = json.loads(Path(spec).read_text())
     else:
@@ -105,7 +120,8 @@ def load_edl(spec: Optional[str] = None) -> tuple[list[Shot], dict]:
         attr = spec.split(":")[1] if spec and ":" in spec else None
         names = [attr] if attr else ["edl", "EDL", "SHOTS", "shots", "build_edl"]
         raw = next(getattr(mod, n) for n in names if hasattr(mod, n))
-        raw = raw() if callable(raw) else raw
+        if callable(raw):
+            raw = raw(mod.FilmBeats.load(summary)) if summary and hasattr(mod, "FilmBeats") else raw()
     return load_edl_rows(raw)
 
 
@@ -211,14 +227,13 @@ def _blurred(path: str, size: tuple[int, int]) -> Image.Image:
     return blur_dim(_load(path, size, "RGB"))
 
 
-def ff_badge(im: Image.Image, rate: float) -> Image.Image:
+def ff_badge(im: Image.Image, txt: str) -> Image.Image:
     w, h = im.size
     s = h / 720
     base = im.convert("RGBA")
     layer = Image.new("RGBA", im.size, (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     f = font("sans", int(24 * s), "Semibold")
-    txt = f"{rate:g}×"
     tw = d.textlength(txt, font=f)
     bw, bh = tw + 64 * s, 44 * s
     x1, y0 = w - 32 * s, 32 * s
@@ -237,8 +252,14 @@ def compose(shot: Shot, frames: list[Path], overlays: list[Overlay], k: int, siz
             fallback: Optional[Image.Image] = None) -> Image.Image:
     im = background(shot, frames, k, size, fallback)
     if shot.ff and not any(o.at(k) for o in overlays if "ff" in o.name or "fast" in o.name):
-        im = ff_badge(im, shot.rate)
-    return im
+        im = ff_badge(im, shot.badge_text)
+    t = k / FPS
+    a = 1.0
+    if shot.fade_in:
+        a = min(a, (t - shot.start) / XFADE_S)
+    if shot.fade_out:
+        a = min(a, (shot.end - t) / XFADE_S)
+    return im if a >= 1.0 else Image.blend(Image.new("RGB", im.size, (0, 0, 0)), im, max(0.0, a))
 
 
 def overlay_all(im: Image.Image, overlays: list[Overlay], k: int) -> Image.Image:
@@ -338,8 +359,8 @@ def teaser_start(shots: list[Shot], total: float, dur: float = 10.0) -> float:
 
 
 def assemble(edl, out, frames_root=None, overlays_root=None, size=(1920, 1080), chime_at: Optional[float] = None,
-             bed: bool = True, teaser: bool = True) -> dict:
-    shots, meta = load_edl(edl) if isinstance(edl, (str, type(None))) else (edl, {})
+             bed: bool = True, teaser: bool = True, summary: Optional[str] = None) -> dict:
+    shots, meta = load_edl(edl, summary) if isinstance(edl, (str, type(None))) else (edl, {})
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     root = Path(frames_root) if frames_root else None
@@ -390,6 +411,7 @@ def assemble(edl, out, frames_root=None, overlays_root=None, size=(1920, 1080), 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Assemble the fleet film from the EDL, Isaac shot frames and overlays.")
     ap.add_argument("--edl", default=None, help="EDL JSON path or module[:attr]; default integration.film_edl")
+    ap.add_argument("--summary", help="run summary.json; builds film_edl.edl(FilmBeats.load(summary))")
     ap.add_argument("--frames", help="Isaac --film output root: <root>/<shot>/frames/*.jpg (or shots/<shot>/...)")
     ap.add_argument("--overlays", help="overlay root: <root>/<name>/<film_frame:05d>.png, optional manifest.json")
     ap.add_argument("--out", default="runs/film/film.mp4")
@@ -399,7 +421,7 @@ def main(argv=None) -> int:
     ap.add_argument("--no-teaser", action="store_true")
     a = ap.parse_args(argv)
     w, h = (int(x) for x in a.size.split("x"))
-    r = assemble(a.edl, a.out, a.frames, a.overlays, (w, h), a.chime_at, not a.no_bed, not a.no_teaser)
+    r = assemble(a.edl, a.out, a.frames, a.overlays, (w, h), a.chime_at, not a.no_bed, not a.no_teaser, a.summary)
     print(json.dumps(r, indent=2))
     return 0
 
