@@ -23,7 +23,7 @@ struct sea {
     float lost;
 };
 
-sea sea_eval(float2 p, float t, float height, float chop, float near_chop, float slope_gain, float footprint, uniform int stride)
+sea sea_eval(float2 p, float t, float height, float chop, float near_chop, float slope_gain, float resolved_gain, float footprint, uniform int stride)
 {
     float fade = math::exp(-math::length(p) / FADE);
     float sx = 0.0, sy = 0.0, jxx = 0.0, jyy = 0.0, jxy = 0.0, h = 0.0, lost = 0.0;
@@ -54,13 +54,13 @@ sea sea_eval(float2 p, float t, float height, float chop, float near_chop, float
         float s = math::sin(th);
         float c = math::cos(th);
         float ka = a.z * amp;
-        sx += a.x * ka * w * slope_gain * c;
-        sy += a.y * ka * w * slope_gain * c;
+        sx += a.x * ka * w * resolved_gain * c;
+        sy += a.y * ka * w * resolved_gain * c;
         float qs = b.z * ka * wj * s;
         jxx += qs * a.x * a.x;
         jyy += qs * a.y * a.y;
         jxy += qs * a.x * a.y;
-        lost += 0.35 * ka * ka * slope_gain * slope_gain * (1.0 - w * w);
+        lost += 0.25 * ka * ka * slope_gain * slope_gain * (1.0 - w * w);
     }
     float jac = (1.0 - jxx) * (1.0 - jyy) - jxy * jxy;
     float3 n = float3(-jxy * sy - sx * (1.0 - jyy), -jxy * sx - sy * (1.0 - jxx), math::max(jac, 0.15));
@@ -106,18 +106,20 @@ float ridge(float n, float width)
     return math::smoothstep(1.0 - width, 1.0, 1.0 - math::abs(2.0 * n - 1.0));
 }
 
-float3 legs_eval(float2 p)
+float4 legs_eval(float2 p)
 {
     float2 perp = float2(-DRIFT.y, DRIFT.x);
     float ring = 0.0;
     float wash = 0.0;
     float wake = 0.0;
+    float contact = 0.0;
     for (int i = 0; i < LEG_COUNT; ++i) {
         float3 l = LEGS[i];
         float2 rel = p - float2(l.x, l.y);
         float d = math::max(math::length(rel) - l.z, 0.0);
         ring = math::max(ring, math::max(math::exp(-d / 3.2), d < 0.7 ? 1.0 : 0.0));
         wash = math::max(wash, math::exp(-d / 12.0));
+        contact = math::max(contact, 1.0 - math::smoothstep(0.3, 2.2, d));
         float along = math::dot(rel, DRIFT);
         float across = math::abs(math::dot(rel, perp));
         float spread = l.z * 1.1 + 0.2 * math::max(along, 0.0);
@@ -125,7 +127,7 @@ float3 legs_eval(float2 p)
         if (along > 0.0)
             wake = math::max(wake, math::exp(-q * q) * math::exp(-along / 90.0));
     }
-    return float3(ring, wash, wake);
+    return float4(ring, wash, wake, contact);
 }
 
 export material OceanFx(
@@ -142,7 +144,8 @@ export material OceanFx(
     float foam_softness = 0.12,
     float foam_amount = 1.0,
     float leg_foam = 1.0,
-    float leg_chop = 1.6,
+    float leg_chop = 3.0,
+    float grazing_gain = 0.8,
     float drift_speed = 0.6,
     float3 camera_position = float3(0.0, 0.0, 40.0),
     float pixel_angle = 0.0008,
@@ -161,13 +164,15 @@ export material OceanFx(
     float footprint = math::max(min_footprint, dist * pixel_angle * math::sqrt(stretch));
 
     float2 perp = float2(-DRIFT.y, DRIFT.x);
-    float3 lg = legs_eval(float2(pw.x, pw.y));
+    float4 lg = legs_eval(float2(pw.x, pw.y));
+    float contact = lg.w * math::min(leg_foam, 1.0);
+    float grazing = 1.0 - math::abs(to_cam.z) / math::max(dist, 1e-3);
     float ring = lg.x;
     float wash = lg.y;
     float wake = lg.z;
     float near = math::max(ring, wash) * leg_foam;
-    sea o = sea_eval(p, time, height, chop, chop * (1.0 + leg_chop * near), slope_gain, footprint, wave_stride);
-    float alpha = math::min(math::sqrt(roughness * roughness + 2.0 * o.lost), 0.3);
+    sea o = sea_eval(p, time, height, chop, chop * (1.0 + leg_chop * near), slope_gain, slope_gain * (1.0 + grazing_gain * grazing), footprint, wave_stride);
+    float alpha = math::min(math::sqrt(roughness * roughness + 2.0 * o.lost) + 0.12 * ring * leg_foam, 0.35);
 
     float2 adv = p - DRIFT * (time * drift_speed);
     float2 dc = float2(math::dot(adv, DRIFT), math::dot(adv, perp));
@@ -180,8 +185,8 @@ export material OceanFx(
     float residue = math::saturate((foam_threshold + 0.25 - o.jac) / 0.45) * math::smoothstep(0.4, 0.75, streak) * 0.7;
     float surge = 0.7 + 0.3 * math::saturate(o.h / math::max(height, 0.1) + 0.5);
     float leg = leg_foam * surge * math::max(math::max(ring, 0.8 * wash), 0.9 * wake * (0.4 + 0.6 * math::smoothstep(0.3, 0.7, streak)));
-    float m = math::saturate(math::max(foam_amount * math::max(crest, residue), leg));
-    float foam = m <= 0.001 ? 0.0 : math::smoothstep(1.0 - m, 1.2 - m, pattern + 0.15 * m) * math::min(1.0, m * 3.0);
+    float m = math::saturate(math::max(math::max(foam_amount * math::max(crest, residue), leg), contact));
+    float foam = math::max(m <= 0.001 ? 0.0 : math::smoothstep(1.0 - m, 1.2 - m, pattern + 0.15 * m) * math::min(1.0, m * 3.0), contact * (0.7 + 0.3 * pattern));
 
     float crest_tint = math::pow(math::saturate(o.h / math::max(height, 0.1) * 0.7 + 0.3), 2.0);
     color body0 = math::lerp(deep_color, crest_color, crest_tint);

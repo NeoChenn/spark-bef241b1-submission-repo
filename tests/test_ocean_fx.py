@@ -43,7 +43,8 @@ def test_mdl_bakes_waves_legs_and_no_placeholders():
     big, detail = fx.big_waves(), fx.detail_waves()
     src = fx.build_mdl(big, detail, [(1.0, 2.0, 5.0), (3.0, 4.0, 5.0)])
     assert f"WAVE_COUNT = {detail.k.size};" in src and f"BIG_COUNT = {len(WAVES)};" in src
-    assert src.count("float4(") == 2 * (detail.k.size + len(WAVES))
+    assert src.count("float4(") - fx.build_mdl(big, detail, []).count("float4(") == 0
+    assert src.split("const int LEG_COUNT")[0].count("float4(") == 2 * (detail.k.size + len(WAVES))
     assert "LEG_COUNT = 2;" in src and "float3(3, 4, 5)" in src
     assert "@" not in src and "@" not in fx.build_mdl(big, detail, [])
     assert "export material OceanFx(" in src
