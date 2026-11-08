@@ -66,7 +66,8 @@ def stuck_replay(tmp_path):
 def test_stuck_sensor_files_one_ticket_to_the_human_inbox_and_dispatches_no_repair(tmp_path, mode):
     link = ArgonLink(mode, Timeline(None), stuck_replay(tmp_path) if mode == "replay" else None)
     beat, cmds, seen = run_stuck(link)
-    assert [k for _, k, _, _ in cmds] == [HOLD, GO_CHECK, LOG_SENSOR_FAULT, RESUME_RUST]
+    want = [GO_CHECK, LOG_SENSOR_FAULT] if mode == "edge" else [HOLD, GO_CHECK, LOG_SENSOR_FAULT, RESUME_RUST]
+    assert [k for _, k, _, _ in cmds] == want
     assert FIX_LEAK not in [k for _, k, _, _ in cmds]
     assert [(r, tg) for _, k, r, tg in cmds if k == LOG_SENSOR_FAULT] == [("supv", "G-F6")]
     assert beat.fault.kind == PIPE_SENSOR_FAULT and beat.fault.robot == FIXER

@@ -27,6 +27,10 @@ END_S = 3.5
 BUDGET_S = 60.0
 SPEEDS = (4.0, 6.0, 8.0, 12.0, 16.0)
 PAD_S = 1.0
+SOAK = ("SOAK",)
+WALKS = ("TRANSIT", "RETURN", "TO_DOCK")
+WALK_MIN_S = 6.0
+KEEP = ("PAINT", "RETORQUE")
 RAMP_S = 0.5
 TEASER_S = 10.0
 BEAT_ROWS = ("finding", "command", "ticket", "vetoed", "argon_call", "link")
@@ -127,6 +131,46 @@ def wait_mask(headers: list[dict], ts: np.ndarray, spans: Optional[list] = None)
     return np.array([bool(argon(h).get("pending") or h.get("argon_pending") or h.get("wait")) for h in headers])
 
 
+def state_masks(headers: list[dict], states: Iterable[str]) -> dict[str, np.ndarray]:
+    want = {s.upper() for s in states}
+    out: dict[str, np.ndarray] = {}
+    for i, h in enumerate(headers):
+        for rid, st in _robots(h):
+            if str(st or "").upper() in want:
+                out.setdefault(rid, np.zeros(len(headers), bool))[i] = True
+    return out
+
+
+def any_state(headers: list[dict], states: Iterable[str]) -> np.ndarray:
+    m = np.zeros(len(headers), bool)
+    for v in state_masks(headers, states).values():
+        m |= v
+    return m
+
+
+def long_runs(mask: np.ndarray, ts: np.ndarray, min_s: float) -> np.ndarray:
+    out = np.zeros(len(mask), bool)
+    i, n = 0, len(mask)
+    while i < n:
+        if not mask[i]:
+            i += 1
+            continue
+        j = i
+        while j + 1 < n and mask[j + 1]:
+            j += 1
+        if ts[j] - ts[i] >= min_s:
+            out[i:j + 1] = True
+        i = j + 1
+    return out
+
+
+def long_walks(headers: list[dict], ts: np.ndarray, min_s: float = WALK_MIN_S) -> np.ndarray:
+    m = np.zeros(len(headers), bool)
+    for v in state_masks(headers, WALKS).values():
+        m |= long_runs(v, ts, min_s)
+    return m
+
+
 def beat_mask(ts: np.ndarray, beat_idx: Iterable[int], beat_t: Iterable[float], pad_s: float) -> np.ndarray:
     m = np.zeros(len(ts), bool)
     for t in [*(ts[i] for i in beat_idx if 0 <= i < len(ts)), *beat_t]:
@@ -167,6 +211,7 @@ class Plan:
     fast: np.ndarray
     beats: np.ndarray
     seconds: float = 0.0
+    why: dict = field(default_factory=dict)
     notes: list = field(default_factory=list)
 
 
@@ -176,15 +221,18 @@ def plan(headers: list[dict], fps_in: float = FPS, timeline: Optional[list[dict]
     ts = times(headers, fps_in)
     rows = timeline or []
     waits = wait_mask(headers, ts, waits_from_timeline(rows))
-    beats = beat_mask(ts, beats_from_headers(headers), beats_from_timeline(rows), pad_s)
+    soak, walks = any_state(headers, SOAK), long_walks(headers, ts)
+    beats = beat_mask(ts, beats_from_headers(headers), beats_from_timeline(rows), pad_s) | any_state(headers, KEEP)
     room = budget_s - title_s - end_s
     ramp_n = int(round(ramp_s * fps_in))
     best = None
-    for mode, fast in (("waits", waits & ~beats), ("idle", ~beats)):
+    for mode, fast in (("lapse", (waits | soak | walks) & ~beats), ("idle", ~beats)):
         for top in speeds:
             sp = np.where(fast, ramp(fast, top, ramp_n), 1.0)
             idx = schedule(sp, fps_in)
-            best = Plan(idx, sp, top, mode, fast, beats, len(idx) / FPS)
+            best = Plan(idx, sp, top, mode, fast, beats, len(idx) / FPS,
+                        why={"wait": int((fast & waits).sum()), "soak": int((fast & soak).sum()),
+                             "walk": int((fast & walks).sum())})
             if best.seconds <= room:
                 return best
     best.notes.append(f"over budget: {best.seconds:.1f}s of footage > {room:.1f}s")
@@ -487,7 +535,7 @@ def assemble(raw, headers_path, out, timeline_path=None, fps_in: float = FPS,
         raise RuntimeError(f"ffmpeg exited {enc.returncode}")
     total = (n_title + written + n_end) / FPS if last is not None else 0.0
     report = {"out": str(out), "seconds": round(total, 2), "frames_in": len(headers), "frames_used": written,
-              "speed": p.top, "mode": p.mode, "fast_frames": int(p.fast.sum()), "beat_frames": int(p.beats.sum()),
+              "speed": p.top, "mode": p.mode, "fast_frames": int(p.fast.sum()), "fast_by": p.why, "beat_frames": int(p.beats.sum()),
               "end_card": stats, "size": [w, h], "overlay": bool(draw), "labels": bool(label_fn), "notes": p.notes}
     if hd and last is not None:
         hd_path = out.with_name(out.stem + "_1080p.mp4")

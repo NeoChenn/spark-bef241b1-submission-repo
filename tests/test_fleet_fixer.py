@@ -104,17 +104,17 @@ def test_hud_fields():
     assert fx.command(command(GO_CHECK, "M2", "argon", "x", robot="unit1")) is False
 
 
-def test_scenario_f5_bolt_3_is_retorqued_with_the_arm_skill():
+def test_scenario_f5_bolt_3_is_retorqued_with_the_arm_skill_and_nav():
+    from integration.fleet_paths import DOCK
     from integration.fleet_scenario import Scenario
     from policy.fleet_units import from_scenario
 
     sc = Scenario(t_stuck=None)
-    g = sc.flanges["F5"]
-    fx = from_scenario(sc, g.center[:2] + 6.0 * g.normal[:2])
+    fx = from_scenario(sc)
     fx.t = 10.0
     fx.command(command(FIX_LEAK, "F5", "argon", "both agree"))
     phases, seen = set(), []
-    while fx.t < 120.0 and not (fx.state == DOCKED and len(seen) > 1):
+    while fx.t < 150.0 and not (fx.state == DOCKED and len(seen) > 1):
         sc.detector_readings(fx.t)
         fx.step(0.1)
         if fx.arm_phase:
@@ -125,7 +125,30 @@ def test_scenario_f5_bolt_3_is_retorqued_with_the_arm_skill():
     assert seen == [TRANSIT, SNIFF, INSPECT, RETORQUE, VERIFY, RETURN, DOCKED]
     assert fx.arm.started == [("F5", 3)] and fx.alert["kind"] == "repaired"
     assert {"approach", "engage", "torque", "retract"} <= phases
-    assert fx.peak_lel < 20.0
-    if hasattr(sc, "fix"):
-        t_verify = next(r["t"] for r in fx.log if r["to"] == VERIFY)
-        assert sc.t_fixed is not None and sc.t_fixed < t_verify - 2.0
+    assert fx.peak_lel < 20.0 and fx.evidence["nav"] == "ARRIVED"
+    assert np.linalg.norm(fx.xy - np.asarray(DOCK["unit2"][:2])) < 0.3
+    t_verify = next(r["t"] for r in fx.log if r["to"] == VERIFY)
+    assert sc.t_fixed is not None and sc.t_fixed < t_verify - 2.0
+
+
+class _Walker:
+    def __init__(self, xy):
+        self.xy, self.yaw, self.state, self.events = np.asarray(xy, float), 0.0, "FOLLOW", []
+
+    def go(self, goal_xy, yaw=None):
+        self.goal = np.asarray(goal_xy, float)
+
+    def step(self, dt):
+        if len(self.events) == 0:
+            self.state = "REPORT"
+            self.events.append({"type": "object_on_walkway", "xy": [-4.0, 1.5], "width_m": 0.3, "leg": "go"})
+        return False
+
+
+def test_object_on_walkway_is_reported():
+    w, det, fx = rig(lambda w: w.loosen("M2", 1, 0.15))
+    fx.walker = _Walker(DOCK)
+    fx.command(command(GO_CHECK, "M2", "argon", "check"))
+    fx.step(0.1)
+    assert fx.reports[-1]["verdict"] == "object_on_walkway" and fx.reports[-1]["xy"] == [-4.0, 1.5]
+    assert "object on walkway" in fx.caption and fx.evidence["walkway"]["verdict"] == "object_on_walkway"
