@@ -137,10 +137,10 @@ def test_record_mock_session(tmp_path):
 def test_apply_event_routes_control_events():
     seen = []
     ctl = type("C", (), {"cut_link": lambda self, on: seen.append(("cut", on)),
-                         "intent": lambda self, text: seen.append(("intent", text))})()
+                         "intent": lambda self, text, background=False: seen.append(("intent", text, background))})()
     apply_event(FakeBridge(), {"name": "cut_link", "args": {"on": True}}, ctl)
     apply_event(FakeBridge(), {"name": "intent", "args": {"text": "inspect deck 2"}}, ctl)
-    assert seen == [("cut", True), ("intent", "inspect deck 2")]
+    assert seen == [("cut", True), ("intent", "inspect deck 2", True)]
     with pytest.raises(ValueError):
         apply_event(FakeBridge(), {"name": "cut_link", "args": {"on": True}})
 

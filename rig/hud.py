@@ -161,7 +161,7 @@ def apply_event(bridge, event: dict, control=None) -> None:
         if name == "cut_link":
             control.cut_link(bool(args.get("on", True)))
         else:
-            control.intent(str(args.get("text") or ""))
+            control.intent(str(args.get("text") or ""), background=True)
         return
     if name == "spawn_patch" and ("theta" not in args or "z" not in args):
         theta, z = bridge.ee_theta_z()

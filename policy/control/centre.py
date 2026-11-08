@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
@@ -11,6 +12,7 @@ from typing import Optional
 
 from policy.control.adapters import TrendTracker
 from policy.control.limiter import Budget, RateLimiter, cost_usd
+from policy.control.port import LockedPort
 from policy.control.prompt import build, prompt_hash
 from policy.control.safety import arbitrate, edge_rules, hazard_first, verify_fallback
 from policy.control.schema import VERIFY, Plan, SchemaError, validate
@@ -54,6 +56,10 @@ class ControlCentre:
                  auto_conf: float = AUTO_CONF, agent=None, timeline=None, fault_grace_s: float = FAULT_GRACE_S):
         self.backend, self.agent, self.link_cut = backend, agent, False
         self.timeline, self.fault_grace_s = timeline, fault_grace_s
+        self.lock = threading.RLock()
+        self.orders = None
+        if agent is not None and not isinstance(agent.port, LockedPort):
+            agent.port = LockedPort(agent.port, self.lock)
         self.fault_seen: dict[str, float] = {}
         self.log_path = Path(log_path) if log_path else None
         self.limiter = RateLimiter(interval_s, alarm_gap_s, per_minute)
@@ -78,6 +84,10 @@ class ControlCentre:
         return self.backend is not None and self.backend.available
 
     def tick(self, snap: SensorSnapshot, now: Optional[float] = None) -> dict:
+        with self.lock:
+            return self._tick(snap, now)
+
+    def _tick(self, snap: SensorSnapshot, now: Optional[float] = None) -> dict:
         now = time.monotonic() if now is None else now
         self.trends.update(snap)
         first = hazard_first(snap)
@@ -117,8 +127,15 @@ class ControlCentre:
         if self.agent is not None:
             self.agent.cut_link(on)
 
-    def intent(self, text: str, now: float = 0.0):
-        return None if self.agent is None else self.agent.handle(intent=text, now=now)
+    def intent(self, text: str, now: float = 0.0, background: bool = False):
+        if self.agent is None:
+            return None
+        if not background:
+            return self.agent.handle(intent=text, now=now)
+        if self.orders is None:
+            self.orders = ThreadPoolExecutor(1, thread_name_prefix="argon-orders")
+        self.agent.last = {**self.agent.last, "status": "thinking", "intent": text, "text": ""}
+        return self.orders.submit(self.agent.handle, intent=text, now=now)
 
     def finding(self, finding: dict, now: float = 0.0):
         return None if self.agent is None else self.agent.handle(findings=[finding], now=now)

@@ -325,6 +325,7 @@
     const ag = c.agent;
     $("cc-agent").innerHTML = !ag ? "" : `<div class="ag-head"><i>Mission planner</i><span class="${ag.link === "CUT" ? "cut" : ""}">link ${ag.link}</span></div>` +
       (ag.intent ? `<p class="ag-intent">“${esc(ag.intent)}”</p>` : "") +
+      (ag.status === "thinking" ? `<p class="ag-text thinking">Argon is planning…</p>` : ag.text ? `<p class="ag-text">${esc(ag.text.split("\n")[0])}</p>` : "") +
       (ag.calls || []).slice(-2).reverse().map((x) => `<div class="ag-call ${x.ok ? "" : "no"}"><b>${x.ok ? "✓" : "✗"}</b><span>${esc(x.label)}</span><em>${esc(x.ok ? x.why : "refused: " + x.refused)}</em></div>`).join("");
   }
   window.hudControl = () => S.controlView || null;
@@ -607,6 +608,16 @@
   $("pip").classList.add("hide");
   $("gemini").classList.add("hide");
   addEventListener("keydown", keys);
+  $("cc-order").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const box = $("cc-order-text"), text = box.value.trim();
+    if (!text) return;
+    post({ name: "intent", args: { text } });
+    box.value = "";
+    box.blur();
+    $("cc-order").classList.add("sent");
+    setTimeout(() => $("cc-order").classList.remove("sent"), 1200);
+  });
   if (MOCK) {
     $("status").textContent = "mock replay";
     shot(1);

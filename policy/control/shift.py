@@ -6,10 +6,12 @@ import time
 from datetime import date
 from pathlib import Path
 
+from policy.control.agent import ArgonAgentBackend, OrchestrationAgent, ReplayAgentBackend
 from policy.control.backend import ArgonBackend, ShiftReplayBackend
 from policy.control.brain import ArgonBrain, register
 from policy.control.centre import ControlCentre
-from policy.control.fleet_port import FleetPort
+from policy.control.envelope import Envelope
+from policy.control.fleet_port import ARGON, FleetPort
 from policy.control.rigsensors import RigSensors
 from policy.fleet.fleet import Fleet
 from policy.fleet.rigmap import load_rig_map
@@ -34,7 +36,7 @@ SNAP_DT = 2.0
 LABELS = {"sensor_fault": "FAULT", "fault_dispatch": "VERIFY", "verify_reading": "READING",
           "maintenance_raised": "MAINTENANCE", "fault_cleared": "CLEARED", "gas_alarm": "GAS ALARM",
           "leak_isolated": "ISOLATED", "agent_refused": "REFUSED", "approved": "APPROVED", "sensor_repaired": "REPAIRED",
-          "link_cut": "LINK CUT", "link_restored": "LINK UP", "edge_rule": "EDGE", "argon_call": "ARGON"}
+          "link_cut": "LINK CUT", "argon_vetoed": "VETO", "gemini_call": "PLANNER", "link_restored": "LINK UP", "edge_rule": "EDGE", "argon_call": "ARGON"}
 
 
 def build(mode: str = "replay", out: Path = OUT, seed: int = 7, interval_s: float = 10.0, cap_usd: float = 1.0):
@@ -57,8 +59,12 @@ def build(mode: str = "replay", out: Path = OUT, seed: int = 7, interval_s: floa
     out.mkdir(parents=True, exist_ok=True)
     port = FleetPort(f, rig.specs, timeline_path=out / "timeline.jsonl")
     backend = None if mode == "edge" else ArgonBackend() if mode == "live" else ShiftReplayBackend()
+    planner = None if mode == "edge" else ArgonAgentBackend() if mode == "live" else ReplayAgentBackend()
+    (out / "agent_calls.jsonl").unlink(missing_ok=True)
+    agent = OrchestrationAgent(port, planner, Envelope(ARGON), log_path=out / "agent_calls.jsonl", today=lambda: DAY)
     centre = ControlCentre(backend, log_path=out / "calls.jsonl", interval_s=interval_s, alarm_gap_s=1.5,
-                           per_minute=12, cap_usd_day=cap_usd, sim_latency=True, today=lambda: DAY, timeline=port)
+                           per_minute=12, cap_usd_day=cap_usd, sim_latency=True, today=lambda: DAY, timeline=port,
+                           agent=agent)
     if centre.log_path is not None:
         centre.log_path.unlink(missing_ok=True)
     return ArgonBrain(f, rig, centre, port)
@@ -76,18 +82,26 @@ def hud_events(events: list[dict]) -> list[dict]:
             why = f"{d['sensor']} {d['status']}" + (" · hazard: treated as real gas" if d.get("hazard") else "")
         elif e["event"] == "verify_reading":
             why = f"{d['sensor']}: robot {d['robot_mean']} vs head {d['head_mean']} -> {d['why']}"
+        elif e["event"] == "gemini_call":
+            why = f"{d['status']} · {', '.join(d['decision']) or 'no change'} · {d['latency_ms']} ms"
         elif e["event"] in ("link_cut", "link_restored"):
             why = d.get("why", "")
         out.append({"t": e["t"], "from": e["robot"] or "Argon", "to": lab, "reason": why or e["event"]})
     return out
 
 
-def run(mode: str = "replay", out: Path = OUT, t_end: float = T_END, **kw) -> dict:
+def run(mode: str = "replay", out: Path = OUT, t_end: float = T_END, orders=(), **kw) -> dict:
     out = Path(out)
     brain = build(mode, out, **kw)
     snaps, seen, wall = [], 0, time.time()
     cut = False
+    orders, pending = sorted(orders), []
     while brain.f.t < t_end:
+        while orders and orders[0][0] <= brain.f.t:
+            pending.append(brain.centre.intent(orders.pop(0)[1], now=brain.f.t, background=True))
+        pending = [f for f in pending if not f.done()]
+        if pending:
+            time.sleep(0.002)
         want = LINK_CUT[0] <= brain.f.t < LINK_CUT[1]
         if want != cut:
             cut = want
@@ -101,6 +115,8 @@ def run(mode: str = "replay", out: Path = OUT, t_end: float = T_END, **kw) -> di
             seen = len(brain.port.timeline)
             snaps.append({"t": round(brain.f.t, 1), "pt": round(brain.f.t / PLAYBACK, 3), "events": hud_events(ev),
                           "control": ctl})
+    if brain.centre.orders is not None:
+        brain.centre.orders.shutdown(wait=True)
     calls = [e["detail"] for e in brain.port.timeline if e["event"] == "argon_call"]
     ok = [c for c in calls if c.get("status") == "ok"]
     summary = {"mode": mode, "model": getattr(brain.centre.backend, "name", None), "t_end": brain.f.t,
@@ -124,8 +140,11 @@ def main(argv=None) -> int:
     ap.add_argument("--t-end", type=float, default=T_END)
     ap.add_argument("--interval", type=float, default=10.0, help="Argon call interval in sim seconds")
     ap.add_argument("--cap", type=float, default=1.0, help="USD cap for this run")
+    ap.add_argument("--order", action="append", default=[], metavar="T:TEXT",
+                    help="operator order for the mission planner at sim time T, e.g. '30:Inspect gauge_05'")
     a = ap.parse_args(argv)
-    res = run(a.mode, Path(a.out), a.t_end, interval_s=a.interval, cap_usd=a.cap)
+    orders = [(float(o.split(":", 1)[0]), o.split(":", 1)[1]) for o in a.order]
+    res = run(a.mode, Path(a.out), a.t_end, orders, interval_s=a.interval, cap_usd=a.cap)
     for e in res["brain"].port.timeline:
         if e["event"] in LABELS and e["event"] not in ("argon_call", "edge_rule"):
             d = e["detail"]

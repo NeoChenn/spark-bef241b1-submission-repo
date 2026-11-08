@@ -111,6 +111,14 @@ def test_hold_resume_and_low_battery_refusal(port):
     assert res[0]["ok"] and not port.robot("R1").held
 
 
+def test_argon_cannot_hold_the_gas_responder(port):
+    port.f.schedule(port.f.t, "gas_alarm", flange="F5", scenario="loose")
+    port.f.step()
+    r = next(x for x in port.f.robots if x.task is not None and x.task.kind == "gas")
+    res = port.apply([act("hold", r.id)], {})
+    assert "gas response" in refused(res[0]) and not r.held
+
+
 def test_argon_hold_expires_unless_renewed(port):
     port.apply([act("hold", "R1")], {})
     for _ in range(int(HOLD_TTL_S) + 2):

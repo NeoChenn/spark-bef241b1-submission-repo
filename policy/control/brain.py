@@ -72,6 +72,7 @@ class ArgonBrain:
         self.gas_tasks: dict[str, str] = {}
         self.isolated: set[str] = set()
         self.last: dict = {}
+        self.vetoed: set[str] = set()
         self.snap: Optional[SensorSnapshot] = None
 
     def zone(self, pos) -> str:
@@ -246,6 +247,10 @@ class ArgonBrain:
                     self.port.log("sensor_repaired", j["id"], None, sensor=j["target"], by="crew")
 
     def step(self) -> dict:
+        with self.centre.lock:
+            return self._step()
+
+    def _step(self) -> dict:
         self.f.step()
         snap = self.snapshot()
         self._verify(snap)
@@ -254,6 +259,11 @@ class ArgonBrain:
         self._people()
         ctl = self.centre.tick(snap, now=float(self.f.t))
         self.port.apply(ctl["actions"], {h.id: h for h in snap.health})
+        for v in ctl["vetoed"]:
+            if v["id"] not in self.vetoed:
+                self.port.log("argon_vetoed", None, v["robot"] or None, kind=v["kind"], target=v["target"],
+                              purpose=v["purpose"], why=v["why"])
+        self.vetoed = {v["id"] for v in ctl["vetoed"]}
         ctl["health"] = health_view(snap)
         ctl["fleet"] = [{"id": r.id, "state": r.state, "zone": r.zone, "battery": r.battery, "task": r.task,
                          "sensors": r.sensors, "pose": list(r.pose)} for r in snap.robots]

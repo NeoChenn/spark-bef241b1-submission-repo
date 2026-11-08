@@ -219,6 +219,13 @@ kbd { font-family: var(--mono); letter-spacing: 0.02em; color: var(--faint); bor
 #cc-mode.pending::after { content: ""; display: inline-block; width: 5px; height: 5px; margin-left: 6px; border-radius: 50%; background: currentColor; vertical-align: 1px; animation: pulse .8s steps(2) infinite; }
 .cc-banner { display: none; font-size: 10px; letter-spacing: .09em; text-transform: uppercase; font-weight: 600; color: var(--stop); background: rgba(248,81,73,.14); border-radius: 7px; padding: 6px 9px; }
 .cc-banner.on { display: block; }
+.cc-order { display: flex; gap: 6px; }
+.cc-order input { flex: 1; min-width: 0; font: inherit; font-size: 12px; color: var(--fg); background: rgba(245,244,238,.06); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; outline: none; }
+.cc-order input:focus { border-color: var(--accent); }
+.cc-order button { font: inherit; font-size: 11px; font-weight: 600; color: var(--bg); background: var(--accent); border: 0; border-radius: 8px; padding: 0 10px; cursor: pointer; }
+.cc-order.sent input { border-color: var(--ok); }
+.ag-text { margin: 0; font-size: 11.5px; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ag-text.thinking { color: var(--dim); }
 .cc-health:empty { display: none; }
 .cc-health .hh { display: flex; justify-content: space-between; align-items: center; }
 .cc-health .hh span { font-size: 10.5px; color: var(--ok); }

@@ -15,6 +15,7 @@ FLEET_STATUS = {"pending": "QUEUED", "assigned": "ASSIGNED", "active": "RUNNING"
 OPEN = ("QUEUED", "WAITING_APPROVAL", "ASSIGNED", "RUNNING")
 BOOST_PER_LEVEL = 20.0
 HOLD_TTL_S = 90.0
+ALIASES = {"inspection": "inspect", "rust_inspect": "inspect", "gas_survey": "leak_check", "rust_repair": "rust"}
 
 
 class FleetPort:
@@ -84,7 +85,11 @@ class FleetPort:
         t.priority_boost = (3 - j["priority"]) * BOOST_PER_LEVEL
         j["task"], j["status"] = t.id, "QUEUED"
 
+    def plannable(self, kind: str, target: str) -> bool:
+        return kind in KIND_BASE and (target in self.f.rm.poi_node or target in self.sensors)
+
     def queue(self, kind, target, level="AUTO", priority=3, params=None, by="operator", why="") -> str:
+        kind = ALIASES.get(kind, kind)
         dup = self.open_job(kind, target)
         if dup:
             return dup["id"]
@@ -96,7 +101,7 @@ class FleetPort:
         self.jobs[jid] = j
         if level == "SUPV":
             j["status"] = "WAITING_APPROVAL"
-        elif level == "HUMAN" or kind not in KIND_BASE:
+        elif level == "HUMAN" or not self.plannable(kind, target):
             j["status"] = "HANDED_TO_HUMAN"
         else:
             self._task(j)
@@ -121,7 +126,7 @@ class FleetPort:
         j = self.jobs.get(job_id)
         if not j or j["status"] != "WAITING_APPROVAL":
             return False
-        if j["kind"] in KIND_BASE:
+        if self.plannable(j["kind"], j["target"]):
             self._task(j)
         else:
             j["status"] = "HANDED_TO_HUMAN"
@@ -142,8 +147,10 @@ class FleetPort:
     def hold(self, rid, by, why) -> bool:
         return self.f.hold(rid, f"{why} ({by})")
 
-    def low_battery(self, rid) -> Optional[str]:
+    def hold_refusal(self, rid) -> Optional[str]:
         r = self.robot(rid)
+        if r is not None and r.task is not None and r.task.kind == "gas":
+            return f"{rid} is on the gas response {r.task.id}; only the operator can stop a safety job"
         if r is not None and r.battery.soc < r.battery.return_frac:
             return (f"{rid} battery {r.battery.soc:.0%} is below the {r.battery.return_frac:.0%} return level; "
                     "holding it could strand it, the planner sends it to the dock")
@@ -192,7 +199,7 @@ class FleetPort:
                     continue
                 if kind == "resume" and self.robot(rid) is not None and not self.robot(rid).held:
                     continue
-                bad = self.low_battery(rid) if kind == "hold" else None
+                bad = self.hold_refusal(rid) if kind == "hold" else None
                 if bad:
                     if a["id"] not in self.active_edge:
                         self.log("agent_refused", None, rid, call="hold_robot", why=bad)

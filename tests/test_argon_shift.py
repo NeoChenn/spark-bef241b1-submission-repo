@@ -51,6 +51,8 @@ def test_dead_head_beside_the_leak_waits_for_the_gas_response(shift):
     assert fault["t"] > LEAK[0] and fault["detail"]["hazard"]
     tl = res["brain"].port.timeline
     assert any(e["event"] == "edge_rule" and e["detail"].get("rule") == "hazard_first" for e in tl)
+    veto = events(res, "argon_vetoed", target="G-F6")
+    assert veto and "hazard first" in veto[0]["detail"]["why"]
     iso = events(res, "leak_isolated", flange=LEAK[1])[0]
     d = events(res, "fault_dispatch", sensor="G-F6")[0]
     assert d["t"] > iso["t"]
