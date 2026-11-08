@@ -500,6 +500,18 @@ DECK_FLOODS = (
 )
 
 
+ZONE_SPOT = ((21.0, -4.0, 47.5), (18.26, -5.25, 43.0), LED, 2.0e6, 9.0)
+
+
+def add_zone_spot(stage) -> None:
+    pos, target, kelvin, intensity, cone = ZONE_SPOT
+    path = "/World/Cinematic/Lamps/area_610"
+    if not stage.GetPrimAtPath(path):
+        add_fixture(stage, 610, "spot", pos, kelvin, intensity, tuple(np.subtract(target, pos)), cone)
+    f = look.fixture("spot", kelvin, intensity, cone)
+    _relight(stage.GetPrimAtPath(path), {**f, "softness": 0.25})
+
+
 def add_deck_floods(stage, gain: float = 1.0) -> None:
     b = SceneBuilder(stage)
     steel = b.plain("lamp_pole", (0.3, 0.32, 0.33), 0.5, 0.6)
@@ -524,6 +536,7 @@ def apply_preset(stage, name: str) -> None:
     flare_fx.attach(stage)
     relight(stage)
     add_deck_floods(stage)
+    add_zone_spot(stage)
     add_work_light(stage)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))

@@ -6,10 +6,10 @@ import numpy as np
 
 DECK_Z, SEA_Z = 42.5, 0.3
 PICKS = (
-    ("deck", 0, DECK_Z, 18.0, 1.0),
-    ("deck", 1, DECK_Z, 18.0, 1.0),
-    ("deck", 2, DECK_Z, 18.0, 1.0),
-    ("deck", 3, DECK_Z, 18.0, 1.0),
+    ("deck", 0, DECK_Z, 14.0, 0.8),
+    ("deck", 1, DECK_Z, 14.0, 0.8),
+    ("deck", 2, DECK_Z, 14.0, 0.8),
+    ("deck", 3, DECK_Z, 14.0, 0.8),
     ("area", 3, DECK_Z, 20.0, 0.3),
     ("area", 4, DECK_Z, 20.0, 0.3),
     ("sea", 0, SEA_Z, 24.0, 0.4),
@@ -18,6 +18,7 @@ PICKS = (
 KELVIN = {2000.0: 2100.0, 4000.0: 4500.0, 6000.0: 7000.0}
 TIERS = {"none": 0, "live": 0, "offline": len(PICKS)}
 DOWN = (0.0, 0.0, -1.0)
+DUST = np.array([1.0, 0.9, 0.76], np.float32)
 
 
 def specs(area, sea, deck, tier: str) -> list[dict]:
@@ -72,7 +73,7 @@ def layer(cam: dict, specs, t: float = 0.0, gain: float = 400.0, scale: int = 4,
         d = np.where(np.isfinite(d) & (d > 0), d, np.inf)[: h * scale, : w * scale]
         low = d.reshape(h, scale, w, scale).min(axis=(1, 3))
     s = np.linspace(0.02, 1.0, samples)
-    along = _ramp(0.0, 0.15, s) * (1 - s) ** 0.7 * (1 - _ramp(0.8, 1.0, s))
+    along = _ramp(0.12, 0.4, s) * (1 - s) ** 0.5 * (1 - _ramp(0.85, 1.0, s))
     for sp in specs:
         if inside(eye, sp):
             continue
@@ -91,7 +92,7 @@ def layer(cam: dict, specs, t: float = 0.0, gain: float = 400.0, scale: int = 4,
         dist = np.linalg.norm(pts - eye, axis=-1)
         motes = 0.85 + 0.15 * np.sin(s * 23.0 - 1.3 * t)
         amp = along * motes * _ramp(2.0, 10.0, z) * np.clip(step / r, 0.0, 1.0) * ok
-        rgb = np.asarray(kelvin_rgb(sp["kelvin"]), np.float32) * gain * sp["gain"]
+        rgb = (0.5 * np.asarray(kelvin_rgb(sp["kelvin"]), np.float32) + 0.5 * DUST) * gain * sp["gain"]
         for ui, vi, ri, ai, di in zip(u, v, r, amp, dist):
             if ai <= 1e-3:
                 continue
@@ -100,7 +101,7 @@ def layer(cam: dict, specs, t: float = 0.0, gain: float = 400.0, scale: int = 4,
             if x0 >= x1 or y0 >= y1:
                 continue
             yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
-            g = np.exp(-((xx - ui) ** 2 + (yy - vi) ** 2) / (2 * (0.5 * ri) ** 2)) * ai
+            g = np.exp(-((xx - ui) ** 2 + (yy - vi) ** 2) / (2 * (0.35 * ri) ** 2)) * ai
             if depth is not None:
                 g = g * (low[y0:y1, x0:x1] > di)
             acc[y0:y1, x0:x1] += g[..., None] * rgb
