@@ -34,7 +34,6 @@ PLACE = [
 WALL = [
     ("fuel_junction_box", 11.75, -10.15, "+y", 1.25),
     ("fuel_junction_box", 25.75, -10.15, "+y", 1.25),
-    ("fuel_junction_box", 18.75, -1.35, "-y", 1.25),
     ("nv_first_aid_a01", 11.75, -1.35, "-y", 1.1),
     ("nv_extinguisher_a01", 25.75, -1.35, "-y", 0.9),
 ]

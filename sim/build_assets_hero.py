@@ -5,7 +5,7 @@ import math
 import sys
 from pathlib import Path
 
-from pxr import Gf, Usd, UsdGeom
+from pxr import Gf, Sdf, Usd, UsdGeom
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -29,6 +29,17 @@ def source(asset: str) -> tuple[str, tuple, tuple]:
     return rel(file), tuple(box.GetMin()), tuple(box.GetMax())
 
 
+def relink_textures(stage, model, asset: str):
+    local = {f.stem: f for f in (ASSETS / "models" / asset).rglob("*.*")}
+    for prim in Usd.PrimRange(model):
+        for attr in prim.GetAttributes():
+            if attr.GetTypeName() != Sdf.ValueTypeNames.Asset:
+                continue
+            value = attr.Get()
+            if value and value.path.startswith("/") and Path(value.path).stem in local:
+                attr.Set(Sdf.AssetPath(rel(local[Path(value.path).stem])))
+
+
 def place(stage, parent: str, name: str, asset: str, pos, rot: float, scale: float, centre_z=False):
     url, lo, hi = source(asset)
     holder = UsdGeom.Xform.Define(stage, f"{parent}/{name}")
@@ -40,9 +51,13 @@ def place(stage, parent: str, name: str, asset: str, pos, rot: float, scale: flo
     model.GetReferences().AddReference(url)
     if asset.startswith("nv_"):
         model.GetVariantSets().AddVariantSet("PhysX").SetVariantSelection("Disabled")
+        stage.OverridePrim(f"{model.GetPath()}/Joints").SetActive(False)
     cz = -(lo[2] + hi[2]) / 2 if centre_z else -lo[2]
     UsdGeom.Xformable(model).AddTranslateOp().Set(Gf.Vec3d(-(lo[0] + hi[0]) / 2, -(lo[1] + hi[1]) / 2, cz))
-    model.SetInstanceable(True)
+    if asset.startswith("fuel_"):
+        model.SetInstanceable(True)
+    elif not asset.startswith("nv_"):
+        relink_textures(stage, model, asset)
     return lo, hi
 
 

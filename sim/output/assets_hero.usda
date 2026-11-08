@@ -35,7 +35,6 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Tripod_Flood_Task_Light_A01/sm_lighting_taskLight_tripodFlood_a01_01.usd@
                     variants = {
                         string PhysX = "Disabled"
@@ -45,6 +44,12 @@ def "World"
                 {
                     double3 xformOp:translate = (0.10175, -0, -0.0003)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
                 }
             }
 
@@ -56,7 +61,6 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Tripod_Flood_Task_Light_A01/sm_lighting_taskLight_tripodFlood_a01_01.usd@
                     variants = {
                         string PhysX = "Disabled"
@@ -66,6 +70,12 @@ def "World"
                 {
                     double3 xformOp:translate = (0.10175, -0, -0.0003)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
                 }
             }
 
@@ -111,7 +121,6 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Equipment_AirCompressor_A01/sm_equipment_airCompressor_a01_01.usd@
                     variants = {
                         string PhysX = "Disabled"
@@ -121,6 +130,12 @@ def "World"
                 {
                     double3 xformOp:translate = (-0.08910000000000001, -0, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
                 }
             }
 
@@ -166,7 +181,6 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Ibc_Tank_Steel_Stainless_A01/sm_ibcTank_steel_stainless_a01_01.usd@
                     variants = {
                         string PhysX = "Disabled"
@@ -176,6 +190,12 @@ def "World"
                 {
                     double3 xformOp:translate = (-0, -0.00020000000000003348, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
                 }
             }
 
@@ -187,7 +207,6 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Ibc_Tank_Steel_Stainless_A01/sm_ibcTank_steel_stainless_a01_01.usd@
                     variants = {
                         string PhysX = "Disabled"
@@ -197,6 +216,12 @@ def "World"
                 {
                     double3 xformOp:translate = (-0, -0.00020000000000003348, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
                 }
             }
 
@@ -208,7 +233,6 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Racks/Storage_System_Heavy_Duty_D01/sm_storageSystem_rack_heavyDuty_d01_01.usd@
                     variants = {
                         string PhysX = "Disabled"
@@ -218,6 +242,12 @@ def "World"
                 {
                     double3 xformOp:translate = (-0, 0.01855000000000001, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
                 }
             }
 
@@ -246,7 +276,6 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Equipment/Pipe_Plastic_Gray_B08/sm_pipe_plastic_gray_b08_01.usd@
                     variants = {
                         string PhysX = "Disabled"
@@ -256,6 +285,12 @@ def "World"
                 {
                     double3 xformOp:translate = (-0, -0, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
                 }
             }
 
@@ -267,7 +302,6 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Containers/Hopper_Dumpling_Steel_Blue_A04/sm_hopper_dumpling_steel_blue_a04_01.usd@
                     variants = {
                         string PhysX = "Disabled"
@@ -277,6 +311,12 @@ def "World"
                 {
                     double3 xformOp:translate = (-0, -0, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
                 }
             }
 
@@ -288,7 +328,6 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Equipment/Rolling_Steel_Scaffold_A01/sm_scaffold_rolling_steel_a01_01.usd@
                     variants = {
                         string PhysX = "Disabled"
@@ -298,6 +337,12 @@ def "World"
                 {
                     double3 xformOp:translate = (0.004149999999999987, 0.027200000000000002, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
                 }
             }
 
@@ -309,7 +354,6 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Ventilation_ExhaustExtractor_HoseReel_A01/sm_ventilation_exhaustExtractor_hoseReel_a01_01.usd@
                     variants = {
                         string PhysX = "Disabled"
@@ -319,6 +363,12 @@ def "World"
                 {
                     double3 xformOp:translate = (0.030200000000000005, -0.08750000000000002, -0.003)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
                 }
             }
         }
@@ -359,24 +409,7 @@ def "World"
                 }
             }
 
-            def Xform "fuel_junction_box_02"
-            {
-                float xformOp:rotateZ = 360
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (18.75, -1.6405677556991578, 43.75)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    instanceable = true
-                    prepend references = @../assets/third_party/models/fuel_junction_box/fuel_junction_box.usdc@
-                )
-                {
-                    double3 xformOp:translate = (0.01720472425222397, 0.16556775569915771, -2.9802322387695312e-8)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
-            def Xform "nv_first_aid_a01_03"
+            def Xform "nv_first_aid_a01_02"
             {
                 float xformOp:rotateZ = 270
                 float3 xformOp:scale = (1, 1, 1)
@@ -384,7 +417,6 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/First_Aid_Cabinet_Wall_Mounted_A01/sm_safety_firstAidCabinet_wallMounted_a01_01.usd@
                     variants = {
                         string PhysX = "Disabled"
@@ -394,10 +426,16 @@ def "World"
                 {
                     double3 xformOp:translate = (-0.09005, -0.00495000000000001, -0.2341)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
                 }
             }
 
-            def Xform "nv_extinguisher_a01_04"
+            def Xform "nv_extinguisher_a01_03"
             {
                 float xformOp:rotateZ = 270
                 float3 xformOp:scale = (1, 1, 1)
@@ -405,7 +443,6 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Safety/Fire_Protection_Extinguisher_Portable_A01/sm_fireProtection_extinguisher_portable_a01_01.usd@
                     variants = {
                         string PhysX = "Disabled"
@@ -415,6 +452,12 @@ def "World"
                 {
                     double3 xformOp:translate = (-0.05435, 0.0020000000000000018, -0.20875)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
                 }
             }
         }
@@ -429,12 +472,60 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @../assets/third_party/models/lifebuoy/lifebuoy_1k.usdc@
                 )
                 {
                     double3 xformOp:translate = (-0.001162111759185791, 0.006846442818641663, 0.041602179408073425)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "_materials"
+                    {
+                        over "lifebuoy"
+                        {
+                            over "Image_Texture"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_diff_1k.jpg@
+                            }
+
+                            over "Image_Texture_001"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_metal_1k.exr@
+                            }
+
+                            over "Image_Texture_002"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_rough_1k.exr@
+                            }
+
+                            over "Image_Texture_003"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_nor_gl_1k.exr@
+                            }
+
+                            over "NodeGraphs"
+                            {
+                                over "bnode__Image_Texture_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_diff_1k.jpg@
+                                }
+
+                                over "bnode__Image_Texture_001_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_metal_1k.exr@
+                                }
+
+                                over "bnode__Image_Texture_002_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_rough_1k.exr@
+                                }
+
+                                over "bnode__Image_Texture_003_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_nor_gl_1k.exr@
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -446,12 +537,60 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @../assets/third_party/models/lifebuoy/lifebuoy_1k.usdc@
                 )
                 {
                     double3 xformOp:translate = (-0.001162111759185791, 0.006846442818641663, 0.041602179408073425)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "_materials"
+                    {
+                        over "lifebuoy"
+                        {
+                            over "Image_Texture"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_diff_1k.jpg@
+                            }
+
+                            over "Image_Texture_001"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_metal_1k.exr@
+                            }
+
+                            over "Image_Texture_002"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_rough_1k.exr@
+                            }
+
+                            over "Image_Texture_003"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_nor_gl_1k.exr@
+                            }
+
+                            over "NodeGraphs"
+                            {
+                                over "bnode__Image_Texture_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_diff_1k.jpg@
+                                }
+
+                                over "bnode__Image_Texture_001_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_metal_1k.exr@
+                                }
+
+                                over "bnode__Image_Texture_002_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_rough_1k.exr@
+                                }
+
+                                over "bnode__Image_Texture_003_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_nor_gl_1k.exr@
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -463,12 +602,60 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @../assets/third_party/models/lifebuoy/lifebuoy_1k.usdc@
                 )
                 {
                     double3 xformOp:translate = (-0.001162111759185791, 0.006846442818641663, 0.041602179408073425)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "_materials"
+                    {
+                        over "lifebuoy"
+                        {
+                            over "Image_Texture"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_diff_1k.jpg@
+                            }
+
+                            over "Image_Texture_001"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_metal_1k.exr@
+                            }
+
+                            over "Image_Texture_002"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_rough_1k.exr@
+                            }
+
+                            over "Image_Texture_003"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_nor_gl_1k.exr@
+                            }
+
+                            over "NodeGraphs"
+                            {
+                                over "bnode__Image_Texture_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_diff_1k.jpg@
+                                }
+
+                                over "bnode__Image_Texture_001_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_metal_1k.exr@
+                                }
+
+                                over "bnode__Image_Texture_002_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_rough_1k.exr@
+                                }
+
+                                over "bnode__Image_Texture_003_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_nor_gl_1k.exr@
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -480,12 +667,60 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @../assets/third_party/models/lifebuoy/lifebuoy_1k.usdc@
                 )
                 {
                     double3 xformOp:translate = (-0.001162111759185791, 0.006846442818641663, 0.041602179408073425)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                    over "_materials"
+                    {
+                        over "lifebuoy"
+                        {
+                            over "Image_Texture"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_diff_1k.jpg@
+                            }
+
+                            over "Image_Texture_001"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_metal_1k.exr@
+                            }
+
+                            over "Image_Texture_002"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_rough_1k.exr@
+                            }
+
+                            over "Image_Texture_003"
+                            {
+                                asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_nor_gl_1k.exr@
+                            }
+
+                            over "NodeGraphs"
+                            {
+                                over "bnode__Image_Texture_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_diff_1k.jpg@
+                                }
+
+                                over "bnode__Image_Texture_001_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_metal_1k.exr@
+                                }
+
+                                over "bnode__Image_Texture_002_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_rough_1k.exr@
+                                }
+
+                                over "bnode__Image_Texture_003_Color"
+                                {
+                                    asset inputs:file = @../assets/third_party/models/lifebuoy/textures/lifebuoy_nor_gl_1k.exr@
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -497,7 +732,6 @@ def "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    instanceable = true
                     prepend references = @../assets/third_party/models/exterior_aircon_unit/exterior_aircon_unit_1k.usdc@
                 )
                 {
