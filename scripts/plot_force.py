@@ -27,7 +27,7 @@ def style():
         "axes.edgecolor": AXIS, "axes.labelcolor": INK2, "axes.titlecolor": INK, "axes.titleweight": "bold",
         "axes.titlesize": 13, "axes.titlelocation": "left", "axes.labelsize": 11,
         "xtick.color": MUTED, "ytick.color": MUTED, "text.color": INK, "font.size": 10,
-        "axes.grid": True, "grid.color": GRID, "grid.linewidth": 0.6, "axes.spines.top": False,
+        "axes.grid": True, "axes.grid.axis": "y", "grid.color": "#4a4a46", "grid.alpha": 0.5, "grid.linewidth": 0.5, "axes.spines.top": False,
         "axes.spines.right": False, "legend.frameon": False, "legend.labelcolor": INK2, "lines.linewidth": 2,
         "font.family": "DejaVu Sans"})
 
@@ -37,6 +37,16 @@ def save(fig, out: Path, name: str):
     for ext in ("png", "svg"):
         fig.savefig(out / f"{name}.{ext}", dpi=200, bbox_inches="tight", transparent=True)
     plt.close(fig)
+
+
+def preview(out: Path, name: str):
+    from PIL import Image
+
+    im = Image.open(out / f"{name}.png").convert("RGBA")
+    bg = Image.new("RGBA", im.size, (26, 26, 25, 255))
+    bg.alpha_composite(im)
+    (out / "preview").mkdir(exist_ok=True)
+    bg.convert("RGB").save(out / "preview" / f"{name}.png")
 
 
 def limit_lines(ax, label=True):
@@ -83,6 +93,7 @@ def force_vs_time(run: Path, out: Path):
             va="bottom", ha="left", y=1.0)
     ax.legend(loc="upper left", bbox_to_anchor=(0.0, 0.93))
     save(fig, out, "force_vs_time")
+    preview(out, "force_vs_time")
     sc = ss == "SCRUB"
     return {"peak_n": float(ff.max()), "frac_scrub_over_40": float((ff[sc] > LIMIT).mean()),
             "back_off_windows": bo}
@@ -109,20 +120,22 @@ def hist(force_dir: Path, v1: Path, v2: Path, out: Path):
     ax.axvline(LIMIT, color=CRIT, lw=1.4, ls="--")
     ax.axvline(CAP, color=WARN, lw=1.2, ls=":")
     ymax = ax.get_ylim()[1]
-    ax.text(LIMIT + 0.6, ymax * 0.97, "40 N limit", color=CRIT, va="top", fontsize=9)
-    ax.text(CAP - 0.6, ymax * 0.97, "38 N cap", color=WARN, va="top", ha="right", fontsize=9)
-    ax.set_xlim(0, 90)
+    ax.set_ylim(0, ymax * 1.35)
+    ax.text(LIMIT + 0.6, ymax * 0.55, "40 N limit", color=CRIT, va="top", fontsize=9)
+    ax.text(CAP - 0.6, ymax * 0.55, "38 N cap", color=WARN, va="top", ha="right", fontsize=9)
+    ax.set_xlim(15, 90)
     ax.set_xlabel("peak contact force per episode (N)")
     ax.set_ylabel("episodes (%)")
     ax.set_title("Peak scrub force per episode: v1 vs force-limited v2")
     ax.legend(loc="upper right", fontsize=9)
     save(fig, out, "peak_force_hist")
+    preview(out, "peak_force_hist")
     return stats
 
 
 def sweep(force_dir: Path, out: Path):
     res = {}
-    fig, (a1, a2) = plt.subplots(1, 2, figsize=(13, 4.6))
+    fig, (a1, a2, a3) = plt.subplots(1, 3, figsize=(18, 4.8))
     for tag, col, ls in (("sensor", AQUA, "-"), ("analytic", VIOLET, "--")):
         p = force_dir / f"sweep_{tag}.json"
         if not p.exists():
@@ -135,9 +148,11 @@ def sweep(force_dir: Path, out: Path):
         peak = np.array([r["env_peak_p95_n"] for r in rows])
         name = "contact sensor in the loop" if tag == "sensor" else "analytic spring (training model)"
         a1.plot(sp, rate, color=col, ls=ls, marker="o", ms=5, label=name)
-        a2.plot(sp, mean_f, color=col, ls=ls, marker="o", ms=5, label=f"{name}: mean in contact")
+        a2.plot(sp, mean_f, color=col, ls=ls, marker="o", ms=5, label=f"{name}: mean (band to p95)")
         a2.fill_between(sp, mean_f, p95, color=col, alpha=0.15, lw=0)
-        a2.plot(sp, peak, color=col, ls=ls, lw=1, alpha=0.7)
+        a2.plot(sp, peak, color=col, ls=ls, lw=1.2, alpha=0.8, label=f"{name}: p95 of per-patch peak")
+        over = np.array([r["frac_contact_over_40n"] for r in rows]) * 100
+        a3.plot(sp, over, color=col, ls=ls, marker="o", ms=5, label=name)
         sat = saturation_point(sp, rate, 0.95)
         cross_mean = crossing(sp, mean_f, LIMIT)
         cross_peak = crossing(sp, peak, LIMIT)
@@ -147,12 +162,20 @@ def sweep(force_dir: Path, out: Path):
         if sat is not None and tag == "sensor":
             a1.axvline(sat, color=col, lw=1, ls=":")
             a1.text(sat, rate.max() * 0.25, f" 95% of max rate\n at F* = {sat:.0f} N", color=INK2, fontsize=9)
-    a1.axvline(LIMIT, color=CRIT, lw=1.4, ls="--")
-    a1.axvline(CAP, color=WARN, lw=1.2, ls=":")
+    for ax in (a1, a3):
+        ax.axvline(LIMIT, color=CRIT, lw=1.4, ls="--")
+        ax.axvline(CAP, color=WARN, lw=1.2, ls=":")
+        ax.text(LIMIT + 0.4, 0.02, "40 N", color=CRIT, fontsize=9, transform=ax.get_xaxis_transform())
+        ax.text(CAP - 0.4, 0.02, "38 N cap", color=WARN, fontsize=9, ha="right", transform=ax.get_xaxis_transform())
+    a3.set_xlabel("commanded force setpoint F* (N)")
+    a3.set_ylabel("contact time above 40 N (%)")
+    a3.set_title("Safety: time over the 40 N limit")
+    a3.set_ylim(bottom=0)
+    a3.legend(loc="upper left", fontsize=9)
     a1.set_xlabel("commanded force setpoint F* (N)")
     a1.set_ylabel("rust removed (% of patch per s, first 3 s)")
     a1.set_title("Scrub effectiveness vs force setpoint")
-    a1.legend(loc="lower right", fontsize=9)
+    a1.legend(loc="upper left", fontsize=9)
     a1.set_ylim(bottom=0)
     lim = [0, 50]
     a2.plot(lim, lim, color=MUTED, lw=1, ls=":", label="measured = commanded")
@@ -161,9 +184,10 @@ def sweep(force_dir: Path, out: Path):
     limit_lines(a2)
     a2.set_xlabel("commanded force setpoint F* (N)")
     a2.set_ylabel("measured contact force (N)")
-    a2.set_title("Force achieved: mean, p95 band, env-peak p95 (thin)")
+    a2.set_title("Force achieved at the brush tip")
     a2.legend(loc="upper left", fontsize=9)
     save(fig, out, "force_sweep")
+    preview(out, "force_sweep")
     return res
 
 
