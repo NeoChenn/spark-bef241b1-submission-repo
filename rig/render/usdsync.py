@@ -3,7 +3,8 @@ from pxr import Gf, Sdf, Tf, Usd
 
 from rig.render.state import StateLog, under
 
-SKIP_PREFIXES = ("/Render", "/OmniverseKit", "/OmniKit", "/RigStream", "/RigRender", "/World/Cinematic/ocean")
+SKIP_PREFIXES = ("/Render", "/OmniverseKit", "/OmniKit", "/RigStream", "/RigRender", "/World/Cinematic/ocean",
+                 "/World/Weather/rain/streaks", "/World/Weather/rain/look")
 SKIP_NAMES = ("points", "normals", "velocities", "accelerations", "extent")
 MAX_ARRAY = 20000
 MAX_SPEC = 256 * 1024
