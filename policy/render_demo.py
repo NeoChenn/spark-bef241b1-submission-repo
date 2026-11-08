@@ -160,12 +160,12 @@ def worker(argv):
     p.add_argument("--max_s", type=float, default=18.0)
     p.add_argument("--still", action="store_true", help="render a few frames per shot only (look-dev)")
     p.add_argument("--no_flip_v", action="store_true")
-    p.add_argument("--look", default="night", choices=["day", "night"])
+    p.add_argument("--look", default="night", choices=["day", "night", "rig"])
     p.add_argument("--robot_color", default="graphite")
     p.add_argument("--dome", type=float, default=120.0)
     p.add_argument("--moon", type=float, default=25.0)
     p.add_argument("--lamp_gain", type=float, default=1.0)
-    p.add_argument("--rig_gain", type=float, default=0.1)
+    p.add_argument("--rig_gain", type=float, default=None)
     p.add_argument("--still_at", type=float, default=0.0)
     p.add_argument("--spring_k", type=float, default=4000.0)
     p.add_argument("--no_squish", action="store_true")
@@ -173,6 +173,8 @@ def worker(argv):
 
     AppLauncher.add_app_launcher_args(p)
     args = p.parse_args(argv)
+    if args.rig_gain is None:
+        args.rig_gain = 1.0 if args.look == "rig" else 0.1
     args.headless, args.enable_cameras = True, True
     app = AppLauncher(args).app
 
@@ -259,6 +261,17 @@ def worker(argv):
     stage = omni.usd.get_context().get_stage()
     tex_dir = os.path.join(ROOT, "sim/assets/third_party/textures/rust_coarse_01")
     painter = RustPainter(build_overlay(stage, base, tex_dir), tex_dir, flip_v=not args.no_flip_v)
+    if args.look == "rig":
+        from policy import rig_look
+
+        o = (base.pipe_o[0] + base.scene.env_origins[0]).cpu().numpy()
+        th = env_cfg.rust_theta_window[0]
+        nrm = math.cos(th) * base.pipe_e[0].cpu().numpy() + math.sin(th) * base.pipe_b[0].cpu().numpy()
+        r = float(base.pipe_r[0])
+        print("[demo] rig look", rig_look.apply(stage, o, base.pipe_a[0].cpu().numpy(), r, o + r * nrm,
+                                                env_cfg.backdrop_translation[2], "/World/envs/env_0/Robot",
+                                                args.robot_color, lamp_gain=args.lamp_gain,
+                                                rig_gain=args.rig_gain), flush=True)
     brush = None if args.no_squish else make_brush(stage, base, args.spring_k if args.spring_k > 0 else 4000.0)
     cam = stage.GetPrimAtPath(env_cfg.viewer.cam_prim_path)
     settings = carb.settings.get_settings()
