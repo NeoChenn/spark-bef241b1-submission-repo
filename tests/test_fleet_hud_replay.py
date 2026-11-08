@@ -28,6 +28,6 @@ def test_committed_live_run_replays():
         for path in ("runs_sample/fleet_demo", "runs_sample/fleet_demo/live_hud_1hz.jsonl"):
             s = c.get("/api/replay", params={"path": path}).json()
             rows = [r for x in s["snapshots"] for r in x.get("argon_rows", [])]
-            assert [r["kind"] for r in rows if r["type"] == "command"] == ["log_sensor_fault", "hold", "go_check", "fix_leak", "resume_rust"]
+            assert [r["kind"] for r in rows if r["type"] == "command"] == ["log_sensor_fault", "hold", "go_check", "hold_for_crew", "fix_leak", "resume_rust"]
             assert [r["kind"] for r in rows if r["type"] == "vetoed"] == ["resume_rust"]
             assert {r["id"] for r in s["snapshots"][0]["robots"]} == {"unit1", "unit2"}
