@@ -505,3 +505,75 @@ def container_stacks(x0: float, x1: float, y_half: float, seed: int = 3, gap: fl
             y += size[1] + gap
         x += size[0] + 0.8
     return out
+
+
+def lathe(profile, sides: int = 32) -> dict:
+    profile = np.asarray(profile, float)
+    a = np.linspace(0.0, math.tau, sides + 1)
+    z, r = profile[:, 0], profile[:, 1]
+    pts = np.stack((r[:, None] * np.cos(a)[None, :], r[:, None] * np.sin(a)[None, :],
+                    np.broadcast_to(z[:, None], (len(z), sides + 1))), -1)
+    dz = np.gradient(z)
+    dr = np.gradient(r)
+    nr, nz = dz, -dr
+    length = np.maximum(np.hypot(nr, nz), 1e-9)
+    nr, nz = nr / length, nz / length
+    normals = np.stack((nr[:, None] * np.cos(a)[None, :], nr[:, None] * np.sin(a)[None, :],
+                        np.broadcast_to(nz[:, None], (len(z), sides + 1))), -1)
+    row = sides + 1
+    i, j = np.meshgrid(np.arange(len(z) - 1), np.arange(sides), indexing="ij")
+    k = i * row + j
+    quads = np.stack((k, k + 1, k + row + 1, k + row), -1).reshape(-1)
+    uvs = np.stack(np.broadcast_arrays(a[None, :] * r.max(), z[:, None]), -1).reshape(-1, 2)
+    return {"points": pts.reshape(-1, 3), "normals": normals.reshape(-1, 3), "uvs": uvs,
+            "counts": np.full((len(z) - 1) * sides, 4), "indices": quads}
+
+
+def vessel_profile(length: float, radius: float, head: float = 0.5, steps: int = 8) -> np.ndarray:
+    h = radius * head
+    lower = [(-length / 2 - h * math.cos(u), radius * math.sin(u)) for u in np.linspace(0.0, math.pi / 2, steps)]
+    upper = [(length / 2 + h * math.sin(u), radius * math.cos(u)) for u in np.linspace(0.0, math.pi / 2, steps)]
+    return np.array(lower + upper)
+
+
+def orient(m: dict, origin, axis) -> dict:
+    axis = np.asarray(axis, float) / np.linalg.norm(axis)
+    z = np.array((0.0, 0.0, 1.0))
+    v = np.cross(z, axis)
+    c = float(np.dot(z, axis))
+    if np.linalg.norm(v) < 1e-9:
+        rot = np.eye(3) if c > 0 else np.diag((1.0, -1.0, -1.0))
+    else:
+        vx = np.array(((0, -v[2], v[1]), (v[2], 0, -v[0]), (-v[1], v[0], 0)))
+        rot = np.eye(3) + vx + vx @ vx / (1 + c)
+    out = dict(m)
+    out["points"] = np.asarray(m["points"]) @ rot.T + np.asarray(origin, float)
+    out["normals"] = np.asarray(m["normals"]) @ rot.T
+    return out
+
+
+def spiral_stair(center, radius: float, z0: float, z1: float, rise: float = 0.2, sweep: float = 0.09) -> dict:
+    count = max(2, int((z1 - z0) / rise))
+    steps, rail = [], []
+    for k in range(count):
+        a = k * sweep
+        z = z0 + (k + 1) * (z1 - z0) / count
+        steps.append(((center[0] + (radius + 0.45) * math.cos(a), center[1] + (radius + 0.45) * math.sin(a), z),
+                      math.degrees(a)))
+        rail.append((center[0] + (radius + 0.95) * math.cos(a), center[1] + (radius + 0.95) * math.sin(a), z + 1.0))
+    return {"steps": steps, "rail": rail}
+
+
+def pipe_rack_bents(x0: float, x1: float, y: float, width: float, tiers, z0: float, bay: float = 6.0) -> dict:
+    count = max(1, round((x1 - x0) / bay))
+    xs = [x0 + (x1 - x0) * i / count for i in range(count + 1)]
+    columns, beams, ties = [], [], []
+    for x in xs:
+        for s in (-1, 1):
+            columns.append(((x, y + s * width / 2, z0), (x, y + s * width / 2, tiers[-1] + 0.3)))
+        for z in tiers:
+            beams.append(((x, y - width / 2, z), (x, y + width / 2, z)))
+    for z in tiers:
+        for s in (-1, 1):
+            ties.append(((xs[0], y + s * width / 2, z), (xs[-1], y + s * width / 2, z)))
+    return {"columns": columns, "beams": beams, "ties": ties, "xs": xs}

@@ -754,6 +754,243 @@ def build_derrick(stage, kit):
             Gf.Vec3d(dx + corner[0] * h, dy + corner[1] * h, z))
 
 
+DECK_TOP, RAISED = 42.5, 51.25
+TRIM = (
+    ((-1.0, 9.0), (11.0, 25.5), 42.6), ((0.5, -1.0), (9.5, 9.0), 42.6), ((9.0, 0.0), (21.0, 8.0), 42.6),
+    ((22.0, 1.0), (32.0, 8.0), 42.6), ((11.0, 9.0), (22.0, 16.0), 42.6), ((17.5, 17.5), (22.5, 22.5), 42.6),
+    ((-25.5, 4.5), (-4.5, 25.5), 51.4),
+)
+
+
+def trim_stl(stage):
+    full = Usd.Stage.Open(str(pr.OUTPUT / "full_rig.usda"), Usd.Stage.LoadNone)
+    src = UsdGeom.Mesh(full.GetPrimAtPath("/World/Rig/upper_structure_frame"))
+    pts = np.array(src.GetPointsAttr().Get())
+    idx = np.array(src.GetFaceVertexIndicesAttr().Get()).reshape(-1, 3)
+    normals = np.array(src.GetNormalsAttr().Get()).reshape(-1, 3, 3)
+    st = np.array(UsdGeom.PrimvarsAPI(src).GetPrimvar("st").Get()).reshape(-1, 3, 2)
+    c = pts[idx].mean(1)
+    drop = np.zeros(len(idx), bool)
+    for (x0, y0), (x1, y1), z in TRIM:
+        drop |= (c[:, 0] > x0) & (c[:, 0] < x1) & (c[:, 1] > y0) & (c[:, 1] < y1) & (c[:, 2] > z)
+    keep = ~drop
+    over = UsdGeom.Mesh(stage.OverridePrim("/World/Rig/upper_structure_frame"))
+    over.CreateFaceVertexCountsAttr(Vt.IntArray.FromNumpy(np.full(keep.sum(), 3, np.int32)))
+    over.CreateFaceVertexIndicesAttr(Vt.IntArray.FromNumpy(idx[keep].reshape(-1).astype(np.int32)))
+    over.CreateNormalsAttr(Vt.Vec3fArray.FromNumpy(normals[keep].reshape(-1, 3).astype(np.float32)))
+    UsdGeom.PrimvarsAPI(over).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying).Set(
+        Vt.Vec2fArray.FromNumpy(st[keep].reshape(-1, 2).astype(np.float32)))
+    UsdGeom.Imageable(stage.OverridePrim("/World/Rig/pipework_22_pipe")).CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
+    return int(drop.sum())
+
+
+def vessel(stage, looks, name, centre, axis, length, radius, look):
+    m = sg.orient(sg.lathe(sg.vessel_profile(length, radius), 32), centre, axis)
+    write_mesh(stage, f"{s.ROOT}/Process/{name}", m, looks[look])
+
+
+def nozzle(kit, base, direction, r, length, look="proc_grey"):
+    base, d = np.asarray(base, float), np.asarray(direction, float)
+    kit.tube(look, base, base + d * length, r)
+    kit.tube(look, base + d * (length - 0.06), base + d * length, r + 0.08)
+
+
+def rails_around(kit, corners, z, look="crane_yellow"):
+    for (x0, y0), (x1, y1) in zip(corners, corners[1:] + corners[:1]):
+        for h in (0.55, 1.1):
+            kit.tube(look, (x0, y0, z + h), (x1, y1, z + h), 0.025)
+        kit.tube(look, (x0, y0, z), (x0, y0, z + 1.1), 0.03)
+
+
+def build_tank(stage, looks, kit, okit):
+    cx, cy, r, h = 5.5, 18.5, 4.0, 8.5
+    prof = [(0.0, r), (h, r), (h + 0.05, r - 0.05), (h + 0.8, 0.4), (h + 0.85, 0.0)]
+    m = sg.orient(sg.lathe(prof, 48), (cx, cy, DECK_TOP), (0, 0, 1))
+    write_mesh(stage, f"{s.ROOT}/Process/tank", m, looks["proc_white"])
+    for z in (DECK_TOP + 0.15, DECK_TOP + 3.0, DECK_TOP + 6.0, DECK_TOP + h - 0.1):
+        kit.add("proc_grey", "tank_ring", (cx, cy, z))
+    sp = sg.spiral_stair((cx, cy), r, DECK_TOP, DECK_TOP + h, sweep=0.085)
+    for pos, ang in sp["steps"]:
+        okit.add("grating", "box", pos, zquat(ang), (0.9, 0.28, 0.04))
+    for (pos, ang), (q, _) in zip(sp["steps"][::4], sp["steps"][4::4]):
+        kit.tube("crane_yellow", pos, q, 0.06)
+    for a, b in zip(sp["rail"], sp["rail"][1:]):
+        kit.tube("crane_yellow", a, b, 0.025)
+    for k in range(24):
+        a0, a1 = math.tau * k / 24, math.tau * (k + 1) / 24
+        p = (cx + (r - 0.3) * math.cos(a0), cy + (r - 0.3) * math.sin(a0), DECK_TOP + h + 0.1)
+        q = (cx + (r - 0.3) * math.cos(a1), cy + (r - 0.3) * math.sin(a1), DECK_TOP + h + 0.1)
+        kit.tube("crane_yellow", np.add(p, (0, 0, 1.1)), np.add(q, (0, 0, 1.1)), 0.025)
+        if k % 3 == 0:
+            kit.tube("crane_yellow", p, np.add(p, (0, 0, 1.1)), 0.03)
+    for ang, z in ((200.0, 43.4), (250.0, 43.0), (290.0, 49.5)):
+        u = np.array((math.cos(math.radians(ang)), math.sin(math.radians(ang)), 0.0))
+        nozzle(kit, np.array((cx, cy, z)) + u * (r - 0.05), u, 0.3 if z < 44 else 0.15, 0.7)
+    kit.tube("pipe_grey", (cx + r * math.cos(4.0), cy + r * math.sin(4.0), DECK_TOP + h + 0.4),
+             (cx + r * math.cos(4.0), cy + r * math.sin(4.0), DECK_TOP + h + 1.8), 0.12)
+
+
+def build_separator(stage, looks, kit, okit):
+    cx, cy, cz, length, r = 6.75, 3.6, DECK_TOP + 2.4, 8.5, 1.5
+    vessel(stage, looks, "separator", (cx, cy, cz), (1, 0, 0), length, r, "proc_white")
+    for x in (cx - 2.8, cx + 2.8):
+        kit.add("proc_grey", "box", (x, cy, DECK_TOP + 0.5), scale=(0.45, 2.6, 1.0))
+        kit.add("proc_grey", "box", (x, cy, DECK_TOP + 1.05), scale=(0.6, 2.9, 0.12))
+    top = cz + r
+    for x, nr in ((cx - 3.2, 0.25), (cx - 1.2, 0.18), (cx + 1.6, 0.3), (cx + 3.4, 0.15)):
+        nozzle(kit, (x, cy, top - 0.1), (0, 0, 1), nr, 0.6)
+    kit.add("crane_yellow", "box", (cx + 0.3, cy + 0.6, top + 0.55), scale=(0.35, 0.35, 0.7))
+    kit.tube("pipe_red", (cx + 0.3, cy + 0.6, top + 0.9), (cx + 0.3, cy + 0.6, top + 2.6), 0.07)
+    kit.add("crane_yellow", "box", (cx - 0.5, cy + 0.6, top + 0.55), scale=(0.35, 0.35, 0.7))
+    kit.tube("pipe_red", (cx - 0.5, cy + 0.6, top + 0.9), (cx - 0.5, cy + 0.6, top + 2.6), 0.07)
+    end = cx + length / 2 + r * 0.5
+    nozzle(kit, (end - 0.1, cy, cz), (1, 0, 0), 0.4, 0.5)
+    kit.add("proc_grey", "box", (end + 0.45, cy, cz), scale=(0.08, 1.0, 1.0))
+    for x in (cx - 1.0, cx + 1.0):
+        y = cy - r - 0.35
+        kit.tube("galv", (x, y, cz - 0.9), (x, y, cz + 0.9), 0.05)
+        for z in (cz - 0.9, cz + 0.9):
+            kit.tube("galv", (x, y, z), (x, cy - r + 0.05, z), 0.03)
+    z = top + 0.35
+    kit.add("grating", "box", (cx, cy - 0.2, z), scale=(7.0, 1.4, 0.06))
+    for x in np.linspace(cx - 3.4, cx + 3.4, 5):
+        kit.tube("proc_grey", (x, cy - 0.85, z), (x, cy - 0.85, cz + 0.4), 0.06)
+    rails_around(kit, [(cx - 3.5, cy - 0.9), (cx + 3.5, cy - 0.9), (cx + 3.5, cy + 0.5), (cx - 3.5, cy + 0.5)], z)
+    lad = sg.caged_ladder((cx - 3.9, cy - 0.2), DECK_TOP, z, 180.0)
+    for p, q in lad["rails"] + lad["straps"]:
+        kit.tube("crane_yellow", p, q, 0.03)
+    for p, q in lad["rungs"]:
+        okit.tube("crane_yellow", p, q, 0.02)
+    for pos, a in lad["hoops"]:
+        kit.add("crane_yellow", "hoop", pos, zquat(a))
+    for x, look, r_ in ((cx - 3.2, "pipe_grey", 0.2), (cx + 1.6, "pipe_green", 0.22), (cx + 3.4, "pipe_yellow", 0.12)):
+        a = np.array((x, cy, top + 0.5))
+        b = np.array((x, cy, 47.2))
+        c = np.array((x, 9.0 - 0.6, 47.2))
+        kit.tube(look, a, b, r_)
+        kit.tube(look, b, c, r_)
+
+
+def build_scrubbers(stage, looks, kit, okit):
+    for n, (x, y, r, length, look) in enumerate(((14.0, 4.8, 0.9, 6.0, "proc_white"), (17.0, 4.8, 0.75, 5.0, "proc_green"))):
+        base = DECK_TOP + 0.8
+        kit.tube("proc_grey", (x, y, DECK_TOP), (x, y, base), r)
+        centre = base + r * 0.5 + length / 2
+        vessel(stage, looks, f"scrubber_{n}", (x, y, centre), (0, 0, 1), length, r, look)
+        topz = base + length + r
+        for z, d in ((base + 1.5, (0, -1, 0)), (base + length * 0.7, (-1, 0, 0)), (base + length * 0.5, (1, 0, 0))):
+            nozzle(kit, np.array((x, y, z)) + np.array(d) * (r - 0.05), d, 0.15, 0.5)
+        nozzle(kit, (x, y, topz - 0.05), (0, 0, 1), 0.15, 0.5)
+        pz = base + length * 0.85
+        kit.add("grating", "box", (x, y + r + 0.55, pz), scale=(2.2, 1.0, 0.06))
+        rails_around(kit, [(x - 1.1, y + r + 0.05), (x + 1.1, y + r + 0.05), (x + 1.1, y + r + 1.05),
+                           (x - 1.1, y + r + 1.05)], pz)
+        lad = sg.caged_ladder((x + 0.6, y + r + 1.3), DECK_TOP, pz, 90.0)
+        for p, q in lad["rails"] + lad["straps"]:
+            kit.tube("crane_yellow", p, q, 0.03)
+        for p, q in lad["rungs"]:
+            okit.tube("crane_yellow", p, q, 0.02)
+        for pos, a in lad["hoops"]:
+            kit.add("crane_yellow", "hoop", pos, zquat(a))
+        kit.tube("pipe_grey", (x, y, topz + 0.45), (x, y, 48.0 if n else 49.0), 0.15)
+        kit.tube("pipe_grey", (x, y, 48.0 if n else 49.0), (x, 9.0 + 0.6 * (1 - 2 * n), 48.0 if n else 49.0), 0.15)
+    vessel(stage, looks, "ko_drum", (15.0, 1.7, DECK_TOP + 1.4), (1, 0, 0), 3.2, 0.7, "proc_grey")
+    for x in (14.0, 16.0):
+        kit.add("proc_grey", "box", (x, 1.7, DECK_TOP + 0.35), scale=(0.3, 1.3, 0.7))
+    nozzle(kit, (15.0, 1.7, DECK_TOP + 2.05), (0, 0, 1), 0.15, 0.5)
+
+
+def build_rack(kit, okit):
+    rack = sg.pipe_rack_bents(0.5, 22.0, 9.0, 2.6, (46.2, 48.0), DECK_TOP, bay=5.4)
+    for p, q in rack["columns"]:
+        kit.member("proc_grey", "ibeam", p, q, (0.3, 0.3))
+    for p, q in rack["beams"] + rack["ties"]:
+        kit.member("proc_grey", "ibeam", p, q, (0.2, 0.3))
+    for x in rack["xs"]:
+        kit.tube("proc_grey", (x, 7.7, DECK_TOP + 0.3), (x, 10.3, 45.8), 0.06)
+    x0, x1 = rack["xs"][0], rack["xs"][-1]
+    for z, pipes in ((46.2, ((-1.0, 0.22, "pipe_grey"), (-0.45, 0.15, "pipe_green"), (0.05, 0.28, "pipe_yellow"),
+                              (0.55, 0.12, "galv"), (0.95, 0.18, "pipe_red"))),
+                     (48.0, ((-0.9, 0.2, "pipe_grey"), (-0.35, 0.14, "pipe_green"), (0.25, 0.25, "pipe_grey")))):
+        for dy, r, look in pipes:
+            kit.tube(look, (x0 - 0.3, 9.0 + dy, z + 0.15 + r), (x1 + 0.3, 9.0 + dy, z + 0.15 + r), r)
+            for x in rack["xs"]:
+                kit.add("proc_grey", "box", (x, 9.0 + dy, z + 0.2), scale=(0.3, 0.12, 0.1))
+    zc = 48.0 + 0.9
+    kit.member("galv", "box", (x0, 9.0 + 1.0, zc), (x1, 9.0 + 1.0, zc), (0.02, 0.12))
+    kit.member("galv", "box", (x0, 9.0 + 0.4, zc), (x1, 9.0 + 0.4, zc), (0.02, 0.12))
+    for x in np.arange(x0, x1, 0.3):
+        okit.add("galv", "box", (x, 9.7, zc - 0.05), scale=(0.04, 0.6, 0.03))
+    for k, dy in enumerate((0.55, 0.7, 0.85)):
+        kit.tube("cable", (x0, 9.0 + dy, zc + 0.02), (x1, 9.0 + dy, zc + 0.02), 0.04 + 0.01 * k)
+    for x in rack["xs"]:
+        kit.tube("galv", (x, 9.4, zc), (x, 9.4, 48.3), 0.025)
+        kit.tube("galv", (x, 10.0, zc), (x, 10.0, 48.3), 0.025)
+
+
+def ehouse(stage, kit, okit, centre, angle, look, n):
+    c = np.asarray(centre, float)
+    q = zquat(angle)
+    u = np.array((math.cos(math.radians(angle)), math.sin(math.radians(angle)), 0.0))
+    v = np.array((-u[1], u[0], 0.0))
+    kit.add(look, "box", c + (0, 0, 1.45), q, (6.06, 2.44, 2.9))
+    kit.add("proc_grey", "box", c + (0, 0, 0.1), q, (6.2, 2.6, 0.2))
+    door = c - v * 1.23 + u * 1.5 + (0, 0, 1.2)
+    kit.add("proc_grey", "box", door, q, (0.95, 0.05, 2.0))
+    kit.add("lamp", "box", door + (0, 0, 1.25) - v * 0.06, q, (0.35, 0.08, 0.12))
+    kit.add("window", "box", c - v * 1.23 - u * 1.2 + (0, 0, 1.8), q, (1.0, 0.04, 0.6))
+    ac = c + u * 3.3 + (0, 0, 1.6)
+    kit.add("proc_white", "box", ac, q, (0.6, 1.6, 1.2))
+    okit.add("black", "box", ac + u * 0.31, q, (0.02, 1.1, 0.8))
+    add_light(stage, light_path("ehouse", n, False), door + (0, 0, 1.0) - v * 0.5, 25000.0, 4200, 80.0)
+
+
+def build_compressor(stage, kit, okit):
+    cx, cy, w, d, h = -15.5, 13.0, 11.0, 5.5, 4.5
+    z0 = RAISED
+    kit.add("proc_grey", "box", (cx, cy, z0 + 0.15), scale=(w + 1.0, d + 1.0, 0.3))
+    kit.add("proc_white", "box", (cx, cy, z0 + 0.3 + h / 2), scale=(w, d, h))
+    for side in (-1, 1):
+        y = cy + side * (d / 2 + 0.08)
+        for x0 in (cx - 4.0, cx + 1.5):
+            kit.add("proc_grey", "box", (x0 + 1.25, y, z0 + 2.6), scale=(2.7, 0.06, 3.0))
+            for z in np.arange(z0 + 1.3, z0 + 4.0, 0.22):
+                okit.add("galv", "box", (x0 + 1.25, y + side * 0.06, z), (math.cos(0.26), side * math.sin(0.26), 0.0, 0.0),
+                         (2.5, 0.03, 0.2))
+    roof = z0 + 0.3 + h
+    kit.add("proc_grey", "box", (cx - 3.8, cy, roof + 1.2), scale=(3.0, d - 0.4, 2.4))
+    for z in np.arange(roof + 0.3, roof + 2.3, 0.22):
+        okit.add("galv", "box", (cx - 5.32, cy, z), (math.cos(0.26), 0.0, math.sin(0.26), 0.0), (0.03, d - 0.6, 0.2))
+    for n, x in enumerate((cx + 0.5, cx + 3.2)):
+        kit.tube("proc_grey", (x, cy, roof), (x, cy, roof + 6.5), 0.65)
+        kit.tube("soot", (x, cy, roof + 6.5), (x, cy, roof + 7.6), 0.68)
+        kit.tube("proc_grey", (x, cy, roof + 2.0), (x, cy, roof + 2.4), 0.8)
+        kit.tube("proc_grey", (x, cy, roof), (x, cy, roof + 0.4), 0.9)
+    ox, oy = cx, cy + d / 2 + 2.3
+    kit.add("proc_green", "box", (ox, oy, z0 + 1.2), scale=(8.0, 2.8, 2.0))
+    for x in (ox - 2.6, ox, ox + 2.6):
+        kit.tube("galv", (x, oy, z0 + 2.2), (x, oy, z0 + 2.45), 1.15)
+        okit.add("black", "box", (x, oy, z0 + 2.47), scale=(2.0, 0.08, 0.04))
+        okit.add("black", "box", (x, oy, z0 + 2.47), scale=(0.08, 2.0, 0.04))
+    for x in (cx - 5.6, cx + 5.6):
+        kit.tube("pipe_yellow", (x, cy - 1.5, z0 + 1.0), (x, cy - 1.5, z0 + 3.4), 0.2)
+        kit.tube("pipe_yellow", (x, cy - 1.5, z0 + 3.4), (x + (1.2 if x > cx else -1.2), cy - 1.5, z0 + 3.4), 0.2)
+    rails_around(kit, [(-24.6, 5.4), (-5.4, 5.4), (-5.4, 24.6), (-24.6, 24.6)], z0)
+
+
+def build_process(stage, looks, kit, okit):
+    dropped = trim_stl(stage)
+    build_tank(stage, looks, kit, okit)
+    build_separator(stage, looks, kit, okit)
+    build_scrubbers(stage, looks, kit, okit)
+    build_rack(kit, okit)
+    build_compressor(stage, kit, okit)
+    ehouse(stage, kit, okit, (27.0, 4.7, DECK_TOP), 0.0, "box_white", 0)
+    ehouse(stage, kit, okit, (27.0, 1.75, DECK_TOP), 0.0, "box_blue", 1)
+    ehouse(stage, kit, okit, (-9.5, 9.0, RAISED), 90.0, "box_white", 2)
+    return dropped
+
+
 def build_drips(stage, looks, legs, seed=7):
     rng = np.random.default_rng(seed)
     count = 0
@@ -792,7 +1029,7 @@ def build() -> Path:
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     stage.OverridePrim("/World")
-    for group in ("", "/Looks", "/Columns", "/Underside", "/Lights", "/Inst", "/Offline", "/Offline/Drips", "/Offline/Lights", "/Helideck", "/Lifeboats", "/Ship"):
+    for group in ("", "/Looks", "/Columns", "/Underside", "/Lights", "/Inst", "/Offline", "/Offline/Drips", "/Offline/Lights", "/Helideck", "/Lifeboats", "/Ship", "/Process", "/Offline/Inst"):
         UsdGeom.Scope.Define(stage, f"{s.ROOT}{group}")
     looks = make_looks(stage)
     for name in ("galv", "black", "pipe_grey", "pipe_green", "pipe_yellow", "pipe_red"):
@@ -803,7 +1040,7 @@ def build() -> Path:
     kit.meshes.update(stiff=sg.ring_mesh(leg_radius(legs) - 0.05, leg_radius(legs) + 0.38, 0.32, SIDES),
                       seam=sg.ring_mesh(leg_radius(legs) - 0.02, leg_radius(legs) + 0.03, 0.05, SIDES),
                       wedge=wedge_mesh(), hoop=hoop_mesh(), shroud=sg.ring_mesh(0.95, 1.02, 1.6, 32),
-                      dome=sphere_cap(0.16))
+                      dome=sphere_cap(0.16), tank_ring=sg.ring_mesh(3.98, 4.12, 0.14, 48))
     build_columns(stage, looks, kit, legs)
     landing_leg = max(legs, key=lambda l: l["top"][0] - l["top"][1])
     build_landing(stage, looks, kit, landing_leg)
@@ -820,6 +1057,10 @@ def build() -> Path:
     build_ship(stage, looks, kit)
     build_crane(kit)
     build_derrick(stage, kit)
+    okit = Instances(stage, looks, f"{s.OFFLINE}/Inst")
+    okit.meshes = kit.meshes
+    dropped = build_process(stage, looks, kit, okit)
+    okit.write()
     retire_old(stage)
     drips = build_drips(stage, looks, legs)
     total = kit.write()
@@ -828,7 +1069,7 @@ def build() -> Path:
         UsdGeom.Imageable(stage.OverridePrim(path)).CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
     stage.GetRootLayer().GetPrimAtPath("/World").specifier = Sdf.SpecifierOver
     stage.GetRootLayer().Save()
-    print(f"STRUCTURE_WRITTEN {s.LAYER} legs={len(legs)} instances={total} drips={drips}")
+    print(f"STRUCTURE_WRITTEN {s.LAYER} legs={len(legs)} instances={total} drips={drips} trimmed={dropped}")
     return s.LAYER
 
 
