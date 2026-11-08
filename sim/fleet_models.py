@@ -1,4 +1,5 @@
-"""USD models for the fleet: Q quadruped (Go2 + lift + UR3), A quadrotor, C magnetic crawler, R ROV.
+"""USD models for the fleet: Q quadruped (Go2 + lift + UR3), A quadrotor, C magnetic crawler, R ROV, and the
+fixed F&G detectors (post, yellow head, alarm beacon).
 
 Import inside Isaac Sim (needs pxr). Every model is posed kinematically from a fleet_replay.Track each frame:
 nothing here is simulated by PhysX. Q reuses the imported robot USD (Physics variant 'none') through
@@ -14,7 +15,7 @@ from typing import Optional
 import numpy as np
 from pxr import Gf, Sdf, UsdGeom, UsdShade
 
-from fleet_replay import Track, deck_height, state_color
+from fleet_replay import ROBOT_COLORS, Track, deck_height, state_color
 from integration import repair_scene as rs
 from integration.kinematics import ARM_START, ARM_STOWED, TRUNK_HEIGHT, RobotModel, axis_angle, pose
 
@@ -147,7 +148,8 @@ class FleetRobot:
 
     def __init__(self, stage, robot_id: str, index: int, root: str):
         self.stage, self.id, self.path = stage, robot_id, f"{root}/{robot_id}"
-        self.color = ID_COLORS[index % len(ID_COLORS)]
+        own = ROBOT_COLORS.get(robot_id)
+        self.color = tuple(c / 255.0 for c in own) if own else ID_COLORS[index % len(ID_COLORS)]
         self.xform = UsdGeom.Xform.Define(stage, self.path)
         self.op = self.xform.AddTransformOp()
         self.op.Set(Gf.Matrix4d(1.0))
@@ -376,6 +378,52 @@ class ROV(FleetRobot):
 
 
 MODELS = {"Q": Quadruped, "A": Drone, "C": Crawler, "R": ROV}
+
+BEACON_OFF = (0.08, 0.05, 0.0)
+BEACON_ALARM = (1.0, 0.22, 0.02)      # red-amber
+BEACON_GLOW = 60.0
+
+
+class FixedDetector:
+    """Fixed F&G detector: a grey post from the deck, a yellow detector head with a dark sensor cup, and a beacon
+    on top that flashes red-amber while the detector is in alarm. Static; only the beacon animates."""
+
+    def __init__(self, stage, det_id: str, head_xyz, deck_z: float, kind: str, root: str = "/World/Fleet"):
+        safe = det_id.replace("-", "_")
+        self.path = f"{root}/Detectors/{safe}"
+        UsdGeom.Xform.Define(stage, self.path)
+        x, y, z = map(float, head_xyz)
+        post = material(stage, "detector_post", (0.45, 0.47, 0.5), 0.6, 0.6)
+        yellow = material(stage, "detector_head", (0.98, 0.78, 0.05), 0.45)
+        dark = material(stage, "detector_cup", (0.05, 0.05, 0.06), 0.7)
+        h = max(z - deck_z - 0.12, 0.2)
+        cylinder(stage, f"{self.path}/post", (x, y, deck_z + h / 2), 0.035, h, post)
+        cylinder(stage, f"{self.path}/foot", (x, y, deck_z + 0.01), 0.12, 0.02, post)
+        if kind == "point_gas":
+            box(stage, f"{self.path}/head", (x, y, z), (0.16, 0.12, 0.2), yellow)
+            cylinder(stage, f"{self.path}/cup", (x, y, z - 0.16), 0.045, 0.12, dark)
+        else:                                       # optical: a yellow box with a lens on the long side
+            box(stage, f"{self.path}/head", (x, y, z), (0.26, 0.16, 0.16), yellow)
+            cylinder(stage, f"{self.path}/lens", (x + 0.15, y, z), 0.05, 0.05, dark, axis="X")
+        self.mat = material(stage, f"detector_beacon_{safe}", (0.25, 0.12, 0.05), 0.3, emissive=BEACON_OFF)
+        self.beacon = sphere(stage, f"{self.path}/beacon", (x, y, z + 0.17), 0.055, self.mat)
+        self.halo_mat = translucent(stage, f"detector_halo_{safe}", (1.0, 0.3, 0.05), BEACON_ALARM, 0.0, 0.0)
+        self.halo = sphere(stage, f"{self.path}/halo", (x, y, z + 0.17), 0.13, self.halo_mat)
+        self.state: Optional[str] = "init"
+        self.set_state(None, 0.0)
+
+    def set_state(self, state: Optional[str], t: float) -> None:
+        if state == "alarm":
+            on = 0.5 + 0.5 * math.sin(t * 2 * math.pi * 1.5) > 0.35          # 1.5 Hz flash
+            set_emissive(self.mat[1], np.array(BEACON_ALARM) * (GLOW * 2 if on else 2.0))
+            self.halo_mat[1].GetInput("emissive_intensity").Set(BEACON_GLOW * 20 if on else 0.0)
+            self.halo_mat[1].GetInput("enable_emission").Set(bool(on))
+            set_opacity(self.halo_mat[1], 0.22 if on else 0.0)
+        elif self.state != state:
+            set_emissive(self.mat[1], BEACON_OFF)
+            self.halo_mat[1].GetInput("enable_emission").Set(False)
+            set_opacity(self.halo_mat[1], 0.0)
+        self.state = state
 
 
 def build_robot(stage, robot_id: str, kind: str, index: int, root: str = "/World/Fleet") -> FleetRobot:

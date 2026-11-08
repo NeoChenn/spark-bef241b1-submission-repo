@@ -14,6 +14,7 @@ import fleet.jobs
 from fleet.contract import REGISTRY, REPO, Finding, Job, JobResult, JobStatus, Level, Robot, RobotKind, World
 from fleet.coordinator import Coordinator, offline_explanation
 from fleet.rigplanner import RigPlanner
+from fleet.sensors import DetectorNetwork, quiet_fallback
 from fleet.sim import TOP_DECK_Z, FleetSim, WalkwayPlanner, Walkways, new_job, patrol_route, walk
 from fleet.state import snapshot
 from policy.fleet.rigmap import DECKS, DOCK_XY
@@ -24,7 +25,9 @@ D = TOP_DECK_Z
 GAUGE_HIGH_BAR = 9.0
 RUST_SITE = ("pipe_rack_A", (1.2, 4.0, 43.3))
 LEAK = {"id": "leak_01", "source": "flange near valve_05", "position": (21.0, -10.2, 43.4), "rate_g_s": 3.5,
-        "t0": 205.0, "alarm_after_s": 60.0}
+        "t0": 205.0}
+# The shift fleet is Dog-1 (Q1) and Dog-2 (Q2) only. The drone/crawler target lists stay for bench/orch.py and
+# the executors' own tests; the shift no longer submits them.
 AERIAL_TARGETS = [("flare_tip", (30.0, 22.0, 70.0)), ("crane_boom", (-28.0, -12.0, 58.0)),
                   ("leg_splash_zone_ne", (34.0, 24.0, 6.0))]
 LOWER_TARGETS = [("valve_lower_east", (20.0, 6.0, 21.0)), ("valve_middle_west", (-21.0, 8.0, 32.25))]
@@ -170,8 +173,6 @@ def build(offline: bool = True, timeline_path=None, approve_delay_s: float = 40.
     robots = [
         Robot("Q1", Q, {"arm", "spray", "camera"}, (-23.0, 18.5, D), battery=0.95, speed_mps=0.9),
         Robot("Q2", Q, {"camera", "thermal", "gas_sensor"}, (-23.0, 13.0, D), battery=0.9, speed_mps=1.0),
-        Robot("A1", A, {"camera", "thermal", "gas_sensor"}, (-25.0, -25.0, 47.0), battery=0.45, speed_mps=4.0),
-        Robot("C1", C, {"ut_probe", "camera"}, (-3.0, -6.5, D), battery=0.8, speed_mps=0.3),
     ]
     rig = planner == "rig"
     plan = RigPlanner() if rig else WalkwayPlanner(Walkways(patrol_route()))
@@ -201,12 +202,6 @@ def build(offline: bool = True, timeline_path=None, approve_delay_s: float = 40.
         c.submit(new_job(c, "gauge_read", g["id"], g["position_m"], Level.AUTO, priority=4, est_duration_s=40.0))
     for v in sorted(world.of_type("valve"), key=lambda a: a["id"]):
         c.submit(new_job(c, "valve_check", v["id"], v["position_m"], Level.AUTO, priority=5, est_duration_s=30.0))
-    for name, p in AERIAL_TARGETS:
-        c.submit(new_job(c, "aerial_survey", name, p, Level.AUTO, priority=4, est_duration_s=60.0,
-                         params={"standoff": 0.0}))
-    for name, p in CRAWLER_TARGETS:
-        c.submit(new_job(c, "crawler_ut", name, p, Level.AUTO, priority=4, est_duration_s=90.0,
-                         params={"standoff": 0.0}))
     if rig:
         world.state["flanges"] = dict(LOOSE_FLANGES)
         for fid, xyz in sorted(plan.rm.flanges.items()):
@@ -220,11 +215,19 @@ def build(offline: bool = True, timeline_path=None, approve_delay_s: float = 40.
     sim.people_paths.append(walk([(-1.0, 11.0, D), (-1.0, 4.5, D), (0.2, 4.0, D)], t0=150.0, speed=0.8, linger_s=25.0))
 
     def inject(s: FleetSim):
-        leak = dict(LEAK)
+        leak = quiet_fallback(dict(LEAK))        # the fixed detectors (fleet/sensors.py) raise the alarm
         s.world.state["gas_leaks"].append(leak)
         s.c.emit("gas_leak_injected", None, None, position=list(leak["position"]), source=leak["source"],
                  rate_g_s=leak["rate_g_s"])
     sim.at(LEAK["t0"], "gas leak", inject)
+
+    def on_detector(det, reading, leak):
+        job = new_job(c, "gas_survey", leak["id"], (det.position[0], det.position[1], D), Level.AUTO, priority=1,
+                      est_duration_s=40.0, params={"zone": leak["id"], "leak": leak["id"], "standoff": 1.0,
+                                                   "detector": det.id})
+        c.report(job, None, "gas_alarm", position=list(det.position), detector=det.id, reading=round(reading, 3),
+                 unit=det.unit, source=f"fixed gas detector {det.id}")
+    sim.detectors = DetectorNetwork().attach(sim, on_detector)
 
     def on_gas(s: FleetSim, robot: Optional[str], leak: dict, how: str):
         job = new_job(s.c, "gas_survey", leak["id"], leak["position"], Level.AUTO, priority=1, est_duration_s=40.0,
@@ -266,7 +269,7 @@ def render_safe(snap: dict) -> dict:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description='15-minute offshore shift with four robots')
+    ap = argparse.ArgumentParser(description='15-minute offshore shift with two robot dogs and fixed gas detectors')
     ap.add_argument("--minutes", type=float, default=15.0)
     ap.add_argument("--offline", action="store_true", help="never call Gemini (template explanations)")
     ap.add_argument("--quiet", action="store_true", help="summary only")
