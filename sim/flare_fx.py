@@ -399,7 +399,8 @@ def update(stage, t: float, wind=WIND) -> None:
     base = centre - toward * 8.0
     quad = np.array([base - right - up, base + right - up, base + right + up, base - right + up])
     UsdGeom.Mesh(stage.GetPrimAtPath(f"{ROOT}/halo")).GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(quad.astype(np.float32)))
-    UsdShade.Shader.Get(stage, f"{ROOT}/Looks/halo/shader").GetInput("gain").Set(HALO_GAIN * level)
+    UsdShade.Shader.Get(stage, f"{ROOT}/Looks/halo/shader").GetInput("gain").Set(
+        HALO_GAIN * level * (0.4 if shown == "invisible" else 1.0))
     lamp = stage.GetPrimAtPath(LIGHT)
     if lamp:
         c = line[rows // 4]
