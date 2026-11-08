@@ -51,10 +51,13 @@ class PlumeVisual:
         self.width = size * plume.dx
         self.bands = []
         for k, (lo, hi) in enumerate(zip(BANDS[:-1], BANDS[1:])):
-            prim = UsdGeom.Points.Define(stage, f"{path}/band{k}")
+            prim = UsdGeom.PointInstancer.Define(stage, f"{path}/band{k}")
+            proto = UsdGeom.Sphere.Define(stage, f"{path}/band{k}/proto")
+            proto.CreateRadiusAttr(0.5 * self.width)
             mid = lo if hi > 1e8 else 0.5 * (lo + hi)
             mat = omnipbr(stage, f"{ROOT}/Looks/band{k}", lel_rgb(mid), min(1.0, BAND_OPACITY[k] * opacity), emissive)
-            UsdShade.MaterialBindingAPI.Apply(prim.GetPrim()).Bind(mat)
+            UsdShade.MaterialBindingAPI.Apply(proto.GetPrim()).Bind(mat)
+            prim.CreatePrototypesRel().SetTargets([proto.GetPath()])
             self.bands.append((prim, lo, hi))
         self.count = 0
         self.update()
@@ -71,8 +74,8 @@ class PlumeVisual:
                 img.MakeInvisible()
                 continue
             img.MakeVisible()
-            prim.GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(pts))
-            prim.GetWidthsAttr().Set(Vt.FloatArray.FromNumpy(np.full(len(pts), self.width, np.float32)))
+            prim.GetPositionsAttr().Set(Vt.Vec3fArray.FromNumpy(pts))
+            prim.GetProtoIndicesAttr().Set(Vt.IntArray.FromNumpy(np.zeros(len(pts), np.int32)))
             self.count += len(pts)
         return self.count
 

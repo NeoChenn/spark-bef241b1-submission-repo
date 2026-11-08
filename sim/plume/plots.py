@@ -143,7 +143,7 @@ def leak_rate(out: Path):
         axes[1].plot(bars, [r.mass_flow for r in f], color=c, label=f"{h} mm hole")
     choke = (101325 / 0.5427 - 101325) / 1e5
     axes[1].axvline(choke, color=FAINT, lw=1, ls=":")
-    axes[1].text(choke * 1.1, 1e-5, "choked above", color=FAINT, fontsize=9)
+    axes[1].text(choke * 1.1, 0.95, "choked (sonic) above", color=FAINT, fontsize=9, transform=axes[1].get_xaxis_transform())
     axes[0].set_title("Methane release rate vs hole size")
     axes[0].set_xlabel("equivalent hole diameter (mm)")
     axes[1].set_title("Release rate vs line pressure")
