@@ -177,7 +177,7 @@ def main(argv):
 
     import torch
 
-    from policy.pickcan.diffusion import DiffusionPolicy, MLPPolicy, n_params
+    from policy.pickcan.diffusion import DiffusionPolicy, MLPPolicy, load_weights, n_params
     from policy.pickcan.script import ScriptedPicker
 
     os.makedirs(args.out, exist_ok=True)
@@ -194,8 +194,9 @@ def main(argv):
         obs_dim = u.geo_obs().shape[1]
         dev = u.device
         diff, mlp = DiffusionPolicy(obs_dim).to(dev), MLPPolicy(obs_dim).to(dev)
-        diff.load_state_dict(torch.load(os.path.join(args.load, "diffusion.pt"), map_location=dev))
-        mlp.load_state_dict(torch.load(os.path.join(args.load, "mlp.pt"), map_location=dev))
+        ext = ".npz" if os.path.exists(os.path.join(args.load, "mlp.npz")) else ".pt"
+        load_weights(diff, os.path.join(args.load, "diffusion" + ext), dev)
+        load_weights(mlp, os.path.join(args.load, "mlp" + ext), dev)
         report = {"loaded": args.load, "diffusion": {"params": n_params(diff)}, "mlp": {"params": n_params(mlp)}}
     else:
         env, u, cfg = make_env(args.collect_envs, args.seed + 100)

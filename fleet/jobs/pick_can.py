@@ -4,9 +4,9 @@ import random
 
 from fleet.contract import Finding, Job, JobResult, JobStatus, Level, Robot, RobotKind, World, register
 
-SUCCESS_P = 0.883
-POLICY = "scripted"
-TIME_S = 11.3
+SUCCESS_P = 0.910
+POLICY = "mlp_bc_geometric"
+TIME_S = 11.1
 RETRIES = 1
 FORCE_N = 18.0
 FORCE_LIMIT_N = 40.0

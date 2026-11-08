@@ -181,10 +181,9 @@ def main(argv):
     det_best, log, keys, shown_fit = None, [], {}, None
     learned, plan, k = None, None, 0
     if args.policy != "scripted":
-        from policy.pickcan.diffusion import DiffusionPolicy, MLPPolicy
+        from policy.pickcan.diffusion import DiffusionPolicy, MLPPolicy, load_weights
 
-        net = (DiffusionPolicy if args.policy == "diffusion" else MLPPolicy)(u.geo_obs().shape[1]).to(dev)
-        net.load_state_dict(torch.load(args.ckpt, map_location=dev))
+        net = load_weights((DiffusionPolicy if args.policy == "diffusion" else MLPPolicy)(u.geo_obs().shape[1]), args.ckpt, dev)
         net.eval()
         gen = torch.Generator(device=dev).manual_seed(0)
         learned = (lambda o: net.sample(o, n_steps=args.ddim, generator=gen)) if args.policy == "diffusion" else net.sample
@@ -202,6 +201,9 @@ def main(argv):
                 act = picker.act(tip, u.p_tgt, u.geom_grasp(), u.sealed, u._robot.data.joint_pos[:, u.lift_id])
                 if learned is not None:
                     if plan is None or k >= args.replan:
+                        if plan is None:
+                            z = net.norm(u.geo_obs())[0]
+                            print("[video] obs z", [(i, round(float(v), 1)) for i, v in enumerate(z) if abs(v) > 3], flush=True)
                         plan, k = learned(u.geo_obs()), 0
                     act, k = plan[:, k], k + 1
             env.step(act)
