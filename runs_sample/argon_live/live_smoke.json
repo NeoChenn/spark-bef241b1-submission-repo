@@ -1,0 +1,67 @@
+{
+ "model": "gemini-4-argon",
+ "status": "ok",
+ "latency_ms": 18463.3,
+ "tokens_in": 3139,
+ "tokens_out": 303,
+ "tokens_thought": 0,
+ "cost_usd": 0.009308,
+ "situation": [
+  "Gas head G-F1 in zone N is flagged STUCK at 0.0% LEL while peer sensors read up to 1.32% LEL.",
+  "Recommend dispatching nearest capable robot R3 (ETA 12.8s) to verify G-F1 with its onboard gas sniffer.",
+  "All other rig sensors and robot operations are nominal."
+ ],
+ "decision": [
+  {
+   "kind": "dispatch",
+   "robot": "R3",
+   "target": "G-F1",
+   "purpose": "verify_sensor",
+   "confidence": 0.95,
+   "rationale": "G-F1 is stuck at 0.0% LEL while zone N peers read up to 1.319% LEL, and R3 is the closest robot with a gas sniffer (ETA 12.8s, 88.9% battery)."
+  }
+ ],
+ "error": null,
+ "candidates": [
+  {
+   "robot": "R3",
+   "sensor": "gas_sniffer",
+   "eta_s": 12.8,
+   "battery": 0.889,
+   "ok": true,
+   "why": "",
+   "need_wh": 3.3,
+   "spare_wh": 319.1
+  },
+  {
+   "robot": "R4",
+   "sensor": "gas_sniffer",
+   "eta_s": 25.8,
+   "battery": 0.165,
+   "ok": true,
+   "why": "",
+   "need_wh": 3.9,
+   "spare_wh": 6.4
+  },
+  {
+   "robot": "R2",
+   "sensor": "gas_sniffer",
+   "eta_s": 87.5,
+   "battery": 0.69,
+   "ok": true,
+   "why": "",
+   "need_wh": 7.0,
+   "spare_wh": 233.4
+  },
+  {
+   "robot": "R1",
+   "sensor": "gas_sniffer",
+   "eta_s": 30.6,
+   "battery": 0.94,
+   "ok": false,
+   "why": "no gas_sniffer",
+   "need_wh": 4.2,
+   "spare_wh": 341.5
+  }
+ ]
+}
