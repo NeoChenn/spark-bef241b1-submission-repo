@@ -276,7 +276,7 @@ def main() -> None:
 
         def expose(t: float) -> None:
             eye, target = getattr(cine_update, "eye_target", ((0.0, 0.0, 0.0), (0.0, 0.0, 30.0)))
-            ev = look.view_look(None, float(np.linalg.norm(np.subtract(target, eye))), bool(args.atmos))["ev"]
+            ev = look.view_look(None, float(np.linalg.norm(np.subtract(target, eye))), bool(args.atmos), args.cinematic)["ev"]
             for key, value in look.exposure(ev).items():
                 settings.set(key, value)
 
@@ -285,7 +285,7 @@ def main() -> None:
         import cinematic
         import shafts
 
-        beams = shafts.specs(cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS, args.look)
+        beams = (shafts.specs(cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS, cinematic.DECK_FLOODS, args.look) if cinematic.PRESETS[args.cinematic]["lights"] > 0 else [])
     atm = None
     if args.atmos and args.cinematic:
         atm, atm_tick = load_atmosphere(stage, cam_path, args)
