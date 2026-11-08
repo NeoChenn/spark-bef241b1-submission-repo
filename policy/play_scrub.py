@@ -62,6 +62,7 @@ def worker(argv):
     p.add_argument("--storm", type=float, default=-1.0)
     p.add_argument("--gust_gate", type=float, nargs=2, default=None, metavar=("LIMIT", "RESUME"))
     p.add_argument("--fmax", type=float, default=0.0)
+    p.add_argument("--storm_parts", default="gust,deck")
     p.add_argument("--cam", type=str, default="", choices=["", "close", "wide"])
     from isaaclab.app import AppLauncher
 
@@ -87,6 +88,10 @@ def worker(argv):
     env_cfg.scene.num_envs = args.num_envs
     if args.storm >= 0:
         env_cfg.storm_level_range = (args.storm, args.storm)
+        if "deck" not in args.storm_parts:
+            env_cfg.storm_deck_amp, env_cfg.storm_trunk_sway = (0.0, 0.0), 0.0
+        if "gust" not in args.storm_parts:
+            env_cfg.storm_gust_peak, env_cfg.storm_gust_mean = (0.0, 0.0), (0.0, 0.0)
     if args.meta:
         print("[play] rig meta:", apply_meta(env_cfg, args.meta), flush=True)
     else:
@@ -161,7 +166,7 @@ def worker(argv):
     mf = sorted(recs["max_force"])
     np_ = [s for s, e in zip(succ, recs["new_patch"]) if e]
     res = {
-        "ckpt": args.ckpt, "episodes": n, "meta": bool(args.meta), "storm": max(args.storm, 0.0), "gust_gate": args.gust_gate, "fmax": args.fmax,
+        "ckpt": args.ckpt, "episodes": n, "meta": bool(args.meta), "storm": max(args.storm, 0.0), "gust_gate": args.gust_gate, "fmax": args.fmax, "storm_parts": args.storm_parts,
         "success_rate": sum(succ) / max(n, 1),
         "mean_fraction_removed": sum(recs["fraction_removed"]) / max(n, 1),
         "mean_time_to_clean_s": (sum(t for t, s in zip(recs["time_to_clean_s"], succ) if s) / max(sum(succ), 1)),
