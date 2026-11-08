@@ -1,6 +1,6 @@
 {
  "control": "live",
- "t_end": 87.9,
+ "t_end": 95.9,
  "beats": {
   "1_unit1_spray": 2.3,
   "1_unit1_soak": 5.4,
@@ -13,26 +13,33 @@
   "3_spark_hold": 18.8,
   "3_unit1_held": 18.9,
   "3_unverified": 20.6,
-  "3_dispatch_unit2": 24.8,
-  "4_unit2_walks": 24.9,
-  "4_unit2_sniffs": 47.0,
-  "4_leak_confirmed": 41.1,
-  "4_fix_leak": 49.7,
-  "4_retorque": 53.3,
-  "4_gf5_green": 60.6,
-  "5_resume_rust": 68.7,
-  "5_unit1_scrubs_again": 68.8,
-  "5_unit1_verify": 81.0,
-  "5_unit1_paint": 82.6,
-  "5_unit1_done": 87.8,
-  "5_unit2_returns": 61.2,
-  "5_unit2_docked": 82.9,
+  "3_dispatch_unit2": 28.4,
+  "4_unit2_walks": 28.5,
+  "4_unit2_sniffs": 56.0,
+  "4_leak_confirmed": 49.9,
+  "4_fix_leak": 60.5,
+  "4_retorque": 62.6,
+  "4_gf5_green": 70.0,
+  "5_resume_rust": 75.9,
+  "5_unit1_scrubs_again": 76.0,
+  "5_unit1_verify": 89.0,
+  "5_unit1_paint": 90.6,
+  "5_unit1_done": 95.8,
+  "5_unit2_returns": 70.5,
+  "5_unit2_docked": 92.2,
   "6_gf6_stuck": 2.0,
   "6_gf6_fault": 5.0,
-  "6_ticket": 9.7,
-  "6_inbox": 9.7,
-  "6_no_repair_at_f6": 9.7,
-  "6_object_report": null,
+  "6_ticket": 12.9,
+  "6_inbox": 12.9,
+  "6_no_repair_at_f6": 12.9,
+  "6_object_dropped": 30.0,
+  "6_object_report": 31.2,
+  "6_object_decision": 31.2,
+  "6_object_cleared": 34.2,
+  "6_unit2_walks_on": 34.3,
+  "6_push": 37.5,
+  "6_off_path": 37.6,
+  "6_recovered": 41.0,
   "6_link_cut": null
  },
  "argon": {
@@ -42,26 +49,26 @@
   "calls": 4,
   "ok": 4,
   "latency_ms": {
-   "min": 4198.2,
-   "max": 8553.6,
-   "mean": 6366.4
+   "min": 5914.5,
+   "max": 10530.0,
+   "mean": 8008.6
   },
-  "cost_usd": 0.0123,
+  "cost_usd": 0.0116,
   "tickets": [
    {
     "id": "MT-001",
     "sensor": "G-F6",
-    "t": 9.7,
+    "t": 12.9,
     "source": "argon",
-    "reason": "G-F6 PIPE_SENSOR_FAULT at 14.0% LEL (<20% stop); unit2 measured 2.0% LEL."
+    "reason": "G-F6 at 14.0% LEL vs unit2 2.0% LEL at F6; PIPE_SENSOR_FAULT below stop"
    }
   ],
   "commands": [
-   "9.7s argon:log_sensor_fault:supv:G-F6",
+   "12.9s argon:log_sensor_fault:supv:G-F6",
    "18.8s edge:hold:unit1:F5",
-   "24.8s argon:go_check:unit2:F5",
-   "49.7s argon:fix_leak:unit2:F5",
-   "68.7s argon:resume_rust:unit1:"
+   "28.4s argon:go_check:unit2:F5",
+   "60.5s argon:fix_leak:unit2:F5",
+   "75.9s argon:resume_rust:unit1:"
   ]
  },
  "nav": "fleet_nav.NavWalker (pure_pursuit)",
@@ -77,7 +84,7 @@
     "name": "approve_request",
     "args": {
      "job_id": "SENS-001",
-     "why": "MT-001 G-F6: G-F6 PIPE_SENSOR_FAULT at 14.0% LEL (<20% stop); unit2 measured 2.0% LEL."
+     "why": "MT-001 G-F6: G-F6 at 14.0% LEL vs unit2 2.0% LEL at F6; PIPE_SENSOR_FAULT below stop"
     },
     "ok": true,
     "refused": null,
