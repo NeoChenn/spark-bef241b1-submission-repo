@@ -12,7 +12,7 @@ HOOKS = ("spawn_patch", "set_glare", "occlude_camera", "force_spike", "person_at
 EXTRA = ("camera",)
 CONTROL_EVENTS = ("cut_link", "intent")
 MISSION = ("scenario", "disturb", "select", "views", "force", "demo")
-SCENARIO_IDS = ("gas", "patrol", "repair", "flyby")
+SCENARIO_IDS = ("gas", "patrol", "repair", "flyby", "nav")
 SCENARIO = ("set_weather", "drop_obstacle", "drop_can", "close_walkway", "close_stairs", "clear", "gas_leak",
             "control_action", "battery_fault", "approve", "reject", "weld_job")
 EVENTS = HOOKS + EXTRA + CONTROL_EVENTS + SCENARIO + MISSION

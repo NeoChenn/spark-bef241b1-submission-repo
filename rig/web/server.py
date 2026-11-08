@@ -418,6 +418,9 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             ev["args"] = {k: v for k, v in ev["args"].items() if k != "at"}
             if scen is not None:
                 ev["args"]["at"] = scen.view_at()
+        if ev["name"] == "drop_obstacle" and ev["args"].get("at") == "ahead" and getattr(mission, "scen", None) is not None:
+            with mission.lock:
+                ev["args"]["at"] = mission.scen.ahead(float(ev["args"].pop("ahead_m", 3.0)))
         out = {}
         if mission is not None:
             try:

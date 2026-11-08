@@ -32,6 +32,7 @@
   }
   const drop = (kind, title) => () => ["drop_obstacle", { kind, at: mover() }, title];
   const ACTS = {
+    ahead: () => { setDeck("top_deck"); return ["drop_obstacle", { kind: "crate", at: "ahead", ahead_m: 3 }, "Crate ahead"]; },
     large: () => { setDeck("top_deck"); return ["drop_obstacle", { kind: "barrel", at: "spur_hero_bay" }, "Large can rolling"]; },
     puddle: drop("puddle", "Puddle"),
     small: () => ["drop_can", { size: "small", at: mover() }, "Small can"],
