@@ -1,0 +1,147 @@
+import math
+import sys
+from pathlib import Path
+
+import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sim"))
+
+import structure_geometry as sg
+import structure_textures as st
+
+
+def _leg_points():
+    pts = []
+    for cx, cy in ((-17.5, -17.5), (17.5, -17.5), (-17.5, 17.5), (17.5, 17.5)):
+        for k in range(32):
+            a = k / 32 * math.tau
+            pts.append((cx + 5 * math.cos(a), cy + 5 * math.sin(a), 18.75))
+            pts.append((cx - 1.77 + 5 * math.cos(a), cy - 1.77 + 5 * math.sin(a), -56.21))
+    return np.array(pts)
+
+
+def test_leg_axes_recover_four_inclined_columns():
+    legs = sg.leg_axes(_leg_points())
+    assert len(legs) == 4
+    for leg in legs:
+        assert math.isclose(leg["radius"], 5.0, abs_tol=0.05)
+        assert math.isclose(leg["top"][2], 18.75) and math.isclose(leg["bottom"][2], -56.21)
+    leg = next(l for l in legs if l["top"][0] > 0 and l["top"][1] > 0)
+    assert np.allclose(sg.axis_at(leg, 18.75), (17.5, 17.5), atol=0.05)
+    assert np.allclose(sg.axis_at(leg, -56.21), (15.73, 15.73), atol=0.05)
+
+
+def test_edge_profile_is_periodic_and_bounded():
+    z = sg.edge_profile(64, 1.0, 0.6, seed=3)
+    assert z.shape == (65,)
+    assert math.isclose(z[0], z[-1])
+    assert np.all(np.abs(z - 1.0) <= 0.6 + 1e-9)
+    assert z.std() > 0.05
+
+
+def test_column_band_follows_axis_and_edges():
+    leg = {"top": np.array((0.0, 0.0, 10.0)), "bottom": np.array((-1.0, 0.0, -10.0)), "radius": 2.0}
+    low = sg.edge_profile(16, 0.0, 0.3, seed=1)
+    m = sg.column_band(leg, 16, low, np.full(17, 6.0), rows=4, radius=2.0)
+    pts = m["points"]
+    assert len(m["counts"]) == 16 * 4 and len(m["indices"]) == 4 * 16 * 4
+    centres = np.array([sg.axis_at(leg, z) for z in pts[:, 2]])
+    assert np.allclose(np.linalg.norm(pts[:, :2] - centres, axis=1), 2.0, atol=1e-6)
+    assert np.allclose(pts[:17, 2], low)
+    assert np.allclose(pts[-17:, 2], 6.0)
+    assert np.allclose(np.linalg.norm(m["normals"], axis=1), 1.0)
+
+
+def test_split_by_bands_cuts_vertical_member():
+    cuts = (1.0, 5.0)
+    parts = sg.split_by_bands((0, 0, -4), (0, 0, 10), cuts)
+    assert [p[2] for p in parts] == [0, 1, 2]
+    assert np.allclose(parts[0][1], (0, 0, 1.0)) and np.allclose(parts[2][0], (0, 0, 5.0))
+    assert sg.split_by_bands((0, 0, 6), (0, 0, 9), cuts) == [((0, 0, 6), (0, 0, 9), 2)]
+
+
+def test_scanline_intervals_clip_to_polygon():
+    poly = ((0.3, -37.5), (25.0, -37.5), (25.0, 25.0), (-25.0, 25.0), (-25.0, -22.9))
+    assert np.allclose(sg.scanline(poly, 0.0, axis="x"), [(-25.0, 25.0)])
+    (a, b), = sg.scanline(poly, -30.0, axis="x")
+    assert -25.0 < a < 0.3 and math.isclose(b, 25.0)
+    assert sg.scanline(poly, 40.0, axis="x") == []
+    (a, b), = sg.scanline(poly, 10.0, axis="y")
+    assert math.isclose(a, -37.5) and math.isclose(b, 25.0)
+
+
+def test_stations_skip_lights():
+    xs = sg.clear_stations(-25.0, 25.0, 3.0, avoid=(2.0, -16.0), clear=1.3)
+    assert all(abs(x - 2.0) >= 1.3 and abs(x + 16.0) >= 1.3 for x in xs)
+    assert min(np.diff(xs)) > 1.0 and xs[0] >= -25.0 and xs[-1] <= 25.0
+
+
+def test_ring_mesh_is_closed_annulus():
+    m = sg.ring_mesh(5.0, 5.4, 0.3, 24)
+    r = np.linalg.norm(m["points"][:, :2], axis=1)
+    assert r.min() >= 5.0 - 1e-9 and r.max() <= 5.4 + 1e-9
+    assert np.allclose(sorted(set(np.round(m["points"][:, 2], 6))), (-0.15, 0.15))
+    assert len(m["counts"]) == 24 * 4
+
+
+def test_landing_members_sit_outside_leg():
+    leg = {"top": np.array((17.5, -17.5, 18.75)), "bottom": np.array((15.73, -19.27, -56.21)), "radius": 5.0}
+    bl = sg.boat_landing(leg, -60.0)
+    for p, q, r in bl["tubes"]:
+        for z in (p, q):
+            c = sg.axis_at(leg, z[2])
+            assert np.hypot(z[0] - c[0], z[1] - c[1]) >= leg["radius"] - 1.2
+    assert bl["deck"][2] > 3.0
+    assert len(bl["rungs"]) > 20
+    assert all(r[0][2] < leg["top"][2] + 0.5 for r in bl["rungs"])
+
+
+def test_risers_cover_waterline_and_clamps_follow():
+    leg = {"top": np.array((17.5, 17.5, 18.75)), "bottom": np.array((15.73, 15.73, -56.21)), "radius": 5.0}
+    rs = sg.risers(leg, ((30.0, 0.3), (45.0, 0.5)), bottom=-20.0)
+    assert len(rs["pipes"]) == 2
+    for p, q, r in rs["pipes"]:
+        assert p[2] <= -20.0 + 1e-9 and q[2] >= 18.75
+    assert len(rs["clamps"]) >= 2 * 6
+
+
+def test_braces_connect_columns():
+    legs = sg.leg_axes(_leg_points())
+    br = sg.braces(legs, z=7.0, deck=16.4)
+    assert len(br["horizontal"]) == 4 and len(br["diagonal"]) == 8
+    for p, q, r in br["horizontal"]:
+        assert math.isclose(p[2], 7.0) and math.isclose(q[2], 7.0)
+
+
+def test_drip_mask_fades_downward():
+    m = st.drip_mask(64, 128, seed=2)
+    assert m.shape == (128, 64) and m.dtype == np.uint8
+    assert m[:16].mean() > m[-16:].mean()
+
+
+def test_marine_growth_maps():
+    maps = st.marine_growth(128, seed=4)
+    assert set(maps) == {"diff", "rough", "nor_gl"}
+    assert maps["diff"].shape == (128, 128, 3) and maps["nor_gl"].shape == (128, 128, 3)
+    n = maps["nor_gl"].astype(float) / 127.5 - 1
+    assert n[..., 2].min() > 0.0
+    assert maps["diff"][..., 1].mean() >= maps["diff"][..., 2].mean()
+
+
+def test_structure_bands_and_recipes():
+    import photoreal as pr
+    import structure
+
+    assert [structure.band_of(z) for z in (-3.0, 2.0, 9.0)] == [0, 1, 2]
+    assert {r["kind"] for r in structure.RECIPES.values()} <= set(pr.KINDS)
+    for name, recipe in structure.RECIPES.items():
+        _, values = pr.shader_inputs(recipe)
+        assert all(v.exists() for v in values.values() if isinstance(v, Path)), name
+
+
+def test_walkway_rails_and_hangers():
+    w = sg.walkway((0, 0), (10, 0), 16.0, hang_to=18.0)
+    centre, angle, size = w["deck"]
+    assert np.allclose(centre, (5, 0, 16)) and math.isclose(angle, 0.0) and math.isclose(size[0], 10.0)
+    assert len(w["rails"]) == 4 and len(w["posts"]) == 2 * 5
+    assert all(math.isclose(b[2], 18.0) for _, b in w["hangers"])
