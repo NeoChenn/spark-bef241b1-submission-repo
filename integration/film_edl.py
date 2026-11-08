@@ -30,7 +30,7 @@ class FilmBeats:
     u2_engage: float = 46.8
     torque_done: float = 50.2
     gf5_green: float = 54.2
-    u2_return: float = 54.7
+    u2_return: float = 114.8
     u1_walk: float = 63.2
     u1_arrive: float = 76.9
     spray: float = 79.2
@@ -40,8 +40,8 @@ class FilmBeats:
     paint: float = 109.5
     paint_done: float = 113.6
     u1_return: float = 114.8
-    both_docked: float = 129.6
-    end: float = 129.7
+    both_docked: float = 136.5
+    end: float = 136.6
 
     @classmethod
     def from_summary(cls, summary: dict) -> "FilmBeats":
@@ -92,7 +92,7 @@ def default_track(b: FilmBeats, s: FilmScene) -> Callable:
         if robot == "unit2":
             if t < b.u2_return:
                 return _walk(t, b.dispatch_u2, b.u2_arrive, s.unit2_dock, s.unit2_work)
-            return _walk(t, b.u2_return, b.u1_arrive, s.unit2_work, s.unit2_dock)
+            return _walk(t, b.u2_return, b.both_docked, s.unit2_work, s.unit2_dock)
         if t < b.u1_return:
             return _walk(t, b.u1_walk, b.u1_arrive, s.unit1_dock, s.unit1_work)
         return _walk(t, b.u1_return, b.both_docked, s.unit1_work, s.unit1_dock)
