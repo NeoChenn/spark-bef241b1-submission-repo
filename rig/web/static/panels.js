@@ -26,15 +26,6 @@
   H.panel({ id: "vitals", title: "Vitals", icon: "wave", key: "v", edge: "left", keys: "sparkline rust confidence detector",
     desc: "Brush force, rust left and detector confidence over the last 30 s.", hint: (S) => (S.rust == null ? "" : S.rust.toFixed(1) + " % rust"),
     render(el, S) { const x = q(el, VITALS); VIT.forEach(([k, , , d, o]) => { num(x[k], S[k], d); spark(x[k + "C"], S.series[k], o); }); x.force.style.color = fc(S.force); } });
-  const FORCE = `<div class="f-now"><b class="tnum" data-k="now"></b><span>N</span><em data-k="max"></em></div><div class="gauge"><span data-k="g"></span><s></s></div><canvas class="f-chart" data-k="c"></canvas>`;
-  H.panel({ id: "force", title: "Force sensor", icon: "gauge", key: "f", edge: "left", phases: ["SCRUB", "BACK_OFF"], priority: 60, keys: "brush contact newton limit",
-    desc: "Contact force at the brush against the 40 N limit; the policy clamps its setpoint at 38 N.", hint: (S) => S.force.toFixed(1) + " N",
-    render(el, S) {
-      const x = q(el, FORCE);
-      num(x.now, S.force, 1); x.now.style.color = fc(S.force); set(x.max, `peak ${S.peak.toFixed(1)} · limit 40`);
-      x.g.style.width = Math.min(100, S.force * 2) + "%"; x.g.style.background = fc(S.force);
-      spark(x.c, S.series.force, { win: 20, min: 0, max: Math.max(50, S.peak * 1.15), ramp: fc, w: 1.6, refs: [[40, "rgba(248,81,73,.8)"]] });
-    } });
   function drawPipe(c, S) {
     const [g, w, h] = fit(c), G = S.rust_grid;
     if (!g || !G) return;
