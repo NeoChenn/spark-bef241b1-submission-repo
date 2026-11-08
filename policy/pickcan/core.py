@@ -77,10 +77,20 @@ def suction_wrench(tip_p, tip_R, tip_v, tip_w, can_p, can_R, can_v, can_w, rel_p
     m = mass[:, None]
     F = m * (omega ** 2 * (p_des - can_p) + 2 * zeta * omega * (v_des - can_v))
     F[:, 2] += mass * G
-    T = inertia[:, None] * (omega_r ** 2 * rot_err(R_des, can_R) + 2 * zeta * omega_r * (tip_w - can_w))
+    I_w = torch.bmm(can_R * inertia[:, None, :], can_R.transpose(1, 2))
+    T = torch.bmm(I_w, (omega_r ** 2 * rot_err(R_des, can_R) + 2 * zeta * omega_r * (tip_w - can_w)).unsqueeze(-1)).squeeze(-1)
     lever = tip_p - can_p
     t_contact = T - torch.cross(lever, F, dim=-1)
     return F, T, t_contact, (p_des - can_p).norm(dim=-1)
+
+
+def can_inertia(mass, r, h):
+    lat = mass * (3 * r ** 2 + h ** 2) / 12
+    return torch.stack([lat, lat, mass * r ** 2 / 2], -1)
+
+
+def wrap(a):
+    return torch.atan2(torch.sin(a), torch.cos(a))
 
 
 def in_tote(can_p: torch.Tensor, margin: float = 0.0) -> torch.Tensor:

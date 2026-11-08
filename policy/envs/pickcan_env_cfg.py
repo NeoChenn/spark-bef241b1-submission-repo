@@ -35,7 +35,9 @@ CANS = (
 def can_spawn_cfg(nominal_mass: float = 0.3):
     assets = [sim_utils.CylinderCfg(
         radius=r, height=h, axis="Z",
-        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=c, metallic=0.55, roughness=0.35))
+        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=c, metallic=0.55, roughness=0.35),
+        physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=0.7, dynamic_friction=0.6,
+                                                        friction_combine_mode="multiply"))
         for _, r, h, c in CANS]
     return sim_utils.MultiAssetSpawnerCfg(
         assets_cfg=assets, random_choice=False, activate_contact_sensors=True,
@@ -44,8 +46,6 @@ def can_spawn_cfg(nominal_mass: float = 0.3):
                                                      angular_damping=0.1),
         mass_props=sim_utils.MassPropertiesCfg(mass=nominal_mass),
         collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005, rest_offset=0.0),
-        physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=0.7, dynamic_friction=0.6,
-                                                        friction_combine_mode="multiply"),
     )
 
 

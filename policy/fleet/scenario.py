@@ -18,6 +18,7 @@ EVENTS = [(90.0, "new_rust", {"poi": "rust_low_north", "xyz": [10.0, 12.8, 21.0]
           (330.0, "robot_failure", {"robot": "R2"}),
           (420.0, "crack", {"flange": "F3"}),
           (520.0, "gas_alarm", {"flange": "F2", "scenario": "loose"})]
+CAPS = {"R1": ("arm", "gripper"), "R2": ("arm",), "R3": ("arm", "gripper")}
 INSPECT_DEADLINE_S = 900.0
 CHECK_DEADLINE_S = 1500.0
 
@@ -32,7 +33,7 @@ def build_default(n_robots: int = 3, jobs=None, rm=None) -> Fleet:
     f = Fleet(rm, jobs)
     for i in range(n_robots):
         rid, xyz, soc = ROBOTS[i] if i < len(ROBOTS) else (f"R{i + 1}", ROBOTS[0][1], 0.9)
-        f.add_robot(rid, nearest_node(rm, xyz), soc)
+        f.add_robot(rid, nearest_node(rm, xyz), soc, caps=CAPS.get(rid, ("arm",)))
     for p in rm.inspection:
         if p["type"] == "gauge":
             f.add_task("inspect", p["id"], deadline=INSPECT_DEADLINE_S)
@@ -61,7 +62,7 @@ def build_judges(n_robots: int = 3, jobs=None, rm=None, disturb: bool = True) ->
     rm = rm or load_rig_map()
     f = Fleet(rm, jobs)
     for rid, xyz, soc in JUDGES_ROBOTS[:n_robots]:
-        f.add_robot(rid, nearest_node(rm, xyz), soc)
+        f.add_robot(rid, nearest_node(rm, xyz), soc, caps=CAPS.get(rid, ("arm",)))
     f.add_task("leak_check", "F5", deadline=CHECK_DEADLINE_S)
     for poi, xyz, sev, exp in JUDGES_RUST:
         f.add_task("rust", poi, xyz, severity=sev, exposure=exp)
