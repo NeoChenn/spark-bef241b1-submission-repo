@@ -30,6 +30,7 @@ VERDICT_TONE = {"LEAK_CONFIRMED": WARN, "LEAK_UNSEEN_BY_FIXED": WARN, "UNVERIFIE
 STOP_WORDS = ("HOLD", "RETREAT", "STOP", "E-STOP", "ESTOP", "HALT")
 WARN_WORDS = ("PAUSED", "WAIT", "FAULT", "LOW")
 IDLE_WORDS = ("DOCK", "IDLE", "DONE", "PARKED", "STANDBY")
+CAPTION_TONE = {"warn": WARN, "stop": STOP}
 COMMAND_TONE = {"hold": STOP, "retreat": STOP, "log_sensor_fault": WARN}
 
 FONT_DIRS = [os.environ.get("FLEET_FONTS", ""), str(Path.home() / ".cache/fleet_overlay/fonts"),
@@ -71,6 +72,13 @@ def font(kind: str, size: int, weight: int = 400):
         if Path(p).exists():
             return ImageFont.truetype(p, size)
     return ImageFont.load_default(size)
+
+
+def robot_tone(r: dict) -> tuple:
+    t = tone_of_state(str(r.get("state") or ""))
+    cap = r.get("caption")
+    ct = CAPTION_TONE.get(str(cap.get("tone") or "")) if isinstance(cap, dict) else None
+    return ct if ct is not None and t in (ACCENT, GREY) else t
 
 
 def tone_of_state(state: str) -> tuple:
@@ -158,17 +166,13 @@ class Canvas:
         return self.d.textlength(str(text), font=self.f(kind, size, weight))
 
 
-CAPTION_TONE = {"warn": WARN, "stop": STOP}
-
-
-def caption_line(c: Canvas, x, y, w, cap):
+def caption_line(c: Canvas, x, y, w, cap, tone=None):
     if isinstance(cap, dict):
         lead, rest = str(cap.get("lead") or ""), str(cap.get("rest") or "")
         if not lead and not rest:
             lead = str(cap.get("text") or "")
-        tone = CAPTION_TONE.get(str(cap.get("tone") or ""), None)
     else:
-        lead, rest, tone = "", str(cap or ""), None
+        lead, rest = "", str(cap or "")
     fb, fr = c.f("sans", 14, 600), c.f("sans", 14)
     lead = fit(c.d, lead, fb, w)
     if lead:
@@ -184,12 +188,12 @@ def robot_card(c: Canvas, x, y, w, rid, tag, name, r: dict, scrubber: bool) -> f
     h = u(176 if scrubber else 136)
     c.panel((x, y, x + w, y + h))
     state = str(r.get("state") or "--").upper().replace("_", " ")
-    tone = tone_of_state(state)
+    tone = robot_tone(r)
     cy = y + pad + u(9)
     c.text((x + pad, cy), tag, "mono", 12, 600, LABEL3, "lm")
     c.text((x + pad + c.width(tag, "mono", 12, 600) + u(9), cy), name, "sans", 17, 600, LABEL, "lm")
     cx0, _ = c.chip(x + w - pad, cy, state, tone, 12)
-    caption_line(c, x + pad, cy + u(28), w - 2 * pad, r.get("caption"))
+    caption_line(c, x + pad, cy + u(28), w - 2 * pad, r.get("caption"), tone if tone in (WARN, STOP) else None)
     my = cy + u(70)
     cells = [("BATT", num(pct(r.get("battery")), "{:.0f}"), "%")] if r.get("battery") is not None else []
     cells.append(("GAS", num(r.get("lel")), "%LEL"))
@@ -329,7 +333,7 @@ def decision(argon: dict) -> tuple[str, str]:
     head, sep, tail = line.partition(": ")
     if sep and head.replace("_", "").isupper():
         return head.replace("_", " ").capitalize(), tail.replace("%LEL", " %LEL").replace("  ", " ")
-    return line, ""
+    return line[:1].upper() + line[1:], ""
 
 
 def argon_strip(c: Canvas, header: dict):
@@ -423,8 +427,8 @@ def floating_labels(c: Canvas, header: dict, labels):
         if key in names:
             tag, name = names[key]
             r = robots.get(key) or {}
-            title, sub = f"{tag} · {name}", str(r.get("state") or "").upper()
-            tone = tone_of_state(sub)
+            title, sub = f"{tag} · {name}", str(r.get("state") or "").upper().replace("_", " ")
+            tone = robot_tone(r)
         elif key in dets:
             dd = dets[key]
             title, sub = key, f"{num(dd.get('lel'))} %LEL"
