@@ -7,7 +7,7 @@ import numpy as np
 R = 0.29
 V_WIND = 2.0
 K = 0.35
-MU = 0.12
+MU = 0.13
 KICK = 2.0
 V_STOP = 0.06
 STRAIGHT = 0.7
@@ -91,7 +91,7 @@ def _node(rm, ob, n: int, prev: int, speed: float, over: float, wind) -> bool:
         ob.update(edge=[n, push[0]], s=over * TURN_KEEP, v=speed * TURN_KEEP)
         return False
     L = float(np.linalg.norm(rm.pos[n] - rm.pos[prev]))
-    settle = speed < SETTLE_V
+    settle = speed < SETTLE_V or not nxt
     ob.update(edge=[prev, n], s=max(L - (R if settle else over), 0.0), v=-speed * RESTITUTION)
     ob["bounces"] = ob.get("bounces", 0) + 1
     return settle
