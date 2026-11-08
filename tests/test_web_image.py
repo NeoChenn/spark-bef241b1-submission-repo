@@ -24,6 +24,8 @@ with TestClient(create_app(sim_port=0, fleet=default_fleet())) as c:
     if MISSION is not None:
         MISSION.advance(1.0)
         MISSION.event("gas_leak", {"on": True})
+        MISSION.event("drop_can", {})
+        MISSION.event("weld_job", {"poi": "weld_x", "xyz": [10.0, -8.0, 42.5]})
         MISSION.advance(1.0)
         MISSION.control_tick(0.0)
         out["mission"] = sorted(MISSION.header())
