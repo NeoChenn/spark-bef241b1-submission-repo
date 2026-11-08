@@ -6,6 +6,7 @@ import carb.settings
 import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
+import greebles
 import look
 import ocean
 import hero_mat
@@ -491,6 +492,7 @@ def add_work_light(stage) -> None:
 def apply_preset(stage, name: str) -> None:
     preset = PRESETS[name]
     photoreal.apply(stage, name)
+    greebles.apply(stage)
     structure.apply(stage, name)
     hero_mat.apply(stage, name)
     ocean_fx.apply(stage, name, preset["wave_height"])
