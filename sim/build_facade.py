@@ -24,8 +24,8 @@ HIDE = (
 )
 EXISTING = {"galv": "/World/Looks/topside_galv", "yellow": "/World/Looks/topside_yellow",
             "white_steel": "/World/Looks/topside_steel_white"}
-SPILL_NITS = 3800.0
-SPILL_TILT = 0.45
+SPILL_NITS = 7000.0
+SPILL_TILT = 0.8
 STAIR = ((0.65, -37.3), 31.25, 42.5)
 FLOODS = (
     ((-21.0, -39.3, 41.6), (-21.0, -37.8, 33.0), 4000.0), ((-12.0, -39.3, 41.6), (-12.0, -37.8, 33.0), 2100.0),

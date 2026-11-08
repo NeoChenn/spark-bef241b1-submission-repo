@@ -1135,7 +1135,7 @@ over "World"
             {
                 def Xform "win_000"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-9.75, -37.85, 31.46430620122701)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1143,14 +1143,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.68167865, 0.40318516)
                         float inputs:height = 1
-                        float inputs:intensity = 4115.8784
+                        float inputs:intensity = 7581.8813
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_001"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-7.15, -37.85, 31.46430620122701)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1158,14 +1158,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.6538038, 0.34276664)
                         float inputs:height = 1
-                        float inputs:intensity = 3142.0955
+                        float inputs:intensity = 5788.0703
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_002"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-21.45, -37.85, 35.423607309193656)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1173,14 +1173,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1.3
-                        float inputs:intensity = 5029.5293
+                        float inputs:intensity = 9264.923
                         float inputs:width = 3
                     }
                 }
 
                 def Xform "win_003"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-16.25, -37.85, 35.423607309193656)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1188,14 +1188,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.82615465, 0.6863572)
                         float inputs:height = 1.3
-                        float inputs:intensity = 5912.088
+                        float inputs:intensity = 10890.688
                         float inputs:width = 3
                     }
                 }
 
                 def Xform "win_004"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-3.25, -37.85, 35.423607309193656)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1203,14 +1203,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.68167865, 0.40318516)
                         float inputs:height = 1.3
-                        float inputs:intensity = 3471.6343
+                        float inputs:intensity = 6395.1157
                         float inputs:width = 3
                     }
                 }
 
                 def Xform "win_005"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-17.55, -37.85, 38.99193442148777)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1218,14 +1218,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.90946597, 0.8340734)
                         float inputs:height = 1
-                        float inputs:intensity = 1772.2006
+                        float inputs:intensity = 3264.5798
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_006"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-14.95, -37.85, 38.99193442148777)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1233,14 +1233,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.80712247, 0.6512994)
                         float inputs:height = 1
-                        float inputs:intensity = 5826.6704
+                        float inputs:intensity = 10733.341
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_007"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-12.35, -37.85, 38.99193442148777)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1248,14 +1248,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.6538038, 0.34276664)
                         float inputs:height = 1
-                        float inputs:intensity = 3612.3557
+                        float inputs:intensity = 6654.3394
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_008"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-7.15, -37.85, 38.99193442148777)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1263,14 +1263,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.90946597, 0.8340734)
                         float inputs:height = 1
-                        float inputs:intensity = 5213.062
+                        float inputs:intensity = 9603.009
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_009"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-4.55, -37.85, 38.99193442148777)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1278,14 +1278,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1
-                        float inputs:intensity = 3440.905
+                        float inputs:intensity = 6338.5093
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_010"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-1.95, -37.85, 38.99193442148777)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1293,14 +1293,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.66799015, 0.37381548)
                         float inputs:height = 1
-                        float inputs:intensity = 2786.2466
+                        float inputs:intensity = 5132.5596
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_011"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-7.6, -37.85, 21.589073097379877)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1308,14 +1308,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.68167865, 0.40318516)
                         float inputs:height = 1
-                        float inputs:intensity = 4019.3672
+                        float inputs:intensity = 7404.097
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_012"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-5, -37.85, 21.589073097379877)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1323,14 +1323,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.99651015, 0.9805565)
                         float inputs:height = 1
-                        float inputs:intensity = 2944.4575
+                        float inputs:intensity = 5424.001
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_013"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-15.4, -37.85, 24.743150956540678)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1338,14 +1338,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 0.9
-                        float inputs:intensity = 2862.3965
+                        float inputs:intensity = 5272.8354
                         float inputs:width = 0.85
                     }
                 }
 
                 def Xform "win_014"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-12.8, -37.85, 24.743150956540678)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1353,14 +1353,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.66799015, 0.37381548)
                         float inputs:height = 0.9
-                        float inputs:intensity = 1674.767
+                        float inputs:intensity = 3085.0972
                         float inputs:width = 0.85
                     }
                 }
 
                 def Xform "win_015"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-10.2, -37.85, 24.743150956540678)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1368,14 +1368,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.80712247, 0.6512994)
                         float inputs:height = 0.9
-                        float inputs:intensity = 2571.2473
+                        float inputs:intensity = 4736.5083
                         float inputs:width = 0.85
                     }
                 }
 
                 def Xform "win_016"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-14.100000000000001, -37.85, 28.363205837427326)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1383,14 +1383,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.6538038, 0.34276664)
                         float inputs:height = 1.3
-                        float inputs:intensity = 5708.616
+                        float inputs:intensity = 10515.872
                         float inputs:width = 3
                     }
                 }
 
                 def Xform "win_017"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-5, -37.85, 28.31320583742733)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1398,14 +1398,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.89416665, 0.8075703)
                         float inputs:height = 1
-                        float inputs:intensity = 1615.0791
+                        float inputs:intensity = 2975.1458
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_018"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-18.450000000000003, -35.1, 21.54679739261046)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1413,14 +1413,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.89416665, 0.8075703)
                         float inputs:height = 1.3
-                        float inputs:intensity = 5311.398
+                        float inputs:intensity = 9784.154
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_019"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-18.450000000000003, -32.5, 21.54679739261046)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1428,14 +1428,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1.3
-                        float inputs:intensity = 3516.8547
+                        float inputs:intensity = 6478.4165
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_020"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-18.450000000000003, -35.1, 28.20955791512194)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1443,14 +1443,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.90946597, 0.8340734)
                         float inputs:height = 1.3
-                        float inputs:intensity = 1824.6877
+                        float inputs:intensity = 3361.2668
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_021"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-18.450000000000003, -32.5, 28.20955791512194)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1458,14 +1458,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.89416665, 0.8075703)
                         float inputs:height = 1.3
-                        float inputs:intensity = 3232.6484
+                        float inputs:intensity = 5954.879
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_022"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-21.55, -27.85, 21.629007565043867)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1473,14 +1473,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.99651015, 0.9805565)
                         float inputs:height = 1
-                        float inputs:intensity = 5921.1426
+                        float inputs:intensity = 10907.367
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_023"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-21.55, -27.85, 24.89736282507268)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1488,14 +1488,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.82615465, 0.6863572)
                         float inputs:height = 1
-                        float inputs:intensity = 5376.9697
+                        float inputs:intensity = 9904.944
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_024"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-21.55, -27.85, 28.10361461552481)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1503,14 +1503,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.89416665, 0.8075703)
                         float inputs:height = 0.9
-                        float inputs:intensity = 5203.7593
+                        float inputs:intensity = 9585.872
                         float inputs:width = 0.85
                     }
                 }
 
                 def Xform "win_025"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-25.35, -25.2, 21.540975801087917)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1518,14 +1518,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1.3
-                        float inputs:intensity = 5547.021
+                        float inputs:intensity = 10218.196
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_026"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-25.35, -25.2, 28.268344743611912)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1533,14 +1533,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.90946597, 0.8340734)
                         float inputs:height = 1.3
-                        float inputs:intensity = 2024.7198
+                        float inputs:intensity = 3729.747
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_027"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-25.35, -34.1, 31.6445051509887)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1548,14 +1548,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.80712247, 0.6512994)
                         float inputs:height = 1.3
-                        float inputs:intensity = 4661.181
+                        float inputs:intensity = 8586.387
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_028"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-25.35, -28.9, 31.6445051509887)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1563,14 +1563,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.68167865, 0.40318516)
                         float inputs:height = 1.3
-                        float inputs:intensity = 2215.7402
+                        float inputs:intensity = 4081.6267
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_029"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-25.35, -31.5, 35.219148222341516)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1578,14 +1578,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.82615465, 0.6863572)
                         float inputs:height = 0.85
-                        float inputs:intensity = 4886.7734
+                        float inputs:intensity = 9001.951
                         float inputs:width = 0.9
                     }
                 }
 
                 def Xform "win_030"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-25.35, -31.5, 38.96472144226233)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1593,14 +1593,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1.3
-                        float inputs:intensity = 4843.8086
+                        float inputs:intensity = 8922.806
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_031"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-25.35, -28.9, 38.96472144226233)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1608,14 +1608,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.90946597, 0.8340734)
                         float inputs:height = 1.3
-                        float inputs:intensity = 3001.6067
+                        float inputs:intensity = 5529.2754
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_032"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-25.35, -26.3, 38.96472144226233)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1623,14 +1623,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.82615465, 0.6863572)
                         float inputs:height = 1.3
-                        float inputs:intensity = 5087.8496
+                        float inputs:intensity = 9372.3545
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_033"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (0.6499999999999999, -34.1, 21.64513101214543)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1638,14 +1638,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1.3
-                        float inputs:intensity = 2844.416
+                        float inputs:intensity = 5239.714
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_034"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (0.6499999999999999, -28.9, 21.64513101214543)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1653,14 +1653,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.82615465, 0.6863572)
                         float inputs:height = 1.3
-                        float inputs:intensity = 1594.6882
+                        float inputs:intensity = 2937.5835
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_035"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (0.6499999999999999, -26.3, 21.64513101214543)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1668,14 +1668,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1.3
-                        float inputs:intensity = 1575.5657
+                        float inputs:intensity = 2902.3577
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_036"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (0.6499999999999999, -32.8, 24.930121194369466)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1683,14 +1683,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.6538038, 0.34276664)
                         float inputs:height = 3
-                        float inputs:intensity = 2996.6072
+                        float inputs:intensity = 5520.066
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_037"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (0.6499999999999999, -26.3, 24.88012119436947)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1698,14 +1698,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.99651015, 0.9805565)
                         float inputs:height = 1.3
-                        float inputs:intensity = 4040.718
+                        float inputs:intensity = 7443.4277
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_038"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (0.6499999999999999, -28.9, 28.23659550334948)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1713,14 +1713,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.90946597, 0.8340734)
                         float inputs:height = 1.3
-                        float inputs:intensity = 5354.956
+                        float inputs:intensity = 9864.393
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_039"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (0.6499999999999999, -26.3, 28.23659550334948)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1728,14 +1728,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.6538038, 0.34276664)
                         float inputs:height = 1.3
-                        float inputs:intensity = 3118.365
+                        float inputs:intensity = 5744.357
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_040"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (0.6499999999999999, -31.5, 31.521873147925362)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1743,14 +1743,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.89416665, 0.8075703)
                         float inputs:height = 1.3
-                        float inputs:intensity = 5127.715
+                        float inputs:intensity = 9445.791
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_041"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (0.6499999999999999, -26.3, 31.521873147925362)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1758,14 +1758,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.6538038, 0.34276664)
                         float inputs:height = 1.3
-                        float inputs:intensity = 3765.4019
+                        float inputs:intensity = 6936.2666
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_042"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (0.6499999999999999, -31.5, 35.283503240471084)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1773,14 +1773,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.89416665, 0.8075703)
                         float inputs:height = 1.3
-                        float inputs:intensity = 4626.2676
+                        float inputs:intensity = 8522.072
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_043"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (0.6499999999999999, -28.9, 35.283503240471084)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1788,14 +1788,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.68167865, 0.40318516)
                         float inputs:height = 1.3
-                        float inputs:intensity = 5845.648
+                        float inputs:intensity = 10768.299
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_044"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (0.6499999999999999, -32.8, 39.00848123581769)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1803,14 +1803,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 3
-                        float inputs:intensity = 5562.98
+                        float inputs:intensity = 10247.595
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_045"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (0.6499999999999999, -26.3, 38.95848123581769)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1818,14 +1818,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.68167865, 0.40318516)
                         float inputs:height = 1.3
-                        float inputs:intensity = 2455.5571
+                        float inputs:intensity = 4523.395
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_046"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-22.75, -22.549999999999997, 21.47457010522485)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1833,14 +1833,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.90946597, 0.8340734)
                         float inputs:height = 1
-                        float inputs:intensity = 3832.8
+                        float inputs:intensity = 7060.421
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_047"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-20.15, -22.549999999999997, 21.47457010522485)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1848,14 +1848,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.66799015, 0.37381548)
                         float inputs:height = 1
-                        float inputs:intensity = 3075.7815
+                        float inputs:intensity = 5665.9136
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_048"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-14.95, -22.549999999999997, 21.47457010522485)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1863,14 +1863,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.82615465, 0.6863572)
                         float inputs:height = 1
-                        float inputs:intensity = 3574.0515
+                        float inputs:intensity = 6583.779
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_049"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-9.75, -22.549999999999997, 21.47457010522485)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1878,14 +1878,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1
-                        float inputs:intensity = 4195.1797
+                        float inputs:intensity = 7727.9624
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_050"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-4.55, -22.549999999999997, 21.47457010522485)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1893,14 +1893,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1
-                        float inputs:intensity = 1602.2399
+                        float inputs:intensity = 2951.4944
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_051"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-20.15, -22.549999999999997, 24.817777753000456)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1908,14 +1908,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1
-                        float inputs:intensity = 4226.337
+                        float inputs:intensity = 7785.3574
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_052"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-16.25, -22.549999999999997, 24.867777753000453)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1923,14 +1923,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1.3
-                        float inputs:intensity = 1752.0623
+                        float inputs:intensity = 3227.4832
                         float inputs:width = 3
                     }
                 }
 
                 def Xform "win_053"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-11.05, -22.549999999999997, 24.867777753000453)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1938,14 +1938,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1.3
-                        float inputs:intensity = 4359.7905
+                        float inputs:intensity = 8031.193
                         float inputs:width = 3
                     }
                 }
 
                 def Xform "win_054"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-22.75, -22.549999999999997, 28.283791503372292)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1953,14 +1953,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1
-                        float inputs:intensity = 4426.0713
+                        float inputs:intensity = 8153.289
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_055"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-17.55, -22.549999999999997, 28.283791503372292)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1968,14 +1968,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.68167865, 0.40318516)
                         float inputs:height = 1
-                        float inputs:intensity = 3874.7507
+                        float inputs:intensity = 7137.6987
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_056"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-14.95, -22.549999999999997, 28.283791503372292)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1983,14 +1983,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.90946597, 0.8340734)
                         float inputs:height = 1
-                        float inputs:intensity = 4021.2417
+                        float inputs:intensity = 7407.5503
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_057"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-9.75, -22.549999999999997, 28.283791503372292)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -1998,14 +1998,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1
-                        float inputs:intensity = 4598.5215
+                        float inputs:intensity = 8470.961
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_058"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-14.9, 9.75, 32.83620314914733)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2013,14 +2013,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.90946597, 0.8340734)
                         float inputs:height = 1
-                        float inputs:intensity = 2503.0269
+                        float inputs:intensity = 4610.839
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_059"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-17.5, 9.75, 36.200064776620515)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2028,14 +2028,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1
-                        float inputs:intensity = 4388.893
+                        float inputs:intensity = 8084.8027
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_060"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-17.5, 9.75, 39.48814956078616)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2043,14 +2043,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.6538038, 0.34276664)
                         float inputs:height = 1
-                        float inputs:intensity = 2093.6572
+                        float inputs:intensity = 3856.7373
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_061"
                 {
-                    quatf xformOp:orient = (0.83975136, -0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, -0.43318874, -0, 0)
                     double3 xformOp:translate = (-14.9, 9.75, 39.48814956078616)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2058,14 +2058,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.90946597, 0.8340734)
                         float inputs:height = 1
-                        float inputs:intensity = 4168.933
+                        float inputs:intensity = 7679.6133
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_062"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-17.5, 21.35, 32.76398620838299)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2073,14 +2073,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.89416665, 0.8075703)
                         float inputs:height = 1
-                        float inputs:intensity = 1800.7042
+                        float inputs:intensity = 3317.0867
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_063"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-14.9, 21.35, 32.76398620838299)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2088,14 +2088,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.82615465, 0.6863572)
                         float inputs:height = 1
-                        float inputs:intensity = 5025.369
+                        float inputs:intensity = 9257.259
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_064"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-16.2, 21.35, 36.191266304689144)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2103,14 +2103,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1.3
-                        float inputs:intensity = 3065.787
+                        float inputs:intensity = 5647.5024
                         float inputs:width = 3
                     }
                 }
 
                 def Xform "win_065"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-14.9, 21.35, 39.4302722896294)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2118,14 +2118,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.6538038, 0.34276664)
                         float inputs:height = 1
-                        float inputs:intensity = 3434.3594
+                        float inputs:intensity = 6326.451
                         float inputs:width = 1.3
                     }
                 }
 
                 def Xform "win_066"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-21.35, 18.15, 32.73342565787025)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2133,14 +2133,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 0.85
-                        float inputs:intensity = 4433.492
+                        float inputs:intensity = 8166.9595
                         float inputs:width = 0.9
                     }
                 }
 
                 def Xform "win_067"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-21.35, 12.95, 36.158762094859654)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2148,14 +2148,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.89416665, 0.8075703)
                         float inputs:height = 1.3
-                        float inputs:intensity = 2526.1724
+                        float inputs:intensity = 4653.475
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_068"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-21.35, 18.15, 36.158762094859654)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2163,14 +2163,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1.3
-                        float inputs:intensity = 3251.4036
+                        float inputs:intensity = 5989.4277
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_069"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-21.35, 18.15, 39.43780894757558)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2178,14 +2178,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.6538038, 0.34276664)
                         float inputs:height = 1.3
-                        float inputs:intensity = 1994.5186
+                        float inputs:intensity = 3674.113
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_070"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (-11.05, 12.95, 32.72674472164363)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2193,14 +2193,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.6538038, 0.34276664)
                         float inputs:height = 1.3
-                        float inputs:intensity = 2609.6016
+                        float inputs:intensity = 4807.161
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_071"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (-11.05, 15.55, 32.72674472164363)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2208,14 +2208,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.68167865, 0.40318516)
                         float inputs:height = 1.3
-                        float inputs:intensity = 4905.5664
+                        float inputs:intensity = 9036.57
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_072"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (-11.05, 12.95, 36.19747978152397)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2223,14 +2223,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.68167865, 0.40318516)
                         float inputs:height = 1.3
-                        float inputs:intensity = 4236.5986
+                        float inputs:intensity = 7804.2607
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_073"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (-11.05, 15.55, 36.19747978152397)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2238,14 +2238,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1.3
-                        float inputs:intensity = 3320.436
+                        float inputs:intensity = 6116.593
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_074"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (-11.05, 18.15, 36.19747978152397)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2253,14 +2253,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.89416665, 0.8075703)
                         float inputs:height = 1.3
-                        float inputs:intensity = 1564.4525
+                        float inputs:intensity = 2881.8862
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_075"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (-11.05, 15.55, 39.37670531601955)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2268,14 +2268,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.6538038, 0.34276664)
                         float inputs:height = 1.3
-                        float inputs:intensity = 4258.6343
+                        float inputs:intensity = 7844.8525
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_076"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-6.1499999999999995, -12.05, 32.863726142840456)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2283,14 +2283,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.99651015, 0.9805565)
                         float inputs:height = 1.3
-                        float inputs:intensity = 5003.0757
+                        float inputs:intensity = 9216.192
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_077"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-6.1499999999999995, -14.65, 35.86047853152267)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2298,14 +2298,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1.3
-                        float inputs:intensity = 6016.213
+                        float inputs:intensity = 11082.498
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_078"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, 0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, 0.43318874, 0)
                     double3 xformOp:translate = (-6.1499999999999995, -12.05, 35.86047853152267)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2313,14 +2313,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.6538038, 0.34276664)
                         float inputs:height = 1.3
-                        float inputs:intensity = 2715.0403
+                        float inputs:intensity = 5001.39
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_079"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (-0.7500000000000001, -15.1, 32.82617020774632)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2328,14 +2328,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.80712247, 0.6512994)
                         float inputs:height = 1.3
-                        float inputs:intensity = 3153.0762
+                        float inputs:intensity = 5808.2983
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_080"
                 {
-                    quatf xformOp:orient = (0.83975136, 0, -0.54297113, 0)
+                    quatf xformOp:orient = (0.90130323, 0, -0.43318874, 0)
                     double3 xformOp:translate = (-0.7500000000000001, -15.1, 35.765044088382275)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2343,14 +2343,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.694903, 0.431048)
                         float inputs:height = 1.3
-                        float inputs:intensity = 5567.525
+                        float inputs:intensity = 10255.967
                         float inputs:width = 1
                     }
                 }
 
                 def Xform "win_081"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-3.5, -8.450000000000001, 35.62723112762906)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2358,14 +2358,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.99651015, 0.9805565)
                         float inputs:height = 0.9
-                        float inputs:intensity = 4406.6436
+                        float inputs:intensity = 8117.5015
                         float inputs:width = 0.85
                     }
                 }
 
                 def Xform "win_082"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (-0.9, -8.450000000000001, 35.62723112762906)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2373,14 +2373,14 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.82615465, 0.6863572)
                         float inputs:height = 0.9
-                        float inputs:intensity = 5254.181
+                        float inputs:intensity = 9678.755
                         float inputs:width = 0.85
                     }
                 }
 
                 def Xform "win_083"
                 {
-                    quatf xformOp:orient = (0.83975136, 0.54297113, -0, 0)
+                    quatf xformOp:orient = (0.90130323, 0.43318874, -0, 0)
                     double3 xformOp:translate = (1.7, -8.450000000000001, 35.62723112762906)
                     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]
 
@@ -2388,7 +2388,7 @@ over "World"
                     {
                         color3f inputs:color = (1, 0.99651015, 0.9805565)
                         float inputs:height = 0.9
-                        float inputs:intensity = 1801.4855
+                        float inputs:intensity = 3318.526
                         float inputs:width = 0.85
                     }
                 }
