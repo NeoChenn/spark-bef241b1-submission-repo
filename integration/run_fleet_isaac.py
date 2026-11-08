@@ -1328,6 +1328,10 @@ def main(argv=None):
         pipe_c = dict(pipe)
     geom = PipeGeometry(pipe_c["origin"], pipe["axis"], pipe["ref"], pipe["radius"], seg_len, *shape0)
     overlay = RustOverlay(stage, geom)
+    if args.film:
+        from integration.repair_scene import RUST_TEXTURE
+
+        film_overlay_looks(stage, overlay, RUST_TEXTURE)
     cone, cone_op = add_spray_cone(stage)
     settings.set("/rtx/raytracing/fractionalCutoutOpacity", True)
     fx = FleetFx(stage, flanges, leak_info(scn), crate_info(scn), float(meta["world"]["deck_z_m"]))
@@ -1762,6 +1766,42 @@ def paint_unit(stage, root_path: str, body_hex: str) -> dict:
         if role in mats:
             UsdShade.MaterialBindingAPI.Apply(prim).Bind(mats[role], UsdShade.Tokens.strongerThanDescendants)
     return n
+
+
+def film_overlay_looks(stage, overlay, texture) -> None:
+    from pxr import Gf, Sdf, UsdShade
+
+    root = "/World/Looks/Fleet"
+    wet = UsdShade.Material.Define(stage, f"{root}/wet_film")
+    ws = UsdShade.Shader.Define(stage, f"{root}/wet_film/surface")
+    ws.CreateIdAttr("UsdPreviewSurface")
+    ws.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.01, 0.012, 0.014))
+    ws.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.12)
+    ws.CreateInput("opacity", Sdf.ValueTypeNames.Float).Set(0.25)
+    ws.CreateInput("opacityThreshold", Sdf.ValueTypeNames.Float).Set(0.0)
+    wet.CreateSurfaceOutput().ConnectToSource(ws.CreateOutput("surface", Sdf.ValueTypeNames.Token))
+    rust = UsdShade.Material.Define(stage, f"{root}/rust_film")
+    rs_ = UsdShade.Shader.Define(stage, f"{root}/rust_film/surface")
+    rs_.CreateIdAttr("UsdPreviewSurface")
+    rs_.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.9)
+    rs_.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.09, 0.025, 0.006))
+    rd = UsdShade.Shader.Define(stage, f"{root}/rust_film/st")
+    rd.CreateIdAttr("UsdPrimvarReader_float2")
+    rd.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+    img = UsdShade.Shader.Define(stage, f"{root}/rust_film/diffuse")
+    img.CreateIdAttr("UsdUVTexture")
+    img.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(str(texture).replace("\\", "/"))
+    img.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
+    img.CreateInput("wrapS", Sdf.ValueTypeNames.Token).Set("repeat")
+    img.CreateInput("wrapT", Sdf.ValueTypeNames.Token).Set("repeat")
+    img.CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(1.9, 0.85, 0.42, 1.0))
+    img.CreateInput("bias", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(0.12, 0.03, 0.0, 0.0))
+    img.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(rd.ConnectableAPI(), "result")
+    img.CreateOutput("rgb", Sdf.ValueTypeNames.Float3)
+    rs_.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(img.ConnectableAPI(), "rgb")
+    rust.CreateSurfaceOutput().ConnectToSource(rs_.CreateOutput("surface", Sdf.ValueTypeNames.Token))
+    UsdShade.MaterialBindingAPI.Apply(overlay.wet.mesh.GetPrim()).Bind(wet)
+    UsdShade.MaterialBindingAPI.Apply(overlay.rust.mesh.GetPrim()).Bind(rust)
 
 
 def patch_flange(stage, flanges: dict | None, fid: str = "F5", root: str = "/World/Leak") -> int:
