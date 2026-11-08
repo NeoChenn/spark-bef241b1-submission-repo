@@ -32,14 +32,14 @@ def mission_force(run: Path, out: Path) -> dict:
         if k % 2:
             ax.axvspan(s["t0"], t1, color=AXIS, alpha=0.35, lw=0)
         if t1 - s["t0"] > 0.04 * (t[-1] - t[0]):
-            ax.text(0.5 * (s["t0"] + t1), ax.get_ylim()[1] * 0.97, s["phase"].replace("_", " "), ha="center",
+            ax.text(0.5 * (s["t0"] + t1), ax.get_ylim()[1] * 0.99, s["phase"].replace("_", " "), ha="center",
                     va="top", color=INK2, fontsize=8)
     for a, b in intervals(list(t), [m in ("PARK", "UNPARK") for m in mo]):
         ax.axvspan(a, b, color=VIOLET, alpha=0.28, lw=0)
     ax.plot(t, f, color=BLUE, lw=0.9, label="brush-tip contact sensor (120 Hz)")
     limit_lines(ax)
     k = int(np.argmax(f))
-    ax.annotate(f"peak {f[k]:.1f} N", (t[k], f[k]), xytext=(10, 6), textcoords="offset points", color=MUTED, fontsize=9)
+    ax.annotate(f"peak {f[k]:.1f} N", (t[k], f[k]), xytext=(8, -2), textcoords="offset points", color=MUTED, fontsize=9, va="top")
     ax.set_xlabel("sim time (s)")
     ax.set_ylabel("normal force (N)")
     ax.set_title("Mission loop contact force: walk to paint, one Isaac Lab run", pad=30)
