@@ -126,16 +126,17 @@ def evaluate(policy, episodes=1000, seed=1234, cfg_overrides=None) -> dict:
 
 def train(iters=300, envs=1024, horizon=64, out="runs/patrol/nav_v1", lr=3e-4, epochs=4, minibatches=8,
           gamma=0.99, lam=0.95, clip=0.2, ent=0.003, seed=0, threads=None, log=print,
-          sim_overrides: dict | None = None, init: str | None = None) -> dict:
+          sim_overrides: dict | None = None, init: str | None = None, device: str = "cpu") -> dict:
     if threads:
         torch.set_num_threads(threads)
     torch.manual_seed(seed)
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
-    sim = PatrolSim(SimCfg(num_envs=envs, seed=seed, **(sim_overrides or {})))
+    sim = PatrolSim(SimCfg(num_envs=envs, seed=seed, device=device, **(sim_overrides or {})))
     ac = ActorCritic()
     if init:
         ac.load_state_dict(torch.load(init, map_location="cpu")["model"])
+    ac.to(device)
     opt = torch.optim.Adam(ac.parameters(), lr=lr)
     obs = sim.observe()
     hist = []
@@ -157,7 +158,7 @@ def train(iters=300, envs=1024, horizon=64, out="runs/patrol/nav_v1", lr=3e-4, e
             last_v = ac.critic(ac.norm(obs))[:, 0]
         O, A, LP, V, R, D = map(torch.stack, (O, A, LP, V, R, D))
         adv = torch.zeros_like(R)
-        g = torch.zeros(envs)
+        g = torch.zeros(envs, device=device)
         for t in reversed(range(horizon)):
             nv = last_v if t == horizon - 1 else V[t + 1]
             delta = R[t] + gamma * nv * (1 - D[t]) - V[t]
@@ -168,7 +169,7 @@ def train(iters=300, envs=1024, horizon=64, out="runs/patrol/nav_v1", lr=3e-4, e
         adv = (adv - adv.mean()) / (adv.std() + 1e-8)
         n = O.shape[0]
         for _ in range(epochs):
-            perm = torch.randperm(n)
+            perm = torch.randperm(n, device=device)
             for mb in perm.chunk(minibatches):
                 dist = ac.dist(O[mb])
                 lp = dist.log_prob(A[mb]).sum(-1)
@@ -191,9 +192,12 @@ def train(iters=300, envs=1024, horizon=64, out="runs/patrol/nav_v1", lr=3e-4, e
                 f.write(json.dumps(rec) + "\n")
         if (it + 1) % 50 == 0 or it == iters - 1:
             torch.save({"model": ac.state_dict(), "iter": it}, out / "model.pt")
+    ac.cpu()
+    torch.save({"model": ac.state_dict(), "iter": iters - 1}, out / "model.pt")
     export(ac, out)
-    ppo_eval = evaluate(lambda s, o: ac.act_deterministic(o))
-    base_eval = evaluate(lambda s, o: pure_pursuit(s))
+    sensor = {"lidar_beams": (sim_overrides or {}).get("lidar_beams", SimCfg.lidar_beams)}
+    ppo_eval = evaluate(lambda s, o: ac.act_deterministic(o), cfg_overrides=sensor)
+    base_eval = evaluate(lambda s, o: pure_pursuit(s), cfg_overrides=sensor)
     res = {"ppo": ppo_eval, "pure_pursuit_baseline": base_eval, "iters": iters, "envs": envs,
            "env_steps": iters * horizon * envs, "train_sec": round(time.time() - t0, 1)}
     (out / "eval.json").write_text(json.dumps(res, indent=2))
