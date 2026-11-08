@@ -6,6 +6,7 @@ import carb.settings
 import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
+import look
 import ocean
 import photoreal
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
@@ -429,9 +430,40 @@ def build_stage() -> Usd.Stage:
     return stage
 
 
+def _relight(prim, f: dict) -> None:
+    light = prim.GetChild("light") if prim else None
+    if not light:
+        return
+    color = kelvin_rgb(f["kelvin"])
+    light.GetAttribute("inputs:color").Set(Gf.Vec3f(*color))
+    light.GetAttribute("inputs:intensity").Set(f["intensity"])
+    base = light.GetAttribute("spark:baseIntensity")
+    if base.IsValid():
+        base.Set(f["intensity"])
+    if f.get("cone") is not None:
+        shaping = UsdLux.ShapingAPI.Apply(light)
+        shaping.CreateShapingConeAngleAttr().Set(f["cone"])
+        shaping.CreateShapingConeSoftnessAttr().Set(f["softness"])
+        shaping.CreateShapingFocusAttr().Set(f["focus"])
+    lens = prim.GetChild("lens")
+    if lens:
+        glow = emissive_material(prim.GetStage(), f"fixture_glow_{int(f['kelvin'])}", tuple(c * 40 for c in color))
+        UsdShade.MaterialBindingAPI.Apply(lens).Bind(glow)
+
+
+def relight(stage) -> None:
+    lamps = "/World/Cinematic/Lamps"
+    for index, (kind, _, kelvin, intensity, _, shape) in enumerate(AREA_LIGHTS):
+        _relight(stage.GetPrimAtPath(f"{lamps}/area_{500 + index:03d}"),
+                 look.fixture(kind, kelvin, intensity, shape if kind == "spot" else None))
+    for index, (_, kelvin, intensity) in enumerate(BULBS):
+        _relight(stage.GetPrimAtPath(f"{lamps}/lamp_{index:03d}"), look.fixture("bulb", kelvin, intensity))
+
+
 def apply_preset(stage, name: str) -> None:
     preset = PRESETS[name]
     photoreal.apply(stage, name)
+    relight(stage)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))
     dome.GetIntensityAttr().Set(preset["dome"])
