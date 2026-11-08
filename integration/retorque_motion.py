@@ -262,7 +262,7 @@ def timeline_marks(path, robot: str = "unit2") -> dict:
             st = r.get("robots", {}).get(robot, {}).get("state")
             if st == "RETORQUE":
                 marks.setdefault("engaged", float(r["t"]))
-            if st == "RETURN" and "torque_done" in marks:
+            if st in ("STANDBY", "RETURN", "DOCKED") and "torque_done" in marks:
                 marks.setdefault("leave", float(r["t"]))
     return marks
 
