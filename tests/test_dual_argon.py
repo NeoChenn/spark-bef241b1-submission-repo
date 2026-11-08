@@ -256,3 +256,12 @@ def test_escalate_routes_to_supervisor_and_detector_targets_normalise():
     link = ArgonLink("edge", Timeline(None))
     out = link._issue(0.0, [command(HOLD, "G-F5", "argon", "x"), command(ESCALATE, "F5", "argon", "y")])
     assert kinds(out) == [(HOLD, SCRUBBER, "F5"), (ESCALATE, "supv", "F5")]
+
+
+def test_a_ticketed_head_is_not_redispatched_when_the_robot_walks_away():
+    link = ArgonLink("edge", Timeline(None), fault_confirm_s=0.0)
+    d = det(0.0, stuck=15.0, did="G-F1", flange="F1", pos=(0.0, 0.0, 1.0))
+    out = []
+    for t, x in ((0.0, 9.0), (1.0, 1.0), (2.0, 1.0), (3.0, 9.0), (4.0, 12.0)):
+        out += link.tick(t, [fuse_fleet(d, {FIXER: (0.8, (x, 0.0))})], {}, [d], ids_for([d]), scrubber_pos=(30.0, 0.0))
+    assert [c.kind for c in out].count(GO_CHECK) == 1 and len(link.tickets) == 1
