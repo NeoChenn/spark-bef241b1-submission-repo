@@ -156,3 +156,26 @@ def test_inscatter_glows_toward_sun_and_with_distance():
     assert a[..., 0].mean() > a[..., 2].mean()
     assert look.inscatter(img, far, toward, "night", sun) is img
     assert look.inscatter(img, None, toward, "dusk", sun) is img
+
+
+def test_live_haze_reuses_cached_layer_and_reads_depth_sparingly():
+    img = np.full((180, 320, 3), 20, np.uint8)
+    sun = look.sun_direction((85.0, 0.0, 205.0))
+    cam = _cam((0.0, 0.0, 10.0), np.add((0.0, 0.0, 10.0), np.multiply(sun, 100.0)))
+    look._LIVE.clear()
+    look._LIVE["n"] = 0
+    reads = []
+
+    def depth():
+        reads.append(1)
+        return np.full((180, 320), 800.0, np.float32)
+
+    outs = [look.inscatter(img, depth, cam, "dusk", sun, tier="live") for _ in range(8)]
+    assert len(reads) == 1 + 8 // look.LIVE_EVERY
+    graded = look.grade(outs[-1], "live", 0.0, "dusk")
+    assert isinstance(graded, np.ndarray) and graded.shape == img.shape and graded.mean() > look.grade(img, "live", 0.0, "dusk").mean()
+    other = _cam((50.0, 0.0, 10.0), (0.0, 0.0, 10.0))
+    look.inscatter(img, depth, other, "dusk", sun, tier="live")
+    assert len(reads) == 2 + 8 // look.LIVE_EVERY
+    look._LIVE.clear()
+    look._LIVE["n"] = 0

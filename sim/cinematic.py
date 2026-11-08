@@ -79,16 +79,16 @@ PRESETS = {
     "dusk": {
         "sky": ASSETS / "hdris" / "belfast_sunset_puresky.hdr",
         "dome": 180.0,
-        "sky_rotation": 333.0,
+        "sky_rotation": 318.0,
         "sun": 1200.0,
-        "sun_rotation": (85.0, 0.0, 205.0),
+        "sun_rotation": (87.0, 0.0, 190.0),
         "sun_color": (1.0, 0.52, 0.22),
         "fog_color": (0.8, 0.45, 0.22),
         "fog_height": 0.004,
         "wave_height": 1.0,
         "lights": 0.7,
         "windows": 0.8,
-        "sea_color": (0.012, 0.024, 0.03),
+        "sea_color": (0.005, 0.011, 0.015),
         "sun_disc": 1.0,
     },
 }
@@ -528,7 +528,18 @@ def place_sun_disc(stage, preset: dict) -> None:
 WIDE_CENTER = (4.0, -6.0, 30.0)
 
 
+def hide_light_shapes(stage) -> None:
+    for prim in Usd.PrimRange(stage.GetPrimAtPath("/World")):
+        if prim.IsA(UsdLux.SphereLight) or prim.IsA(UsdLux.RectLight) or prim.IsA(UsdLux.DiskLight):
+            prim.CreateAttribute("visibleInPrimaryRay", Sdf.ValueTypeNames.Bool).Set(False)
+
+
 def relight(stage) -> None:
+    hide_light_shapes(stage)
+    for k in (NEUTRAL, LED):
+        bulb = UsdShade.Shader.Get(stage, f"/World/Looks/lamp_{int(k)}/surface")
+        if bulb:
+            bulb.GetInput("emissiveColor").Set(Gf.Vec3f(*(c * 3.0 for c in kelvin_rgb(k))))
     tame_beacons(stage)
     add_fill(stage)
     lamps = "/World/Cinematic/Lamps"
