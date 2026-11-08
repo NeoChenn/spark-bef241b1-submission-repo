@@ -372,3 +372,11 @@ li.on .st { background: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition-duration: 0ms !important; }
 }
+
+.qr-card { display: flex; gap: 16px; align-items: center; }
+.qr-card .qr-code { flex: none; padding: 8px; border-radius: 12px; background: #F5F4EE; line-height: 0; }
+.qr-card .qr-code img, .qr-card .qr-code canvas { display: block; }
+.qr-card b { font-weight: 600; font-size: 14px; }
+.qr-card p { margin: 4px 0 8px; color: var(--label2); }
+.qr-card a { color: var(--accent); text-decoration: none; font-weight: 500; }
+.qr-pop { left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 20; padding: 20px 22px; border-radius: 22px; width: min(460px, calc(100% - 32px)); cursor: pointer; }

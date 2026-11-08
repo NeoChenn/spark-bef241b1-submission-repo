@@ -10,8 +10,8 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Body, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi import Body, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from rig.frames import encode, read_message_async
@@ -157,8 +157,10 @@ class RenderClient:
 
 def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Path = MOCK_PATH,
                fleet_dirs=FLEET_DIRS, root: Path = REPO, fleet=None, lan_host: str | None = None,
-               lan_port: int | None = None, token: str | None = None, control=None) -> FastAPI:
+               lan_port: int | None = None, token: str | None = None, control=None,
+               event_gap_s: float = 0.0) -> FastAPI:
     root = Path(root).resolve()
+    last_event: dict[str, float] = {}
     hub = FrameHub()
     fleet_seq = {"n": 0, "event": asyncio.Event()}
     current: dict[str, asyncio.StreamWriter | None] = {"writer": None}
@@ -323,6 +325,14 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
     async def index() -> FileResponse:
         return FileResponse(STATIC / "index.html")
 
+    @app.get("/interactive")
+    async def interactive() -> FileResponse:
+        return FileResponse(STATIC / "interactive.html")
+
+    @app.get("/judge")
+    async def judge() -> RedirectResponse:
+        return RedirectResponse("/interactive")
+
     @app.get("/api/health")
     async def health() -> dict:
         header = hub.latest[2] if hub.latest else {}
@@ -351,7 +361,16 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
         }
 
     @app.post("/api/event")
-    async def post_event(body: dict) -> dict:
+    async def post_event(body: dict, request: Request):
+        who = (request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+               or (request.client.host if request.client else "?"))
+        now = time.monotonic()
+        wait = event_gap_s - (now - last_event.get(who, -1e9))
+        if wait > 0:
+            return JSONResponse({"detail": "one change per second, please", "retry_s": round(wait, 2)}, status_code=429)
+        last_event[who] = now
+        if len(last_event) > 4096:
+            last_event.clear()
         try:
             ev = check_event(body)
         except ValueError as e:
@@ -366,6 +385,9 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
                 out["fleet"] = fleet.event(ev["name"], ev["args"])
             except (ValueError, TypeError) as e:
                 raise HTTPException(400, str(e))
+            fleet_changed()
+        elif fleet is not None and ev["name"] in ("gas_leak", "battery_fault") and hasattr(fleet, "incident"):
+            out["fleet"] = fleet.incident(ev["name"], ev["args"])
             fleet_changed()
         pending.append(ev)
         queued = len(pending)
@@ -548,5 +570,5 @@ def default_control():
 
 
 app = create_app(os.environ.get("SIM_HOST", "127.0.0.1"), int(os.environ.get("SIM_PORT", "9000")), fleet=default_fleet(),
-                 control=default_control(),
+                 control=default_control(), event_gap_s=float(os.environ.get("RIG_EVENT_GAP_S", "1")),
                  lan_host=os.environ.get("SIM_HOST_LAN") or None, token=os.environ.get("INGEST_TOKEN") or None)

@@ -12,10 +12,11 @@ HOOKS = ("spawn_patch", "set_glare", "occlude_camera", "force_spike", "person_at
 EXTRA = ("camera",)
 CONTROL_EVENTS = ("cut_link", "intent")
 SCENARIO = ("set_weather", "drop_obstacle", "close_walkway", "close_stairs", "clear", "gas_leak", "control_action",
-            "battery_fault", "approve", "reject")
+            "battery_fault", "approve", "reject", "drop_can")
 EVENTS = HOOKS + EXTRA + CONTROL_EVENTS + SCENARIO
 WEATHER = ("calm", "wind", "rain", "fog", "storm")
-FLEET = ("drop_obstacle", "close_walkway", "close_stairs", "clear", "set_weather")
+FLEET = ("drop_obstacle", "close_walkway", "close_stairs", "clear", "set_weather", "drop_can")
+TIMES = ("dusk", "night")
 RATES = {"SOAK": 0.15, "SCRUB": 0.35}
 DWELL = 1.3
 THUMB_W = 320
@@ -170,6 +171,8 @@ def check_event(event: dict) -> dict:
     lv = args.get("level", "storm")
     if name == "set_weather" and not isinstance(lv, (int, float)) and lv not in WEATHER:
         raise ValueError(f"unknown weather {lv!r}; expected one of {WEATHER} or 0..1")
+    if name == "set_weather" and args.get("time") is not None and args["time"] not in TIMES:
+        raise ValueError(f"unknown time {args['time']!r}; expected one of {TIMES}")
     return {"name": name, "args": args}
 
 

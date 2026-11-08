@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import random
 import threading
 
+from policy.fleet import barrel
+from policy.fleet.fleet import Event
 from policy.fleet.jobs import JobLibrary, JobTrace, run_orchestrator
+from policy.fleet.tasks import OPEN
 from policy.fleet.scenario import SCENARIOS
 
 LOG_KEEP = 300
+INCIDENTS = ("gas_leak", "battery_fault")
+BARREL_EVERY_S = 60.0
 QUICK = {"rust": [(0, "DETECT", "rust confirmed"), (6, "SPRAY", "spray converter"), (14, "SOAK", "soak 30 s"),
                   (44, "SCRUB", "scrub, force-limited"), (90, "VERIFY", "on-board + second opinion"),
                   (100, "PAINT", "paint"), (120, "DONE", "repair complete")],
@@ -26,8 +32,10 @@ def quick_run(kind: str, scenario: str) -> JobTrace:
 
 
 class FleetLive:
-    def __init__(self, scenario: str = "judges", speed: float = 4.0, jobs=None, max_steps: int = 40):
+    def __init__(self, scenario: str = "judges", speed: float = 4.0, jobs=None, max_steps: int = 40,
+                 barrel_every_s: float = BARREL_EVERY_S, seed=None):
         jobs = jobs or JobLibrary(quick_run)
+        self.barrel_every_s, self.rng = barrel_every_s, random.Random(seed)
         self.scenario, self.speed, self.jobs, self.max_steps = scenario, speed, jobs, max_steps
         self.lock = threading.Lock()
         self.f = SCENARIOS[scenario](3, jobs=jobs, disturb=False) if scenario == "judges" else \
@@ -45,9 +53,41 @@ class FleetLive:
             self.snap = self.f.snapshot()
             return {"t": self.f.t, "log": self.f.event_log[n:]}
 
+    def incident(self, name: str, args: dict | None = None) -> dict:
+        args = args or {}
+        with self.lock:
+            f = self.f
+            n = len(f.event_log)
+            if name == "gas_leak":
+                fid = str(args.get("flange") or "F2")
+                live = any(t.kind == "gas" and t.poi == fid and t.status in OPEN for t in f.tasks.values())
+                if not args.get("on", True):
+                    f._log("gas_isolated", f"leak at flange {fid} isolated")
+                elif not live:
+                    f._apply(Event(f.t, "gas_alarm", {"flange": fid}))
+            elif name == "battery_fault":
+                ids = {r.id for r in f.robots if not r.failed}
+                rank = sorted((r for r in f.robots if not r.failed),
+                              key=lambda r: (r.task is None, r.task is not None and r.task.kind == "gas", r.id))
+                rid = args.get("robot") if args.get("robot") in ids else rank[0].id
+                r = f._robot(rid)
+                b = r.battery
+                b.wh = min(b.wh, 0.8 * b.return_frac * b.capacity_wh)
+                job = r.task.id if r.task is not None and r.task.kind != "gas" else None
+                if r.task is None or job:
+                    f._send_dock(r, True)
+                f._log("battery_fault", f"{rid} battery fault -> {b.soc:.0%}, heads to the dock"
+                       + (f", {job} back to the queue" if job else ""), robot=rid)
+            else:
+                raise ValueError(f"unknown incident {name!r}; expected one of {INCIDENTS}")
+            self.snap = f.snapshot()
+            return {"t": f.t, "log": f.event_log[n:]}
+
     def advance(self, wall_dt: float) -> dict:
         with self.lock:
             self.acc += wall_dt * self.speed
+            rolled = self.f.roll(wall_dt)
+            self._auto_barrel(wall_dt)
             k = 0
             while self.acc >= self.f.dt and k < self.max_steps:
                 self.f.step()
@@ -56,9 +96,25 @@ class FleetLive:
                 if self.f.done():
                     self.new_round()
             self.acc = min(self.acc, self.f.dt)
-            if k:
+            if k or rolled:
                 self.snap = self.f.snapshot()
             return self.snap
+
+    def _auto_barrel(self, dt: float) -> None:
+        hz = self.f.hz
+        if self.barrel_every_s <= 0 or hz.weather["wind"] < barrel.AUTO_WIND:
+            return
+        if self.rng.random() >= dt / self.barrel_every_s:
+            return
+        if sum(1 for o in hz.obstacles.values() if o.get("auto")) >= barrel.AUTO_MAX:
+            return
+        movers = [r.id for r in self.f.robots if not r.failed and r.legs]
+        if not movers:
+            return
+        try:
+            self.f.event("drop_obstacle", kind="barrel", at=self.rng.choice(movers), auto=True)
+        except ValueError:
+            pass
 
     def new_round(self) -> None:
         f = self.f
