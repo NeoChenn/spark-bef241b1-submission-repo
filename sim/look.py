@@ -35,7 +35,7 @@ TONEMAP = {
     "/rtx/post/histogram/enabled": False,
 }
 BLOOM_CUTOFF = 6.0
-SUN_DISC = {"distance": 5000.0, "radius": 70.0, "color": (1.0, 0.62, 0.32), "gain": 60.0}
+SUN_DISC = {"distance": 2000.0, "radius": 30.0, "color": (1.0, 0.7, 0.42), "gain": 400.0}
 
 
 def sun_direction(rotate_xyz) -> tuple:
@@ -46,7 +46,7 @@ def sun_direction(rotate_xyz) -> tuple:
 
 INSCATTER = {
     "dusk": {"color": (1.0, 0.64, 0.38), "density": 1.0 / 90.0, "height": 30.0, "g": 0.72, "sun": 1.0, "ambient": 0.3,
-             "max": 0.5, "sky": 1500.0, "scale": 4},
+             "max": 0.5, "sky": 1500.0, "scale": 4, "dark": 0.3},
 }
 
 
@@ -70,6 +70,8 @@ def inscatter(rgb: np.ndarray, depth, cam: dict, preset: str, sun_dir, strength:
     ratio = np.where(np.abs(k) > 1e-4, (1 - np.exp(-np.clip(k, -30, 30))) / safe, 1.0)
     tau = p["density"] * d * np.exp(-max(float(T[2, 3]), 0.0) / p["height"]) * ratio
     f = np.clip(1 - np.exp(-np.clip(tau, 0, 50)), 0, p["max"]) * strength
+    lum = np.asarray(rgb[s // 2::s, s // 2::s, :3], np.float32).mean(-1)[:hs, :ws] / 255.0
+    f *= p.get("dark", 1.0) + (1 - p.get("dark", 1.0)) * np.clip(lum / 0.35, 0, 1)
     g = p["g"]
     cos = rays @ np.asarray(sun_dir, np.float32)
     phase = (1 - g * g) / (1 + g * g - 2 * g * cos) ** 1.5 * (1 - g) ** 3 / (1 - g * g)
