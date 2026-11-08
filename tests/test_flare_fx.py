@@ -89,6 +89,6 @@ def test_parts_by_quality(monkeypatch):
     monkeypatch.setenv("RIG_QUALITY", "offline")
     assert {"side", "halo", "smoke"} <= fx.parts()
     monkeypatch.setenv("RIG_QUALITY", "live")
-    assert "side" not in fx.parts() and "flame" in fx.parts()
+    assert fx.parts() == {"flame", "anim"}
     monkeypatch.setenv("RIG_FLARE_PARTS", "flame")
     assert fx.parts() == {"flame"}

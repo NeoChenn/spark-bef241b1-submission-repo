@@ -37,7 +37,7 @@ SMOKE_N, SMOKE_LIFE, SMOKE_LEVELS = 110, 12.0, 8
 SMOKE_TINT, SMOKE_ALPHA, SMOKE_GLOW = (0.055, 0.045, 0.036), 0.42, (1.0, 0.42, 0.12)
 HALO_SIZE, HALO_GAIN, HALO_ALPHA = 46.0, EMISSION * 0.08, 0.35
 SIDE_GAIN = 0.8
-PARTS = {"offline": "flame,side,smoke,halo,anim", "live": "flame,smoke,anim"}
+PARTS = {"offline": "flame,side,smoke,halo,anim", "live": "flame,anim"}
 LIVE_SMOKE = 18
 STOPS = (
     (0.0, (0.7, 0.1, 0.01)),
