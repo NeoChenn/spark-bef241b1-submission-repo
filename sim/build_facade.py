@@ -155,7 +155,7 @@ def materials(stage) -> dict:
         "frame": paint(stage, "frame", (0.08, 0.085, 0.09), chip=0.15, rust=0.05, metallic=0.4),
         "door": paint(stage, "door", (0.16, 0.24, 0.3), chip=0.55, rust=0.3),
         "unit": paint(stage, "unit", (0.62, 0.63, 0.61), chip=0.4, rust=0.2),
-        "hull": paint(stage, "hull", (0.95, 0.3, 0.015), chip=0.2, rust=0.04, streak_amount=0.2, grime_amount=0.2),
+        "hull": paint(stage, "hull", (0.95, 0.3, 0.015), chip=0.05, rust=0.0, streak_amount=0.1, grime_amount=0.15),
         "fender": paint(stage, "fender", (0.03, 0.03, 0.03), chip=0.0, rust=0.0, streak_amount=0.0),
         "interior": preview(stage, "interior", (0.004, 0.004, 0.005), roughness=0.03, emit=TEX / "interiors.png"),
         "sign": preview(stage, "sign", roughness=0.35, emit=TEX / "signs.png", diffuse_tex=TEX / "signs.png"),
