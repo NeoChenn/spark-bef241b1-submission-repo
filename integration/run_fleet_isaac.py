@@ -437,6 +437,9 @@ def _get(d, keys, default=None):
 def normalize_shot(sh) -> dict | None:
     name = _get(sh, ("name", "shot", "id"))
     span = _get(sh, ("sim", "sim_span", "sim_t"))
+    two_d = bool(_get(sh, ("two_d",), False))
+    if span is None and _get(sh, ("camera",)) is not None:
+        span, two_d = (0.0, 0.0), True
     t0 = _get(sh, ("sim_t0", "sim_start", "sim_in"), span[0] if isinstance(span, (list, tuple)) else None)
     t1 = _get(sh, ("sim_t1", "sim_end", "sim_out"), span[1] if isinstance(span, (list, tuple)) else None)
     if name is None or t0 is None or t1 is None:
@@ -447,9 +450,28 @@ def normalize_shot(sh) -> dict | None:
     rate = float(_get(sh, ("rate", "playback", "speed", "playback_rate"), 1.0))
     if f1 is None:
         f1 = float(f0) + (float(t1) - float(t0)) / max(rate, 1e-6)
-    still = bool(_get(sh, ("still",), False)) or any(k in str(name).lower() for k in ("board", "conclusion"))
+    still = bool(_get(sh, ("still",), False)) or two_d
     return {"name": str(name), "sim_t0": float(t0), "sim_t1": float(t1), "rate": rate, "film_t0": float(f0),
             "film_t1": float(f1), "still": still}
+
+
+def film_shots(mod, timeline: str = FILM_TIMELINE):
+    if not all(hasattr(mod, k) for k in ("edl", "FilmBeats", "load_track")):
+        return None
+    summary = resolve(timeline).with_name("summary.json")
+    beats = mod.FilmBeats.load(summary) if summary.exists() else mod.FilmBeats()
+    track = mod.load_track(resolve(timeline)) if resolve(timeline).exists() else None
+    return mod.edl(beats, track=track)
+
+
+def room_from_camera(cr: dict | None):
+    if not cr or "box" not in cr:
+        return None
+    (x0, y0, _), (x1, y1, z1) = cr["box"]
+    fz = float(cr.get("floor_z", _))
+    inset = 0.15
+    return {"center": [(x0 + x1) / 2, (y0 + y1) / 2, fz], "size": [x1 - x0 - 2 * inset, y1 - y0 - 2 * inset,
+                                                                   min(2.8, z1 - fz - 0.3)], "yaw": 0.0}
 
 
 def load_edl(spec: str = "") -> list:
@@ -459,8 +481,8 @@ def load_edl(spec: str = "") -> list:
         import importlib
 
         mod = importlib.import_module(spec or "integration.film_edl")
-        raw = None
-        for name in ("EDL", "SHOTS", "edl", "shots", "build_edl", "load"):
+        raw = film_shots(mod)
+        for name in () if raw is not None else ("EDL", "SHOTS", "edl", "shots", "build_edl", "load"):
             v = getattr(mod, name, None)
             if v is not None:
                 raw = v() if callable(v) else v
@@ -469,7 +491,7 @@ def load_edl(spec: str = "") -> list:
     return [s for s in (normalize_shot(x) for x in (raw or [])) if s is not None]
 
 
-def film_steps(shots: list, fps: int, only: str = "", fast_div: int = 2, half: str = "") -> list:
+def film_steps(shots: list, fps: int, only: str = "", fast_div: int = 2, half: str = "", at: str = "") -> list:
     pick = {s for s in only.split(",") if s} if only else None
     halves = {s for s in half.split(",") if s}
     tasks = []
@@ -477,14 +499,18 @@ def film_steps(shots: list, fps: int, only: str = "", fast_div: int = 2, half: s
         if pick and sh["name"] not in pick:
             continue
         n = max(1, int(round((sh["film_t1"] - sh["film_t0"]) * fps)))
-        if sh.get("still") or sh["sim_t1"] <= sh["sim_t0"]:
+        if sh.get("still"):
             tasks.append((round(sh["sim_t0"], 6), (sh["name"], 0, round(sh["film_t0"], 4), n)))
             continue
-        step = fast_div if sh["rate"] > 1.0 or sh["name"] in halves else 1
+        step = fast_div if sh["rate"] >= 2.0 or sh["name"] in halves else 1
         dt = (sh["sim_t1"] - sh["sim_t0"]) / n
         for i in range(0, n, step):
             tasks.append((round(sh["sim_t0"] + i * dt, 6),
                           (sh["name"], i, round(sh["film_t0"] + i / fps, 4), min(step, n - i))))
+    if at:
+        want = [float(v) for v in at.split(",") if v.strip()]
+        tasks = [min(tasks, key=lambda x: abs(x[1][2] - w)) for w in want]
+        tasks = [(t, (n, i, ft, 1)) for t, (n, i, ft, _) in dict.fromkeys(tasks)]
     if not tasks:
         return []
     end = max(t for t, _ in tasks)
@@ -1114,7 +1140,7 @@ def main(argv=None):
         n_frames = min(n_frames, args.max_frames * max(1, args.every))
     shots = load_edl(args.edl) if args.film else []
     shots_by_name = {s_["name"]: s_ for s_ in shots}
-    steps = film_steps(shots, args.fps, args.shots, half=args.half_shots) if args.film else \
+    steps = film_steps(shots, args.fps, args.shots, half=args.half_shots, at=args.at) if args.film else \
         [(args.start + k / args.fps, k) for k in range(n_frames)]
     if args.film:
         n_frames = sum(1 for _, task in steps if task is not None)
@@ -1210,22 +1236,27 @@ def main(argv=None):
     cam.CreateVerticalApertureAttr(20.955 * args.height / args.width)
     cam_op = UsdGeom.Xformable(cam).AddTransformOp()
     cam_fn, cam_kind = camera_source(args, scn, meta)
-    film_cam = None
+    film_cam, film_room = None, None
     room = parse_room(args.control_room) if args.control_room else None
     if args.film:
         try:
             from integration import film_camera as fcam
 
-            room = room or getattr(fcam, "CONTROL_ROOM", None)
-            fn_ = next(getattr(fcam, n_) for n_ in ("camera_at", "at", "shot_at") if callable(getattr(fcam, n_, None)))
+            film_room = getattr(fcam, "CONTROL_ROOM", None)
+            room = room or room_from_camera(film_room)
+            from integration import film_edl as fedl
+
+            shot_objs = film_shots(fedl, tl)
 
             def film_cam(ft, st):
-                c_ = fn_(ft)
+                c_ = fedl.camera_at_film(ft, shot_objs)
                 if isinstance(c_, dict):
                     return list(c_["eye"]), list(c_.get("target", c_.get("look"))), float(c_.get("focal", args.focal))
                 return list(c_[0]), list(c_[1]), float(c_[2]) if len(c_) > 2 else args.focal
         except Exception as exc:
             print(f"[fleet] film camera unavailable ({exc}), using {cam_kind}", flush=True)
+    if args.film and film_room is not None:
+        print(f"[fleet] control room shell {open_control_room(stage, film_room)}", flush=True)
     if room:
         print(f"[fleet] control room {room} parts {add_control_room(stage, room['center'], room['size'], room.get('yaw', 0.0))}",
               flush=True)
@@ -1645,6 +1676,58 @@ def patch_flange(stage, flanges: dict | None, fid: str = "F5", root: str = "/Wor
     UsdShade.MaterialBindingAPI.Apply(disc.GetPrim()).Bind(
         _surface(stage, "/World/Looks/Fleet/flange_steel", (0.33, 0.34, 0.36), 0.5, 0.6))
     return n
+
+
+def open_control_room(stage, cr: dict, root: str = "/World/Fleet/control_room", wall: float = 0.15) -> dict:
+    from pxr import Gf, UsdGeom, UsdShade, Vt
+
+    mod, win = stage.GetPrimAtPath(cr["prim"]), stage.GetPrimAtPath(cr["windows"])
+    if not (mod.IsValid() and win.IsValid()):
+        return {"opened": 0}
+    UsdGeom.Xform.Define(stage, root)
+    white = UsdShade.MaterialBindingAPI(mod).ComputeBoundMaterial()[0]
+    glass = UsdShade.MaterialBindingAPI(win).ComputeBoundMaterial()[0]
+    (x0, y0, z0), (x1, y1, z1) = cr["box"]
+    m = UsdGeom.Mesh(win)
+    M = np.array(UsdGeom.XformCache().GetLocalToWorldTransform(win))
+    pts = np.array(m.GetPointsAttr().Get(), float) @ M[:3, :3] + M[3, :3]
+    cnt = np.array(m.GetFaceVertexCountsAttr().Get())
+    idx = np.array(m.GetFaceVertexIndicesAttr().Get())
+    off = np.concatenate([[0], np.cumsum(cnt)])
+    faces = [idx[off[i]:off[i + 1]] for i in range(len(cnt))]
+    north = [f for f in faces if pts[f, 1].mean() > y1 - 0.3 and pts[f, 2].mean() > float(cr.get("floor_z", z0)) + 0.5]
+    keep = [f for f in faces if not any(f is g for g in north)]
+    holes = sorted((float(pts[f, 0].min()), float(pts[f, 0].max()), float(pts[f, 2].min()), float(pts[f, 2].max()))
+                   for f in north)
+    cut = UsdGeom.Mesh.Define(stage, f"{root}/windows_cut")
+    cut.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
+    cut.CreateFaceVertexCountsAttr(Vt.IntArray([len(f) for f in keep]))
+    cut.CreateFaceVertexIndicesAttr(Vt.IntArray([int(i) for f in keep for i in f]))
+    cut.CreateDoubleSidedAttr(True)
+    if glass:
+        UsdShade.MaterialBindingAPI.Apply(cut.GetPrim()).Bind(glass)
+    parts = [("shell_roof", (x0, y0, z1 - wall), (x1, y1, z1)), ("shell_base", (x0, y0, z0), (x1, y1, z0 + wall)),
+             ("shell_s", (x0, y0, z0), (x1, y0 + wall, z1)), ("shell_w", (x0, y0, z0), (x0 + wall, y1, z1)),
+             ("shell_e", (x1 - wall, y0, z0), (x1, y1, z1))]
+    if holes:
+        zl, zh = min(h[2] for h in holes), max(h[3] for h in holes)
+        parts += [("shell_n_low", (x0, y1 - wall, z0), (x1, y1, zl)), ("shell_n_high", (x0, y1 - wall, zh), (x1, y1, z1))]
+        xs = [x0] + [v for h in holes for v in (h[0], h[1])] + [x1]
+        parts += [(f"shell_n_post{k}", (xs[2 * k], y1 - wall, zl), (xs[2 * k + 1], y1, zh)) for k in range(len(xs) // 2)
+                  if xs[2 * k + 1] - xs[2 * k] > 1e-3]
+    else:
+        parts.append(("shell_n", (x0, y1 - wall, z0), (x1, y1, z1)))
+    for name, lo, hi in parts:
+        c_ = UsdGeom.Cube.Define(stage, f"{root}/{name}")
+        c_.CreateSizeAttr(1.0)
+        xf = UsdGeom.Xformable(c_)
+        xf.AddTranslateOp().Set(Gf.Vec3d(*[(a + b) / 2 for a, b in zip(lo, hi)]))
+        xf.AddScaleOp().Set(Gf.Vec3f(*[b - a for a, b in zip(lo, hi)]))
+        if white:
+            UsdShade.MaterialBindingAPI.Apply(c_.GetPrim()).Bind(white)
+    mod.SetActive(False)
+    win.SetActive(False)
+    return {"opened": len(north), "holes": [[round(v, 2) for v in h] for h in holes], "shell": len(parts)}
 
 
 def add_control_room(stage, center, size, yaw: float = 0.0, root: str = "/World/Fleet/control_room") -> int:
