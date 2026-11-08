@@ -23,7 +23,9 @@ def subjects(name, t):
     s, r = DEFAULT_SCENE, robots_at(t)
     return {"scrub": [s.scrub], "detector": [s.detector], "gripper": [s.bolt], "green": [s.detector, s.bolt],
             "spray": [s.scrub, np.add(s.scrub, np.multiply(0.3, s.normal))], "paint": [s.scrub],
-            "resume": [r["unit1"]]}.get(
+            "resume": [r["unit1"]], "establish": [r["unit1"]],
+            "pull_back": [r["unit1"]] + ([r["unit2"]] if t >= DEFAULT_BEATS.arrive - 1.5 else []),
+            "wide": [r["unit1"]] + ([r["unit2"]] if r["unit2"][0] < s.unit2_work[0] + 4.0 else [])}.get(
         name, [r["unit1"], r["unit2"]])
 
 
@@ -32,7 +34,7 @@ def test_one_take_under_a_minute_with_seven_beats_in_order():
     assert [n for n, *_ in spans] == ["establish", "spray", "scrub", "detector", "pull_back", "gripper", "green",
                                      "resume", "paint", "wide"]
     assert spans[0][1] == DEFAULT_BEATS.start and spans[-1][2] == DEFAULT_BEATS.end <= 120.0
-    assert spans[0][2] - spans[0][1] >= 2.5
+    assert 1.0 <= spans[0][2] - spans[0][1] <= 1.5
     for (_, _, end, _), (_, t0, _, _) in zip(spans, spans[1:]):
         assert end == t0
     assert all(t0 <= arrive < end for _, t0, end, arrive in spans)
@@ -50,12 +52,33 @@ def test_beats_follow_the_scenario_script():
                                        "2_leak_start": 18.0, "2_gf5_amber": 18.8, "2_gf5_red": 20.6,
                                        "3_unit1_held": 22.4, "4_unit2_sniffs": 40.0, "4_gf5_green": 55.0,
                                        "5_resume_rust": 57.5, "5_unit1_paint": 66.0, "6_link_cut": None}})
-    assert (run.spray, run.scrub, run.amber, run.red, run.step_back) == (2.0, 11.0, 18.8, 20.6, 22.4)
+    assert (run.spray, run.scrub, run.amber, run.red) == (2.0, 11.0, 18.8, 20.6) and run.step_back >= 22.4
     assert (run.arrive, run.green, run.resume, run.paint) == (40.0, 55.0, 57.5, 66.0)
     assert run.arrive < run.fixed < run.green and 75.0 <= run.end <= 85.0
     late = Beats.from_events({"amber": 12.0, "red": 14.0, "fixed": 38.0, "green": 44.0})
     detector = next(s for s in beat_spans(late) if s[0] == "detector")
     assert detector[1] < late.amber < late.red < detector[2]
+
+
+@pytest.mark.parametrize("run", ["live", "edge"])
+def test_real_run_summaries_give_valid_beats(run):
+    import json
+    path = Path(__file__).resolve().parent.parent / f"runs_sample/fleet_demo/{run}_summary.json"
+    if not path.exists():
+        pytest.skip("no sample summary")
+    summary = json.loads(path.read_text())
+    b = Beats.from_events(summary)
+    raw = summary["beats"]
+    assert (b.spray, b.scrub, b.amber, b.red) == (raw["1_unit1_spray"], raw["1_unit1_scrub"], raw["2_gf5_amber"],
+                                                  raw["2_gf5_red"])
+    assert b.end == summary["t_end"] and b.green == raw["4_gf5_green"] and b.paint >= raw["5_unit1_paint"]
+    spans = {n: (t0, end, arrive) for n, t0, end, arrive in beat_spans(b)}
+    assert spans["spray"][2] <= raw["1_unit1_spray"] + 0.5 and spans["spray"][1] >= raw["1_unit1_soak"]
+    assert spans["detector"][0] < b.amber and spans["detector"][2] <= b.red < spans["detector"][1]
+    assert spans["gripper"][0] <= raw["4_retorque"] < spans["gripper"][1]
+    assert spans["paint"][0] <= b.paint < spans["paint"][1]
+    eyes = np.array([camera_at(t, b)[0] for t in np.arange(b.start, b.end, 1 / 30)])
+    assert np.linalg.norm(np.diff(eyes, axis=0), axis=1).max() * 30 < 15.0
 
 
 def test_the_amber_and_red_leds_land_inside_the_detector_beat():
@@ -95,15 +118,15 @@ def test_the_subjects_stay_in_frame_while_each_beat_holds():
 
 def test_robot_labels_follow_the_robots():
     for name, _, end, arrive in beat_spans():
-        if name in ("establish", "pull_back", "wide"):
-            for t in np.arange(arrive, end, 0.5):
+        if name == "pull_back":
+            for t in np.arange(max(arrive, DEFAULT_BEATS.arrive - 1.0), end, 0.5):
                 a = labels(t)
                 assert a["unit1"]["mode"] == a["unit2"]["mode"] == "on", (name, t)
     a = labels(DEFAULT_BEATS.red)
     assert a["G-F5"]["mode"] == "on" and abs(a["G-F5"]["x"] - W / 2) < W / 4
     p = project_points(3.0, {"x": (20.0, -6.0, 42.5)}, w=1920, h=1080)
     assert set(p["x"]) == {"mode", "x", "y", "angle"}
-    moved = labels(74.5, positions={"unit1": (16.0, -4.5, 42.82), "unit2": (21.24, -10.17, 42.82)})
+    moved = labels(74.5, positions={"unit1": (18.0, -5.3, 42.82), "unit2": (22.0, -10.0, 42.82)})
     assert moved["unit1"]["mode"] == moved["unit2"]["mode"] == "on"
     assert moved["unit2"]["x"] != labels(74.5)["unit2"]["x"]
     assert labels(30.0)["unit2"]["mode"] in ("on", "edge")

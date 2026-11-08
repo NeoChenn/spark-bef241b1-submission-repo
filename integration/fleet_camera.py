@@ -24,7 +24,7 @@ ALIASES = {"retorque_done": "fixed", "gas_clear": "green", "hold": "step_back", 
            "PAINT": "paint", "SCRUB": "scrub", "1_unit1_spray": "spray", "1_unit1_scrub": "scrub",
            "5_unit1_paint": "paint", "2_gf5_amber": "amber",
            "2_gf5_red": "red", "3_unit1_held": "step_back", "4_unit2_sniffs": "arrive", "4_gf5_green": "green",
-           "5_resume_rust": "resume"}
+           "5_resume_rust": "resume", "4_retorque": "retorque"}
 RIG_BOXES = (
     ((11.15, -5.9, 43.45), (26.35, -5.6, 43.75)),
     ((15.5, -10.82, 43.28), (35.0, -10.58, 43.52)),
@@ -59,7 +59,7 @@ RIG_BOXES = (
 @dataclass(frozen=True)
 class Beats:
     start: float = 0.0
-    spray: float = 4.0
+    spray: float = 2.3
     scrub: float = 10.0
     amber: float = 18.75
     red: float = 20.55
@@ -80,6 +80,7 @@ class Beats:
 
     @classmethod
     def from_events(cls, events) -> "Beats":
+        t_end = events.get("t_end") if isinstance(events, dict) else None
         if isinstance(events, dict) and isinstance(events.get("beats"), dict):
             events = events["beats"]
         if isinstance(events, dict) and "script" in events:
@@ -88,7 +89,9 @@ class Beats:
             pairs = list(events.items())
         else:
             pairs = [(e.get("beat") or e.get("event") or e.get("name"), e.get("t", e.get("time"))) for e in events]
-        names, got = {f.name for f in fields(cls)}, {}
+        names, got = {f.name for f in fields(cls)} | {"retorque"}, {}
+        if t_end is not None:
+            got["end"] = float(t_end)
         for name, t in pairs:
             key = ALIASES.get(str(name), str(name).rsplit(" ", 1)[-1])
             if key in names and t is not None and key not in got:
@@ -100,12 +103,15 @@ class Beats:
         spray = g("spray", max(start + 0.5, min(d.spray, amber - 9.0)))
         scrub = g("scrub", max(spray + 1.0, min(amber - 4.0, spray + 6.0)))
         red = g("red", amber + 1.8)
-        fixed = g("fixed", d.fixed - d.amber + amber)
-        green = g("green", fixed + 6.2)
+        green = g("green", (got["retorque"] + 7.3) if "retorque" in got else d.green - d.amber + amber)
+        fixed = g("fixed", min(got.get("retorque", green) + 4.0, green - 1.0))
         resume = g("resume", green + 2.5)
         paint = g("paint", resume + 7.3)
-        return cls(start, spray, scrub, amber, red, g("step_back", red + 1.5), g("arrive", fixed - 7.0), fixed,
-                   green, resume, paint, g("end", paint + 13.0))
+        ts = [start, spray, scrub, amber, red, max(g("step_back", red + 2.5), red + 2.0),
+              min(g("arrive", fixed - 7.0), fixed - 1.0), fixed, green, resume, paint, g("end", paint + 13.0)]
+        for i in range(1, len(ts)):
+            ts[i] = max(ts[i], ts[i - 1] + 0.1)
+        return cls(*ts)
 
 
 @dataclass(frozen=True)
@@ -119,7 +125,8 @@ class Scene:
     detector: Vec3 = (20.1533, -10.3958, 43.46)
     detector_id: str = "G-F5"
     rack: tuple[float, float, float, float] = (11.75, 25.75, -10.15, -1.35)
-    gate: Vec3 = (8.0, -4.4, 45.5)
+    gate: Vec3 = (8.0, -4.6, 45.2)
+    side_gates: tuple[float, float] = (15.25, 22.25)
     unit2_work: Vec3 = (21.01, -10.27, TRUNK_Z)
     unit2_dock: Vec3 = (29.6, -9.68, TRUNK_Z)
     deck_z: float = 42.5
@@ -151,9 +158,9 @@ def robots_at(t: float, beats: Beats = DEFAULT_BEATS, scene: Scene = DEFAULT_SCE
     return {"unit1": u1, "unit2": u2}
 
 
-def _fit(points, az: float, el: float, focal: float, margin: float = 60.0):
+def _fit(points, az: float, el: float, focal: float, margin: float = 60.0, target=None):
     pts = np.asarray(points, float)
-    target = tuple((pts.min(0) + pts.max(0)) / 2)
+    target = tuple((pts.min(0) + pts.max(0)) / 2) if target is None else tuple(map(float, target))
     lo, hi = 0.5, 80.0
     for _ in range(40):
         d = (lo + hi) / 2
@@ -181,21 +188,31 @@ def _close(target: Vec3, d: float, az: float, el: float, focal: float):
     return spherical(target, d, az, el), target, focal
 
 
+def _body(p: Vec3) -> list[Vec3]:
+    x, y, z = p
+    return [(x - 0.35, y, 42.5), (x + 0.35, y, 42.5), (x, y - 0.2, z), (x, y + 0.2, z), (x, y, z + 1.1)]
+
+
+def _mix(a, b, w: float) -> Vec3:
+    return tuple(float(c) for c in np.asarray(a) * (1 - w) + np.asarray(b) * w)
+
+
 def shots(scene: Scene = DEFAULT_SCENE) -> dict[str, tuple]:
     s = scene
-    both = _both(s.unit1_work, s.unit1_back, s.unit2_dock, s.unit2_work)
+    contact, nozzle = _up(s.scrub, 0.02), tuple(np.asarray(s.scrub) + 0.18 * np.asarray(s.normal))
+    u1, u2 = _body(s.unit1_work), _body(s.unit2_work)
     return {
-        "establish": _fit(_both(s.unit1_work, s.unit2_dock, s.flange), 172.0, 28.0, WIDE),
-        "scrub": _close(_up(s.scrub, 0.02), 1.75, 150.0, 20.0, CLOSE),
+        "establish": _close(_mix(nozzle, _up(s.unit1_work, 0.3), 0.4), 4.5, 125.0, 24.0, WIDE),
+        "spray": _close(nozzle, 2.0, 125.0, 24.0, 35.0),
+        "scrub": _fit(u1 + [contact], 150.0, 15.0, MID, margin=40.0, target=_mix(contact, _up(s.unit1_work, 0.3), 0.5)),
         "detector": _close(s.detector, 3.0, 64.0, 25.0, CLOSE),
-        "pull_back": _fit(both, 180.0, 26.0, WIDE),
-        "gripper": _close(s.bolt, 1.7, 60.0, 32.0, CLOSE),
-        "spray": _close(tuple(np.asarray(s.scrub) + 0.18 * np.asarray(s.normal)), 2.0, 125.0, 24.0, 35.0),
+        "pull_back": _fit(_body(s.unit1_back) + u2 + [s.flange], 180.0, 34.0, WIDE, margin=40.0),
+        "gripper": _fit(u2 + [s.bolt, s.flange], 80.0, 19.0, MID, margin=60.0, target=s.bolt),
+        "green": _close(tuple((np.asarray(s.detector) + np.asarray(s.bolt)) / 2), 2.6, 70.0, 25.0, MID),
         "resume": _close(tuple((np.asarray(s.unit1_work) + np.asarray(s.unit1_back)) / 2 + [0, 0, 0.4]), 4.0, 130.0,
                          28.0, MID),
-        "paint": _close(_up(s.scrub, 0.02), 1.6, 100.0, 24.0, CLOSE),
-        "green": _close(tuple((np.asarray(s.detector) + np.asarray(s.bolt)) / 2), 2.6, 70.0, 25.0, MID),
-        "wide": _fit(both, 185.0, 26.0, WIDE),
+        "paint": _close(_mix(contact, _up(s.unit1_work, 0.3), 0.5), 4.0, 110.0, 16.0, 35.0),
+        "wide": _fit(u1 + u2 + [_mix(s.unit2_work, s.unit2_dock, 0.5)], 180.0, 36.0, WIDE, margin=40.0),
     }
 
 
@@ -205,18 +222,19 @@ def _move(t0: float, t1: float, cap: float = 4.0, frac: float = 0.55) -> float:
 
 def beat_spans(beats: Beats = DEFAULT_BEATS) -> list[tuple[str, float, float, float]]:
     b = beats
-    est = max(b.start + 2.5, b.spray - 1.5)
+    est = max(b.start + 1.2, b.spray - 1.1)
+    paint_end = max(b.paint + 1.5, min(b.paint + 4.0, b.end - 4.5))
     plan = [
         ("establish", b.start, est),
-        ("spray", _move(est, b.scrub, cap=5.0, frac=0.7), max(b.scrub - 0.5, est + 1.0)),
+        ("spray", b.spray + 0.2, max(b.scrub - 0.5, est + 1.5)),
         ("scrub", b.scrub + 1.0, b.amber - 0.6),
         ("detector", min(b.amber + 1.4, b.red - 0.3), b.step_back),
-        ("pull_back", _move(b.step_back, b.arrive, cap=6.0), max(b.arrive - 4.0, b.step_back + 4.0)),
-        ("gripper", _move(b.arrive - 4.0, b.fixed, cap=6.0), min(b.fixed + 1.5, b.green - 1.5)),
+        ("pull_back", _move(b.step_back, b.arrive, cap=5.5, frac=0.8), b.arrive),
+        ("gripper", _move(b.arrive, b.fixed, cap=5.5, frac=0.8), min(b.fixed + 1.5, b.green - 1.5)),
         ("green", b.green - 1.0, b.resume),
         ("resume", _move(b.resume, b.paint, cap=3.0), b.paint - 1.5),
-        ("paint", b.paint, min(b.paint + 4.0, b.end - 6.0)),
-        ("wide", _move(min(b.paint + 4.0, b.end - 6.0), b.end, cap=5.0, frac=0.85), b.end),
+        ("paint", b.paint - 0.3, paint_end),
+        ("wide", _move(paint_end, b.end, cap=4.5, frac=0.95), b.end),
     ]
     out, t0 = [], b.start
     for name, arrive, end in plan:
@@ -237,7 +255,13 @@ def inside(eye, scene: Scene = DEFAULT_SCENE) -> bool:
 
 
 def _gate(a: Vec3, b: Vec3, scene: Scene):
-    return None if inside(a, scene) == inside(b, scene) else scene.gate
+    if inside(a, scene) == inside(b, scene):
+        return None
+    out, inn = (a, b) if inside(b, scene) else (b, a)
+    if out[0] < scene.rack[0]:
+        return scene.gate
+    x = min(scene.side_gates, key=lambda g: abs(g - inn[0]))
+    return (x, scene.rack[2] - 0.75 if out[1] < scene.rack[2] else scene.rack[3] + 0.75, 45.0)
 
 
 def keyframes(beats: Beats = DEFAULT_BEATS, scene: Scene = DEFAULT_SCENE) -> list[tuple]:
