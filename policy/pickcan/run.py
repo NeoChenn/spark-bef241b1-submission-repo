@@ -87,7 +87,7 @@ def main(argv):
             if policy is not None:
                 act = policy(obs)
             else:
-                act = picker.act(u._tip()[0], u.p_tgt, u.grasp_estimate(), u.sealed)
+                act = picker.act(u._tip()[0], u.p_tgt, u.grasp_estimate(), u.sealed, u._robot.data.joint_pos[:, u.lift_id])
             obs, _, dones, _ = env.step(act)
         if args.mode == "smoke" and step % 15 == 0:
             tip = u._tip()[0][0].tolist()
@@ -95,7 +95,7 @@ def main(argv):
             print(f"[smoke] step {step} phase {NAMES[int(picker.phase[0])]} tip {[round(v, 3) for v in tip]} "
                   f"tgt {[round(v, 3) for v in u.p_tgt[0].tolist()]} can {[round(v, 3) for v in can]} "
                   f"sealed {bool(u.sealed[0])} force {float(u.tool_force[0]):.1f} lift_max {float(u.lift_max[0]):.3f}"
-                  f" ph_hist {torch.bincount(picker.phase, minlength=6).tolist()}", flush=True)
+                  f" ph_hist {torch.bincount(picker.phase, minlength=7).tolist()}", flush=True)
         st = getattr(u, "last_episode_stats", None)
         if st is not None and st is not last:
             last = st

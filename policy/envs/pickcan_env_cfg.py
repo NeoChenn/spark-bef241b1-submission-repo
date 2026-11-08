@@ -85,7 +85,7 @@ class PickCanEnvCfg(DirectRLEnvCfg):
     det_close: float = 0.3
 
     action_scale: float = 0.012
-    lift_scale: float = 0.004
+    lift_scale: float = 0.005
     lift_max: float = 0.3
     max_target_gap: float = 0.06
     work_lo: tuple = (-0.5, -0.6, 0.02)

@@ -5,7 +5,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from policy.pickcan import core
-from policy.pickcan.script import CARRY, DESCEND, DONE, LIFT, RELEASE, ScriptedPicker
+from policy.pickcan.script import ABOVE, CARRY, DESCEND, DONE, LIFT, LOWER, RELEASE, ScriptedPicker
 
 
 def _t(*v):
@@ -113,3 +113,17 @@ def test_suction_torque_uses_principal_inertia():
     assert T[0, 2].item() == pytest.approx(-2 * 20.0 * 1e-4)
     I = core.can_inertia(torch.tensor([0.2]), torch.tensor([0.03]), torch.tensor([0.2]))
     assert I[0].tolist() == pytest.approx([0.2 * (3 * 0.03 ** 2 + 0.04) / 12] * 2 + [0.2 * 0.03 ** 2 / 2])
+
+
+def test_scripted_carry_arcs_around_shoulder_and_raises_lift():
+    sp = ScriptedPicker(1, "cpu")
+    sp.phase[:] = CARRY
+    tip = _t(0.33, 0.0, 0.8)
+    a = sp.act(tip, tip, _t(0.33, 0.0, 0.05), torch.tensor([True]), torch.tensor([0.05]))
+    assert sp.phase.item() == CARRY
+    assert a[0, 1].abs().item() > 0.5 and a[0, 4].item() > 0
+    sp.phase[:] = LOWER
+    a = sp.act(_t(-0.2, 0.0, 0.85), _t(-0.2, 0.0, 0.85), _t(0.33, 0.0, 0.05), torch.tensor([True]), torch.tensor([0.13]))
+    assert sp.phase.item() == LOWER and a[0, 4].item() < 0 and a[0, 3].item() > 0
+    sp.act(_t(-0.2, 0.0, 0.85), _t(-0.2, 0.0, 0.85), _t(0.33, 0.0, 0.05), torch.tensor([False]), torch.tensor([0.13]))
+    assert sp.phase.item() == ABOVE

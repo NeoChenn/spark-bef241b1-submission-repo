@@ -15,6 +15,7 @@ from policy.envs.pickcan_env_cfg import CANS, PickCanEnvCfg, can_spawn_cfg
 from policy.pickcan import core
 
 DOWN = (0.0, 0.0, -1.0)
+READY_TIP = (0.1, 0.2, 0.55)
 
 
 class PickCanEnv(DirectRLEnv):
@@ -44,7 +45,7 @@ class PickCanEnv(DirectRLEnv):
         z1 = lambda: torch.zeros(N, device=dev)
         zb = lambda: torch.zeros(N, dtype=torch.bool, device=dev)
         self.mass = torch.full((N,), cfg.nominal_mass, device=dev)
-        self.inertia = z1()
+        self.inertia = z3()
         self.actions = torch.zeros(N, 5, device=dev)
         self.prev_actions = torch.zeros(N, 5, device=dev)
         self.p_tgt, self.rel_p = z3(), z3()
@@ -105,7 +106,7 @@ class PickCanEnv(DirectRLEnv):
         view.set_material_properties(mats, idx)
         self.mass[:] = m.to(self.device)
         r, h = self.can_r, self.can_h
-        self.inertia[:] = self.mass * (3 * r ** 2 + h ** 2) / 12
+        self.inertia[:] = core.can_inertia(self.mass, r, h)
         self.friction = f.to(self.device)
 
     def _tip(self):
@@ -193,7 +194,7 @@ class PickCanEnv(DirectRLEnv):
         cf = self._can_sensor.data.net_forces_w_history[:, :, 0]
         push = (cf[..., 2] - self.mass[:, None] * core.G).clamp_min(0.0).max(dim=1).values
         self.tool_force[:] = tf
-        self.deck_force[:] = push * ~self.sealed
+        self.deck_force[:] = push * (~self.sealed & (tf > 0.5))
         self.max_force[:] = torch.maximum(self.max_force, tf)
         self.max_deck_force[:] = torch.maximum(self.max_deck_force, self.deck_force)
         can_p = self._can_state()[0]
@@ -288,26 +289,13 @@ class PickCanEnv(DirectRLEnv):
         jp = self._robot.data.default_joint_pos[env_ids].clone()
         jp[:, self.arm_ids] += sample_uniform(-c.init_joint_noise, c.init_joint_noise, (n, len(self.arm_ids)), dev)
         jp[:, self.lift_id] = 0.0
-        self._robot.set_joint_position_target(jp, env_ids=env_ids)
-        self._robot.write_joint_state_to_sim(jp, torch.zeros_like(jp), env_ids=env_ids)
-
         lying = torch.rand(n, device=dev) < c.prob_lying
-        r, h = self.can_r[env_ids], self.can_h[env_ids]
-        xy = self._sample_xy(n, r, h, lying)
-        yaw = sample_uniform(-math.pi, math.pi, (n,), dev)
-        z = core.rest_height(lying, r, h) + 0.002
-        pos = torch.cat([xy, z[:, None]], -1)
-        quat = core.can_quat(lying, yaw)
-        self._can.write_root_pose_to_sim(torch.cat([pos + self.scene.env_origins[env_ids], quat], -1), env_ids=env_ids)
-        self._can.write_root_velocity_to_sim(torch.zeros(n, 6, device=dev), env_ids=env_ids)
-        self.lying[env_ids] = lying
-        self.rest_z[env_ids] = z - 0.002
+        xy = self._sample_xy(n, self.can_r[env_ids], self.can_h[env_ids], lying)
+        self.place_can(env_ids, xy, sample_uniform(-math.pi, math.pi, (n,), dev), lying, jp)
 
         self.det_bias[env_ids] = torch.randn(n, 3, device=dev) * torch.tensor(
             [c.det_sigma_xy, c.det_sigma_xy, c.det_sigma_z], device=dev)
         self.det_yaw_bias[env_ids] = torch.randn(n, device=dev) * c.det_sigma_yaw
-        p_tip = self._fk_tip_guess(env_ids)
-        self.p_tgt[env_ids] = p_tip
         self.lift_tgt[env_ids] = 0.0
         self.actions[env_ids] = 0.0
         self.prev_actions[env_ids] = 0.0
@@ -320,8 +308,28 @@ class PickCanEnv(DirectRLEnv):
         self.wrench_f[env_ids] = 0.0
         self.wrench_t[env_ids] = 0.0
 
-    def _fk_tip_guess(self, env_ids):
-        return torch.tensor([0.1, 0.2, 0.55], device=self.device).repeat(len(env_ids), 1)
+    def place_can(self, env_ids, xy, yaw, lying, jp=None):
+        c = self.cfg
+        n = len(env_ids)
+        if jp is None:
+            jp = self._robot.data.default_joint_pos[env_ids].clone()
+        r, h = self.can_r[env_ids], self.can_h[env_ids]
+        sx, sy = c.shoulder_xy
+        rx, ry = READY_TIP[0] - sx, READY_TIP[1] - sy
+        turn = core.wrap(torch.atan2(xy[:, 1] - sy, xy[:, 0] - sx) - math.atan2(ry, rx))
+        jp[:, self.arm_ids[0]] = core.wrap(jp[:, self.arm_ids[0]] + turn)
+        self._robot.set_joint_position_target(jp, env_ids=env_ids)
+        self._robot.write_joint_state_to_sim(jp, torch.zeros_like(jp), env_ids=env_ids)
+        ct, st = torch.cos(turn), torch.sin(turn)
+        self.p_tgt[env_ids] = torch.stack([sx + ct * rx - st * ry, sy + st * rx + ct * ry,
+                                           torch.full_like(turn, READY_TIP[2])], -1)
+        z = core.rest_height(lying, r, h) + 0.002
+        pos = torch.cat([xy, z[:, None]], -1)
+        quat = core.can_quat(lying, yaw)
+        self._can.write_root_pose_to_sim(torch.cat([pos + self.scene.env_origins[env_ids], quat], -1), env_ids=env_ids)
+        self._can.write_root_velocity_to_sim(torch.zeros(n, 6, device=self.device), env_ids=env_ids)
+        self.lying[env_ids] = lying
+        self.rest_z[env_ids] = z - 0.002
 
     def _sample_xy(self, n, r, h, lying):
         c = self.cfg
