@@ -31,7 +31,7 @@ sea sea_eval(float2 p, float t, float height, float chop, float near_chop, float
         float4 a = BIG_A[i];
         float4 b = BIG_B[i];
         float amp = height * a.w * fade;
-        float th = a.z * (a.x * p.x + a.y * p.y) - b.x * t;
+        float th = a.z * (a.x * p.x + a.y * p.y) - (b.x * t - b.y);
         float s = math::sin(th);
         float c = math::cos(th);
         float ka = a.z * amp;
@@ -146,6 +146,8 @@ export material OceanFx(
     float leg_foam = 1.0,
     float leg_chop = 3.0,
     float grazing_gain = 0.8,
+    float mask_lo = 0.02,
+    float mask_hi = 0.13,
     float drift_speed = 0.6,
     float3 camera_position = float3(0.0, 0.0, 40.0),
     float pixel_angle = 0.0008,
@@ -192,9 +194,11 @@ export material OceanFx(
     color body0 = math::lerp(deep_color, crest_color, crest_tint);
     color body = math::lerp(body0, aerated_color, math::saturate(1.4 * math::max(m, 0.5 * wash * leg_foam)) * (1.0 - foam));
     float3 n = state::transform_normal(state::coordinate_world, state::coordinate_internal, o.n);
+    float ndv = math::dot(o.n, to_cam / math::max(dist, 1e-3));
+    float visible = math::smoothstep(mask_lo, mask_hi, ndv);
     bsdf water = df::fresnel_layer(
         ior: 1.333,
-        layer: df::microfacet_ggx_smith_bsdf(roughness_u: alpha, roughness_v: alpha, tint: color(1.0), mode: df::scatter_reflect),
+        layer: df::microfacet_ggx_smith_bsdf(roughness_u: alpha, roughness_v: alpha, tint: color(visible), mode: df::scatter_reflect),
         base: df::diffuse_reflection_bsdf(tint: body)
     );
     bsdf froth = df::fresnel_layer(

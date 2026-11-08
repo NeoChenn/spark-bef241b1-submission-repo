@@ -41,11 +41,11 @@ FX = {
 def big_waves() -> tuple[np.ndarray, np.ndarray]:
     n = len(WAVES)
     a, b = [], []
-    for wavelength, relative, heading, steepness in WAVES:
+    for wavelength, relative, heading, steepness, phase in WAVES:
         k = math.tau / wavelength
         dx, dy = math.cos(math.radians(heading)), math.sin(math.radians(heading))
         a.append((dx, dy, k, relative))
-        b.append((math.sqrt(GRAVITY * k), 0.0, 0.8 * min(steepness, 1.0) / n, 0.0))
+        b.append((math.sqrt(GRAVITY * k), phase, 0.8 * min(steepness, 1.0) / n, 0.0))
     return np.array(a), np.array(b)
 
 
@@ -62,7 +62,7 @@ def detail_waves(wind_speed: float = 9.0, max_wavelength: float = 10.0, min_wave
 def jacobian(big: tuple[np.ndarray, np.ndarray], detail: Waves, chop: float, xy: np.ndarray, t: float) -> np.ndarray:
     a, b = big
     fade = np.exp(-np.linalg.norm(xy, axis=1) / FADE_DISTANCE_M)
-    th = xy @ (a[:, :2] * a[:, 2:3]).T - b[:, 0] * t
+    th = xy @ (a[:, :2] * a[:, 2:3]).T - (b[:, 0] * t - b[:, 1])
     qs = np.sin(th) * b[:, 2] * fade[:, None]
     jxx, jyy, jxy = qs @ a[:, 0] ** 2, qs @ a[:, 1] ** 2, qs @ (a[:, 0] * a[:, 1])
     th = xy @ (detail.dir * detail.k[:, None]).T - (detail.omega * t - detail.phase)
