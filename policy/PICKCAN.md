@@ -74,6 +74,9 @@ noise-injected demos and the can-top height in the observation closed the gap. P
 Scripted iterations (n = 256): 49 % (stall at the tote, jerky IK drops), 44.5 % (pan limit on the carry), 87.5 %
 (counter-clockwise carry, faster actions), 88.3 % (release low inside the tote).
 
+Re-evaluated from the shipped fp16 weights (`runs_sample/pickcan/eval_shipped_weights_n768.json`, same 768
+scenarios): scripted 90.2 %, diffusion 89.1 %, MLP-BC 91.1 %.
+
 Weights: `pickcan/weights/{mlp,diffusion}.npz` (fp16, `diffusion.load_weights`). The fleet `pick_can` job uses the
 MLP-BC numbers (`fleet/jobs/pick_can.py`: `POLICY`, `SUCCESS_P = 0.91`, `TIME_S = 11.1`); the scripted picker is
 the fallback.

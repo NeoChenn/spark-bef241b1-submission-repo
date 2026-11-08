@@ -1,0 +1,98 @@
+{
+ "loaded": "policy/pickcan/weights",
+ "diffusion": {
+  "params": 2186280,
+  "latency_ms_b1": 2.79
+ },
+ "mlp": {
+  "params": 1622568,
+  "latency_ms_b1": 0.16
+ },
+ "eval": {
+  "scripted": {
+   "episodes": 768,
+   "success": 0.90234375,
+   "success_lying": 0.8831967213114754,
+   "success_upright": 0.9357142857142857,
+   "time_s_mean": 11.110053506936518,
+   "time_s_p95": 14.046667289733886,
+   "drops_per_episode": 0.11848958333333333,
+   "episodes_with_drop": 0.109375,
+   "max_force_mean": 0.4671410977995644,
+   "max_force_p95": 2.449354171752929,
+   "max_force_max": 8.731632232666016,
+   "deck_force_p95": 0.0,
+   "over_20N": 0.0,
+   "sealed": 1.0,
+   "lifted": 1.0,
+   "success_by_can": {
+    "0": 0.917,
+    "1": 0.875,
+    "2": 0.927,
+    "3": 0.885,
+    "4": 0.896,
+    "5": 0.938,
+    "6": 0.896,
+    "7": 0.885
+   },
+   "batch_inference_ms": 2.51
+  },
+  "diffusion": {
+   "episodes": 768,
+   "success": 0.890625,
+   "success_lying": 0.8709016393442623,
+   "success_upright": 0.925,
+   "time_s_mean": 11.258528842563518,
+   "time_s_p95": 14.133334159851074,
+   "drops_per_episode": 0.12760416666666666,
+   "episodes_with_drop": 0.1171875,
+   "max_force_mean": 3.5419104390166467,
+   "max_force_p95": 3.0510918736457815,
+   "max_force_max": 268.9167785644531,
+   "deck_force_p95": 0.0,
+   "over_20N": 0.020833333333333332,
+   "sealed": 1.0,
+   "lifted": 0.9986979166666666,
+   "success_by_can": {
+    "0": 0.948,
+    "1": 0.969,
+    "2": 0.854,
+    "3": 0.729,
+    "4": 0.875,
+    "5": 0.969,
+    "6": 0.844,
+    "7": 0.938
+   },
+   "batch_inference_ms": 10.44
+  },
+  "mlp_bc": {
+   "episodes": 768,
+   "success": 0.9114583333333334,
+   "success_lying": 0.8790983606557377,
+   "success_upright": 0.9678571428571429,
+   "time_s_mean": 11.093762483596802,
+   "time_s_p95": 14.100000381469727,
+   "drops_per_episode": 0.1015625,
+   "episodes_with_drop": 0.09765625,
+   "max_force_mean": 0.51412579731065,
+   "max_force_p95": 2.829608523845671,
+   "max_force_max": 12.170758247375488,
+   "deck_force_p95": 0.0,
+   "over_20N": 0.0,
+   "sealed": 0.9986979166666666,
+   "lifted": 0.9973958333333334,
+   "success_by_can": {
+    "0": 0.927,
+    "1": 0.896,
+    "2": 0.906,
+    "3": 0.896,
+    "4": 0.854,
+    "5": 0.938,
+    "6": 0.906,
+    "7": 0.969
+   },
+   "batch_inference_ms": 1.36
+  }
+ },
+ "eval_note": "first episode of each of 768 envs, seed 7, same scenarios for every policy"
+}

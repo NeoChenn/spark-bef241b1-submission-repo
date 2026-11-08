@@ -6,6 +6,7 @@ import torch
 from torch import nn
 
 CHUNK = 8
+SD_FLOOR = 0.05
 ACT = 5
 
 
@@ -33,7 +34,7 @@ class Normalizer(nn.Module):
 
     def fit(self, x: torch.Tensor):
         self.mu.copy_(x.mean(0))
-        self.sd.copy_(x.std(0).clamp_min(1e-3))
+        self.sd.copy_(x.std(0).clamp_min(SD_FLOOR))
         return self
 
     def forward(self, x):
@@ -135,4 +136,5 @@ def load_weights(model: nn.Module, path: str, device="cpu") -> nn.Module:
                                for k in z.files})
     else:
         model.load_state_dict(torch.load(path, map_location=device))
+    model.norm.sd.clamp_(min=SD_FLOOR)
     return model.to(device)
