@@ -172,6 +172,7 @@ def test_flow_usda_has_fire_steam_layers_and_wind():
     assert [layer.GetPrimAtPath(f"/Flow/vent_{i}").attributes["layer"].default for i in range(2)] == [1, 1]
     assert layer.GetPrimAtPath("/Flow/wind_0").attributes["velocity"].default == (6.0, -2.0, 0.0)
     assert layer.GetPrimAtPath("/Flow/wind_0").attributes["allocationScale"].default == 0.0
+    assert max(layer.GetPrimAtPath("/Flow/wind_1").attributes["halfSize"].default) < 40
     assert layer.GetPrimAtPath("/Flow/sim_1").attributes["densityCellSize"].default == pytest.approx(0.3)
     assert {p.typeName for p in layer.GetPrimAtPath("/Flow").nameChildren} >= {"FlowSimulate", "FlowOffscreen", "FlowRender"}
 

@@ -211,11 +211,11 @@ def _emitter(name, layer, pos, radius, velocity, fuel=0.0, temp=0.0, smoke=0.0, 
         "smoke": smoke, "temperature": temp, "velocity": tuple(map(float, velocity)), "velocityIsWorldSpace": True})
 
 
-def _wind(layer, wind, centre) -> str:
+def _wind(layer, wind, centre, half) -> str:
     return _prim("FlowEmitterBox", f"wind_{layer}", {
         "allocationScale": 0.0, "coupleRateBurn": 0.0, "coupleRateDivergence": 0.0, "coupleRateFuel": 0.0,
         "coupleRateSmoke": 0.0, "coupleRateTemperature": 0.0, "coupleRateVelocity": 0.6, "enabled": True,
-        "halfSize": (400.0, 400.0, 200.0), "layer": layer, "position": tuple(map(float, centre)),
+        "halfSize": tuple(map(float, half)), "layer": layer, "position": tuple(map(float, centre)),
         "velocity": (float(wind[0]), float(wind[1]), 0.0)})
 
 
@@ -274,7 +274,9 @@ def flow_usda(flare, vents, wind, cell: float, flame_radius: float = 1.2) -> str
     body = _emitter("flare", 0, flare, flame_radius, (lean[0], lean[1], 0.0), fuel=0.8, temp=2.0)
     body += "".join(_emitter(f"vent_{i}", 1, p, 0.5, (lean[0], lean[1], 3.0), smoke=1.0, temp=0.0, couple=4.0)
                     for i, p in enumerate(vents))
-    body += _wind(0, wind, flare) + _wind(1, wind, flare)
+    v = np.asarray(vents, float).reshape(-1, 3)
+    body += _wind(0, wind, np.asarray(flare, float) + [0.0, 0.0, 14.0], (18.0, 18.0, 22.0))
+    body += _wind(1, wind, (v.min(0) + v.max(0)) / 2 + [0.0, 0.0, 6.0], np.ptp(v, 0) / 2 + [10.0, 10.0, 8.0])
     body += _layer(0, cell, FIRE_MAP, True, 0.6, s) + _layer(1, cell, STEAM_MAP, False, 1.0, s)
     return f'#usda 1.0\n(\n    defaultPrim = "Flow"\n    metersPerUnit = 1\n    upAxis = "Z"\n)\ndef Xform "Flow"\n{{\n{body}}}\n'
 
