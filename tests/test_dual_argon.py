@@ -179,7 +179,7 @@ def test_argon_resume_is_vetoed_while_a_detector_near_unit1_is_red():
     link.wait_idle()
     link.tick(1.0, [fuse(d, 2.0, 4.0, robot=SCRUBBER)], {}, [d], ids_for([d]), scrubber_pos=(0.0, 0.0), wait=True)
     assert RESUME_RUST not in [c.kind for c in link.commands] and link.held
-    assert any(r["type"] == "vetoed" for r in link.timeline.rows)
+    assert any(r["type"] == "vetoed" or r.get("invalid") for r in link.timeline.rows)
 
 
 def test_stale_reply_is_not_executed():
@@ -282,3 +282,11 @@ def test_unverified_far_from_unit1_does_not_hold_it():
     g6 = det(0.0, stuck=14.0, did="G-F6", flange="F6", pos=(14.0, 0.0, 1.0))
     out = link.tick(0.0, [fuse(g6, None, None)], {}, [g6], ids_for([g6]), scrubber_pos=(0.0, 0.0))
     assert kinds(out) == [(GO_CHECK, FIXER, "F6")] and not link.held
+
+
+def test_edge_veto_still_blocks_a_late_resume_while_spark_is_hot():
+    from integration.dual_argon import command
+    link = ArgonLink("edge", Timeline(None))
+    link.held, link.spark = True, ["G-F5"]
+    assert link._issue(0.0, [command(RESUME_RUST, "", "argon", "x")]) == [] and link.held
+    assert any(r["type"] == "vetoed" for r in link.timeline.rows)

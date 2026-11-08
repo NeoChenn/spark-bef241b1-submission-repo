@@ -72,7 +72,7 @@ Underneath: *one state machine, one camera, one arm, one decision log; gas pre-e
 
 **Call-outs while it plays:**
 1. On the detector mask or pipe map: *"That's the detector. The red mask becomes the target grid on the pipe."*
-2. At the unscripted change:
+2. At the mid-run change (scripted in the sim, not announced to the robot):
    - New rust: *"New rust. It sees it and re-plans."*
    - A bolt loosening mid-scrub: *"Gas. It drops the scrub, fixes the bolt, and comes back to the scrub exactly where it left off."*
 3. At BACK_OFF, HOLD or PAUSE_PERSON: *"Too much force, so it backs off"* / *"Lens blocked, so it holds"* / *"A worker walked in, so it pauses."*
@@ -156,7 +156,7 @@ Tagline: *Find it. Fix it. Prove it. Ask when unsure.*
 ## Q&A cheat sheet (keep each answer to about 30 s)
 
 **Is this just a scripted animation?**
-No. Every transition comes from perception. The rust mask becomes the target grid, the stripe reading picks which bolt to tighten, and the state machine moves on only when the camera or the gas sensor confirms the result. The unscripted changes, new rust or a bolt working loose, aren't announced to the robot. Each decision is logged with its evidence in `decisions.jsonl`.
+No. Every transition comes from perception. The rust mask becomes the target grid, the stripe reading picks which bolt to tighten, and the state machine moves on only when the camera or the gas sensor confirms the result. The mid-run changes, new rust or a bolt working loose, are scripted in the sim but aren't announced to the robot. Each decision is logged with its evidence in `decisions.jsonl`.
 
 **Why no ML for the leak checks?**
 We didn't need it, and a classical check is easier to trust. A painted torque stripe is an industry convention: if it's broken, the bolt has turned. The crack check looks for long, thin, dark shapes on the flange face and measures their length in millimetres. It found 40/40 cracks with 0/40 false alarms on held-out renders; 6/40 clean flanges came back "unsure", which costs a second look, not a miss. An ONNX crack-model path exists (validation F1 0.98 after one epoch), but it is off by default.

@@ -321,15 +321,6 @@ class Fixer:
                 return False
             self._retreat(f"Argon: retreat from {cmd.target or self.target}")
             return True
-        if cmd.kind == LOG_SENSOR_FAULT:
-            fid = self.detectors[cmd.target].flange if cmd.target in self.detectors else None
-            if fid is None:
-                return False
-            if self.state in (DOCKED, RETURN):
-                self._dispatch("fault", fid, cmd.target)
-            elif self.target == fid:
-                self.job, self.sensor = "fault", cmd.target
-            return True
         if cmd.kind not in (GO_CHECK, FIX_LEAK) or cmd.target not in self.flanges:
             return False
         job = "fix" if cmd.kind == FIX_LEAK else "check"

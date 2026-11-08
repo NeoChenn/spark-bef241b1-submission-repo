@@ -18,6 +18,7 @@ ROBOTS = (SCRUBBER, FIXER, SUPERVISOR)
 ALLOWED = {GO_CHECK: {FIXER}, FIX_LEAK: {FIXER}, HOLD: {SCRUBBER}, RETREAT: {SCRUBBER, FIXER},
            RESUME_RUST: {SCRUBBER}, LOG_SENSOR_FAULT: {SUPERVISOR}, ESCALATE: {SUPERVISOR}}
 FLANGE_TARGET = (GO_CHECK, FIX_LEAK)
+OPEN_LEAK = ("LEAK_CONFIRMED", "UNVERIFIED", "LEAK_UNSEEN_BY_FIXED")
 
 SYSTEM = (
     "You are Argon, oil-rig command centre. Give the commands to issue now.\n"
@@ -164,6 +165,8 @@ def parse_reply(text: str, fd, ids: set) -> list:
             raise ValueError(f"{kind} cannot go to {robot!r}")
         if kind in FLANGE_TARGET + (LOG_SENSOR_FAULT,) and target not in ids:
             raise ValueError(f"unknown target {target!r}")
+        if kind == RESUME_RUST and fd is not None and fd.kind in OPEN_LEAK:
+            raise ValueError(f"resume_rust refused while {fd.sensor} is {fd.kind}")
         if hazard and kind in (FIX_LEAK, GO_CHECK, RESUME_RUST):
             raise ValueError(f"{kind} refused: reading at or above {STOP_LEL:.0f} %LEL")
         if fd is not None and fd.kind == "PIPE_SENSOR_FAULT" and not hazard and kind == FIX_LEAK \

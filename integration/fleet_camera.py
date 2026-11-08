@@ -5,6 +5,7 @@ from dataclasses import astuple, dataclass, fields
 
 import numpy as np
 
+from integration.fleet_paths import DOCK
 from rig.camera import anchor, look_at, project
 from rig.sim.orbit import look_at_rows
 from rig.sim.zoom import ease, spherical
@@ -128,7 +129,7 @@ class Scene:
     gate: Vec3 = (8.0, -4.6, 45.2)
     side_gates: tuple[float, float] = (15.25, 22.25)
     unit2_work: Vec3 = (21.01, -10.27, TRUNK_Z)
-    unit2_dock: Vec3 = (29.6, -9.68, TRUNK_Z)
+    unit2_dock: Vec3 = (*DOCK["unit2"][:2], TRUNK_Z)
     deck_z: float = 42.5
 
     def obstacles(self) -> list[tuple[np.ndarray, np.ndarray]]:

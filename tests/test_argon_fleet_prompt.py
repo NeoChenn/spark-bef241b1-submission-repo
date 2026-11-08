@@ -227,3 +227,14 @@ def test_live_scenarios():
     (OUT / f"{tag}.jsonl").write_text("".join(json.dumps(x) + "\n" for x in rows))
     assert all(x["ok"] for x in rows), [(x["scenario"], x.get("missing"), x.get("banned"), x.get("invalid"), x.get("error")) for x in rows
                                         if not x["ok"]]
+
+
+def test_resume_rust_is_refused_while_a_leak_is_open():
+    resume = json.dumps({"verdict": "UNVERIFIED", "situation": "s", "commands": [
+        {"command": "resume_rust", "robot": "unit1", "target": "", "confidence": 0.9, "rationale": "r"}]})
+    d2, _ = dets(14.0)
+    for kind_reading in ((2.0, 4.0), (9.0, 1.0)):
+        fd = da.fuse(d2, *kind_reading, robot="unit2")
+        with pytest.raises(ValueError):
+            ap.parse_reply(resume, fd, {"F2", "G-F2"})
+    assert [c.kind for c in ap.parse_reply(resume, None, {"F2", "G-F2"})] == ["resume_rust"]

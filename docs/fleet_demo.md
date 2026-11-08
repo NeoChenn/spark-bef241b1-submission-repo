@@ -44,7 +44,7 @@ One take, ≤ 60 s, HUD burned in. The timestamps come from the recorded run.
 
 **TODO:** take every `t` from lane `cpu-runner`'s `runs_sample/fleet_demo/` timeline (`finding`, `argon_request`, `argon_call`, `command`, `ticket` and `vetoed` rows) and from `argon-prompt`'s recorded calls. Video time = timeline `t` + the render offset, so note the offset here when it is known.
 
-The demo leak is at F5 / G-F5, about 5.5 m from Unit 1, and the stuck head is G-F6. Both come from the coordinator's scenario. `integration/fleet_scenario.py` on `fleet/leak-scenario` (aa89f7d) still defaults to `leak_flange="F2"` and `stuck_flange="F1"`, so confirm against the recorded timeline before quoting either.
+The demo leak is at F5 / G-F5, about 5.5 m from Unit 1, and the stuck head is G-F6. Both come from the coordinator's scenario. `integration/fleet_scenario.py` on `fleet/leak-scenario` (7c95d4d and later) defaults to F5 / F6, matching the recorded timeline.
 
 | # | Video time | What happens | Timeline row to cite | HUD shows |
 |---|---|---|---|---|
@@ -90,7 +90,7 @@ The weights come from `HANDOFF.md`. The video moments refer to the beats above.
 | Criterion (weight) | Video moment | Metric to quote | Source |
 |---|---|---|---|
 | Perception-driven action (25 %) | Beats 2–4: the detector LED and both %LEL readings decide the verdict, and the verdict decides the command | Verdict → command per row of the fusion table; rust detector F1 0.977 on 881 real photos, 13/13 held-out Isaac renders; crack check 40/40 found, 0/40 false alarms | `integration/dual_argon.py`, `detection/RESULTS.md`, `docs/technical_summary.html`; beat times **TODO** from `runs_sample/fleet_demo/` |
-| Adaptation to a mid-run change (25 %) | Beat 2→3a: an unscripted bolt loosens mid-scrub. Unit 1 holds and pauses, Unit 2 is dispatched, and Unit 1 resumes the same job | Time from G-F5 red to hold (expected at the same tick, since the spark rule is on the edge); time to go_check; time to green; time to resume. **TODO** from the timeline | `runs_sample/fleet_demo/` (TODO) |
+| Adaptation to a mid-run change (25 %) | Beat 2→3a: a bolt loosens mid-run (scripted in the sim at a fixed time; the robots and Argon are not told in advance). Unit 1 holds and pauses, Unit 2 is dispatched, and Unit 1 resumes the same job | Time from G-F5 red to hold (expected at the same tick, since the spark rule is on the edge); time to go_check; time to green; time to resume. **TODO** from the timeline | `runs_sample/fleet_demo/` (TODO) |
 | Edge autonomy (15 %) | Beat 7, cut link; also the spark-rule hold in 3a, which never waits for the cloud | Same command with `source: edge`; 25 s timeout; perception on CPU at 1.1 ms (rust) and ~90 ms (leak check) | `integration/dual_argon.py`, `detection/RESULTS.md`, `docs/technical_summary.html`; cut-link run **TODO** |
 | Relevance + the critical failure mode on screen (20 %) | Beat 3a, spark near gas: hot work is held. Beat 6: a faulty head raises a ticket instead of a needless repair. A crack is never re-torqued | Spark radius 6 m; STOP 20 %LEL; ticket MT-001; crack p ≥ 0.5 → never a robot repair | `integration/dual_argon.py`, `docs/technical_summary.html` |
 | Ambition and quality (15 %) | The whole take: two robots, a fixed detector network, Gemini command centre, one Isaac scene | Live Argon latency 6.0 s and about $0.003 a call; scrub v2 over 40 N in 1.0 % of episodes (v1: 76.8 %) at 97.6 % success | `fleet-demo` @ 44b54de live check (TODO timeline file), `policy/control/limiter.py`, `policy/SCRUB.md` |
