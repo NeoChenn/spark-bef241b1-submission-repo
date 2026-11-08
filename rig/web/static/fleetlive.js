@@ -2,7 +2,7 @@
   const H = HUD, S = H.S, Q = new URLSearchParams(location.search);
   const LIVE = !(Q.has("mock") || Q.get("replay")) || Q.has("fleet");
   const CORAL = "#D97757", RED = "rgba(248,81,73,.95)", DRAW_S = 0.9, GHOST_S = 9;
-  const SHOW = new Set(["reroute", "needs_human", "drop_obstacle", "close_walkway", "close_stairs", "clear", "set_weather", "reopen", "blocked"]);
+  const SHOW = new Set(["reroute", "needs_human", "drop_obstacle", "drop_can", "dispatch", "close_walkway", "close_stairs", "clear", "set_weather", "reopen", "blocked"]);
   const anim = {}, seen = new Set();
 
   const deckOf = (z) => {
@@ -66,6 +66,7 @@
       H.addLog({ t: e.t, from: "Planner", to: e.kind === "reroute" ? "RE-ROUTE" : e.kind.toUpperCase(), reason: e.message });
       if (e.kind === "reroute" && e.new_path?.length) H.banner("warn", `${H.rname ? H.rname({ id: e.robot }).split(" ·")[0] : e.robot} re-routes`, `${e.cause} · ${e.extra_m >= 0 ? "+" : ""}${Math.round(e.extra_m)} m, ${e.extra_s >= 0 ? "+" : ""}${Math.round(e.extra_s)} s`, "map", 3500);
       if (e.kind === "needs_human") H.banner("stop", "Cut off", e.message.split(" -> ")[0], "warn", 3500);
+      if (e.kind === "dispatch") H.banner("ok", "Can pick-up", e.message, "map", 3500);
     });
   }
 
@@ -83,6 +84,7 @@
   C("crate", "Drop a crate on R1's route", "block", "drop_obstacle", { kind: "crate", at: "R1" }, "A crate lands on the walkway ahead of R1. The planner closes that segment and R1 re-routes, via the stairs if it must.");
   C("debris", "Drop debris on R2's route", "block", "drop_obstacle", { kind: "debris", at: "R2" }, "Debris blocks the walkway ahead of R2; R2 re-plans around it.");
   C("scaffold", "Scaffold tower on R3's route", "block", "drop_obstacle", { kind: "scaffold", at: "R3" }, "A scaffold tower goes up on R3's walkway; R3 re-plans.");
+  C("can", "Drop a can on R1's walkway", "block", "drop_can", { at: "R1" }, "A can lands on the walkway ahead of R1. The nearest robot with a gripper is dispatched to pick it up; the others re-route until it is cleared.");
   C("hose", "Hose across R1's route", "block", "drop_obstacle", { kind: "hose", at: "R1" }, "A hose across the grating: passable but slow, so the planner weighs a detour.");
   C("spill", "Oil spill on the west stairs", "warn", "drop_obstacle", { kind: "spill", at: "stairs_west_upper" }, "Slippery stairs are closed; flat walkways nearby are slowed.");
   C("stairs", "Close the west stairs", "block", "close_stairs", { id: "stairs_west_upper" }, "Robots on the stairs back out to the landing; the rest re-route.");
