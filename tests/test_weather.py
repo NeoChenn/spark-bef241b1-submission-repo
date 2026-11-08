@@ -84,3 +84,12 @@ def test_rain_curtain_wraps_around_camera():
         assert (x, y) == (5.0, -2.0)
         lo, hi = z, z + 2 * wx.RAIN_BOX[1]
         assert lo <= 40.0 - wx.RAIN_BELOW and hi >= 40.0 + 9.0
+
+
+def test_rain_shell_keeps_streaks_off_the_lens():
+    import numpy as np
+
+    p = wx.shell(np.random.default_rng(1), 4000)
+    r = np.hypot(p[:, 0], p[:, 1])
+    assert r.min() >= wx.RAIN_CLEAR - 1e-9 and r.max() <= wx.RAIN_BOX[0] + 1e-9
+    assert np.median(r) < (wx.RAIN_CLEAR + wx.RAIN_BOX[0]) / 2
