@@ -48,6 +48,7 @@ def parse_args(argv=None):
     p.add_argument("--duration", type=float, default=0.0, help="seconds; 0 = to the end of the timeline")
     p.add_argument("--max-frames", type=int, default=0)
     p.add_argument("--every", type=int, default=1, help="render every n-th frame (quick tests)")
+    p.add_argument("--at", default="", help="comma-separated times: render only these frames (checks)")
     p.add_argument("--renderer", default="RaytracedLighting",
                    choices=["RaytracedLighting", "PathTracing", "RealTimePathTracing"])
     p.add_argument("--spp", type=int, default=16)
@@ -129,6 +130,7 @@ class Scenario:
     leds: list = field(default_factory=list)
     events: list = field(default_factory=list)
     masks: list = field(default_factory=list)
+    rows: list = field(default_factory=list)
     end: float = 0.0
 
     def add_pose(self, rid, t, x, y, yaw, state):
@@ -212,7 +214,7 @@ class Scenario:
 
 
 def parse_rows(rows) -> Scenario:
-    scn = Scenario()
+    scn = Scenario(rows=list(rows))
     for r in rows:
         t = r.get("t", r.get("time"))
         if t is None:
@@ -576,7 +578,8 @@ def beat_times(scn: Scenario, start: float = 0.0) -> dict:
     leds = [(t, st) for t, _, st in scn.leds if t >= start]
     s1 = [(t, st) for t, st in scn.states.get("unit1", []) if t >= start]
     s2 = [(t, st) for t, st in scn.states.get("unit2", []) if t >= start]
-    b = {"start": start, "amber": first(leds, lambda v: v == "warn")}
+    b = {"start": start, "spray": first(s1, lambda v: activity("unit1", v) == "spray"),
+         "scrub": first(s1, lambda v: activity("unit1", v) == "scrub"), "amber": first(leds, lambda v: v == "warn")}
     b["red"] = first(leds, lambda v: v == "alarm", b["amber"])
     b["step_back"] = first(s1, lambda v: activity("unit1", v) == "stow" and "DONE" not in v.upper(), b["amber"])
     b["arrive"] = first(s2, lambda v: activity("unit2", v) != "stow", b["red"])
@@ -585,9 +588,10 @@ def beat_times(scn: Scenario, start: float = 0.0) -> dict:
     red_id = next((d for t, d, st in scn.leds if st == "alarm" and t == b["red"]), None)
     b["green"] = first([(t, st) for t, d, st in scn.leds if d == red_id], lambda v: v == "ok", b["red"])
     b["resume"] = first(s1, lambda v: activity("unit1", v) != "stow", b["step_back"])
-    b["end"] = start + min(60.0, max(1.0, scn.end - start))
+    b["paint"] = first(s1, lambda v: activity("unit1", v) == "paint", b["resume"])
+    b["end"] = start + min(120.0, max(1.0, scn.end - start))
     out, prev = {}, None
-    for k in ("start", "push", "amber", "red", "step_back", "arrive", "fixed", "green", "resume"):
+    for k in ("start", "spray", "scrub", "amber", "red", "step_back", "arrive", "fixed", "green", "resume", "paint"):
         v = b.get(k)
         if v is None or (prev is not None and v <= prev + 0.2):
             continue
@@ -619,7 +623,12 @@ def camera_source(args, scn: Scenario, meta: dict):
                     break
             if fn is not None and hasattr(fc, "Beats"):
                 try:
-                    beats = fc.Beats.from_events(beat_times(scn, args.start))
+                    try:
+                        from integration.run_fleet_demo import beats as cpu_beats
+
+                        beats = fc.Beats.from_events({"beats": cpu_beats(scn.rows)})
+                    except Exception:
+                        beats = fc.Beats.from_events(beat_times(scn, args.start))
                     base_fn = fn
                     fn = lambda t: base_fn(t, beats)
                     print(f"[fleet] camera beats {beats}", flush=True)
@@ -680,6 +689,10 @@ def main(argv=None):
     scn = load_scenario(tl, meta, flanges)
     end = args.start + args.duration if args.duration > 0 else scn.end
     n_frames = int(round((end - args.start) * args.fps))
+    at_frames = None
+    if args.at:
+        at_frames = {int(round((float(v) - args.start) * args.fps)) for v in args.at.split(",") if v.strip()}
+        n_frames = min(n_frames, max(at_frames) + 1)
     if args.max_frames:
         n_frames = min(n_frames, args.max_frames * max(1, args.every))
     print(f"[fleet] timeline {tl} end={scn.end:.1f}s robots={sorted(scn.poses)} leds={len(scn.leds)} "
@@ -756,10 +769,6 @@ def main(argv=None):
                                                      lamp_gain=args.lamp_gain, rig_gain=args.rig_gain,
                                                      robot_root="/World/Fleet/unit1", robot_color="graphite",
                                                      rig_root="/World"), flush=True)
-        try:
-            night_look.paint_robot(stage, "/World/Fleet/unit2", "orange")
-        except Exception as exc:
-            print(f"[fleet] unit2 paint skipped: {exc}", flush=True)
 
     detectors = None
     try:
@@ -957,7 +966,9 @@ def main(argv=None):
         c = cam_fn(t)
         cam.GetFocalLengthAttr().Set(float(c[2]))
         cam_op.Set(Gf.Matrix4d(*look_rows(c[0], c[1]).reshape(-1)))
-        if k % max(1, args.every):
+        if at_frames is not None and k not in at_frames:
+            continue
+        if at_frames is None and k % max(1, args.every):
             continue
         warm = args.warmup if rendered == 0 else 1
         for _ in range(warm):
