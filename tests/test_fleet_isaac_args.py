@@ -201,3 +201,22 @@ def test_film_edl_steps_colours_and_room():
     UsdGeom.Cube.Define(stage, "/World/Fleet/unit1/Geometry/base/trunk")
     UsdGeom.Cube.Define(stage, "/World/Fleet/unit1/Geometry/base/lift_carriage/ur3_base_link/m")
     assert R.paint_unit(stage, "/World/Fleet/unit1", "#2D55C8") == {"body": 1, "arm": 1, "pad": 0}
+
+
+def test_scrub_cache_round_trip(tmp_path):
+    class Job:
+        plan_ = type("P", (), {"t": np.array([1.0, 1.1])})()
+
+        def at(self, t):
+            g = np.full((4, 8), 0.5)
+            return {"q": {"lift_joint": t, "ur3_elbow_joint": 2 * t}, "base": np.eye(4), "phase": "scrub",
+                    "brush_contact": {"force_N": 28.0}, "nozzle": {"xyz": [0, 0, t], "dir": [1, 0, 0], "on": False,
+                                                                    "length": 0.1},
+                    "rust": g, "sprayed": g, "painted": g * 0, "rust_fraction": 0.5}
+
+    p = tmp_path / "s.npz"
+    assert R.scrub_cache_write(Job(), p, dt=0.05) == 3
+    c = R.ScrubCache(p)
+    s = c.at(1.04)
+    assert s["q"]["ur3_elbow_joint"] == np.float32(2.1) and s["phase"] == "scrub" and s["brush_contact"]["force_N"] == 28
+    assert abs(s["rust"][0, 0] - 128 / 255) < 1e-6 and s["painted"].sum() == 0 and c.plan_.t[-1] > 1.09
