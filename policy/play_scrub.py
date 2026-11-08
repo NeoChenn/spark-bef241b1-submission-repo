@@ -58,7 +58,8 @@ def worker(argv):
     p.add_argument("--video_steps", type=int, default=600)
     p.add_argument("--meta", type=str, default="")
     p.add_argument("--force_patch", action="store_true")
-    p.add_argument("--robot", type=str, default="lift", choices=["lift", "lift_v2", "go2ur3", "franka"])
+    p.add_argument("--robot", type=str, default="lift", choices=["lift", "lift_v2", "lift_v3", "go2ur3", "franka"])
+    p.add_argument("--storm", type=float, default=-1.0)
     p.add_argument("--cam", type=str, default="", choices=["", "close", "wide"])
     from isaaclab.app import AppLauncher
 
@@ -82,6 +83,8 @@ def worker(argv):
     task, cfg_name = TASKS[args.robot]
     env_cfg = getattr(C, cfg_name)()
     env_cfg.scene.num_envs = args.num_envs
+    if args.storm >= 0:
+        env_cfg.storm_level_range = (args.storm, args.storm)
     if args.meta:
         print("[play] rig meta:", apply_meta(env_cfg, args.meta), flush=True)
     else:
@@ -145,7 +148,7 @@ def worker(argv):
     mf = sorted(recs["max_force"])
     np_ = [s for s, e in zip(succ, recs["new_patch"]) if e]
     res = {
-        "ckpt": args.ckpt, "episodes": n, "meta": bool(args.meta),
+        "ckpt": args.ckpt, "episodes": n, "meta": bool(args.meta), "storm": max(args.storm, 0.0),
         "success_rate": sum(succ) / max(n, 1),
         "mean_fraction_removed": sum(recs["fraction_removed"]) / max(n, 1),
         "mean_time_to_clean_s": (sum(t for t, s in zip(recs["time_to_clean_s"], succ) if s) / max(sum(succ), 1)),
