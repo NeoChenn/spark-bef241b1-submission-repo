@@ -92,3 +92,10 @@ def test_parts_by_quality(monkeypatch):
     assert fx.parts() == {"flame", "anim"}
     monkeypatch.setenv("RIG_FLARE_PARTS", "flame")
     assert fx.parts() == {"flame"}
+
+
+def test_halo_fades_when_seen_from_above():
+    c = (0.0, 0.0, 80.0)
+    assert fx.halo_fade(c, (0.0, -200.0, 60.0)) == 1.0
+    assert fx.halo_fade(c, (0.0, -390.0, 110.0)) == 1.0
+    assert fx.halo_fade(c, (60.0, -120.0, 260.0)) == 0.0
