@@ -12,7 +12,12 @@ MDL = SIM_DIR / "assets" / "mdl" / "rig_hero.mdl"
 LAYER = SIM_DIR / "output" / "hero_mat.usda"
 NOISE = SIM_DIR / "assets" / "generated" / "hero_noise.png"
 SHADER = "hero_mdl"
-SUBS = ("rig_hero_pipe", "rig_hero_rust", "rig_hero_deck", "rig_hero_line", "rig_hero_paint", "rig_hero_rust_mask")
+SUBS = ("rig_hero_pipe", "rig_hero_rust", "rig_hero_deck", "rig_hero_line", "rig_hero_paint", "rig_hero_rust_mask",
+        "rig_hero_robot")
+ROBOT = "/World/Robots/scrubber_dog"
+ROBOT_WEAR = (("_foot/", 0.95, 1.0), ("calf", 0.65, 0.5), ("thigh", 0.42, 0.2), ("/hip/", 0.38, 0.1),
+              ("brush_orange", 0.6, 0.4), ("lift_grey", 0.45, 0.1), ("logo", 0.15, 0.0), ("/Geometry/base/base/", 0.3, 0.0))
+ROBOT_DEFAULT = (0.38, 0.05)
 OVERLAY_SUB = "rig_hero_rust_mask"
 OVERLAY_MATERIAL = "/World/Looks/HeroRustOverlay"
 PATCH_MATERIAL = "/World/RepairZone/Looks/rust_coarse_01"
@@ -247,3 +252,17 @@ def set_state(stage, state: str, progress: float = 0.0, material_path: str = OVE
         for key, value in values.items():
             shader.CreateInput(key, Sdf.ValueTypeNames.Float).Set(value)
     return values
+
+
+def robot_wear(path: str) -> tuple[float, float]:
+    for key, dirt, wet in ROBOT_WEAR:
+        if key in path:
+            return dirt, wet
+    return ROBOT_DEFAULT
+
+
+def robot_values(color, roughness, path: str, ground_z: float) -> dict:
+    dirt, wet = robot_wear(path)
+    return {"noise": NOISE, "grime_tex": tex("SurfaceImperfections011", "diff"), "base_color": tuple(color),
+            "base_rough": min(max(float(roughness) * 0.85 + 0.05, 0.35), 0.6), "dirt": dirt, "wet_amount": wet,
+            "ground_z": ground_z}

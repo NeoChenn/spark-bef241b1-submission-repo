@@ -167,10 +167,14 @@ hero_sample pipe_sample(
     float3 sn = perturb(n, f.t, f.b, tn, 0.55);
     sn = math::normalize(math::lerp(sn, perturb(n, f.t, f.b, rn, 1.4), math::saturate(math::max(bare, hal * 0.8))));
 
-    float wet = math::saturate(wetness * (0.55 + 0.45 * top) * (1.0 - 0.5 * salt));
-    albedo *= 1.0 - 0.3 * wet;
+    float drip = f.side * ss(-0.35, -0.97, n.z) * (0.55 + 0.45 * ss(0.3, 0.7, nf.y + 0.2 * st));
+    float bead = f.side * (1.0 - ss(0.004, 0.03, n.z + 1.0));
+    float wet = math::saturate(wetness * ((0.55 + 0.45 * top) * (1.0 - 0.5 * salt) + 0.9 * drip + bead));
+    albedo *= 1.0 - 0.3 * wet - 0.15 * drip * wetness;
     rough = math::lerp(rough, rough * 0.5 + 0.04, wet);
-    return hero_sample(math::saturate(albedo), rough, 0.0, sn, wet * 0.6, 0.05, 1.0);
+    rough = math::lerp(rough, 0.03, bead * wetness);
+    return hero_sample(math::saturate(albedo), rough, 0.0, sn, math::saturate(wet * 0.6 + 0.4 * (drip + bead) * wetness),
+        math::lerp(0.05, 0.02, drip), 1.0);
 }
 
 export material rig_hero_pipe(
@@ -449,6 +453,14 @@ hero_sample paint_sample(
     float bare = 1.0 - ss(0.24, 0.34, sig);
     float spot = rust_amount * ss(0.78, 0.92, m3.y * 0.5 + g * 0.45 + m1.z * 0.3);
     bare = math::max(bare, spot);
+    if (tube) {
+        float3 c1 = f3(noise, q / 0.09 + float2(0.29, 0.83));
+        float3 c2 = f3(noise, q / 0.025 + float2(0.67, 0.13));
+        float chip = c1.y * 0.65 + c2.z * 0.35 + 0.25 * (m1.x - 0.5);
+        float lim = 0.79 - 0.12 * chip_amount;
+        primer = ss(lim - 0.03, lim, chip);
+        bare = math::max(spot, ss(lim + 0.025, lim + 0.06, chip));
+    }
 
     float3 rustc = f3(rust_diff, q / 1.1);
     float3 paint = paint_color * (0.72 + 0.4 * m1.x) * (0.9 + 0.2 * m2.y);
@@ -463,7 +475,7 @@ hero_sample paint_sample(
     float dirt = grime_amount * math::saturate(0.55 * ss(0.3, 0.9, m1.z * 0.6 + m2.z * 0.5) + 0.45 * g * (0.4 + up)
         + 0.3 * up * m3.z + 0.3 * up);
     albedo *= 1.0 - 0.55 * dirt;
-    float scuff = detail ? up * ss(0.55, 0.85, f1(grime_tex, float2(q.x / 3.1, q.y / 0.9)) + 0.3 * m1.x - 0.15) : 0.0;
+    float scuff = (detail && !tube) ? up * ss(0.55, 0.85, f1(grime_tex, float2(q.x / 3.1, q.y / 0.9)) + 0.3 * m1.x - 0.15) : 0.0;
     albedo = math::lerp(albedo, albedo * 0.55, 0.6 * scuff);
 
     float rough = math::lerp(0.4, 0.62, f1(paint_rough, uv));
@@ -589,4 +601,49 @@ export material rig_hero_rust_mask(
 = let {
     hero_sample s = rust_mask_sample(mask, rust_diff, rust_rough, rust_normal, scale_diff, scale_normal, noise,
         float3(paint_color), float3(primer_color), uv_scale, rust_scale, amount, edge_noise, rim_width, wetness);
+} in hero_surface(s.albedo, s.rough, s.metal, s.normal, s.coat, s.coat_rough, s.opacity);
+
+float3 obj_noise(uniform texture_2d t, float3 o, float s, float k) {
+    float3 v = (f3(t, float2(o.x, o.y) / s + float2(k, 0.3)) + f3(t, float2(o.y, o.z) / s + float2(0.6, k))
+        + f3(t, float2(o.x, o.z) / s + float2(k, 0.9))) / 3.0;
+    return math::saturate((v - 0.5) * 1.8 + 0.5);
+}
+
+hero_sample robot_sample(
+    uniform texture_2d noise, uniform texture_2d grime_tex, float3 base_color, float base_rough, float dirt,
+    float wet_amount, float ground_z, float wetness)
+{
+    float3 p = wpos();
+    float3 n = wnrm();
+    float3 o = state::transform_point(state::coordinate_internal, state::coordinate_object, state::position());
+    float low = 1.0 - ss(0.03, 0.42, p.z - ground_z);
+    float up = ss(0.35, 0.9, n.z);
+    float3 na = obj_noise(noise, o, 0.08, 0.17);
+    float3 nb = obj_noise(noise, o, 0.021, 0.53);
+    float g = f1(grime_tex, float2(o.x + o.y, o.z) / 0.14 + float2(0.2, 0.4));
+    float dust = math::saturate(dirt * (0.3 + 0.95 * low + 0.35 * up) * ss(0.3, 0.68, na.x * 0.7 + nb.y * 0.45 - 0.1));
+    float bright = ss(0.2, 0.5, luma(base_color));
+    float3 albedo = math::lerp(base_color, float3(0.115, 0.108, 0.098), dust * (0.45 + 0.35 * bright));
+    albedo *= 1.0 - 0.35 * dirt * ss(0.45, 0.85, g) * (0.4 + 0.6 * low);
+    float scuff = dirt * ss(0.74, 0.86, nb.z);
+    albedo = math::lerp(albedo, bright > 0.5 ? albedo * 0.62 : albedo + float3(0.07), 0.6 * scuff);
+    float rough = math::saturate(base_rough + 0.28 * dust + 0.12 * scuff + 0.06 * (na.y - 0.5));
+    float w = math::saturate(wetness * wet_amount * (0.45 + 0.55 * low) * (0.6 + 0.4 * na.z));
+    albedo *= 1.0 - 0.3 * w;
+    rough = math::lerp(rough, rough * 0.4 + 0.05, w);
+    return hero_sample(math::saturate(albedo), rough, 0.0, n, w * 0.7, 0.05, 1.0);
+}
+
+export material rig_hero_robot(
+    uniform texture_2d noise = texture_2d(),
+    uniform texture_2d grime_tex = texture_2d(),
+    color base_color = color(0.7),
+    float base_rough = 0.45,
+    float dirt = 0.4,
+    float wet_amount = 0.3,
+    float ground_z = 0.0,
+    float wetness = 0.0 [[ anno::hard_range(0.0, 1.0) ]]
+)
+= let {
+    hero_sample s = robot_sample(noise, grime_tex, float3(base_color), base_rough, dirt, wet_amount, ground_z, wetness);
 } in hero_surface(s.albedo, s.rough, s.metal, s.normal, s.coat, s.coat_rough, s.opacity);
