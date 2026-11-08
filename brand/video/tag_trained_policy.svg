@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="246" height="44" viewBox="0 0 246 44">
+  <title>Trained Policy</title>
+  <style>@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500;600&amp;display=swap');</style>
+  <rect x="0" y="0" width="246" height="44" rx="10" fill="#0B0D10" opacity="0.85"/>
+  <rect x="0" y="0" width="246" height="44" rx="10" fill="#2EE6D6" opacity="0.12"/>
+  <rect x="0.75" y="0.75" width="244.5" height="42.5" rx="10" fill="none" stroke="#2EE6D6" stroke-width="1.5"/>
+  <rect x="20" y="17" width="10" height="10" fill="#2EE6D6"/>
+  <text x="46" y="29" font-family="'JetBrains Mono', 'Consolas', monospace" font-size="20" font-weight="600" fill="#2EE6D6" text-anchor="start" letter-spacing="2">TRAINED POLICY</text>
+</svg>

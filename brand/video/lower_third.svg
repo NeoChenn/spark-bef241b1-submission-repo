@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <title>Spark lower third</title>
+  <style>@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500;600&amp;display=swap');</style>
+  <rect x="96" y="852" width="721" height="132" rx="10" fill="#15181D" opacity="0.92"/>
+  <rect x="96.5" y="852.5" width="720" height="131" rx="10" fill="none" stroke="#262A31" stroke-width="1"/>
+  <rect x="120" y="880" width="4" height="76" rx="2" fill="#2EE6D6"/>
+  <text x="148" y="918" font-family="'Space Grotesk', 'Bahnschrift', 'Segoe UI', sans-serif" font-size="44" font-weight="600" fill="#F3F5F8" text-anchor="start">Dog-1 closes the isolation valve</text>
+  <text x="148" y="956" font-family="'JetBrains Mono', 'Consolas', monospace" font-size="22" font-weight="500" fill="#9AA3AE" text-anchor="start" letter-spacing="2">DECK B  ·  00:42  ·  TRAINED POLICY</text>
+</svg>

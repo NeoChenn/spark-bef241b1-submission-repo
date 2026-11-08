@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="246" height="44" viewBox="0 0 246 44">
+  <title>Gemini Advisor</title>
+  <style>@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500;600&amp;display=swap');</style>
+  <rect x="0" y="0" width="246" height="44" rx="10" fill="#15181D" opacity="0.9"/>
+  <rect x="0.75" y="0.75" width="244.5" height="42.5" rx="10" fill="none" stroke="#9AA3AE" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <circle cx="25" cy="22" r="5.5" fill="none" stroke="#F3F5F8" stroke-width="2"/>
+  <text x="46" y="29" font-family="'JetBrains Mono', 'Consolas', monospace" font-size="20" font-weight="600" fill="#F3F5F8" text-anchor="start" letter-spacing="2">GEMINI ADVISOR</text>
+</svg>

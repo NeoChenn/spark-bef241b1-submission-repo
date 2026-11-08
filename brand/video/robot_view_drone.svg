@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <title>Robot view Drone</title>
+  <style>@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500;600&amp;display=swap');</style>
+  <line x1="48" y1="48" x2="104" y2="48" stroke="#F3F5F8" stroke-width="3" opacity="0.9"/>
+  <line x1="48" y1="48" x2="48" y2="104" stroke="#F3F5F8" stroke-width="3" opacity="0.9"/>
+  <line x1="1872" y1="48" x2="1816" y2="48" stroke="#F3F5F8" stroke-width="3" opacity="0.9"/>
+  <line x1="1872" y1="48" x2="1872" y2="104" stroke="#F3F5F8" stroke-width="3" opacity="0.9"/>
+  <line x1="48" y1="1032" x2="104" y2="1032" stroke="#F3F5F8" stroke-width="3" opacity="0.9"/>
+  <line x1="48" y1="1032" x2="48" y2="976" stroke="#F3F5F8" stroke-width="3" opacity="0.9"/>
+  <line x1="1872" y1="1032" x2="1816" y2="1032" stroke="#F3F5F8" stroke-width="3" opacity="0.9"/>
+  <line x1="1872" y1="1032" x2="1872" y2="976" stroke="#F3F5F8" stroke-width="3" opacity="0.9"/>
+  <rect x="88" y="84" width="346" height="48" rx="10" fill="#0B0D10" opacity="0.78"/>
+  <rect x="88.5" y="84.5" width="345" height="47" rx="10" fill="none" stroke="#262A31" stroke-width="1"/>
+  <circle cx="115" cy="108" r="6" fill="#FF4D4F"/>
+  <text x="140" y="116" font-family="'JetBrains Mono', 'Consolas', monospace" font-size="22" font-weight="600" fill="#F3F5F8" text-anchor="start" letter-spacing="4">ROBOT VIEW</text>
+  <line x1="318" y1="96" x2="318" y2="120" stroke="#262A31" stroke-width="1"/>
+  <text x="338" y="116" font-family="'JetBrains Mono', 'Consolas', monospace" font-size="22" font-weight="600" fill="#F3F5F8" text-anchor="start" letter-spacing="4">DRONE</text>
+</svg>
