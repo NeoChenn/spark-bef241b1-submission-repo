@@ -478,8 +478,8 @@ def plume_puffs(origin, jet, strength: float, t: float, n: int = 16, wind=(0.0, 
         ph = (t / life + k / n) % 1.0
         p = o + j * 0.35 * ph ** 0.5 + w * life * 0.45 * ph + np.array([0.0, 0.0, 0.5 * ph ** 1.2])
         p = p + 0.06 * ph * np.array([math.sin(2.3 * k + 1.7 * t), math.cos(1.9 * k + 1.3 * t), 0.0])
-        r = 0.025 + 0.32 * ph
-        a = strength * 0.5 * min(ph * 8.0, 1.0) * (1.0 - ph) ** 1.3
+        r = 0.02 + 0.23 * ph
+        a = strength * 0.3 * min(ph * 8.0, 1.0) * (1.0 - ph) ** 1.3
         out.append((p, r, a))
     return out
 
@@ -529,7 +529,8 @@ class FleetFx:
 
         self.stage, self.leak, self.crate, self.deck = stage, leak, crate, deck
         self.root = "/World/Fleet/fx"
-        UsdGeom.Xform.Define(stage, self.root)
+        for sub in ("", "/gas", "/lidar"):
+            UsdGeom.Xform.Define(stage, self.root + sub)
         self.puffs, self.origin, self.jet, self.vis = [], None, None, {}
         f = None if leak is None else next((x for x in (flanges or {}).get("flanges", [])
                                              if x["id"] == leak["flange"]), None)
@@ -1151,8 +1152,12 @@ def main(argv=None):
     head_path = out / "fleet_isaac_header.jsonl"
     kept = []
     if args.from_frame and head_path.exists():
-        kept = [ln for ln in head_path.read_text().splitlines() if ln.strip()
-                and json.loads(ln).get("frame", 0) < args.from_frame]
+        for ln in head_path.read_text().splitlines():
+            try:
+                if json.loads(ln).get("frame", 0) < args.from_frame:
+                    kept.append(ln)
+            except json.JSONDecodeError:
+                continue
     head = head_path.open("w")
     head.write("".join(ln + "\n" for ln in kept))
     nav_t = args.start
