@@ -61,3 +61,18 @@ class MissionTimeline:
         robot = robot_entry(self.rid, self.name, state, {**(ev or {}), "force_n": round(float(force_n), 1)}, world_pos)
         return {"t": round(float(t), 3), "state": state, "phase": self.phase_at(t) or state,
                 "force_n": round(float(force_n), 2), "robots": [robot]}
+
+
+def replay_lines(hud: list[dict], decisions: list[dict], offset=(0.0, 0.0, 0.0), every: int = 4,
+                 robot: str = "Q1", job: str = "rust_repair-1") -> list[dict]:
+    out = []
+    for k, h in enumerate(hud):
+        if k % every and k != len(hud) - 1:
+            continue
+        pos = h["robots"][0].get("world_pos") or [0.0, 0.0, 0.0]
+        out.append({"t": h["t"], "robot": robot, "kind": "Q", "state": h["phase"], "job": job, "yaw": 0.0,
+                    "force_n": h["force_n"], "position": [round(float(p) + o, 3) for p, o in zip(pos, offset)]})
+    for d in decisions:
+        out.append({"t": d["t"], "event": str(d.get("to", "")).lower(), "robot": robot, "job": job,
+                    "detail": {"reason": d.get("reason", ""), "from": d.get("from")}})
+    return sorted(out, key=lambda x: x["t"])

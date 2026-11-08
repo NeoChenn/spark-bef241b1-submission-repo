@@ -55,3 +55,18 @@ def test_hud_record_shapes():
     assert r["id"] == "Q1" and r["state"] == "SCRUB" and r["world_pos"] == [1.0, 2.0, 0.3] and r["caption"]
     json.dumps(rec)
     assert MISSION[0] == "WALK" and MISSION[-1] == "DONE"
+
+
+def test_replay_lines_feed_the_web_replay():
+    from rig.replay import timeline_session
+
+    from integration.loop_timeline import replay_lines
+
+    hud = [{"t": 0.0, "state": "WALK", "phase": "WALK", "force_n": 0.0, "robots": [{"world_pos": [0.0, 0.0, 0.3]}]},
+           {"t": 0.5, "state": "SCRUB", "phase": "SCRUB", "force_n": 30.0, "robots": [{"world_pos": [1.0, 0.0, 0.3]}]}]
+    dec = [{"t": 0.4, "from": "SOAK", "to": "SCRUB", "reason": "soak complete"}]
+    lines = replay_lines(hud, dec, offset=(10.0, 0.0, 0.0), every=1)
+    assert lines[0]["robot"] == "Q1" and lines[0]["position"] == [10.0, 0.0, 0.3]
+    s = timeline_session(lines)
+    assert [x["state"] for x in s["snapshots"]] == ["WALK", "SCRUB"]
+    assert s["snapshots"][1]["events"][0]["reason"] == "soak complete"

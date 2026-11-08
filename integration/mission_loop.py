@@ -57,6 +57,7 @@ def worker(argv):
     from integration.lab_bridge import ExternalScrub, LabWorld, frame_telemetry, write_jsonl
     from integration.lab_video import FrameComposer
     from integration.loop_bridge import LoopBridge, summary_motions
+    from integration.loop_timeline import replay_lines
     from integration.onnx_mlp import OnnxMLP
     from policy.envs import scrub_env_cfg as C
     from policy.envs.rust_state import random_patches
@@ -252,6 +253,11 @@ def worker(argv):
     write_jsonl(os.path.join(args.out_dir, "hud_timeline.jsonl"), hud)
     write_jsonl(os.path.join(args.out_dir, "force_physics.jsonl"), bridge.force_log)
     write_jsonl(os.path.join(args.out_dir, "phases.jsonl"), bridge.timeline.spans)
+    decs = [r.to_json() for r in orch.records] + [{"t": r["t"], "from": "PAINT", "to": "REPOSITION",
+                                                    "reason": f"base dx {r['dx']:+.2f} m, lift {r['lift']:.2f} m"}
+                                                   for r in bridge.reposition_log]
+    write_jsonl(os.path.join(args.out_dir, "replay.jsonl"),
+                replay_lines(hud, decs, offset=tuple(meta.get("env_to_world", {}).get("translation", (0, 0, 0)))))
     for k, fr in keyframes.items():
         if not k.startswith("_"):
             Image.fromarray(fr).save(os.path.join(args.out_dir, f"key_{k}.png"))
