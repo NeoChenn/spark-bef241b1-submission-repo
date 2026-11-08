@@ -170,8 +170,10 @@ def make_obstacles(stage, cine_update, args):
     return scene, tick
 
 
-def handle_event(scene, event: dict, atm=None) -> None:
+def handle_event(scene, event: dict, atm=None, weather=None) -> None:
     name, args = event.get("name"), event.get("args") or {}
+    if weather is not None and name == "set_weather":
+        weather.set(**{k: args[k] for k in ("level", "wind_dir", "gust") if k in args})
     if atm is not None and name == "set_weather":
         atm.set_weather(**{k: args[k] for k in ("level", "wind_dir", "gust") if k in args})
     if scene is not None and name == "fleet":
@@ -246,6 +248,7 @@ def main() -> None:
     ctx = omni.usd.get_context()
     tickers = []
     obstacles = None
+    weather = None
     if args.scene == "test":
         from rig.sim.scene import CAMERA_PATH, build_scene, spin
 
@@ -257,6 +260,10 @@ def main() -> None:
         tickers.append(cine_update)
         obstacles, obstacle_tick = make_obstacles(ctx.get_stage(), cine_update, args)
         tickers.append(obstacle_tick)
+        import weather as weather_mod
+
+        weather = weather_mod.Controller(ctx.get_stage(), getattr(cine_update, "wave", None), args.cinematic)
+        tickers.append(weather.tick)
     else:
         open_scene(app, ctx, args.scene)
         cam_path = args.camera
@@ -290,6 +297,8 @@ def main() -> None:
     if args.atmos and args.cinematic:
         atm, atm_tick = load_atmosphere(stage, cam_path, args)
         tickers.append(atm_tick)
+        if weather is not None:
+            weather.atm = atm
     env = load_environment(stage, args.env, args.sea_level)
     if env is not None:
         tickers.append(lambda t: env.update(t, camera=cam_path))
@@ -334,7 +343,7 @@ def main() -> None:
             if leak and ev["name"] == "gas_leak":
                 print(f"rig sim: gas_leak {ev['args']} -> {leak.event(ev['args'])}", flush=True)
             else:
-                handle_event(obstacles, ev, atm)
+                handle_event(obstacles, ev, atm, weather)
         for tick in tickers:
             tick(t)
         rep.orchestrator.step(rt_subframes=args.subframes, pause_timeline=False, wait_for_render=args.wait_render)

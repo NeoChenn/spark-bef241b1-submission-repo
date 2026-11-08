@@ -9,6 +9,7 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 import assets_hero
 import facade
 import flare_fx
+import weather
 import greebles
 import look
 import ocean
@@ -624,7 +625,7 @@ def animate_effects(stage, time: float) -> None:
         wave = math.sin(time * (7.0 + index * 1.7) + index * 2.1) * 0.5 + math.sin(time * 13.0 + index) * 0.5
         stretch = 2.2 + 0.32 * wave
         prim.GetAttribute("xformOp:scale").Set(Gf.Vec3f(1.0 + 0.12 * wave, 1.0 + 0.12 * wave, stretch))
-    flare_fx.update(stage, time)
+    flare_fx.update(stage, time, weather.flare_wind(flare_fx.WIND))
     pulse = 0.55 + 0.45 * max(math.sin(time * 2.2), 0.0)
     strobe = 1.0 if (time % 1.6) < 0.12 else 0.02
     for index, level in [(b[0], pulse) for b in RED_BEACONS] + [(i, strobe) for i, _ in STROBES]:

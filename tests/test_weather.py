@@ -1,0 +1,43 @@
+import math
+
+import pytest
+
+from sim import weather as wx
+
+
+def test_levels_and_clamp():
+    assert wx.level_of("calm") == 0.0 and wx.level_of("storm") == 1.0
+    assert wx.level_of(1.7) == 1.0 and wx.level_of(-1) == 0.0
+    with pytest.raises(ValueError):
+        wx.level_of("hail")
+
+
+def test_target_scales_sea_and_wind():
+    calm, storm = wx.target(0.0), wx.target(1.0)
+    assert calm["wave_height"] == 1.5 and storm["wave_height"] == wx.STORM_HEIGHT
+    assert storm["chop"] > calm["chop"] and storm["coverage"] > calm["coverage"]
+    assert math.isclose(math.hypot(*calm["wind"]), wx.CALM_WIND)
+    assert math.isclose(math.hypot(*storm["wind"]), wx.STORM_WIND)
+    gusty = wx.target(1.0, wind_dir=90.0, gust=36.0)
+    assert math.isclose(gusty["wind"][1], 2 * wx.STORM_WIND) and abs(gusty["wind"][0]) < 1e-9
+    assert wx.target(1.0, base_height=3.0)["wave_height"] == 3.0
+
+
+def test_wetness_rises_with_rain():
+    assert wx.wet(0.4, 0.2, 0.0) == (0.4, 0.2)
+    w, p = wx.wet(0.4, 0.2, 1.0)
+    assert math.isclose(w, 0.4 + 0.6 * 0.85) and p == 1.0
+
+
+def test_ramp_eases_from_current_state():
+    r = wx.Ramp({"a": 0.0, "v": (0.0, 0.0)}, 0.0, duration=4.0)
+    r.set({"a": 1.0, "v": (2.0, 4.0)}, 10.0)
+    assert r.at(10.0)["a"] == 0.0 and r.at(14.0)["a"] == 1.0
+    mid = r.at(12.0)
+    assert math.isclose(mid["a"], 0.5) and mid["v"] == (1.0, 2.0)
+    r.set({"a": 0.0, "v": (0.0, 0.0)}, 12.0)
+    assert math.isclose(r.at(12.0)["a"], 0.5) and not r.done(15.9) and r.done(16.0)
+
+
+def test_flare_wind_default():
+    assert wx.flare_wind((2.6, 1.5)) == (2.6, 1.5)
