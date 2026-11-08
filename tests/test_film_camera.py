@@ -3,9 +3,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from integration.film_camera import (CONTROL_ROOM, DEFAULT_FILM_SCENE, RIG_CORNERS, apply_usd_pose, frames, rig_orbit,
-                                     view)
-from integration.film_edl import FilmBeats, camera_at_film, edl, to_json
+from integration.film_camera import (CONTROL_ROOM, DEFAULT_FILM_SCENE, RIG_DECK, apply_usd_pose, frames, rig_orbit,
+                                     view, width_fraction)
+from integration.film_edl import FilmBeats, camera_at_film, default_track, edl, to_json
 from integration.fleet_camera import DEFAULT_SCENE
 from rig.camera import project
 
@@ -89,16 +89,33 @@ def test_the_camera_is_continuous_inside_every_shot():
     assert 15.0 <= abs(ang[-1] - ang[0]) <= 20.0
 
 
-def test_the_whole_rig_reads_in_the_establishing_orbit():
+def test_the_rig_fills_two_thirds_of_the_frame_in_the_orbit():
     for u in np.linspace(0, 1, 9):
-        assert frames(*rig_orbit(u), RIG_CORNERS)
+        e, g, f = rig_orbit(u)
+        assert 0.6 <= width_fraction(e, f) <= 0.75
+        assert frames(e, g, f, [p for p in RIG_DECK if p[2] > 40.0], margin=0.0)
+
+
+def test_the_walk_back_tracks_both_robots_from_low_and_oblique():
+    shot = next(x for x in SHOTS if x.name == "walk_back")
+    for t in np.linspace(shot.film[0], shot.film[1] - 1e-3, 9):
+        e, g, f, st = camera_at_film(t, SHOTS)
+        assert 11.5 <= np.linalg.norm(np.subtract(e, g)) <= 17.0
+        assert 55.0 <= np.degrees(np.arcsin((e[2] - g[2]) / np.linalg.norm(np.subtract(e, g)))) <= 70.0
+        cam = view(e, g, f)
+        track = default_track(FilmBeats(), DEFAULT_FILM_SCENE)
+        for robot in ("unit1", "unit2"):
+            u, v, z = project(cam, track(robot, st))
+            assert z > 0 and 0 < u < cam["w"] and 0 < v < cam["h"], (t, robot)
 
 
 def test_work_shots_frame_the_bolt_the_patch_and_the_arms():
     s = DEFAULT_FILM_SCENE
-    for name, pts in (("unit2_job", [s.bolt, s.flange, (s.unit2_work[0], s.unit2_work[1], s.unit2_work[2] + 1.1)]),
-                      ("unit1_spray", [s.patch, (s.unit1_work[0], s.unit1_work[1], s.unit1_work[2] + 0.8)]),
-                      ("unit1_scrub", [s.patch, (s.unit1_work[0], s.unit1_work[1], s.unit1_work[2] + 0.8)])):
+    w = s.unit1_work
+    unit1 = [s.patch, (w[0], w[1], w[2] + 1.1), (w[0] - 0.35, w[1], 42.5), (w[0] + 0.35, w[1], 42.5)]
+    unit2 = [s.bolt, s.flange, (s.unit2_work[0], s.unit2_work[1], s.unit2_work[2] + 1.1)]
+    for name, pts, far in (("unit2_job", unit2, 4.5), ("unit1_spray", unit1, 6.2), ("unit1_scrub", unit1, 6.2),
+                           ("unit1_paint", unit1, 6.2)):
         shot = next(x for x in SHOTS if x.name == name)
         for t in np.linspace(shot.film[0] + 1.3, shot.film[1] - 0.01, 6):
             e, g, f, _ = camera_at_film(t, SHOTS)
@@ -106,7 +123,9 @@ def test_work_shots_frame_the_bolt_the_patch_and_the_arms():
             for p in pts:
                 u, v, z = project(cam, p)
                 assert z > 0 and 0.05 * cam["w"] < u < 0.95 * cam["w"] and 0.05 * cam["h"] < v < 0.95 * cam["h"]
-            assert np.linalg.norm(np.subtract(e, pts[0])) < 4.5
+            assert np.linalg.norm(np.subtract(e, pts[0])) < far
+            if name != "unit2_job":
+                assert 0.2 * cam["h"] < project(cam, s.patch)[1] < 0.5 * cam["h"]
 
 
 def test_follow_shots_keep_the_walking_robot_in_frame():
