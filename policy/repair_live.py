@@ -224,7 +224,7 @@ def worker(argv):
             th_new, z_new = th0 + 0.30, 0.13
             bridge.schedule(now + 12.0, f"NEW rust patch at theta={th_new:.2f}, z={z_new:+.2f}",
                             lambda: bridge.spawn_patch(th_new, z_new, size=0.035, level=0.85))
-        if orch.state == S.SCRUB and prev != S.SCRUB and "bead" not in fired and "patch" in fired and now > 60:
+        if orch.state == S.SCRUB and prev != S.SCRUB and "bead" not in fired and "patch" in fired:
             fired.add("bead")
             bridge.schedule(now + 5.0, "weld bead under the brush (force spike)",
                             lambda: bridge.force_spike(args.bead_height))

@@ -145,7 +145,9 @@ def worker(argv):
     base._get_dones = no_terminate
     rows = []
     n_win, n_rate = int(args.window_s / dt), int(args.rate_s / dt)
-    for F in [float(v) for v in args.setpoints.split(",")]:
+
+    @torch.inference_mode()
+    def run_setpoint(F):
         torch.manual_seed(args.seed)
         base.reset(seed=args.seed)
         obs = env.get_observations()
@@ -155,10 +157,9 @@ def worker(argv):
         t_clean = torch.full((base.num_envs,), float("nan"), device=base.device)
         first_contact = torch.full((base.num_envs,), float("nan"), device=base.device)
         for k in range(n_win):
-            with torch.inference_mode():
-                act = policy(obs)
-                act[:, 3] = a3
-                obs, _, _, _ = env.step(act)
+            act = policy(obs)
+            act[:, 3] = a3
+            obs, _, _, _ = env.step(act)
             fr = base.rust.fraction_remaining()
             newly = torch.isnan(t_clean) & (fr < cfg.success_fraction)
             t_clean[newly] = (k + 1) * dt
@@ -183,8 +184,11 @@ def worker(argv):
                "peak_n": stats["peak_n"], "frac_contact_over_40n": stats["frac_contact_over_limit"],
                "env_peak_p95_n": float(np.percentile(Fp.max(0), 95)),
                "mean_contact_model_n": float(np.stack(models)[on].mean()) if on.any() else 0.0}
-        rows.append(row)
         print("[sweep] ROW", json.dumps(row), flush=True)
+        return row
+
+    for F in [float(v) for v in args.setpoints.split(",")]:
+        rows.append(run_setpoint(F))
     out = {"ckpt": args.ckpt, "force": tag, "num_envs": base.num_envs, "window_s": args.window_s,
            "rate_s": args.rate_s, "contact_stiffness": cfg.contact_stiffness, "rows": rows,
            "wall_s": round(time.time() - t0, 1)}

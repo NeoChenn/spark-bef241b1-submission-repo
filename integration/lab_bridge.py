@@ -412,6 +412,7 @@ class LabRepairBridge:
 
     def spawn_patch(self, theta: float, z: float, size: float = 0.04, level: float = 0.8) -> None:
         th, zz = self.world.inject_patch(theta, z, size=size, level=level)
+        self.log(f"   spawn_patch requested ({theta:.2f}, {z:+.2f}) -> placed at reachable ({th:.2f}, {zz:+.2f})")
         self.pending_events.append({"t": round(self.t, 3), "type": "spawn_patch", "theta": round(th, 3), "z": round(zz, 3),
                                     "cells": int((self.world.s.rust[0] > 0.1).sum())})
 
