@@ -131,12 +131,12 @@
      },
      "compute": "CPU, ONNX Runtime 1 thread, batch 1",
      "decision_latency_ms": {
-      "median": 0.0129,
-      "p90": 0.0148,
+      "median": 0.0127,
+      "p90": 0.0145,
       "n": 87136
      },
      "api_cost_usd_per_episode": 0.0,
-     "wall_s": 10.2
+     "wall_s": 9.7
     },
     "Greedy scripted": {
      "episodes": 200,
@@ -179,12 +179,12 @@
      },
      "compute": "CPU, Python",
      "decision_latency_ms": {
-      "median": 0.0081,
-      "p90": 0.1501,
+      "median": 0.0078,
+      "p90": 0.1469,
       "n": 81928
      },
      "api_cost_usd_per_episode": 0.0,
-     "wall_s": 12.3
+     "wall_s": 11.6
     },
     "Random": {
      "episodes": 200,
@@ -227,12 +227,12 @@
      },
      "compute": "CPU",
      "decision_latency_ms": {
-      "median": 0.0416,
-      "p90": 0.0674,
+      "median": 0.0213,
+      "p90": 0.0378,
       "n": 1796
      },
      "api_cost_usd_per_episode": 0.0,
-     "wall_s": 9.5
+     "wall_s": 7.4
     },
     "Gemini controller": {
      "status": "not run - needs GEMINI_API_KEY",
@@ -370,12 +370,12 @@
      },
      "compute": "CPU, ONNX Runtime 1 thread, batch 1",
      "decision_latency_ms": {
-      "median": 0.0147,
-      "p90": 0.019,
+      "median": 0.0124,
+      "p90": 0.014,
       "n": 88896
      },
      "api_cost_usd_per_episode": 0.0,
-     "wall_s": 12.3
+     "wall_s": 9.7
     },
     "Greedy scripted": {
      "episodes": 200,
@@ -419,11 +419,11 @@
      "compute": "CPU, Python",
      "decision_latency_ms": {
       "median": 0.008,
-      "p90": 0.1553,
+      "p90": 0.1613,
       "n": 83379
      },
      "api_cost_usd_per_episode": 0.0,
-     "wall_s": 12.4
+     "wall_s": 12.0
     },
     "Random": {
      "episodes": 200,
@@ -466,12 +466,12 @@
      },
      "compute": "CPU",
      "decision_latency_ms": {
-      "median": 0.033,
-      "p90": 0.0494,
+      "median": 0.0186,
+      "p90": 0.0317,
       "n": 1796
      },
      "api_cost_usd_per_episode": 0.0,
-     "wall_s": 8.4
+     "wall_s": 7.2
     },
     "Gemini controller": {
      "status": "not run - needs GEMINI_API_KEY",
@@ -572,8 +572,54 @@
     "seed": 20261108,
     "batched_act_ms_median": 37.971791927702725
    },
+   "Random": {
+    "episodes": 256,
+    "success": {
+     "mean": 0.0,
+     "lo": 0.0,
+     "hi": 0.0148,
+     "n": 256
+    },
+    "time_to_clean_s": {
+     "mean": null,
+     "lo": null,
+     "hi": null,
+     "n": 0
+    },
+    "peak_force_N": {
+     "mean": 49.2099,
+     "lo": 47.4066,
+     "hi": 51.0132,
+     "n": 256
+    },
+    "p95_peak_force_N": 68.95,
+    "over_40N": {
+     "mean": 0.6836,
+     "lo": 0.6243,
+     "hi": 0.7375,
+     "n": 256
+    },
+    "fraction_removed": {
+     "mean": 0.142,
+     "lo": 0.1255,
+     "hi": 0.1585,
+     "n": 256
+    },
+    "removed_pct_per_s": {
+     "mean": 0.9467,
+     "lo": 0.8366,
+     "hi": 1.0569,
+     "n": 256
+    },
+    "compute": "Isaac Lab GPU, batched",
+    "api_cost_usd_per_episode": 0.0,
+    "scenario_hash": "71b8b0bd7eeb",
+    "seed": 20261108,
+    "batched_act_ms_median": 8.869132027029991
+   },
    "Gemini controller": {
-    "status": "not run in Isaac Lab (API latency would need a paused sim; CPU mock only)"
+    "status": "not run in Isaac (CPU mock only)",
+    "why": "API latency would need a paused PhysX sim"
    }
   },
   "rig": {
@@ -667,8 +713,54 @@
     "seed": 20261108,
     "batched_act_ms_median": 37.31873200740665
    },
+   "Random": {
+    "episodes": 256,
+    "success": {
+     "mean": 0.0,
+     "lo": 0.0,
+     "hi": 0.0148,
+     "n": 256
+    },
+    "time_to_clean_s": {
+     "mean": null,
+     "lo": null,
+     "hi": null,
+     "n": 0
+    },
+    "peak_force_N": {
+     "mean": 48.5616,
+     "lo": 46.9279,
+     "hi": 50.1952,
+     "n": 256
+    },
+    "p95_peak_force_N": 70.03,
+    "over_40N": {
+     "mean": 0.6797,
+     "lo": 0.6202,
+     "hi": 0.7338,
+     "n": 256
+    },
+    "fraction_removed": {
+     "mean": 0.1393,
+     "lo": 0.1226,
+     "hi": 0.1561,
+     "n": 256
+    },
+    "removed_pct_per_s": {
+     "mean": 0.9288,
+     "lo": 0.8171,
+     "hi": 1.0404,
+     "n": 256
+    },
+    "compute": "Isaac Lab GPU, batched",
+    "api_cost_usd_per_episode": 0.0,
+    "scenario_hash": "7d2d1fbc9b7f",
+    "seed": 20261108,
+    "batched_act_ms_median": 7.41834903601557
+   },
    "Gemini controller": {
-    "status": "not run in Isaac Lab (API latency would need a paused sim; CPU mock only)"
+    "status": "not run in Isaac (CPU mock only)",
+    "why": "API latency would need a paused PhysX sim"
    }
   }
  },

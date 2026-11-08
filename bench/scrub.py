@@ -89,7 +89,7 @@ def isaac_section(root: Path):
                 arms[label] = {**scrub_summary(d["episodes"], None, "Isaac Lab GPU, batched", 0.0),
                                "scenario_hash": d["scenario_hash"], "seed": d["seed"],
                                "batched_act_ms_median": d["batched_act_ms_median"]}
-        arms["Gemini controller"] = {"status": "not run in Isaac Lab (API latency would need a paused sim; CPU mock only)"}
+        arms["Gemini controller"] = {"status": "not run in Isaac (CPU mock only)", "why": "API latency would need a paused PhysX sim"}
         out[preset] = arms
     return out
 
