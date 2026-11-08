@@ -42,6 +42,7 @@ over "World"
                 over "light"
                 {
                     float inputs:radius = 6
+                    bool visibleInPrimaryRay = 0
                 }
             }
         }

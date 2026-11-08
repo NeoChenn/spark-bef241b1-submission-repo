@@ -13,10 +13,10 @@ KINDS = {
 }
 DEFAULT_KIND = {"night": "calm", "golden": "calm", "storm": "storm"}
 TIERS = {
-    "live": {"width": 1280, "height": 720, "rain": 1500, "embers": 160, "spray": 300, "smoke": 48, "steam": 40, "flow": True,
+    "live": {"width": 1280, "height": 720, "rain": 1500, "embers": 20, "spray": 300, "smoke": 48, "steam": 40, "flow": True,
              "flow_cell": 0.25, "slices": 96, "pixel_ratio": 8, "accum": 32, "renderer": "RealTimePathTracing",
              "subframes": 1, "spp": 1},
-    "offline": {"width": 1920, "height": 1080, "rain": 3500, "embers": 600, "spray": 1200, "smoke": 140, "steam": 120, "flow": True,
+    "offline": {"width": 1920, "height": 1080, "rain": 3500, "embers": 60, "spray": 1200, "smoke": 140, "steam": 120, "flow": True,
                 "flow_cell": 0.18, "slices": 256, "pixel_ratio": 4, "accum": 128, "renderer": "RealTimePathTracing",
                 "subframes": 16, "spp": 2},
 }

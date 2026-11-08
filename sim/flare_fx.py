@@ -269,8 +269,9 @@ def build_layer(path: Path = LAYER) -> Path:
     for i in range(5):
         stage.OverridePrim(f"/World/Cinematic/Flare/flame_{i}").CreateAttribute(
             "visibility", Sdf.ValueTypeNames.Token, custom=False).Set("invisible")
-    stage.OverridePrim(f"{LIGHT}/light").CreateAttribute("inputs:radius", Sdf.ValueTypeNames.Float,
-                                                          custom=False).Set(LIGHT_RADIUS)
+    light = stage.OverridePrim(f"{LIGHT}/light")
+    light.CreateAttribute("inputs:radius", Sdf.ValueTypeNames.Float, custom=False).Set(LIGHT_RADIUS)
+    light.CreateAttribute("visibleInPrimaryRay", Sdf.ValueTypeNames.Bool, custom=False).Set(False)
     UsdGeom.Xform.Define(stage, ROOT)
     UsdGeom.Scope.Define(stage, f"{ROOT}/Looks")
     rows = SEGMENTS + 1
@@ -364,7 +365,7 @@ def update(stage, t: float, wind=WIND) -> None:
         return
     flow = stage.GetPrimAtPath(FLOW)
     shown = "invisible" if flow and flow.IsValid() else "inherited"
-    for name in [f"flame_{k}" for k in range(len(CARDS))] + ["smoke"]:
+    for name in [f"flame_{k}" for k in range(len(CARDS))]:
         UsdGeom.Imageable(stage.GetPrimAtPath(f"{ROOT}/{name}")).GetVisibilityAttr().Set(shown)
     eye = _eye(stage)
     rows = SEGMENTS + 1
