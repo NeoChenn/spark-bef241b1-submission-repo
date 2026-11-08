@@ -48,6 +48,8 @@
      42.5
     ]
    ],
+   "prev_path": null,
+   "reroute_t": null,
    "eta_s": 25.8,
    "dist_m": 102.1
   },
@@ -77,6 +79,8 @@
      20.0
     ]
    ],
+   "prev_path": null,
+   "reroute_t": null,
    "eta_s": 0.0,
    "dist_m": 117.1
   },
@@ -106,6 +110,8 @@
      20.0
     ]
    ],
+   "prev_path": null,
+   "reroute_t": null,
    "eta_s": 0.0,
    "dist_m": 85.2
   }
@@ -634,6 +640,30 @@
    "radius": 3.0
   }
  ],
+ "hazards": {
+  "obstacles": [],
+  "closures": [],
+  "weather": {
+   "level": "calm",
+   "intensity": 0.0,
+   "wind_dir": 90.0,
+   "gust": null,
+   "wind": 0.0,
+   "wet": 0.0,
+   "fog": 0.0,
+   "speed": {
+    "walk": 1.0,
+    "catwalk": 1.0,
+    "spur": 1.0,
+    "stairs": 1.0
+   },
+   "perception_range_m": 12.0,
+   "second_view_p": 0.15,
+   "closes_outer": false
+  },
+  "closed": [],
+  "slow": []
+ },
  "alarms": [
   {
    "id": "gas:F5",
@@ -746,6 +776,11 @@
   "replans": 15,
   "reservation_wait_s": 3.0,
   "corridor_conflicts": 0,
-  "late_tasks": []
+  "late_tasks": [],
+  "reroutes": 0,
+  "reroute_extra_m": 0,
+  "reroute_extra_s": 0,
+  "blocked_tasks": 0,
+  "weather": "calm"
  }
 }

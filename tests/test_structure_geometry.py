@@ -201,3 +201,29 @@ def test_helideck_stays_dry_and_splash_stays_wet():
     assert structure.wetness_for("helideck", 0.64) == 0.15
     assert structure.wetness_for("growth", 0.3) == 1.0
     assert structure.wetness_for("column", 0.64) == 0.64
+
+
+def test_rect_lattice_vertical_derrick():
+    d = sg.rect_lattice((20, 20, 45.9), (20, 20, 81.3), 7.4, 2.2, panel=3.0, cross=True)
+    base = np.array(d["rings"][0])
+    top = np.array(d["rings"][-1])
+    assert np.allclose(np.ptp(base[:, :2], axis=0), 7.4) and np.allclose(np.ptp(top[:, :2], axis=0), 2.2)
+    panels = len(d["rings"]) - 1
+    assert len(d["chords"]) == 4 * panels and len(d["diagonals"]) == 8 * panels
+
+
+def test_ship_planform_and_extrusion():
+    ring = sg.ship_planform(80.0, 18.0)
+    assert np.isclose(ring[:, 0].max(), 40.0) and np.isclose(np.abs(ring[:, 1]).max(), 9.0)
+    m = sg.extrude_ring(ring, -5.0, 5.0)
+    centre = ring.mean(0)
+    out = ((m["points"][:len(ring), :2] - centre) * m["normals"][:len(ring), :2]).sum(1)
+    assert (out > -1e-6).mean() > 0.95
+    f = sg.fan(ring, 4.0)
+    assert len(f["counts"]) == len(ring)
+
+
+def test_containers_fit_deck():
+    cs = sg.container_stacks(-38.0, 14.0, 7.5)
+    assert cs and all(-38.0 <= c[0][0] - 3.03 and c[0][0] + 3.03 <= 14.0 + 1e-9 for c in cs)
+    assert all(abs(c[0][1]) + 1.22 <= 7.5 + 1e-9 for c in cs)

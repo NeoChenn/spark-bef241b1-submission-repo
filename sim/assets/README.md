@@ -85,3 +85,23 @@ Not found as free downloads: liferaft canisters / lifeboat capsules, wheel valve
 winches, helideck lights, shipping containers as models (use `container_side` on a box). NVIDIA SimReady
 extinguisher, suppression cylinders, first-aid cabinet, tripod flood light, hose reel, siren and junction
 boxes loaded without visible geometry or at the wrong scale and were dropped.
+
+## Photoreal layer
+
+`python sim/build_photoreal.py` (plain `usd-core`, no Isaac) writes `sim/output/photoreal.usda`, which
+`cinematic.apply_preset` inserts as the strongest sublayer (`RIG_PHOTOREAL=0` turns it off). It:
+
+- rebinds every rig material listed in `sim/photoreal.py:RECIPES` to `mdl/rig_weathered.mdl`: world-space
+  (triplanar) paint over rust with chips, macro grime, vertical rust/salt streaks, salt bloom, detail
+  normals, and a rain wetness layer (`wetness` darkens and glosses, `puddles` adds flat water on up-facing
+  surfaces). `rig_brushed` is anisotropic steel, `rig_decal` is cut-out decals with an oil thin-film;
+- leaves the perception targets untouched (`green_metal_rust` main pipe, `rust_coarse_01` damage patch) apart
+  from pointing them at 4k copies of the same textures;
+- adds set dressing under `/World/Photoreal` (`sim/dressing.py`): laydown area behind the repair zone,
+  hoses, cables, chains, rope, tarp, oil stains, scuffs, column rust streaks and hazard strips, all outside
+  the patrol route, the work zone and the camera paths (`tests/test_dressing.py`).
+
+Weather comes from the preset (`PRESET_RAIN`: night 0.55, storm 1.0, golden 0). `RIG_QUALITY=offline`
+turns on full triplanar blending and the extra clutter in `/World/Photoreal/Offline`; the default `live`
+uses single-axis projection. New photoreal assets are in the manifest with category `photoreal *`;
+`generated/rig_masks.png` and `generated/rig_streaks.png` come from `sim/photoreal_masks.py`.

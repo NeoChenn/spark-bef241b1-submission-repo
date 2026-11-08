@@ -25,6 +25,10 @@ ap.add_argument("--video-subframes", type=int, default=0)
 ap.add_argument("--fps", type=int, default=24)
 ap.add_argument("--fps-test", type=float, default=0.0)
 ap.add_argument("--set", action="append", default=[])
+ap.add_argument("--renderer", default="")
+ap.add_argument("--flow-preset", action="store_true")
+ap.add_argument("--flow-kw", default="")
+ap.add_argument("--no-flow", action="store_true")
 args = ap.parse_args()
 
 import atmos
@@ -35,7 +39,7 @@ SUB = args.subframes or tier["subframes"]
 
 from isaacsim import SimulationApp
 
-app = SimulationApp({"headless": True, "renderer": tier["renderer"], "width": W, "height": H})
+app = SimulationApp({"headless": True, "renderer": args.renderer or tier["renderer"], "width": W, "height": H})
 
 import carb
 import numpy as np
@@ -51,7 +55,7 @@ from rig.sim.main import load_cinematic
 
 CAMS = {
     "wide": ((110.0, -235.0, 9.0), (4.0, -6.0, 36.0), 28.0),
-    "deck": ((48.0, -46.0, 58.0), (8.0, 0.0, 44.0), 24.0),
+    "deck": ((34.0, -24.0, 46.5), (-12.0, 12.0, 49.0), 20.0),
     "waterline": ((75.0, -105.0, 4.0), (2.0, -8.0, 24.0), 18.0),
     "flare": ((-22.0, -62.0, 58.0), (-56.0, 8.0, 76.0), 32.0),
 }
@@ -82,11 +86,26 @@ atm = None
 if args.tier != "none":
     from atmos_fx import Atmosphere
 
-    atm = Atmosphere(stage, args.preset, args.tier, None, cam_path=cam_path)
+    kw = {k: float(v) for k, v in (i.split("=") for i in filter(None, args.flow_kw.split(",")))}
+    atm = Atmosphere(stage, args.preset, args.tier, None, cam_path=cam_path, flow=False if args.no_flow else None,
+                     flow_kw=kw)
     sched = atmos.parse_schedule(args.weather)
     if sched:
         atm.set_weather(sched[0][1], args.wind_dir, args.gust)
     print(f"ATMOS tier={args.tier} weather={atm.w}", flush=True)
+if args.flow_preset:
+    import glob
+
+    import omni.kit.app
+
+    omni.kit.app.get_app().get_extension_manager().set_extension_enabled_immediate("omni.flowusd", True)
+    fire = UsdGeom.Xform.Define(stage, "/World/FirePreset")
+    fire.AddTranslateOp().Set(Gf.Vec3d(-59.5, 8.0, 71.0))
+    fire.AddRotateXOp().Set(90.0)
+    fire.AddScaleOp().Set(Gf.Vec3f(0.3, 0.3, 0.3))
+    fire.GetPrim().GetReferences().AddReference(glob.glob("/isaac-sim/extscache/omni.flowusd-*/data/presets/Fire/Fire.usda")[0])
+    for k in ("enabled", "pathTracingEnabled", "rayTracedReflectionsEnabled", "rayTracedTranslucencyEnabled"):
+        settings.set(f"/rtx/flow/{k}", True)
 for item in args.set:
     k, v = parse_setting(item)
     settings.set(k, v)
