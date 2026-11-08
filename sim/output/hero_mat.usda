@@ -247,7 +247,7 @@ over "World"
                 asset inputs:noise = @../assets/generated/hero_noise.png@ (
                     colorSpace = "raw"
                 )
-                color3f inputs:paint_color = (0.19, 0.21, 0.22)
+                color3f inputs:paint_color = (0.13, 0.14, 0.145)
                 asset inputs:paint_normal = @../assets/third_party/textures/PaintedMetal010_4k/nor_gl.jpg@ (
                     colorSpace = "raw"
                 )

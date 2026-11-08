@@ -79,3 +79,45 @@ def test_structure_paints_are_muted_and_wet():
     for kind in ("frame", "zone_steel"):
         sub, v = r[kind]
         assert sub == "rig_hero_paint" and max(v["paint_color"]) < 0.3 and kind in hm.WET_PUDDLES
+
+
+def test_stage_inputs_follow_the_repair():
+    assert hm.stage_inputs("PATROL") == {"amount": 1.0, "wetness": 0.0}
+    assert hm.stage_inputs("SPRAY", 0.0)["wetness"] == 0.4 and hm.stage_inputs("SPRAY", 1.0)["wetness"] == 1.0
+    assert hm.stage_inputs("SOAK", 0.5) == {"amount": 1.0, "wetness": 1.0}
+    scrub = [hm.stage_inputs("SCRUB", p)["amount"] for p in (0.0, 0.5, 1.0)]
+    assert scrub[0] == 1.0 and scrub[0] > scrub[1] > scrub[2] == hm.PATCH_LEFT
+    assert hm.stage_inputs("PAINT", 1.0)["amount"] == 0.0 and hm.stage_inputs("done")["amount"] == 0.0
+    assert hm.stage_inputs("PATROL", base_wetness=0.64)["wetness"] == 0.64
+    assert hm.stage_inputs("SCRUB", 7.0)["amount"] == hm.PATCH_LEFT
+
+
+def test_overlay_rgba_packs_levels_and_primer_hides_rust():
+    import numpy as np
+
+    rust = np.array([[0.0, 0.5, 1.0, 1.0]])
+    wet = np.array([[1.0, 0.0, 0.0, 0.0]])
+    primer = np.array([[0.0, 0.0, 0.0, 1.0]])
+    px = hm.overlay_rgba(rust, wet, primer)[0]
+    assert px.dtype == np.uint8 and px.shape == (4, 4)
+    assert tuple(px[0]) == (0, 255, 0, 255)
+    assert tuple(px[1]) == (128, 0, 0, 128)
+    assert tuple(px[3]) == (0, 0, 255, 255)
+    assert tuple(hm.overlay_rgba(np.zeros((1, 1)))[0, 0]) == (0, 0, 0, 0)
+
+
+def test_bind_overlay_and_set_state_on_a_stage():
+    from pxr import Usd, UsdGeom, UsdShade
+
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Mesh.Define(stage, "/World/RustOverlay")
+    hm.bind_overlay(stage, "/World/RustOverlay", "dynamic://rust_overlay", 0.154, 1.2)
+    mat, _ = UsdShade.MaterialBindingAPI(stage.GetPrimAtPath("/World/RustOverlay")).ComputeBoundMaterial()
+    assert mat.GetPath() == hm.OVERLAY_MATERIAL
+    shader = UsdShade.Shader.Get(stage, f"{hm.OVERLAY_MATERIAL}/{hm.SHADER}")
+    assert shader.GetSourceAssetSubIdentifier("mdl") == hm.OVERLAY_SUB
+    assert shader.GetInput("mask").Get().path == "dynamic://rust_overlay"
+    assert abs(shader.GetInput("uv_scale").Get()[0] - 2 * math.pi * 0.154) < 1e-5
+    hm.set_state(stage, "SCRUB", 0.5)
+    assert shader.GetInput("amount").Get() == pytest.approx(hm.stage_inputs("SCRUB", 0.5)["amount"])
+    assert shader.GetInput("wetness").Get() == pytest.approx(hm.stage_inputs("SCRUB", 0.5)["wetness"])
