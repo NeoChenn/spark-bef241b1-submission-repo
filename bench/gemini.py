@@ -57,9 +57,12 @@ def cost_usd(tokens_in: int, tokens_out: int, model: str = "") -> float | None:
     return tokens_in / 1e6 * pi + tokens_out / 1e6 * po
 
 
-def generate(model: str, key: str, parts: list, schema: dict, timeout: float = 60.0, post=None) -> dict:
-    body = {"contents": [{"role": "user", "parts": parts}],
-            "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema, "temperature": 0.0}}
+def generate(model: str, key: str, parts: list, schema: dict, timeout: float = 90.0, post=None,
+             thinking: str | None = None) -> dict:
+    gc = {"responseMimeType": "application/json", "responseSchema": schema, "temperature": 0.0}
+    if thinking:
+        gc["thinkingConfig"] = {"thinkingLevel": thinking}
+    body = {"contents": [{"role": "user", "parts": parts}], "generationConfig": gc}
     url = f"{gv.API_ROOT}/models/{model}:generateContent"
     t = time.perf_counter()
     if post is None:

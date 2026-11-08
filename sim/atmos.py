@@ -11,7 +11,7 @@ KINDS = {
     "fog": {"wind_speed": 2.5, "rain": 0.0, "fog": 1.0, "spray": 0.1},
     "storm": {"wind_speed": 18.0, "rain": 1.0, "fog": 0.7, "spray": 1.0},
 }
-DEFAULT_KIND = {"night": "calm", "golden": "calm", "storm": "storm"}
+DEFAULT_KIND = {"night": "calm", "golden": "calm", "storm": "storm", "dusk": "calm"}
 TIERS = {
     "live": {"width": 1280, "height": 720, "rain": 1500, "embers": 20, "spray": 300, "smoke": 48, "steam": 40, "flow": True,
              "flow_cell": 0.25, "slices": 96, "pixel_ratio": 8, "accum": 32, "renderer": "RealTimePathTracing",
@@ -23,6 +23,7 @@ TIERS = {
 MEDIA = {
     "night": {"vis": 600.0, "albedo": (0.35, 0.33, 0.31), "transmit": (0.5, 0.58, 0.62), "height": 52.0, "g": 0.8},
     "storm": {"vis": 170.0, "albedo": (0.82, 0.86, 0.9), "transmit": (0.5, 0.55, 0.6), "height": 70.0, "g": 0.35},
+    "dusk": {"vis": 1100.0, "albedo": (0.85, 0.5, 0.26), "transmit": (0.75, 0.58, 0.42), "height": 60.0, "g": 0.86},
     "golden": {"vis": 420.0, "albedo": (0.95, 0.82, 0.66), "transmit": (0.62, 0.55, 0.48), "height": 60.0, "g": 0.6},
 }
 

@@ -55,3 +55,54 @@ def test_no_key_reports_not_run(monkeypatch):
     monkeypatch.setattr(gemini, "api_key", lambda: None)
     r = scrub.run_gemini([], ScrubCfg(), 5, gemini.ARGON)
     assert r["status"] == gemini.NEEDS_KEY
+
+
+def test_generate_sets_thinking_level():
+    seen = {}
+
+    def post(url, body):
+        seen.update(body["generationConfig"])
+        return {"candidates": [{"content": {"parts": [{"text": '{"press": 0.1}'}]}}]}
+    gemini.generate("m", "k", [{"text": "x"}], {}, post=post, thinking="low")
+    assert seen["thinkingConfig"] == {"thinkingLevel": "low"}
+
+
+def test_decision_steps_paused_vs_realtime():
+    from bench.scrub_gemini import decision_steps
+    dt = 1 / 30
+    assert decision_steps("paused", 9.0, dt, 0.5) == 15
+    assert decision_steps("realtime", 4.0, dt, 0.5) == 120
+    assert decision_steps("realtime", 0.0, dt, 0.5) == 1
+
+
+def test_paused_mode_calls_every_hold_and_logs_wall():
+    cfg = ScrubCfg(episode_s=1.0)
+    n = {"k": 0}
+
+    def post(url, body):
+        n["k"] += 1
+        assert "paused" in body["contents"][0]["parts"][0]["text"]
+        return {"candidates": [{"content": {"parts": [{"text": '{"d_theta": 0.0, "d_z": 0.02, "press": 0.6}'}]}}],
+                "usageMetadata": {"promptTokenCount": 100, "candidatesTokenCount": 10}}
+    ep = run_episode(make_scenario(5, cfg), "m", "k", cfg, post=post, mode="paused", hold_s=0.25)
+    assert ep["mode"] == "paused" and ep["calls"] == n["k"] >= 3 and ep["wall_s"] >= 0
+
+
+def test_within_budget_and_spend_cap():
+    from bench.scrub_vs_gemini import CostCap, Spend, within_budget
+    eps = [{"success": True, "time_to_clean_s": 5.0}, {"success": True, "time_to_clean_s": 9.0},
+           {"success": False, "time_to_clean_s": None}, {"success": True, "time_to_clean_s": 7.0}]
+    w = within_budget(eps, 7.0)
+    assert w["mean"] == 0.5 and w["n"] == 4 and w["lo"] < 0.5 < w["hi"]
+    s = Spend(1.0)
+    s.add(0.6)
+    s.add(None)
+    with pytest.raises(CostCap):
+        s.add(0.5)
+
+
+def test_latency_note_ratio():
+    from bench.scrub_vs_gemini import LABELS, latency_note
+    arms = {LABELS["ppo"]: {"decision_latency_ms": {"median": 0.01}},
+            LABELS["paused"]: {"decision_latency_ms": {"median": 8000.0}}}
+    assert "800,000x" in latency_note(arms) and "8.0 s" in latency_note(arms)

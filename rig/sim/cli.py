@@ -13,7 +13,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--orbit", type=float, default=0.0, help="orbit period in seconds around the camera's view target; 0 = fixed")
     p.add_argument("--orbit-z", type=float, default=1.0, help="height of the plane the orbit target is picked on")
     p.add_argument("--env", default="", help="sim.environment preset to add (ocean/sky); empty = none")
-    p.add_argument("--cinematic", default="", help="sim/cinematic.py preset (night|golden|storm): cinematic scene, effects and camera sequence")
+    p.add_argument("--cinematic", default="", help="sim/cinematic.py preset (night|dusk|golden|storm): cinematic scene, effects and camera sequence")
     p.add_argument("--merged", action=argparse.BooleanOptionalAction, default=os.environ.get("RIG_MERGED", "") == "1", help="with --cinematic: open sim/output/rig_merged.usda (repair zone on the top deck) and fly wide orbit -> pipe close-up")
     p.add_argument("--merged-hold", type=float, default=float(os.environ.get("RIG_MERGED_HOLD", "8")), help="seconds at the pipe close-up before flying back out; 0 = stay at the close-up")
     p.add_argument("--merged-start", type=float, default=0.0, help="time offset into the merged camera path")
@@ -54,6 +54,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--leak-dt", type=float, default=1 / 12, help="seconds of wall time between plume steps")
     p.add_argument("--pip-every", type=float, default=0.25)
     p.add_argument("--pip-size", type=size, default=(480, 270), metavar="WxH")
+    p.add_argument("--views", action=argparse.BooleanOptionalAction, default=os.environ.get("RIG_VIEWS", "") == "1",
+                   help="per-robot head cameras rendered at low res with policy overlays in the outgoing meta 'views'")
+    p.add_argument("--views-rate", type=float, default=float(os.environ.get("RIG_VIEWS_RATE", "2")), help="captures per robot per second")
+    p.add_argument("--views-size", type=size, default=(256, 192), metavar="WxH")
+    p.add_argument("--views-mode", default=os.environ.get("RIG_VIEWS_MODE", "RaytracedLighting"),
+                   help="omni:rtx:rendermode on the sensor render products; empty = the app renderer")
     p.add_argument("--render-mode", choices=("local", "remote"), default=os.environ.get("RENDER_MODE") or "local",
                    help="remote: skip the main view render and publish scene state for rig.render on another box")
     return p.parse_args(argv)

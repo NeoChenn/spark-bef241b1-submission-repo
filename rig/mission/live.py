@@ -10,19 +10,23 @@ from datetime import date
 import numpy as np
 
 from policy.fleet.fleet import Event
+from policy.fleet.jobs import SETUP_S
 from rig.captions import caption, fleet_robots
 from rig.mission.gas import ALARM_LEL, FLOW_GS, SUB_S, WALK_MS, GasLeak, wind_from_weather
 from rig.mission.jobs import MissionPort
 
-FLEET_EVENTS = ("drop_obstacle", "close_walkway", "close_stairs", "clear", "set_weather")
-ROLE = {"rust": "rust", "gas": "gas", "leak_check": "leak check", "inspect": "inspection", "crack": "crack"}
-RUST = ("DETECT", "SPRAY", "SOAK", "SCRUB", "VERIFY", "PAINT", "APPROACH", "BACK_OFF")
+FLEET_EVENTS = ("drop_obstacle", "drop_can", "close_walkway", "close_stairs", "clear", "set_weather", "weld_job")
+ROLE = {"pick_can": "pick-up", "weld": "weld", "rust": "rust", "gas": "gas", "leak_check": "leak check", "inspect": "inspection", "crack": "crack"}
+RUST = ("DETECT", "SPRAY", "SOAK", "SCRUB", "VERIFY", "PAINT", "APPROACH", "BACK_OFF", "GRIND", "WELD", "INSPECT_WELD")
 GAS = ("LEAK_APPROACH", "LEAK_INSPECT", "RETORQUE", "LEAK_VERIFY", "GAS_CHECK")
 RANK = {"stop": 4, "warn": 3, "act": 2, "ok": 1}
 DEFAULT_FLANGE = "F2"
 FAULT_SOC = 0.12
 PERSON_M = 2.0
 ISOLATE_S = 6.0
+FLASH_S = 7.0
+GAS_KINDS = ("torque", "valve", "isolat", "gas", "leak", "flange")
+ARGON_S = 6.0
 LOG_KEEP = 300
 HOLD_MARGIN = 1.0
 SEEK_SPEED = 1.5
@@ -68,6 +72,10 @@ class MissionLive:
         self.notes: list[dict] = []
         self.busy = False
         self.sim_flange = lambda: None
+        self.view_seq: dict = {}
+        self._flash = None
+        self.plan_key = None
+        self.agent_key = None
 
     @property
     def t(self) -> float:
@@ -118,7 +126,7 @@ class MissionLive:
     def _hold(self) -> float:
         tr = self.fleet.jobs.get("gas", "loose")
         segs = [s[0] for s in tr.segments if s[0] > 0]
-        return max(0.0, (segs[0] if segs else 10.0) - HOLD_MARGIN)
+        return max(0.0, SETUP_S.get("gas", 0.0) + (segs[0] if segs else 10.0) - HOLD_MARGIN)
 
     def _gas_logic(self) -> None:
         lk = self.leak
@@ -154,12 +162,22 @@ class MissionLive:
             lk.stop("fixed")
             self.note("Fleet", "LEAK_FIXED", f"{lk.fid} re-torqued, gas falling back to background")
             self._close_valve_job("DONE")
+        if not lk.on and lk.fid is not None:
+            self._supersede(lk.fid)
         if self.isolate_at is not None and self.t >= self.isolate_at:
             self.isolate_at = None
             if lk.on:
                 lk.stop("isolated")
                 self.note("Operator", "ISOLATED", f"valve upstream of {lk.fid} closed, leak starved")
             self._close_valve_job("DONE")
+
+    def _supersede(self, fid: str) -> None:
+        for j in self.port.extra.values():
+            if j["target"] == fid and j["status"] in ("WAITING_APPROVAL", "QUEUED") and not j.get("fleet_task") \
+                    and any(k in j["kind"].lower() for k in GAS_KINDS):
+                j["status"] = "CANCELLED"
+                self.port.log("superseded", j["id"], None, why=f"{fid} leak already stopped")
+                self.note("Coordinator", "SUPERSEDED", f"{j['id']} {j['kind']} {fid}: leak already stopped")
 
     def _close_valve_job(self, status: str) -> None:
         j = self.port.extra.get(self.valve_job or "")
@@ -214,7 +232,77 @@ class MissionLive:
         with self.lock:
             out = self._event(name, args)
             self._fleet_events()
+            self._react(name, args, out)
             return out
+
+    def flash(self, lead: str, rest: str = "", tone: str = "warn", state: str = "EVENT", secs: float = FLASH_S,
+              prio: int = 2) -> None:
+        if self._flash and self._flash["until"] > time.monotonic() and self._flash["prio"] > prio:
+            return
+        self._flash = {"until": time.monotonic() + secs, "prio": prio,
+                       "cap": {"state": state, "lead": lead, "rest": rest, "text": lead + rest, "tone": tone}}
+
+    def _react(self, name, args, out) -> None:
+        cap = self._event_caption(name, args, out)
+        if cap is None:
+            return
+        self.flash(*cap)
+        c = self.control
+        if c is None or name in ("approve", "reject", "cut_link", "intent"):
+            return
+        if hasattr(c, "nudge"):
+            c.nudge(f"event:{name}:{self.t:.0f}")
+        if getattr(c, "agent", None) is not None and self._budget_ok():
+            detail = {k: v for k, v in {**args, **out}.items() if isinstance(v, (str, int, float, bool, list, dict))}
+            self._agent(lambda: c.finding({"kind": name, "severity": "critical" if name == "gas_leak" else "warning",
+                                           "detail": detail}, now=self.t))
+
+    def _event_caption(self, name, args, out):
+        if name == "battery_fault":
+            r = self._robot(out["battery_fault"])
+            return (f"{unit_name(r.id)} · Battery fault", f" — {r.battery.soc:.0%}, walking to the dock; its job goes back "
+                    "to the queue", "warn", "TO_DOCK")
+        if name == "person_at":
+            if "fleet" in out:
+                return ("Worker on deck", " — any unit within 3 m pauses until clear", "stop", "PAUSE_PERSON")
+            if not out.get("person"):
+                return ("Worker clear", " — paused units resume their jobs", "ok", "DONE")
+            return (f"{unit_name(out['person']['robot'])} · Paused", " — worker on the walkway, holding 3 m clear",
+                    "stop", "PAUSE_PERSON")
+        if name == "set_weather":
+            w = (self.fleet.state().get("hazards") or {}).get("weather") or {}
+            lv = w.get("level", args.get("level", "storm"))
+            when = f" at {w['time']}" if w.get("time") else ""
+            if lv == "calm":
+                return (f"Weather calm{when}", " — normal walking speed, plume settles", "ok", "DONE")
+            return (f"Weather · {lv}{when}", f" — walk x{(w.get('speed') or {}).get('walk', 1):.2f}, sight "
+                    f"{w.get('perception_range_m', 12):.0f} m; the gas plume turns with the wind", "warn", "WAIT_LULL")
+        if name in ("drop_obstacle", "close_walkway", "close_stairs"):
+            log = ((out.get("fleet") or {}).get("log") or [{}])[-1]
+            return ("Walkway blocked", f" — {log.get('message', 'units re-route')}", "warn", "BLOCKED")
+        if name == "drop_can":
+            log = ((out.get("fleet") or {}).get("log") or [{}])[-1]
+            return ("Can on the walkway", f" — {log.get('message', 'nearest gripper unit sent to pick it up')}", "warn",
+                    "BLOCKED")
+        if name == "clear":
+            return ("Routes clear", " — hazards removed, units take the short way again", "ok", "DONE")
+        if name == "gas_leak":
+            if not out.get("leak"):
+                return ("Leak stopped", " — gas falling back to background", "ok", "DONE")
+            return (f"Gas leak at {out['leak']}", " — nearest unit pre-empted to localise it, hot work stopped nearby",
+                    "stop", "GAS_CHECK")
+        if name == "weld_job":
+            return ("Weld repair requested", f" at {args.get('poi', 'the riser')} — hot-work permit checks gas first",
+                    "act", "SETUP")
+        if name == "cut_link":
+            on = args.get("on", True)
+            return ("Gemini link cut", " — robots continue on edge rules", "warn", "HOLD") if on else \
+                ("Gemini link restored", " — Argon planning again", "ok", "DONE")
+        if name in ("approve", "reject") and out.get("ok"):
+            return (f"Operator {'approved' if name == 'approve' else 'rejected'}", f" {out[name]}", "ok", "DONE")
+        if name == "intent":
+            return ("Operator intent", f" — “{args.get('text', '')}”", "act", "WORK")
+        return None
 
     def _event(self, name, args) -> dict:
         f, ids = self.fleet, self.ids()
@@ -314,11 +402,12 @@ class MissionLive:
         if t is None:
             return {}
         tr = self.fleet.jobs.get(t.kind, t.scenario)
-        starts = [s[0] for s in tr.segments] + [tr.total_s]
-        i = max(0, sum(1 for s in starts[:-1] if s <= t.progress) - 1)
+        e = t.progress - SETUP_S.get(t.kind, 0.0)
+        starts = [s[0] for s in tr.segments] + [tr.duration_s]
+        i = max(0, sum(1 for s in starts[:-1] if s <= e) - 1)
         span = max(starts[i + 1] - starts[i], 1e-6)
-        return {"kind": t.kind, "u": min(1.0, (t.progress - starts[i]) / span), "left": starts[i + 1] - t.progress,
-                "poi": t.poi}
+        return {"kind": t.kind, "u": min(1.0, max(0.0, e - starts[i]) / span), "left": starts[i + 1] - e,
+                "poi": t.poi, "scenario": t.scenario}
 
     def _evidence(self, r, state: str, info: dict, gas: float | None) -> dict:
         u, tt = info.get("u", 0.0), self.t
@@ -353,6 +442,8 @@ class MissionLive:
         with self.fleet.lock:
             s = copy.deepcopy(self.fleet.snap)
             info = {r.id: (self._jobinfo(r), r) for r in self.fleet.f.robots}
+            welds = weld_views(self.fleet.f)
+        s["views"] = {}
         for d in s.get("robots") or []:
             inf, r = info.get(d["id"], ({}, None))
             o = self.override.get(d["id"])
@@ -363,14 +454,21 @@ class MissionLive:
                 if o["mode"] != "RETURN":
                     d["job_state"] = "LEAK_APPROACH"
                     d["seek"] = o["mode"]
-            role = ROLE.get(inf.get("kind"), "dock" if d["state"] in ("CHARGING", "DOCKED", "TO_DOCK", "DOCK_QUEUE")
-                            else "standby")
+            kind = inf.get("kind")
+            role = ROLE.get(kind, kind.replace("_", " ")) if kind else "dock" if d["state"] in (
+                "CHARGING", "DOCKED", "TO_DOCK", "DOCK_QUEUE") else "standby"
             d["name"] = f"{unit_name(d['id'])} · {role}"
             p = d["pose"]
             g = self._robot_gas(d["id"], (p["x"], p["y"], p["z"]))
             st = d.get("job_state") or d["state"]
             d["evidence"] = self._evidence(r, st, inf, g) if r is not None else {}
             d["gas_lel"] = g
+            wv = welds.get(d["id"])
+            if wv is not None:
+                d["job_state"] = wv.get("state") or d.get("job_state")
+                d["evidence"] = {**d["evidence"], **(wv.get("evidence") or {}), "job": "weld"}
+                if wv.get("pip"):
+                    s["views"][d["id"]] = {"policy": wv["pip"]}
         return s
 
     def gas(self) -> dict:
@@ -404,7 +502,8 @@ class MissionLive:
             fl = self.snapshot_fleet()
             robots = fleet_robots(fl)
             gas = self.gas()
-            out = {"t": fl["t"], "fleet": {k: v for k, v in fl.items() if k != "events"}, "robots": robots,
+            out = {"t": fl["t"], "fleet": {k: v for k, v in fl.items() if k not in ("events", "views")},
+                   "robots": robots, "views": self._fresh_views(fl.get("views") or {}),
                    "gas": gas, "sensors": self.sensors(fl), "orchestrator": self.orchestrator(),
                    "caption": self.caption(robots, gas),
                    "mission": {"t": fl["t"], "rounds": self.fleet.rounds, "speed": self.fleet.speed,
@@ -414,6 +513,15 @@ class MissionLive:
             if events:
                 out["events"], self.out = self.out, []
             return out
+
+    def _fresh_views(self, views: dict) -> dict:
+        out = {}
+        for rid, v in views.items():
+            key = (v["policy"].get("seq"), v["policy"].get("caption"))
+            if self.view_seq.get(rid) != key:
+                self.view_seq[rid] = key
+                out[rid] = v
+        return out
 
     def orchestrator(self) -> dict:
         o = self.port.header()
@@ -434,6 +542,8 @@ class MissionLive:
         return out
 
     def caption(self, robots: list[dict], gas: dict) -> dict | None:
+        if self._flash and self._flash["until"] > time.monotonic():
+            return dict(self._flash["cap"])
         if not robots:
             return None
 
@@ -477,7 +587,30 @@ class MissionLive:
         with self.lock:
             h = self.control_input()
         self.ctl = self.control.tick(from_header(h), now=now if now is not None else time.monotonic())
+        with self.lock:
+            self._argon_news()
         return self.ctl
+
+    def _argon_news(self) -> None:
+        c = self.ctl or {}
+        sit = c.get("situation") or []
+        key = (tuple(sit), tuple(a.get("id") for a in c.get("actions") or []))
+        if c.get("mode") == "CLOUD" and sit and key != self.plan_key:
+            top = next((a for a in c.get("actions") or [] if a.get("source") != "edge"), None)
+            self.note("Argon", "PLAN", sit[0] + (f" -> {top['label']}" if top and top.get("label") else ""))
+            self.flash("Argon", f" · {_short(sit[0])}", "act", "PLAN", ARGON_S, prio=1)
+        self.plan_key = key
+        ag = (c.get("agent") or {}) if c else {}
+        calls = ag.get("calls") or []
+        akey = (len(calls), calls[-1].get("label") if calls else None, ag.get("text"))
+        if calls and akey != self.agent_key and self.agent_key is not None:
+            last = calls[-1]
+            self.note("Argon", last.get("label", "CALL").upper().replace(" ", "_")[:24],
+                      (last.get("why") or "") + (f" (refused: {last['refused']})" if last.get("refused") else ""))
+            self.flash("Argon", f" · {_short(last.get('label', ''))}" + (f" — {_short(last.get('why', ''), 70)}"
+                                                                         if last.get("why") else ""), "act", "PLAN",
+                       ARGON_S, prio=1)
+        self.agent_key = akey
 
     def for_sim(self) -> dict:
         s = self.snapshot_fleet()
@@ -488,3 +621,15 @@ class MissionLive:
     def state(self) -> dict:
         return self.snapshot_fleet()
 
+
+def weld_views(f) -> dict:
+    try:
+        from policy.weld.live import fleet_weld_views
+    except ImportError:
+        return {}
+    return fleet_weld_views(f)
+
+
+def _short(text: str, n: int = 110) -> str:
+    text = str(text or "").strip()
+    return text if len(text) <= n else text[: n - 1].rstrip() + "…"

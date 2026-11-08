@@ -14,6 +14,9 @@ FOG_DIST_MAX = 0.012
 LEAN_PER_M = 0.45
 DROP_H = 1.5
 DROP_S = 0.7
+DRUM_R = 0.29
+PREDICT_S = 0.8
+BLEND_S = 0.35
 
 
 def lerp(a, b, s):
@@ -90,3 +93,22 @@ def ghost_alpha(age: float, hold: float = 6.0, fade: float = 6.0) -> float:
     if age <= hold:
         return 1.0
     return max(0.0, 1.0 - (age - hold) / fade)
+
+
+def drum_pose(mv: dict, t: float, prev, yaw: float, spin: float) -> tuple[tuple, float, float]:
+    dt = min(max(t - mv["t"], 0.0), PREDICT_S)
+    p = [mv["p"][0] + mv["v"][0] * dt, mv["p"][1] + mv["v"][1] * dt, mv["p"][2]]
+    w = max(0.0, 1.0 - (t - mv["t"]) / BLEND_S)
+    p = tuple(p[i] + (mv["from"][i] - mv["p"][i]) * w for i in range(3))
+    if prev is not None:
+        dx, dy = p[0] - prev[0], p[1] - prev[1]
+        step = math.hypot(dx, dy)
+        if step > 1e-4:
+            yaw = math.degrees(math.atan2(dy, dx))
+            spin = (spin + math.degrees(step / DRUM_R)) % 360.0
+    return p, yaw, spin
+
+
+def puddle_edge(a: float, seed: int) -> float:
+    k = (seed % 97) / 97.0 * 6.283
+    return 0.78 + 0.14 * math.sin(2 * a + k) + 0.08 * math.sin(3 * a + 2.1 * k) + 0.05 * math.sin(5 * a + 0.7 * k)

@@ -84,6 +84,14 @@ def test_run_gemini_arm_wiring_with_stub_transport():
     assert arm["runs_on_robot"] is False and r["latency"]["n"] == 4
 
 
+def test_merge_gemini_replaces_not_run_arms_in_place_of_old():
+    from bench.detect import merge_gemini
+
+    doc = {"arms": [{"name": "Colour stand-in"}, {"name": "Gemini m", "status": "not run"}]}
+    out = merge_gemini(doc, [{"name": "Gemini m", "results": {}}])
+    assert [a["name"] for a in out["arms"]] == ["Colour stand-in", "Gemini m"] and "status" not in out["arms"][1]
+
+
 def test_not_run_marker():
     d = not_run("gemini-4-argon")
     assert d["status"] == NEEDS_KEY and d["model"] == "gemini-4-argon" and "results" not in d

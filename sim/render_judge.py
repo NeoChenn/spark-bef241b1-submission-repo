@@ -24,7 +24,12 @@ ap.add_argument("--times", default="")
 ap.add_argument("--warm", type=int, default=24)
 ap.add_argument("--lens", action="store_true")
 ap.add_argument("--set", action="append", default=[])
+ap.add_argument("--spawn-puddles", action="store_true")
+ap.add_argument("--rain", type=float, default=None)
 ap.add_argument("--look", default="offline")
+ap.add_argument("--weather", default="")
+ap.add_argument("--weather-at", type=float, default=0.0)
+ap.add_argument("--set-time", default="")
 args = ap.parse_args()
 os.environ["RIG_QUALITY"] = args.quality
 
@@ -86,6 +91,17 @@ def aim(eye, target, focal):
     cam_op.Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*map(float, eye)), Gf.Vec3d(*map(float, target)), Gf.Vec3d(0, 0, 1)).GetInverse())
 
 
+if args.spawn_puddles:
+    import photoreal
+
+    zt = meta["zone_to_world"]["translation"]
+    UsdGeom.Scope.Define(stage, "/World/JudgePuddles")
+    for k, (x, y, r) in enumerate(((-2.2, 1.0, 0.55), (-1.1, 1.7, 0.45), (0.5, 1.9, 0.5))):
+        photoreal.make_puddle(stage, f"/World/JudgePuddles/p{k}", (zt[0] + x, zt[1] + y, zt[2]), r, seed=40 + k)
+if args.rain is not None:
+    import photoreal
+
+    photoreal.set_rain(stage, args.rain)
 atm = None
 if args.atmos != "none":
     from atmos_fx import Atmosphere
@@ -132,19 +148,38 @@ def header():
                     cam.GetHorizontalApertureAttr().Get(), args.width, args.height)
 
 
+wx = None
+if args.weather:
+    import weather as weather_mod
+
+    wx = weather_mod.Controller(stage, getattr(cine_update, "wave", None), args.preset, atm)
+    wx_level = float(args.weather) if args.weather.replace(".", "", 1).isdigit() else args.weather
+
+
 def tick(t):
+    if wx is not None:
+        if not wx.args and t >= args.weather_at:
+            wx.now = args.weather_at
+            wx.set(wx_level)
+            if atm is not None:
+                atm.set_weather(level=wx_level)
+        wx.tick(t)
     cine_update(t)
     if atm is not None:
         atm.update(t)
 
 
+if args.set_time:
+    t_switch = time.monotonic()
+    cinematic.set_time(stage, args.set_time, atm)
+    print(f"SET_TIME {args.set_time} {time.monotonic() - t_switch:.2f}s", flush=True)
 times = [float(x) for x in args.times.split(",") if x] or [args.t]
 for t0 in times:
     tsuf = f"_t{t0:g}" if len(times) > 1 else ""
     for name in filter(None, args.views.split(",")):
         start = time.monotonic()
         eye, target, focal = VIEWS[name]
-        vl = look.view_look(name, float(np.linalg.norm(np.subtract(target, eye))), atm is not None, args.preset)
+        vl = look.view_look(name, float(np.linalg.norm(np.subtract(target, eye))), atm is not None, cinematic.CURRENT["time"])
         use_look(looks[0], vl["ev"], eye, target, vl["fstop"])
         aim(*VIEWS[name])
         for i in range(args.warm):
@@ -160,8 +195,9 @@ for t0 in times:
             if atm is not None:
                 rgb = atm.post(rgb, header(), t0, args.lens)
             if lk != "none":
-                rgb = shafts.add(rgb, shafts.layer(header(), beams, t0))
-            rgb = look.grade(rgb, lk, t0)
+                depth = np.asarray(dist_ann.get_data()) if dist_ann is not None else None
+                rgb = shafts.add(rgb, shafts.layer(header(), beams, t0, depth=depth))
+            rgb = look.grade(rgb, lk, t0, cinematic.CURRENT["time"])
             suffix = f"_{lk}" if len(looks) > 1 else ""
             Image.fromarray(np.ascontiguousarray(rgb)).save(out / f"{args.tag}{tsuf}_{name}{suffix}.png")
             lum = rgb.mean(-1)

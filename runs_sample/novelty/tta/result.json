@@ -1,0 +1,144 @@
+{
+ "model": "detector_w MobileNetV4-conv-small full-FT (bench/detect arm), threshold from meta",
+ "data": "498 held-out crops (rust_sim_test 485 + sim_heldout 13), 208 rust",
+ "degradation": "policy/storm.py Lens rain drops + visibility loss 0.6*s, plus sun/flood-light glare bloom and washout, seeded per crop",
+ "batch": 32,
+ "stream": "shuffled stream, per-batch adaptation, reset per severity",
+ "arms": {
+  "off": "plain inference",
+  "bn": "BN stats from the test batch",
+  "bn_prior": "BN stats blended 50/50 with source stats",
+  "gated": "BN-adapt only when the batch's first-BN feature shift (symmetric Gaussian KL) > 0.4; clean batches score 0.09-0.20, severity 0.25 scores 0.6-1.0"
+ },
+ "results": {
+  "off": {
+   "0.0": {
+    "f1": 0.9927,
+    "precision": 1.0,
+    "recall": 0.9856,
+    "auroc": 0.9999
+   },
+   "0.25": {
+    "f1": 0.7977,
+    "precision": 1.0,
+    "recall": 0.6635,
+    "auroc": 0.9933
+   },
+   "0.5": {
+    "f1": 0.4689,
+    "precision": 0.9846,
+    "recall": 0.3077,
+    "auroc": 0.9366
+   },
+   "0.75": {
+    "f1": 0.0741,
+    "precision": 1.0,
+    "recall": 0.0385,
+    "auroc": 0.6798
+   },
+   "1.0": {
+    "f1": 0.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "auroc": 0.5234
+   }
+  },
+  "bn": {
+   "0.0": {
+    "f1": 0.9403,
+    "precision": 0.9742,
+    "recall": 0.9087,
+    "auroc": 0.9927
+   },
+   "0.25": {
+    "f1": 0.9505,
+    "precision": 0.9796,
+    "recall": 0.9231,
+    "auroc": 0.9938
+   },
+   "0.5": {
+    "f1": 0.95,
+    "precision": 0.9896,
+    "recall": 0.9135,
+    "auroc": 0.9961
+   },
+   "0.75": {
+    "f1": 0.9179,
+    "precision": 0.9835,
+    "recall": 0.8606,
+    "auroc": 0.9911
+   },
+   "1.0": {
+    "f1": 0.9013,
+    "precision": 0.9519,
+    "recall": 0.8558,
+    "auroc": 0.9808
+   }
+  },
+  "bn_prior": {
+   "0.0": {
+    "f1": 0.9343,
+    "precision": 0.984,
+    "recall": 0.8894,
+    "auroc": 0.9967
+   },
+   "0.25": {
+    "f1": 0.9526,
+    "precision": 0.9896,
+    "recall": 0.9183,
+    "auroc": 0.9963
+   },
+   "0.5": {
+    "f1": 0.9521,
+    "precision": 1.0,
+    "recall": 0.9087,
+    "auroc": 0.998
+   },
+   "0.75": {
+    "f1": 0.9167,
+    "precision": 1.0,
+    "recall": 0.8462,
+    "auroc": 0.9938
+   },
+   "1.0": {
+    "f1": 0.8594,
+    "precision": 0.9375,
+    "recall": 0.7933,
+    "auroc": 0.9737
+   }
+  },
+  "gated": {
+   "0.0": {
+    "f1": 0.9927,
+    "precision": 1.0,
+    "recall": 0.9856,
+    "auroc": 0.9999
+   },
+   "0.25": {
+    "f1": 0.9505,
+    "precision": 0.9796,
+    "recall": 0.9231,
+    "auroc": 0.9938
+   },
+   "0.5": {
+    "f1": 0.95,
+    "precision": 0.9896,
+    "recall": 0.9135,
+    "auroc": 0.9961
+   },
+   "0.75": {
+    "f1": 0.9179,
+    "precision": 0.9835,
+    "recall": 0.8606,
+    "auroc": 0.9911
+   },
+   "1.0": {
+    "f1": 0.9013,
+    "precision": 0.9519,
+    "recall": 0.8558,
+    "auroc": 0.9808
+   }
+  }
+ },
+ "wall_s": 632.3
+}

@@ -1,3 +1,4 @@
+import inspect
 import io
 import os
 import time
@@ -173,14 +174,17 @@ def make_obstacles(stage, cine_update, args):
     return scene, tick
 
 
-def handle_event(scene, event: dict, atm=None) -> None:
+def handle_event(scene, event: dict, atm=None, weather=None) -> None:
     name, args = event.get("name"), event.get("args") or {}
-    if atm is not None and name == "set_weather":
-        atm.set_weather(**{k: args[k] for k in ("level", "wind_dir", "gust") if k in args})
+    if weather is not None and name == "set_weather":
+        weather.set(**{k: args[k] for k in ("level", "wind_dir", "gust", "time") if k in args})
+    if atm is not None and name == "set_weather" and "level" in args:
+        keys = ("level", "wind_dir", "gust") + (("time",) if "time" in inspect.signature(atm.set_weather).parameters else ())
+        atm.set_weather(**{k: args[k] for k in keys if k in args})
     if scene is not None and name == "fleet":
         scene.sync(args)
         return
-    if scene is not None and name == "set_weather":
+    if scene is not None and name == "set_weather" and "level" in args:
         scene.set_weather(**{k: args[k] for k in ("level", "wind_dir", "gust") if k in args})
     print(f"rig sim: event {name} {args}", flush=True)
 
@@ -264,7 +268,27 @@ def wave_of(tickers: list):
     return None
 
 
-def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, leak=None, wave=None, atm=None) -> None:
+def drain(sender, leak, obstacles, atm, sensors, weather=None) -> None:
+    while not sender.inbox.empty():
+        ev = sender.inbox.get_nowait()
+        if sensors is not None and sensors.event(ev):
+            continue
+        if leak and ev["name"] == "gas_leak":
+            print(f"rig sim: gas_leak {ev['args']} -> {leak.event(ev['args'])}", flush=True)
+        else:
+            handle_event(obstacles, ev, atm, weather)
+
+
+def make_sensors(stage, obstacles, leak, args):
+    if not args.views or obstacles is None:
+        return None
+    from rig.sim.sensors import SensorRig
+
+    return SensorRig(stage, obstacles, leak, size=args.views_size, rate=args.views_rate, mode=args.views_mode)
+
+
+def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, leak=None, wave=None, atm=None,
+               sensors=None, weather=None) -> None:
     import json
 
     import carb
@@ -278,6 +302,8 @@ def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, l
     for _ in range(WARMUP_UPDATES):
         app.update()
     capture = StageCapture(stage)
+    if obstacles is not None:
+        obstacles.republish()
     settings = SettingsWatch(carb.settings.get_settings().get, SYNC_SETTINGS)
     view = make_view(stage, cam_path)
     scene = scene_info(args)
@@ -293,12 +319,7 @@ def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, l
     while app.is_running():
         now = time.monotonic()
         t = now - start
-        while not sender.inbox.empty():
-            ev = sender.inbox.get_nowait()
-            if leak and ev["name"] == "gas_leak":
-                print(f"rig sim: gas_leak {ev['args']} -> {leak.event(ev['args'])}", flush=True)
-            else:
-                handle_event(obstacles, ev, atm)
+        drain(sender, leak, obstacles, atm, sensors, weather)
         for tick in tickers:
             tick(t)
         app.update()
@@ -317,6 +338,9 @@ def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, l
         plume = leak.header(t) if leak else None
         if plume:
             msg["plume"] = plume
+        views = sensors.take() if sensors is not None else None
+        if views:
+            msg["views"] = views
         sender.send(msg, b"")
         seq += 1
         steps += 1
@@ -325,7 +349,8 @@ def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, l
             nbytes = len(json.dumps(msg, separators=(",", ":")))
             span = now - stats_at + STATS_EVERY_S
             print(f"t={t:.0f}s state_hz={steps / span:.1f} attrs/msg={nattrs / max(steps, 1):.0f} msg={nbytes / 1024:.1f}KB "
-                  f"sent={sender.sent} dropped={sender.dropped} connected={sender.connected.is_set()} skipped={capture.dropped}",
+                  f"sent={sender.sent} dropped={sender.dropped} connected={sender.connected.is_set()} skipped={capture.dropped}"
+                  + (f" {sensors.summary()}" if sensors is not None else ""),
                   flush=True)
             stats_at, steps, nattrs = now + STATS_EVERY_S, 0, 0
         if args.duration and t >= args.duration:
@@ -369,6 +394,7 @@ def main() -> None:
     ctx = omni.usd.get_context()
     tickers = []
     obstacles = None
+    weather = None
     if args.scene == "test":
         from rig.sim.scene import CAMERA_PATH, build_scene, spin
 
@@ -380,6 +406,10 @@ def main() -> None:
         tickers.append(cine_update)
         obstacles, obstacle_tick = make_obstacles(ctx.get_stage(), cine_update, args)
         tickers.append(obstacle_tick)
+        import weather as weather_mod
+
+        weather = weather_mod.Controller(ctx.get_stage(), getattr(cine_update, "wave", None), args.cinematic)
+        tickers.append(weather.tick)
     else:
         open_scene(app, ctx, args.scene)
         cam_path = args.camera
@@ -392,6 +422,7 @@ def main() -> None:
     camera_header = make_camera_header(stage, cam_path, args.width, args.height)
     grade = None
     if args.cinematic and args.look != "none":
+        import cinematic
         import look
 
         for key, value in look.rtx_settings(args.look).items():
@@ -399,13 +430,12 @@ def main() -> None:
 
         def expose(t: float) -> None:
             eye, target = getattr(cine_update, "eye_target", ((0.0, 0.0, 0.0), (0.0, 0.0, 30.0)))
-            ev = look.view_look(None, float(np.linalg.norm(np.subtract(target, eye))), bool(args.atmos), args.cinematic)["ev"]
+            ev = look.view_look(None, float(np.linalg.norm(np.subtract(target, eye))), bool(args.atmos), cinematic.CURRENT["time"])["ev"]
             for key, value in look.exposure(ev).items():
                 settings.set(key, value)
 
         tickers.append(expose)
         grade = look.grade
-        import cinematic
         import shafts
 
         beams = (shafts.specs(cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS, cinematic.DECK_FLOODS, args.look) if cinematic.PRESETS[args.cinematic]["lights"] > 0 else [])
@@ -413,6 +443,8 @@ def main() -> None:
     if args.atmos and args.cinematic:
         atm, atm_tick = load_atmosphere(stage, cam_path, args)
         tickers.append(atm_tick)
+        if weather is not None:
+            weather.atm = atm
     env = load_environment(stage, args.env, args.sea_level)
     if env is not None:
         tickers.append(lambda t: env.update(t, camera=cam_path))
@@ -423,8 +455,11 @@ def main() -> None:
 
         leak = LeakStream(stage, args)
         tickers.append(leak.tick)
+    sensors = make_sensors(stage, obstacles, leak, args)
+    if sensors is not None:
+        tickers.append(sensors.tick)
     if args.render_mode == "remote":
-        run_remote(app, args, stage, cam_path, tickers, obstacles, leak, wave_of(tickers), atm)
+        run_remote(app, args, stage, cam_path, tickers, obstacles, leak, wave_of(tickers), atm, sensors, weather)
 
     rp = rep.create.render_product(cam_path, (args.width, args.height))
     ann = rep.AnnotatorRegistry.get_annotator("rgb")
@@ -454,12 +489,7 @@ def main() -> None:
     while app.is_running():
         now = time.monotonic()
         t = now - start
-        while not sender.inbox.empty():
-            ev = sender.inbox.get_nowait()
-            if leak and ev["name"] == "gas_leak":
-                print(f"rig sim: gas_leak {ev['args']} -> {leak.event(ev['args'])}", flush=True)
-            else:
-                handle_event(obstacles, ev, atm)
+        drain(sender, leak, obstacles, atm, sensors, weather)
         for tick in tickers:
             tick(t)
         rep.orchestrator.step(rt_subframes=args.subframes, pause_timeline=False, wait_for_render=args.wait_render)
@@ -474,7 +504,7 @@ def main() -> None:
             if atm is not None:
                 rgb = atm.post(rgb, camera_header(), t, args.lens)
             if grade is not None:
-                rgb = grade(shafts.add(rgb, shafts.layer(camera_header(), beams, t)) if beams else rgb, args.look, t)
+                rgb = grade(shafts.add(rgb, shafts.layer(camera_header(), beams, t)) if beams else rgb, args.look, t, cinematic.CURRENT["time"])
             mean = float(rgb.mean())
             buf = io.BytesIO()
             Image.fromarray(rgb).save(buf, "JPEG", quality=args.quality)
@@ -484,6 +514,9 @@ def main() -> None:
             plume = leak.header(t) if leak else None
             if plume:
                 head["plume"] = plume
+            views = sensors.take() if sensors is not None else None
+            if views:
+                head["views"] = views
             sender.send(head, buf.getvalue())
             seq += 1
             if snap_at is not None and now >= snap_at and mean > 3:
@@ -497,7 +530,8 @@ def main() -> None:
             print(
                 f"t={t:.0f}s fps={stats_fresh / (now - stats_start):.1f} steps={stats_frames / (now - stats_start):.1f} sent={sender.sent} dropped={sender.dropped} "
                 f"connected={sender.connected.is_set()} mean={mean:.1f} jpeg={jpeg_kb:.0f}KB"
-                + (f" plume_ms={leak.sim_ms:.1f} pts={leak.visual.count} vol10={leak.stats['vol_10lel_m3']:.2f}" if leak and leak.stats else ""),
+                + (f" plume_ms={leak.sim_ms:.1f} pts={leak.visual.count} vol10={leak.stats['vol_10lel_m3']:.2f}" if leak and leak.stats else "")
+                + (f" {sensors.summary()}" if sensors is not None else ""),
                 flush=True,
             )
             stats_at = now + STATS_EVERY_S

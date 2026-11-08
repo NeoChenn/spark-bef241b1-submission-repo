@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 
 from policy.control.snapshot import SensorSnapshot
@@ -151,6 +152,18 @@ def _anomaly(d) -> Anomaly:
                    _str(d, "note", RATIONALE_CHARS), sensors)
 
 
+def _clip(text: str, n: int) -> str:
+    if len(text) <= n:
+        return text
+    cut = text[:n - 1].rsplit(" ", 1)[0].rstrip(" ,;:")
+    return cut + "…"
+
+
+def situation_lines(text: str) -> list[str]:
+    parts = [p.strip() for line in text.splitlines() for p in re.split(r"(?<=[.!?])\s+", line)]
+    return [_clip(p, LINE_CHARS) for p in parts if p][:MAX_LINES]
+
+
 def validate(obj, snap: SensorSnapshot) -> Plan:
     if not isinstance(obj, dict):
         raise SchemaError("reply is not a JSON object")
@@ -161,7 +174,7 @@ def validate(obj, snap: SensorSnapshot) -> Plan:
     anomalies_in = obj.get("anomalies") or []
     if not isinstance(anomalies_in, list):
         raise SchemaError("anomalies must be a list")
-    lines = [x.strip()[:LINE_CHARS] for x in obj["situation"].splitlines() if x.strip()][:MAX_LINES]
+    lines = situation_lines(obj["situation"])
     rejected, best = [], {}
     for d in obj["actions"]:
         try:
