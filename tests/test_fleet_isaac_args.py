@@ -164,3 +164,11 @@ def test_fx_hides_the_lidar_fan_and_gas_when_off():
     assert off["lidar_fan"] is False and off["crate_z"] is None and vis("lidar") == "invisible"
     assert fx.update(32.0, stop, True)["lidar_fan"] is False and vis("lidar") == "invisible"
     assert max(r for _, r, _ in R.plume_puffs([0, 0, 0], [0, 0, 1], 1.0, 1.0)) <= 0.25
+
+
+def test_timeline_sha256(tmp_path):
+    import hashlib
+
+    f = tmp_path / "tl.jsonl"
+    f.write_bytes(b'{"t": 0}\n')
+    assert R.file_sha256(str(f)) == hashlib.sha256(b'{"t": 0}\n').hexdigest() and R.file_sha256("demo") is None
