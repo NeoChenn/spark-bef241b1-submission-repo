@@ -48,7 +48,7 @@ class SensorRig:
         cam.CreateVerticalApertureAttr(APERTURE * self.size[1] / self.size[0])
         cam.CreateClippingRangeAttr(Gf.Vec2f(0.05, 400.0))
         cam.AddTransformOp().Set(Gf.Matrix4d(look_at_rows(EYE, LOOK)))
-        if self.rp is None:
+        if self.rp is None and self.on:
             self._product(path)
         c = {"path": path, "cam": cam, "role": role_of(len(self.cams))}
         print(f"rig sim: sensor cam {path} {self.size[0]}x{self.size[1]} role={c['role']}", flush=True)
@@ -70,6 +70,22 @@ class SensorRig:
                 self.rp_prim.CreateAttribute("omni:rtx:rendermode", Sdf.ValueTypeNames.Token).Set(self.mode)
         print(f"rig sim: sensor render product {getattr(self.rp, 'path', None)} valid={self.rp_prim.IsValid()} mode={self.mode}", flush=True)
 
+    def _drop(self) -> None:
+        if self.rp is None:
+            return
+        for ann in (self.rgb, self.depth):
+            try:
+                ann.detach()
+            except Exception as exc:
+                print(f"rig sim: views detach {exc!r}", flush=True)
+        destroy = getattr(self.rp, "destroy", None)
+        if destroy is not None:
+            destroy()
+        elif self.texture is not None and hasattr(self.texture, "set_updates_enabled"):
+            self.texture.set_updates_enabled(False)
+        self.rp = self.rp_prim = self.texture = None
+        print(f"rig sim: sensor render product dropped destroy={destroy is not None}", flush=True)
+
     def _session(self):
         from pxr import Usd
 
@@ -79,10 +95,6 @@ class SensorRig:
         if self.rp_prim is not None and self.rp_prim.IsValid():
             with self._session():
                 self.rp_prim.GetRelationship("camera").SetTargets([path])
-
-    def _enable(self, on: bool) -> None:
-        if self.texture is not None and hasattr(self.texture, "set_updates_enabled"):
-            self.texture.set_updates_enabled(bool(on))
 
     def _header(self, c: dict) -> dict:
         from pxr import Usd
@@ -102,7 +114,11 @@ class SensorRig:
         a = ev.get("args") or {}
         if ev.get("name") == "views":
             self.on = bool(a.get("on", True))
-            self._enable(self.on)
+            self.pending = None
+            if not self.on:
+                self._drop()
+            elif self.cams and self.rp is None:
+                self._product(next(iter(self.cams.values()))["path"])
             print(f"rig sim: views {'on' if self.on else 'off'}", flush=True)
             return True
         if ev.get("name") != "force":
@@ -117,7 +133,7 @@ class SensorRig:
         for rid in list(self.obstacles.robots):
             if rid not in self.cams:
                 self.cams[rid] = self._mount(rid)
-        if not self.on:
+        if not self.on or self.rp is None:
             return
         if self.pending is not None:
             p = self.pending
