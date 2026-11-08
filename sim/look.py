@@ -5,11 +5,11 @@ import math
 import numpy as np
 from PIL import Image, ImageChops
 
-EV_KEYS = ((1.9, 0.2), (8.0, 0.2), (40.0, 0.4), (120.0, 0.8), (330.0, 1.0))
+EV_KEYS = ((1.9, 0.0), (8.0, 0.1), (40.0, 0.4), (120.0, 0.8), (330.0, 1.0))
 VIEWS = {
     "wide": {"ev": 1.0, "fstop": 0.0},
     "deck_mid": {"ev": 0.0, "fstop": 0.0},
-    "repair": {"ev": 0.2, "fstop": 1.4},
+    "repair": {"ev": 0.0, "fstop": 1.4},
     "waterline": {"ev": 0.8, "fstop": 0.0},
     "flare": {"ev": 0.3, "fstop": 0.0},
 }
@@ -21,7 +21,7 @@ FIXTURES = {
     "spot": {"gain": 1.0, "cone": None, "cone_max": 40.0, "softness": 0.5, "focus": 1.0},
     "bulb": {"gain": 1.0},
 }
-WORK_LIGHT = {"offset": (0.3, 1.0, 1.3), "kelvin": 6500.0, "intensity": 1.5e6, "radius": 0.05, "cone": 24.0,
+WORK_LIGHT = {"offset": (0.3, 1.0, 1.3), "kelvin": 6500.0, "intensity": 6.0e7, "radius": 0.05, "cone": 24.0,
               "softness": 0.7}
 TONEMAP = {
     "/rtx/post/tonemap/op": 6,
