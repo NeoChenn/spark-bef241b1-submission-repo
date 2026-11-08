@@ -12,6 +12,16 @@ STATS_EVERY_S = 5.0
 
 
 def load_scene(app, ctx, scene: dict):
+    stage, tick = _load_scene(app, ctx, scene)
+    physics = [p for p in stage.Traverse() if p.GetTypeName() == "PhysicsScene"]
+    for prim in physics:
+        prim.SetActive(False)
+    if physics:
+        print(f"rig render: physics off, mirroring only ({len(physics)} PhysicsScene)", flush=True)
+    return stage, tick
+
+
+def _load_scene(app, ctx, scene: dict):
     import sys
 
     from rig.sim.main import load_environment, open_scene
