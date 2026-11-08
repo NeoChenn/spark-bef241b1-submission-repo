@@ -28,6 +28,7 @@ COLORS = {
     "machine_green": ((0.18, 0.33, 0.25), 0.45, 0.2),
     "valve_red": ((0.6, 0.05, 0.03), 0.4, 0.2),
     "black": ((0.04, 0.04, 0.045), 0.5, 0.3),
+    "lifeboat": ((0.95, 0.35, 0.04), 0.4, 0.05),
 }
 HIDDEN_PARTS = (
     "module_n76_0", "module_n75_n20", "module_n75_n60", "module_n75_n40",
@@ -390,6 +391,32 @@ def add_rack(kit, start, end, z0, tiers, width, count, seed):
         kit.member("black", "cyl", (p[0], p[1], p[2] + 0.06), (q[0], q[1], q[2] + 0.06), (0.09, 0.09))
 
 
+LQ_WALKWAYS = (
+    (((-25.0, -39.0), (0.3, -37.5)), 30.0),
+    (((-26.5, -37.5), (-25.0, -22.9)), 30.0),
+)
+LIFEBOATS = ((-19.0, -40.6, 27.6), (-9.0, -40.6, 27.6))
+
+
+def add_quarters_dressing(stage, kit, grating):
+    for k, (((x0, y0), (x1, y1)), z) in enumerate(LQ_WALKWAYS):
+        floor_panel(stage, f"{ROOT}/Floors/quarters_walk_{k}", (x0, y0), (x1, y1), z, grating)
+        outer = ((x0, y0), (x1, y0)) if y1 - y0 < 2 else ((x0, y0), (x0, y1))
+        add_rail(kit, *outer, z)
+        for t in tf.stations(0.0, 1.0, 0.2):
+            x, y = (x0 + (x1 - x0) * t, y0) if y1 - y0 < 2 else (x0, y0 + (y1 - y0) * t)
+            inner = (x, y1, z - 1.4) if y1 - y0 < 2 else (x1, y, z - 1.4)
+            kit.member("steel", "cyl", (x, y, z - 0.05), inner, (0.12, 0.12))
+    for x, y, z in LIFEBOATS:
+        kit.add("lifeboat", "sphere", (x, y, z), scale=(4.2, 1.45, 1.1))
+        kit.add("lifeboat", "sphere", (x, y, z + 0.7), scale=(3.6, 1.25, 0.9))
+        kit.box("vessel_white", (x, y, z + 1.45), (5.4, 1.4, 0.12))
+        for dx in (-2.6, 2.6):
+            kit.member("steel_white", "ibeam", (x + dx, -37.5, z + 4.6), (x + dx, y, z + 3.4), (0.22, 0.22))
+            kit.member("steel_white", "ibeam", (x + dx, -37.5, z + 0.8), (x + dx, -37.5, z + 4.8), (0.25, 0.25))
+            kit.member("black", "cyl", (x + dx, y, z + 3.4), (x + dx * 0.7, y, z + 1.0), (0.04, 0.04))
+
+
 def build(stage, builder: SceneBuilder, seed: int = 11) -> dict:
     rng = np.random.default_rng(seed)
     kit = Kit(stage, builder)
@@ -424,6 +451,7 @@ def build(stage, builder: SceneBuilder, seed: int = 11) -> dict:
         add_rack(kit, start, end, z0, tiers, width, count, seed + k)
     for origin, z0, z1, axis in STAIRS:
         add_stair(kit, origin, z0, z1, axis)
+    add_quarters_dressing(stage, kit, grating)
     for z, corners in DECK_EDGES:
         for p, q in zip(corners, corners[1:]):
             add_rail(kit, p, q, z)

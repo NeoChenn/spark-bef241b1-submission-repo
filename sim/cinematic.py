@@ -31,7 +31,7 @@ PRESETS = {
         "sun": 0.0,
         "sun_rotation": (55.0, 15.0, 35.0),
         "sun_color": (0.7, 0.85, 1.0),
-        "fog_color": (0.02, 0.055, 0.065),
+        "fog_color": (0.03, 0.08, 0.095),
         "fog_height": 0.002,
         "wave_height": 1.5,
         "lights": 1.0,
@@ -115,26 +115,26 @@ AREA_LIGHTS = (
     ("rect", (18.75, -5.75, 53.0), NEUTRAL, 90000.0, DOWN, (3.0, 1.2)),
     ("rect", (-18.0, 17.0, 50.5), NEUTRAL, 70000.0, (0.0, 0.5, -1.0), (2.2, 0.8)),
     ("rect", (-5.0, 17.0, 50.5), NEUTRAL, 60000.0, (0.0, 0.5, -1.0), (2.2, 0.8)),
-    ("spot", (16.0, 16.0, 60.0), LED, 900000.0, (0.25, 0.25, -1.0), 38.0),
-    ("spot", (24.0, 24.0, 60.0), LED, 700000.0, (-0.25, -0.25, -1.0), 38.0),
-    ("spot", (-20.0, -8.0, 48.3), LED, 450000.0, DOWN, 55.0),
-    ("spot", (-10.0, -8.0, 48.3), LED, 350000.0, DOWN, 55.0),
-    ("spot", (31.5, -10.0, 40.6), SODIUM, 650000.0, DOWN, 50.0),
-    ("spot", (31.5, 3.0, 40.6), SODIUM, 500000.0, DOWN, 50.0),
-    ("spot", (31.5, 16.0, 40.6), SODIUM, 650000.0, DOWN, 50.0),
-    ("spot", (29.0, -4.0, 35.9), SODIUM, 300000.0, DOWN, 60.0),
-    ("spot", (34.0, 9.0, 35.9), SODIUM, 300000.0, DOWN, 60.0),
-    ("spot", (14.0, -6.0, 40.6), NEUTRAL, 450000.0, DOWN, 50.0),
-    ("spot", (20.0, 5.0, 40.6), NEUTRAL, 350000.0, DOWN, 50.0),
+    ("spot", (16.0, 16.0, 60.0), LED, 1350000.0, (0.25, 0.25, -1.0), 38.0),
+    ("spot", (24.0, 24.0, 60.0), LED, 1050000.0, (-0.25, -0.25, -1.0), 38.0),
+    ("spot", (-20.0, -8.0, 48.3), LED, 675000.0, DOWN, 55.0),
+    ("spot", (-10.0, -8.0, 48.3), LED, 525000.0, DOWN, 55.0),
+    ("spot", (31.5, -10.0, 40.6), SODIUM, 975000.0, DOWN, 50.0),
+    ("spot", (31.5, 3.0, 40.6), SODIUM, 750000.0, DOWN, 50.0),
+    ("spot", (31.5, 16.0, 40.6), SODIUM, 975000.0, DOWN, 50.0),
+    ("spot", (29.0, -4.0, 35.9), SODIUM, 450000.0, DOWN, 60.0),
+    ("spot", (34.0, 9.0, 35.9), SODIUM, 450000.0, DOWN, 60.0),
+    ("spot", (14.0, -6.0, 40.6), NEUTRAL, 675000.0, DOWN, 50.0),
+    ("spot", (20.0, 5.0, 40.6), NEUTRAL, 525000.0, DOWN, 50.0),
     ("rect", (31.0, -27.0, 39.5), LED, 90000.0, DOWN, (2.6, 1.0)),
-    ("spot", (31.0, -31.0, 35.3), LED, 400000.0, DOWN, 60.0),
-    ("spot", (-18.0, -8.0, 40.6), SODIUM, 160000.0, DOWN, 45.0),
-    ("spot", (0.0, -12.0, 24.7), LED, 300000.0, DOWN, 60.0),
-    ("spot", (8.0, -12.0, 24.7), LED, 300000.0, DOWN, 60.0),
-    ("spot", (4.0, -12.0, 29.6), LED, 450000.0, DOWN, 55.0),
-    ("spot", (12.0, -12.0, 29.6), LED, 450000.0, DOWN, 55.0),
-    ("spot", (19.5, -28.0, 29.6), SODIUM, 500000.0, DOWN, 50.0),
-    ("spot", (21.5, -8.0, 29.6), NEUTRAL, 350000.0, DOWN, 50.0),
+    ("spot", (31.0, -31.0, 35.3), LED, 600000.0, DOWN, 60.0),
+    ("spot", (-18.0, -8.0, 40.6), SODIUM, 240000.0, DOWN, 45.0),
+    ("spot", (0.0, -12.0, 24.7), LED, 450000.0, DOWN, 60.0),
+    ("spot", (8.0, -12.0, 24.7), LED, 450000.0, DOWN, 60.0),
+    ("spot", (4.0, -12.0, 29.6), LED, 675000.0, DOWN, 55.0),
+    ("spot", (12.0, -12.0, 29.6), LED, 675000.0, DOWN, 55.0),
+    ("spot", (19.5, -28.0, 29.6), SODIUM, 750000.0, DOWN, 50.0),
+    ("spot", (21.5, -8.0, 29.6), NEUTRAL, 525000.0, DOWN, 50.0),
 )
 BULBS = (
     ((-1.0, 4.0, 48.0), SODIUM, 260000.0),
@@ -153,7 +153,7 @@ BULBS = (
 )
 SEA_FLOODS = (
     ((0.0, -36.0, 17.0), SODIUM, 380000.0),
-    ((28.0, -22.0, 17.0), LED, 300000.0),
+    ((30.0, -30.0, 14.0), LED, 120000.0),
     ((40.0, 6.0, 17.0), SODIUM, 220000.0),
 )
 
@@ -166,7 +166,7 @@ def add_fixture(stage, index: int, kind: str, position, kelvin, intensity, aim, 
     w, x, y, z = aim_from_down(aim)
     ops.AddOrientOp().Set(Gf.Quatf(float(w), float(x), float(y), float(z)))
     color = kelvin_rgb(kelvin)
-    glow = emissive_material(stage, f"fixture_{int(kelvin)}", tuple(c * 12 for c in color))
+    glow = emissive_material(stage, f"fixture_{int(kelvin)}", tuple(c * 20 for c in color))
     housing = UsdGeom.Cube.Define(stage, f"{path}/housing")
     housing.CreateSizeAttr(1.0)
     size = (shape[0] + 0.1, shape[1] + 0.1, 0.12) if kind == "rect" else (0.5, 0.35, 0.12)

@@ -82,7 +82,7 @@ def darken_horizon(image: np.ndarray, floor: float, top: float) -> np.ndarray:
 
 source = read_hdr(HDRIS / "overcast_soil_puresky.hdr")
 night = grade(source, (0.16, 0.62, 0.66), 0.42, 1.75, 0.0)
-write_hdr(GENERATED / "sky_night.hdr", darken_horizon(night, 0.04, 28.0))
+write_hdr(GENERATED / "sky_night.hdr", darken_horizon(night, 0.12, 12.0))
 write_hdr(GENERATED / "sky_storm.hdr", grade(source, (0.46, 0.53, 0.58), 0.34, 1.9, 0.0))
 make_foam()
 print("PRESET_SKIES_OK")
