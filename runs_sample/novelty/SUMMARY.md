@@ -9,7 +9,7 @@ Every upgrade is opt-in. Defaults, interfaces, the live stream and the existing 
 | Fleet / Argon | Simulation-verified planning | bad-plan leak isolation 437 → 406 s (clean planner 416 → 407 s), 0 unsafe in every arm | off (opt-in `VerifiedEnvelope`) |
 | Perception | Shift-gated test-time adaptation | storm-lens F1 0.47 → 0.95 at severity 0.5 (0.00 → 0.90 at 1.0), clean F1 0.993 unchanged | off (opt-in `detection.tta.TTA`) |
 | Scrub | Control-barrier-function force shield with online RLS stiffness estimate | episodes over 40 N: calm 0.8% → 0.0%, storm 11.5% → 6.6%; storm success 90.6% → 92.0% | off (opt-in `play_scrub --cbf`) |
-| Walking | RMA payload/deck adaptation | in progress | — |
+| Walking | RMA payload/deck adaptation: privileged teacher + 1 s proprioceptive history estimator | velocity tracking error 0.077 → 0.063 m/s (−18%), falls 6.84 → 6.77 /km, lateral payload COM R² 0.84 | off (opt-in `policy.walk.rma.RMARuntime` + `novelty/walk/policy_rma.onnx`) |
 
 ## One-liners
 
@@ -37,3 +37,4 @@ Every upgrade is opt-in. Defaults, interfaces, the live stream and the existing 
   - Plain always-on BN-adapt would cost clear-weather F1 (0.993 → 0.940); the gate removes that cost.
   - The deployed ONNX path is untouched.
   - Code: `detection/tta.py`. Bench: `bench/tta.py`. Chart: `tta/chart.png`.
+- **Walking:** The Go2 works out from one second of its own joint history where its payload sits and how the deck is moving, cutting velocity-tracking error by 18% on a rolling, heaving deck with up to 5 kg of payload and no rise in falls.
