@@ -48,7 +48,7 @@ services:
       - /rig/rig/sim/main.py
       - --sim=127.0.0.1:9000
       - --cinematic=${RIG_CINEMATIC:-dusk}
-      - --renderer=RealTimePathTracing
+      - --renderer=${RIG_SIM_RENDERER:-RealTimePathTracing}
       - --width=1280
       - --height=720
       - --spp=1
