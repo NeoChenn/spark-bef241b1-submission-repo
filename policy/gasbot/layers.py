@@ -138,7 +138,6 @@ def main(argv):
     app = SimulationApp({"headless": True, "renderer": args.renderer, "width": W, "height": H})
 
     import carb
-    import imageio
     import omni.replicator.core as rep
     import omni.usd
     from PIL import Image, ImageDraw, ImageFilter
@@ -233,8 +232,8 @@ def main(argv):
     streaks = np.column_stack([rng.uniform(0, W, 520), rng.uniform(0, H, 520), rng.uniform(0.5, 1.0, 520)])
     sc = W / 1920.0
     order = [int(v) for v in args.probe.split(",")] if args.probe else list(range(F))
-    writer = None if args.probe else imageio.get_writer(os.path.join(args.out_dir, f"{args.name}.mp4"), fps=args.fps,
-                                                        quality=9, macro_block_size=8)
+    frames_dir = os.path.join(args.out_dir, "frames")
+    os.makedirs(frames_dir, exist_ok=True)
     arm = np.array([PARK[j] for j in ARM])
     stills, log = {}, []
     at_still = {"wire": cuts[0] // 2, "geo": (cuts[1] + cuts[2]) // 2, "full": F - 50}
@@ -287,7 +286,7 @@ def main(argv):
             print(f"[gas-layers] probe {fi}", flush=True)
             continue
         arr = np.clip(compose(layers, fi, cuts, W, H), 0, 255).astype(np.uint8)
-        writer.append_data(arr)
+        Image.fromarray(arr).save(os.path.join(frames_dir, f"{fi:04d}.png"), compress_level=1)
         for key, at_ in at_still.items():
             if fi == at_:
                 stills[key] = arr
@@ -295,8 +294,6 @@ def main(argv):
         if fi % 10 == 0:
             el = time.monotonic() - t_start
             print(f"[gas-layers] frame {fi}/{F} {el:.0f}s", flush=True)
-    if writer is not None:
-        writer.close()
     if len(stills) == 3:
         strip = np.concatenate([np.asarray(Image.fromarray(stills[k_]).resize((W // 2, H // 2))) for k_ in ("wire", "geo", "full")], 1)
         Image.fromarray(strip).save(os.path.join(args.out_dir, f"{args.name}.png"))
