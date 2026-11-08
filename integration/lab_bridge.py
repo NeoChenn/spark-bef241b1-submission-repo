@@ -105,7 +105,7 @@ class Event:
 
 class LabRepairBridge:
     def __init__(self, env, base, policy, stage, world: LabWorld, render: Callable[[dict], None],
-                 inspection_annotator, start_x: float = -2.6, inspection_size=(640, 360)):
+                 inspection_annotator, start_x: float = -2.6, inspection_size=(640, 360), fps: float = 30.0):
         self.env, self.base, self.policy, self.stage, self.world = env, base, policy, stage, world
         self.render_cb, self.insp_annot, self.size = render, inspection_annotator, inspection_size
         self.dev = base.device
@@ -117,7 +117,8 @@ class LabRepairBridge:
         self.events: list[Event] = []
         self.pending_events: list[dict] = []
         self.force_log: list[dict] = []
-        self.frame_dt, self.next_frame = 1.0 / 30.0, 0.0
+        self.fps = fps
+        self.frame_dt, self.next_frame = 1.0 / fps, 0.0
         self.speed = 1.0
         self.force_now = self.force_peak = self.force_model = 0.0
         self.chunk_peak = 0.0
@@ -322,7 +323,7 @@ class LabRepairBridge:
             self.frame_dt, self.speed = 0.5, 15.0
         for _ in range(n):
             self._step()
-        self.frame_dt, self.speed = 1.0 / 30.0, 1.0
+        self.frame_dt, self.speed = 1.0 / self.fps, 1.0
 
     def pipe(self) -> PipeGeometry:
         return self._pipe

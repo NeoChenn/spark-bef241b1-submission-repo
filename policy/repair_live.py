@@ -31,6 +31,7 @@ def worker(argv):
     p.add_argument("--still", action="store_true")
     p.add_argument("--spp", type=int, default=1)
     p.add_argument("--hue_lo", type=float, default=0.3)
+    p.add_argument("--fps", type=int, default=15)
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -137,9 +138,9 @@ def worker(argv):
 
     os.makedirs(args.out_dir, exist_ok=True)
     composer = FrameComposer()
-    writers = {"combined": imageio.get_writer(os.path.join(args.out_dir, "repair_live.mp4"), fps=30, quality=8,
+    writers = {"combined": imageio.get_writer(os.path.join(args.out_dir, "repair_live.mp4"), fps=args.fps, quality=8,
                                               macro_block_size=8),
-               "close": imageio.get_writer(os.path.join(args.out_dir, "repair_live_close.mp4"), fps=30, quality=8,
+               "close": imageio.get_writer(os.path.join(args.out_dir, "repair_live_close.mp4"), fps=args.fps, quality=8,
                                            macro_block_size=8)}
     tele, history, orch_ref, keyframes = [], [], {}, {}
     H, W = 512, 1024
@@ -170,7 +171,8 @@ def worker(argv):
             return
         lines = [l for l in snap["hud"][1:4]] + [f"true rust left {100 * snap['true_rust_fraction']:5.1f} %   "
                                                   f"model force {snap['force_model_n']:4.1f} N"]
-        frame = composer.compose(wide, close, snap["state"], lines, snap["force_n"], history[-600:], snap["t"],
+        spark = [(r["t"], r["force_n"]) for r in bridge.force_log[-1500:]]
+        frame = composer.compose(wide, close, snap["state"], lines, snap["force_peak_n"], spark, snap["t"],
                                  snap["speed"])
         writers["combined"].append_data(frame)
         writers["close"].append_data(close)
@@ -181,7 +183,7 @@ def worker(argv):
             keyframes[st] = frame
 
     with torch.inference_mode():
-        bridge = LabRepairBridge(env, base, policy, stage, world, render, None, start_x=args.start_x)
+        bridge = LabRepairBridge(env, base, policy, stage, world, render, None, start_x=args.start_x, fps=args.fps)
     insp_rp = rep.create.render_product(rsc.INSPECTION_CAMERA, (640, 360))
     insp_ann = rep.AnnotatorRegistry.get_annotator("rgb")
     insp_ann.attach(insp_rp)
