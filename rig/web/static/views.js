@@ -3,7 +3,7 @@
   const short = (id) => H.rname({ id }).split(" ·")[0];
   const fleetBots = () => (S.robots.length ? S.robots : (S.fleet?.robots || []).map((r) => ({ ...r, name: H.rname(r) })));
   const bot = () => { const l = H.lead?.(S); return fleetBots().find((r) => r.id === (S.focus || l?.id)) || fleetBots()[0]; };
-  const chips = (cur) => fleetBots().map((r) => `<button data-id="${esc(r.id)}" class="${r.id === cur ? "on" : ""}">${esc(r.name || H.rname(r))}</button>`).join("");
+  const chips = (cur) => fleetBots().map((r) => `<button data-id="${esc(r.id)}" class="${r.id === cur ? "on" : ""}"><i class="sw" style="background:${H.rcol(r)}"></i>${esc(r.name || H.rname(r))}</button>`).join("");
   const onFocus = (el) => { if (!el._f) { el._f = 1; el.addEventListener("click", (e) => { const b = e.target.closest("[data-id]"); if (b) H.focus(b.dataset.id); }); } };
   const last = (k) => S.series[k]?.at(-1)?.[1];
   const DECKS = [["auto", "Busiest deck"], ["top_deck", "Top"], ["middle_deck", "Middle"], ["lower_deck", "Lower"], ["all", "All decks"]];
@@ -21,7 +21,7 @@
       if (now() - (el._t || 0) > 0.066) { el._t = now(); x.c._hits = H.drawRig(x.c, S, { big: true, deck: S.deck }); }
       const d = `${DECKS.map(([k, l]) => `<button data-d="${k}" class="${(S.deck || "auto") === k ? "on" : ""}">${l}</button>`).join("")}`;
       if (x.decks._h !== d) { x.decks._h = d; x.decks.innerHTML = d; }
-      const rows = (S.fleet?.robots || []).map((r) => `<div class="mrow ${r.id === S.focus ? "on" : ""}" data-id="${esc(r.id)}"><i style="background:${H.COL[H.tone(r.job_state || r.state)]}"></i><b>${esc(H.rname(r))}</b><span>${esc(H.nice(r.job_state || r.state))}${r.task ? " · " + esc(String(r.task).split(":").pop().replace(/_/g, " ")) : ""}</span><em class="tnum">${r.battery?.soc == null ? "" : Math.round(r.battery.soc * 100) + " %"}</em></div>`).join("")
+      const rows = (S.fleet?.robots || []).map((r) => `<div class="mrow ${r.id === S.focus ? "on" : ""}" data-id="${esc(r.id)}"><i style="background:${H.rcol(r)}"></i><b>${esc(H.rname(r))}</b><span style="${["stop", "warn"].includes(H.tone(r.job_state || r.state)) ? "color:" + H.COL[H.tone(r.job_state || r.state)] : ""}">${esc(H.nice(r.job_state || r.state))}${r.task ? " · " + esc(String(r.task).split(":").pop().replace(/_/g, " ")) : ""}</span><em class="tnum">${r.battery?.soc == null ? "" : Math.round(r.battery.soc * 100) + " %"}</em></div>`).join("")
         + `<div class="legend col"><span><i class="lg r"></i>robot · heading</span><span><i class="lg t"></i>drone</span><span><i class="lg g"></i>gas plume</span><span><i class="lg p"></i>person · 3 m</span><span><i class="lg d"></i>dock</span><span><i class="lg n"></i>no-fly zone</span></div>`;
       if (x.side._h !== rows) { x.side._h = rows; x.side.innerHTML = (S.fleet ? "" : `<p class="none">No fleet snapshot yet</p>`) + rows; }
     } });
@@ -38,7 +38,7 @@
     S.vkinds = ks.join();
     [...Array(8).keys()].forEach((n) => H.uncommand("pv." + n));
     ks.slice(0, 8).forEach((k, n) => H.command({ id: "pv." + n, group: "Views", label: "Policy view: " + kname(k), icon: KIND[k]?.[1] || "eye", keys: "perspective policy sees inset overlay " + k,
-      desc: "Opens First person on what the focused robot's policy is conditioned on: " + kname(k).toLowerCase() + ".", active: () => S.kind === k && H.sheetId?.() === "fpv", run: () => { S.kind = k; H.openView("fpv"); } }));
+      desc: "Opens ROBOT VIEW on what the focused robot's policy is conditioned on: " + kname(k).toLowerCase() + ".", active: () => S.kind === k && H.sheetId?.() === "fpv", run: () => { S.kind = k; H.openView("fpv"); } }));
   });
   const kindsOf = (id) => { const v = S.views?.[id] || {}; return Object.keys(v).filter((k) => v[k] && (v[k].jpg || v[k].seq != null || v[k].url)).sort((a, b) => (ORDER.indexOf(a) + 99) % 99 - (ORDER.indexOf(b) + 99) % 99); };
   const entry = (id, k) => S.views?.[id]?.[k];
@@ -46,7 +46,7 @@
   const legacy = (r) => { const f = S.fpv?.[r?.id]; return f?.jpg ? f : r && r.id === fleetBots()[0]?.id && S.inspection?.jpg ? S.inspection : null; };
   H.viewSrc = (id) => { const ks = kindsOf(id); if (ks.length) return srcOf(id, ks.includes(S.kind) ? S.kind : ks[0]); const f = legacy({ id }); return f ? "data:image/jpeg;base64," + f.jpg : null; };
   const boxes = (e) => (Array.isArray(e?.boxes) && e.w ? e.boxes.map((b) => { const [x, y, w, h] = b.xywh || [b.x, b.y, b.w, b.h]; return `<rect x="${x}" y="${y}" width="${w}" height="${h}"/>${b.label ? `<text x="${x + 4}" y="${Math.max(12, y - 5)}">${esc(b.label)}${b.score != null ? " " + (+b.score).toFixed(2) : ""}</text>` : ""}`; }).join("") : "");
-  H.view({ id: "fpv", title: "First person", icon: "cam", key: "⇧F", keys: "camera robot pov perception policy detector boxes ogi gas lidar bev mask overlay",
+  H.view({ id: "fpv", title: "ROBOT VIEW", icon: "cam", key: "⇧F", keys: "camera robot pov perception policy detector boxes ogi gas lidar bev mask overlay",
     desc: "The focused robot's own sensors and what its policy is conditioned on: camera, detector boxes, OGI gas false colour and lidar BEV. Switch robot and view at the top.",
     render(el) {
       const r = bot(), id = r?.id, ks = kindsOf(id), k = ks.includes(S.kind) ? S.kind : ks[0], e = k ? entry(id, k) : null, f = e ? null : legacy(r);
@@ -78,7 +78,7 @@
       if (x.side._h !== side) { x.side._h = side; x.side.innerHTML = side; if (!x.side._b) { x.side._b = 1; x.side.addEventListener("click", (ev) => { const b = ev.target.closest("[data-kind]"); if (b) S.kind = b.dataset.kind; }); } }
     } });
   H.command({ id: "views.toggle", group: "Views", label: "Sensor views on the robots", icon: "eye", keys: "perspective policy views sensor cameras render toggle",
-    desc: "Turns the low-res sensor head cameras in the sim on or off. They feed First person, Sensors and the Policy view inset.", active: () => S.viewsOn !== false && !!S.vkinds,
+    desc: "Turns the low-res sensor head cameras in the sim on or off. They feed ROBOT VIEW, Sensors and the Policy view inset.", active: () => S.viewsOn !== false && !!S.vkinds,
     run: () => { S.viewsOn = S.viewsOn === false; H.event("views", { on: S.viewsOn }); } });
   H.panel({ id: "persp", title: "Policy view", icon: "eye", key: "j", keys: "perspective inset policy sees camera detector ogi lidar bev pip",
     desc: "A small inset of what the focused robot's policy sees. ⇧F opens it full size.", suggest: (S) => (S.vkinds ? 0.3 : 0), hint: () => (S.vkinds ? kname(kindsOf(bot()?.id)[0] || "") : ""),
@@ -89,11 +89,11 @@
       x.img.hidden = !src;
       set(x.cap, src ? `${r.name || H.rname(r)} · ${kname(k, id)}` : ""); set(x.none, src ? "" : "No policy views from the sim yet");
     } });
-  const MET = [["gas_lel", "Gas", "% LEL", 100, 1, { min: 0, max: 30, color: "#F85149", refs: [[10, "rgba(227,179,65,.5)"]] }],
+  const MET = [["gas_lel", "Gas", "% LEL", 100, 1, { min: 0, max: 30, color: "#FF4D4F", refs: [[10, "rgba(255,176,32,.5)"]] }],
     ["thermal_c", "Thermal", "°C", 1, 1, { min: 0, max: 80, color: "rgba(255,255,255,.75)" }],
-    ["force_n", "Contact force", "N", 1, 1, { min: 0, max: 70, ramp: H.fc, refs: [[40, "rgba(248,81,73,.6)"]] }],
-    ["battery", "Battery", "%", 100, 0, { min: 0, max: 1, color: "#3FB950", refs: [[0.2, "rgba(227,179,65,.5)"]] }],
-    ["reach", "IK reach", "%", 100, 0, { min: 0, max: 1, color: "#D97757" }]];
+    ["force_n", "Contact force", "N", 1, 1, { min: 0, max: 70, ramp: H.fc, refs: [[40, "rgba(255,77,79,.6)"]] }],
+    ["battery", "Battery", "%", 100, 0, { min: 0, max: 1, color: "#3DDC84", refs: [[0.2, "rgba(255,176,32,.5)"]] }],
+    ["reach", "IK reach", "%", 100, 0, { min: 0, max: 1, color: "#2EE6D6" }]];
   H.view({ id: "sensors", title: "Sensors", icon: "wave", key: "⇧S", keys: "gas ppm thermal force battery reach sparkline per robot",
     desc: "Per robot: gas, thermal, contact force against the 40 N line, battery and IK reach, over the last 30 s.",
     render(el) {
