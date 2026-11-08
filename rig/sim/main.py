@@ -201,6 +201,8 @@ def handle_event(scene, event: dict, atm=None, weather=None, hero=None) -> None:
         return
     if scene is not None and name == "set_weather" and "level" in args:
         scene.set_weather(**{k: args[k] for k in ("level", "wind_dir", "gust") if k in args})
+    if scene is not None and name == "hide_props" and hasattr(scene, "hide_prims"):
+        scene.hide_prims(args.get("paths"))
     if scene is not None and name == "select" and hasattr(scene, "select"):
         scene.select(args.get("robot"))
     print(f"rig sim: event {name} {args}", flush=True)
