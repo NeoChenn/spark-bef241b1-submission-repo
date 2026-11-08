@@ -59,3 +59,8 @@ fleet/ coordinator + CPU sim, seeded 15-min shifts (leak, worker walk-up, SUPV a
 | Gemini planner, link cut mid-shift | 10 | 413.8 [349.7, 477.9] | 797.5 [755.5, 839.5] | 85.2 | 2.2 | 0 | 3.4 | 22.3 s | $0.035 |
 
 On the same 10 seeds the rule-based arm isolates the leak in 428.4 s mean and finishes all work at 805.4 s, so the Gemini planner is within noise of the coordinator alone (10 s faster isolation, 7 s later finish), never executes an unsafe action, and asks for more approvals. With the link cut the coordinator carries on. Without a key the planner arm reproduces the rule-based arm exactly (20/20 shifts).
+
+## Model id check (2026-11-08)
+
+The live Gemini model list (`bench/gemini.list_models`) contains `gemini-4-argon` (the only argon-like id), the same id `policy/control/backend.py` MODEL and `bench/gemini.py` ARGON use. The scrub numbers above were not re-run for the report: `docs/policy_report/policy_report.tex` now quotes them (n=30 per arm, CPU mock).
+
