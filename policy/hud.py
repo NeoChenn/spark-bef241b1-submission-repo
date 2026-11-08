@@ -10,6 +10,7 @@ import numpy as np
 from policy.night_look import grade
 
 FORCE_CAP, FORCE_LIMIT, FORCE_MAX = 38.0, 40.0, 50.0
+RING_MIN_DIST = 1.2
 GREY = (138, 137, 130)
 LIME = (196, 214, 74)
 GREEN = (74, 222, 128)
@@ -312,7 +313,8 @@ def composite(raw, log_path, sinks, keys=(), key_stem=None, spark_s=3.0):
         if i >= len(log):
             break
         e = log[i]
-        bp = project(e["brush"], e["eye"], e["look"], e["focal"], w, h, e.get("v_aperture", 15.2908)) if "brush" in e else None
+        far = "brush" in e and np.linalg.norm(np.subtract(e["brush"], e["eye"])) > RING_MIN_DIST
+        bp = project(e["brush"], e["eye"], e["look"], e["focal"], w, h, e.get("v_aperture", 15.2908)) if far else None
         img = draw_card(grade(fr), demo_state(e["state"]), e["frac"], e["force"], forces[max(0, i - n_spark):i + 1], e["t"],
                         brush_px=bp)
         for s in sinks:
