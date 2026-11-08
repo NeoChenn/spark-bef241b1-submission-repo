@@ -41,11 +41,11 @@ FX = {
 def big_waves() -> tuple[np.ndarray, np.ndarray]:
     n = len(WAVES)
     a, b = [], []
-    for wavelength, relative, heading, steepness in WAVES:
+    for wavelength, relative, heading, steepness, phase in WAVES:
         k = math.tau / wavelength
         dx, dy = math.cos(math.radians(heading)), math.sin(math.radians(heading))
         a.append((dx, dy, k, relative))
-        b.append((math.sqrt(GRAVITY * k), 0.0, 0.8 * min(steepness, 1.0) / n, 0.0))
+        b.append((math.sqrt(GRAVITY * k), phase, 0.8 * min(steepness, 1.0) / n, 0.0))
     return np.array(a), np.array(b)
 
 
@@ -62,7 +62,7 @@ def detail_waves(wind_speed: float = 9.0, max_wavelength: float = 10.0, min_wave
 def jacobian(big: tuple[np.ndarray, np.ndarray], detail: Waves, chop: float, xy: np.ndarray, t: float) -> np.ndarray:
     a, b = big
     fade = np.exp(-np.linalg.norm(xy, axis=1) / FADE_DISTANCE_M)
-    th = xy @ (a[:, :2] * a[:, 2:3]).T - b[:, 0] * t
+    th = xy @ (a[:, :2] * a[:, 2:3]).T - (b[:, 0] * t - b[:, 1])
     qs = np.sin(th) * b[:, 2] * fade[:, None]
     jxx, jyy, jxy = qs @ a[:, 0] ** 2, qs @ a[:, 1] ** 2, qs @ (a[:, 0] * a[:, 1])
     th = xy @ (detail.dir * detail.k[:, None]).T - (detail.omega * t - detail.phase)
@@ -122,7 +122,11 @@ def pixel_angle(aperture_mm: float, focal_mm: float, width_px: float = REFERENCE
 
 
 def wave_stride(quality: str) -> int:
-    return 1 if quality == "offline" else 2
+    return 1 if quality == "offline" else 3
+
+
+def moved(last, new, tol: float) -> bool:
+    return last is None or max(abs(a - b) for a, b in zip(last, new)) > tol
 
 
 def parse_overrides(text: str) -> dict:
@@ -158,7 +162,9 @@ def apply(stage, name: str, height: float) -> bool:
             shader.CreateInput(key, Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*value))
         else:
             shader.CreateInput(key, Sdf.ValueTypeNames.Float).Set(float(value))
-    shader.CreateInput("wave_stride", Sdf.ValueTypeNames.Int).Set(wave_stride(os.environ.get("RIG_QUALITY", "live")))
+    quality = os.environ.get("RIG_QUALITY", "live")
+    shader.CreateInput("wave_stride", Sdf.ValueTypeNames.Int).Set(wave_stride(quality))
+    shader.CreateInput("live", Sdf.ValueTypeNames.Bool).Set(quality != "offline")
     shader.CreateInput("debug", Sdf.ValueTypeNames.Float).Set(float(os.environ.get("RIG_OCEAN_FX_DEBUG", "0")))
     for key, value in parse_overrides(os.environ.get("RIG_OCEAN_FX_INPUTS", "")).items():
         shader.CreateInput(key, Sdf.ValueTypeNames.Float).Set(value)
@@ -180,8 +186,14 @@ def animate(stage, time: float) -> None:
         if prim.IsValid():
             cam = UsdGeom.Camera(prim)
             eye = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()).ExtractTranslation()
-            _state["cam"].Set(Gf.Vec3f(*eye))
-            _state["angle"].Set(pixel_angle(cam.GetHorizontalApertureAttr().Get(), cam.GetFocalLengthAttr().Get()))
+            eye = tuple(float(v) for v in eye)
+            if moved(_state.get("last_eye"), eye, 1.0):
+                _state["cam"].Set(Gf.Vec3f(*eye))
+                _state["last_eye"] = eye
+            angle = (pixel_angle(cam.GetHorizontalApertureAttr().Get(), cam.GetFocalLengthAttr().Get()),)
+            if moved(_state.get("last_angle"), angle, angle[0] * 0.02):
+                _state["angle"].Set(angle[0])
+                _state["last_angle"] = angle
             if os.environ.get("RIG_OCEAN_FX_DEBUG"):
                 print(f"ocean_fx: t={time:.2f} cam={path} eye={tuple(round(v, 1) for v in eye)}", flush=True)
             return

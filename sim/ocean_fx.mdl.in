@@ -31,7 +31,7 @@ sea sea_eval(float2 p, float t, float height, float chop, float near_chop, float
         float4 a = BIG_A[i];
         float4 b = BIG_B[i];
         float amp = height * a.w * fade;
-        float th = a.z * (a.x * p.x + a.y * p.y) - b.x * t;
+        float th = a.z * (a.x * p.x + a.y * p.y) - (b.x * t - b.y);
         float s = math::sin(th);
         float c = math::cos(th);
         float ka = a.z * amp;
@@ -146,6 +146,10 @@ export material OceanFx(
     float leg_foam = 1.0,
     float leg_chop = 3.0,
     float grazing_gain = 0.8,
+    float mask_lo = 0.02,
+    float mask_hi = 0.13,
+    float glitter = 0.2,
+    float glitter_roughness = 0.14,
     float drift_speed = 0.6,
     float3 camera_position = float3(0.0, 0.0, 40.0),
     float pixel_angle = 0.0008,
@@ -153,6 +157,7 @@ export material OceanFx(
     float slope_gain = 1.0,
     float debug = 0.0,
     uniform int wave_stride = 1,
+    uniform bool live = false,
     float debug_mode = 0.0
 )
 = let {
@@ -176,9 +181,10 @@ export material OceanFx(
 
     float2 adv = p - DRIFT * (time * drift_speed);
     float2 dc = float2(math::dot(adv, DRIFT), math::dot(adv, perp));
-    float lace = math::max(ridge(noise(adv, time * 0.08, 1.6, 3), 0.22), 0.8 * ridge(noise(adv * 2.7, time * 0.15, 1.6, 2), 0.3));
-    float blob = noise(adv, time * 0.05, 7.0, 3);
-    float streak = noise(float2(dc.x * 0.12, dc.y * 1.4), time * 0.03, 1.0, 3);
+    float lace0 = ridge(noise(adv, time * 0.08, 1.6, live ? 2 : 3), 0.22);
+    float lace = live ? lace0 : math::max(lace0, 0.8 * ridge(noise(adv * 2.7, time * 0.15, 1.6, 2), 0.3));
+    float blob = noise(adv, time * 0.05, 7.0, live ? 2 : 3);
+    float streak = noise(float2(dc.x * 0.12, dc.y * 1.4), time * 0.03, 1.0, live ? 2 : 3);
     float pattern = math::saturate(0.45 * lace + 0.35 * math::smoothstep(0.3, 0.7, blob) + 0.3 * math::smoothstep(0.35, 0.65, streak));
 
     float crest = math::saturate((foam_threshold - o.jac) / foam_softness);
@@ -192,9 +198,16 @@ export material OceanFx(
     color body0 = math::lerp(deep_color, crest_color, crest_tint);
     color body = math::lerp(body0, aerated_color, math::saturate(1.4 * math::max(m, 0.5 * wash * leg_foam)) * (1.0 - foam));
     float3 n = state::transform_normal(state::coordinate_world, state::coordinate_internal, o.n);
+    float ndv = math::dot(o.n, to_cam / math::max(dist, 1e-3));
+    float visible = math::smoothstep(mask_lo, mask_hi, ndv);
     bsdf water = df::fresnel_layer(
         ior: 1.333,
-        layer: df::microfacet_ggx_smith_bsdf(roughness_u: alpha, roughness_v: alpha, tint: color(1.0), mode: df::scatter_reflect),
+        layer: df::normalized_mix(
+            components: df::bsdf_component[](
+                df::bsdf_component(weight: 1.0 - glitter, component: df::microfacet_ggx_smith_bsdf(roughness_u: alpha, roughness_v: alpha, tint: color(visible), mode: df::scatter_reflect)),
+                df::bsdf_component(weight: glitter, component: df::microfacet_ggx_smith_bsdf(roughness_u: glitter_roughness, roughness_v: glitter_roughness, tint: color(visible), mode: df::scatter_reflect))
+            )
+        ),
         base: df::diffuse_reflection_bsdf(tint: body)
     );
     bsdf froth = df::fresnel_layer(

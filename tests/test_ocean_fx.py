@@ -63,4 +63,10 @@ def test_parse_overrides():
 
 
 def test_live_tier_halves_waves():
-    assert fx.wave_stride("offline") == 1 and fx.wave_stride("live") == 2
+    assert fx.wave_stride("offline") == 1 and fx.wave_stride("live") == 3
+
+
+def test_moved_threshold():
+    assert fx.moved(None, (0.0, 0.0, 0.0), 1.0)
+    assert not fx.moved((0.0, 0.0, 0.0), (0.5, -0.5, 0.2), 1.0)
+    assert fx.moved((0.0, 0.0, 0.0), (0.0, 1.5, 0.0), 1.0)
