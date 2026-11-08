@@ -58,6 +58,9 @@ def test_gas_scenario_runs_every_beat_and_handles_every_disturbance():
     def look(m, h):
         if h["gas"].get("unit"):
             seen["seeker"].add(h["gas"]["unit"])
+            assert h["gas"]["method"] == "particle filter + infotaxis"
+        if m.leak.found and "err" not in seen:
+            seen["err"] = m.leak.found["err_m"]
         for r in h["fleet"]["robots"]:
             if (r.get("job_state") or "").startswith("VALVE"):
                 seen["valve_by"].add(r["id"])
@@ -67,6 +70,7 @@ def test_gas_scenario_runs_every_beat_and_handles_every_disturbance():
     steps, h = drive(m, on_tick=look)
     assert set(range(8)) <= set(steps)
     assert seen["seeker"] == {"R2"} and seen["valve_by"] == {"R1"} and seen["frozen"]
+    assert seen["err"] < 2.0
     assert [d["fired"] for d in h["scenario"]["disturbances"]] == [True, True, True]
     assert h["control"]["link"] == "CUT" if "control" in h else m.control.link_cut
     ks = kinds(h)

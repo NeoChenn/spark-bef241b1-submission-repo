@@ -8,7 +8,7 @@ import numpy as np
 from policy.fleet.jobs import SETUP_S
 from policy.fleet.reservations import Reservations
 from policy.fleet.scenario import JUDGES_ROBOTS, JUDGES_RUST, JUDGES_WELD, CHECK_DEADLINE_S, nearest_node
-from rig.mission.gas import ALARM_LEL, FLOW_GS, GasLeak
+from rig.mission.gas import ALARM_LEL, FLOW_GS, METHODS, GasLeak
 
 IDS = ("gas", "patrol", "repair", "flyby")
 NAMES = {"gas": "Gas leak", "patrol": "Deck patrol", "repair": "Pipe repair", "flyby": "Fly-by"}
@@ -98,6 +98,7 @@ class Gas(Script):
     def setup(self) -> None:
         m = self.m
         m.valve_by, m.wait_isolation, m.flow_gs = "R1", True, GAS_FLOW_GS
+        m.leak.method = "infotaxis"
         m.valves = {self.flange: self.valve_xyz, self.second: [27.0, -9.0, 42.5]}
         tr = m.fleet.jobs.get("weld", "crack")
         start = next((s[0] for s in tr.segments if s[1] == "WELD"), 0.0)
@@ -584,7 +585,7 @@ class Scenarios:
             cloud = m._budget_ok() and getattr(m.control, "agent", None) is not None
             return {1: "Argon reads the fixed sensors" if cloud else "Argon offline — edge rules read the fixed sensors",
                     2: "fleet coordinator pre-empts Unit 2",
-                    3: "cast-and-surge upwind on the trunk and arm-tip sensors",
+                    3: f"{METHODS[m.leak.method]} on the trunk and arm-tip sensors",
                     4: "approve the valve isolation in the inbox", 5: "Unit 1 walks to the valve upstream",
                     6: "weld frozen while gas is above 10 %LEL", 7: "hot-work gate released"}.get(s.i, "")
         if s.id == "patrol":

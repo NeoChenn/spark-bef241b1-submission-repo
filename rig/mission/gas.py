@@ -4,6 +4,7 @@ import math
 
 import numpy as np
 
+from policy.gasbot.infotaxis import Infotaxis, ParticleFilter
 from policy.gasbot.locate import CastSurge, SeekConfig, SourceEstimator, unit
 from policy.gasbot.plume import BACKGROUND_PPM, RHO_CH4_G_M3, GaussianPlume, Wind
 from policy.gasbot.sensors import LEL_PPM, PointGasSensor
@@ -25,6 +26,9 @@ WALK_MS = 0.6
 SUB_S = 0.25
 ALARM_LEL = 0.10
 MARGIN_M = 1.0
+PF_N = 1500
+PF_EVERY_S = 1.0
+METHODS = {"cast": "cast-and-surge", "infotaxis": "particle filter + infotaxis"}
 FADE_S = 90.0
 
 
@@ -52,6 +56,7 @@ class GasLeak:
         self.lel = {}
         self.fading: list = []
         self.queued: list = []
+        self.method = "cast"
 
     def _plume(self, fid: str, flow_gs: float) -> GaussianPlume:
         if fid not in self.flanges:
@@ -141,7 +146,8 @@ class GasLeak:
 
     def begin_seek(self, robot_id: str, xyz, deck_z: float) -> "Seek":
         self.robot_id = robot_id
-        self.seek = Seek(self, np.asarray(xyz, float), deck_z, self.bounds, self.seed)
+        cls = InfoSeek if self.method == "infotaxis" else Seek
+        self.seek = cls(self, np.asarray(xyz, float), deck_z, self.bounds, self.seed)
         return self.seek
 
 
@@ -212,3 +218,82 @@ class Seek:
             self.err_m = round(float(np.linalg.norm(m - src)), 2)
             leak.found = {"flange": leak.fid, "t": round(leak.t, 1), "err_m": self.err_m, "seek_s": round(self.t, 1),
                           "x": round(float(m[0]), 2), "y": round(float(m[1]), 2), "sigma_m": round(sig, 2)}
+
+
+class PFView:
+    def __init__(self, grid: SourceEstimator, pf: ParticleFilter):
+        self.grid, self.pf = grid, pf
+        self.cells, self.shape = grid.cells, grid.shape
+
+    @property
+    def n_hits(self) -> int:
+        return self.pf.n_hits
+
+    def posterior(self) -> np.ndarray:
+        ny, nx = self.shape
+        xs, ys = self.cells[:nx, 0], self.cells[::nx, 1]
+        res = float(xs[1] - xs[0])
+        ix = np.clip(np.round((self.pf.p[:, 0] - xs[0]) / res).astype(int), 0, nx - 1)
+        iy = np.clip(np.round((self.pf.p[:, 1] - ys[0]) / res).astype(int), 0, ny - 1)
+        p = np.bincount(iy * nx + ix, weights=self.pf.w, minlength=nx * ny)
+        return p / max(float(p.sum()), 1e-12)
+
+
+class Planner(Infotaxis):
+    def __init__(self, pf, clamp):
+        super().__init__(pf)
+        self.clamp = clamp
+
+    def candidates(self, p) -> np.ndarray:
+        a = np.arange(self.cfg.n_dirs) * 2 * math.pi / self.cfg.n_dirs
+        d = np.stack([np.cos(a), np.sin(a)], 1)
+        q = np.array([self.clamp(x) for x in np.vstack([p + r * d for r in self.cfg.radii])])
+        return q[np.linalg.norm(q - p, axis=1) > 0.25]
+
+
+class InfoSeek(Seek):
+    def __init__(self, leak: GasLeak, xyz, deck_z: float, bounds=None, seed: int = 0):
+        super().__init__(leak, xyz, deck_z, bounds, seed)
+        src = leak.source()
+        self.pf = ParticleFilter((src[0] - WINDOW_M, src[0] + WINDOW_M), (src[1] - WINDOW_M, src[1] + WINDOW_M), PF_N,
+                                 seed=seed)
+        near = [v for v in leak.flanges.values() if abs(v[0] - src[0]) < WINDOW_M and abs(v[1] - src[1]) < WINDOW_M]
+        if near:
+            self.pf.prior(near)
+        self.plan = Planner(self.pf, self._clamp)
+        self.est = PFView(self.est, self.pf)
+        self.mode = "INFOTAXIS"
+        self.v = np.zeros(2)
+        self.next_obs = 0.0
+
+    def step(self, leak: GasLeak, dt: float) -> None:
+        if self.done:
+            return
+        self.t += dt
+        w = leak.wind_unit
+        tip = self.tip_xy()
+        ppm = leak.ppm([[*self.pos, self.deck_z + TRUNK_Z], [*tip, self.deck_z + TIP_Z]])
+        self.trunk.update(float(ppm[0]), dt)
+        self.tip.update(float(ppm[1]), dt)
+        if self.t >= self.next_obs:
+            self.next_obs = self.t + PF_EVERY_S
+            self.pf.observe([([*self.pos, TRUNK_Z], self.trunk.lel), ([*tip, TIP_Z], self.tip.lel)], w, leak.speed)
+            self.hits = self.pf.n_hits
+            self.v = self.plan.command(self.t, self.pos, self.trunk.lel, self.tip.lel, tip - self.pos, w)
+            self.mode = self.plan.mode
+        m, sig, _ = self.pf.estimate()
+        self.estimate = (m, sig)
+        if np.linalg.norm(self.v) > 1e-6:
+            self.yaw = math.atan2(self.v[1], self.v[0])
+        self.pos = self._clamp(self.pos + self.v * dt)
+        if len(self.path) < 600 and np.linalg.norm(self.pos - np.asarray(self.path[-1])) > 0.3:
+            self.path.append(self.pos.round(2).tolist())
+            self.lels.append(round(float(self.trunk.lel), 4))
+        src = leak.source()[:2]
+        sure = sig < 0.6 and float(np.linalg.norm(self.pos - m)) < 0.7 and self.hits > 3
+        if sure or self.t > SEEK_MAX_S:
+            self.done, self.mode = True, "FOUND"
+            self.err_m = round(float(np.linalg.norm(m - src)), 2)
+            leak.found = {"flange": leak.fid, "t": round(leak.t, 1), "err_m": self.err_m, "seek_s": round(self.t, 1),
+                          "x": round(float(m[0]), 2), "y": round(float(m[1]), 2), "sigma_m": round(sig, 2),
+                          "method": METHODS["infotaxis"]}
