@@ -1,0 +1,110 @@
+{
+ "control": "live",
+ "t_end": 129.7,
+ "beats": {
+  "leak_start": 4.0,
+  "calm_end": 4.0,
+  "rust_flag": 4.0,
+  "alarm": 6.6,
+  "u1_held": 4.8,
+  "dispatch_u2": 18.3,
+  "u2_walk": 18.4,
+  "u2_arrive": 40.5,
+  "u2_engage": 46.8,
+  "torque_done": 50.2,
+  "gf5_green": 54.2,
+  "dispatch_u1": 63.2,
+  "u1_arrive": 76.9,
+  "spray": 79.2,
+  "soak": 82.3,
+  "scrub": 88.0,
+  "scrub_done": 107.9,
+  "paint": 109.5,
+  "paint_done": 113.6,
+  "u1_return": 114.8,
+  "u2_return": 54.7,
+  "u1_docked": 129.6,
+  "u2_docked": 76.4,
+  "both_docked": 129.6
+ },
+ "argon": {
+  "model": "gemini-4-argon",
+  "prompt": "integration.argon_fleet_prompt",
+  "mode": "live",
+  "calls": 3,
+  "ok": 3,
+  "latency_ms": {
+   "min": 6450.7,
+   "max": 11642.7,
+   "mean": 9062.8
+  },
+  "cost_usd": 0.00796,
+  "tickets": [],
+  "commands": [
+   "4.8s edge:hold:unit1:F5",
+   "18.3s argon:go_check:unit2:F5",
+   "41.1s argon:fix_leak:unit2:F5",
+   "63.2s argon:resume_rust:unit1:"
+  ]
+ },
+ "nav": "fleet_nav.NavWalker (pure_pursuit)",
+ "inbox": [],
+ "dock_unit2": [
+  29.6,
+  -9.68
+ ],
+ "scenario": "film",
+ "argon_calls": [
+  {
+   "key": "G-F5:UNVERIFIED",
+   "t_request": 6.6,
+   "status": "ok",
+   "latency_ms": 11642.7,
+   "cost_usd": 0.002776,
+   "tokens_in": 938,
+   "tokens_out": 90,
+   "model": "gemini-4-argon",
+   "live": true,
+   "t_reply": 18.24,
+   "commands": [
+    "go_check:unit2:F5"
+   ]
+  },
+  {
+   "key": "G-F5:LEAK_CONFIRMED",
+   "t_request": 34.6,
+   "status": "ok",
+   "latency_ms": 6450.7,
+   "cost_usd": 0.002742,
+   "tokens_in": 941,
+   "tokens_out": 86,
+   "model": "gemini-4-argon",
+   "live": true,
+   "t_reply": 41.05,
+   "commands": [
+    "fix_leak:unit2:F5"
+   ]
+  },
+  {
+   "key": "zone:clear",
+   "t_request": 54.1,
+   "status": "ok",
+   "latency_ms": 9094.9,
+   "cost_usd": 0.002446,
+   "tokens_in": 898,
+   "tokens_out": 65,
+   "model": "gemini-4-argon",
+   "live": true,
+   "t_reply": 63.19,
+   "commands": [
+    "resume_rust:unit1:"
+   ]
+  }
+ ],
+ "dock_unit1": [
+  12.2,
+  -7.5,
+  0.0
+ ],
+ "board_modelled": "pressure, temperature, flow, wind, sea state, corrosion index and coating are modelled values consistent with the scripted run; gas readings, battery, robot states and decisions come from the run"
+}

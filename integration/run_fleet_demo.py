@@ -26,6 +26,13 @@ LIDAR_RANGE, BEAMS = 4.0, 72
 V_MIN, W_MAX = -0.3, 1.5
 U1_SPAWN = np.array([18.26, -5.25])
 LEAK, STUCK = "F5", "G-F6"
+FILM_CALM_S = 4.0
+FILM_U1_DOCK = (12.2, -7.5, 0.0)
+RUST_SEGMENT = "F5-F6"
+CORROSION_LIMIT = 0.6
+CORROSION_BASE = {"F1-F2": 0.21, "F2-F3": 0.18, "F3-F4": 0.26, "F4-F5": 0.31, "F5-F6": 0.44}
+BOARD_NOTE = ("pressure, temperature, flow, wind, sea state, corrosion index and coating are modelled values "
+              "consistent with the scripted run; gas readings, battery, robot states and decisions come from the run")
 CRATE_M = 0.5
 CRATE_AHEAD_M = 2.6
 CRATE_HOLD_S = 3.0
@@ -415,7 +422,7 @@ HOP_M = 1.2
 
 class Unit1:
     def __init__(self, scn: Scenario, deck, fallback: DeckMap, soak_s: float = 6.0, scrub_steps: int = 200,
-                 others=lambda: ()):
+                 others=lambda: (), dock=None):
         from policy.fleet_units.scrubber import stub_safe_pose
 
         self.s, parts = build_scrubber()
@@ -431,10 +438,38 @@ class Unit1:
             ey = unit(scn.flanges[LEAK].center[:2] - U1_SPAWN)
             self.spot, self.face = U1_SPAWN.copy(), math.atan2(ey[1], ey[0])
             fallback.circles.append((U1_SPAWN + 0.75 * ey, 0.2))
-        self.body = Body(SCRUBBER, self.spot, self.face, deck, fallback, 0.6, others)
+        self.dock = None if dock is None else np.asarray(dock[:2], float)
+        self.dock_yaw = 0.0 if dock is None else float(dock[2])
+        start = (self.spot, self.face) if self.dock is None else (self.dock, self.dock_yaw)
+        self.body = Body(SCRUBBER, start[0], start[1], deck, fallback, 0.6, others)
         self.lock = Lockstep(self.s)
-        self.target = self.spot.copy()
+        self.target = start[0].copy()
         self.entered, self.last = 0.0, None
+        self.phase = "WORK" if self.dock is None else "DOCKED"
+        self.queued_why = ""
+
+    def queue(self, why: str) -> bool:
+        if self.phase != "DOCKED":
+            return False
+        self.phase, self.queued_why = "QUEUED", why
+        return True
+
+    def dispatch(self, t: float) -> bool:
+        if self.phase not in ("DOCKED", "QUEUED"):
+            return False
+        self.phase = "TRANSIT"
+        self.target = self.spot.copy()
+        self.body.go(self.spot, self.face)
+        return True
+
+    def handle(self, c, t: float) -> str:
+        if self.phase in ("DOCKED", "QUEUED") and c.kind == HOLD:
+            return "queued" if self.queue(c.reason) else "ignored"
+        if self.phase in ("DOCKED", "QUEUED") and c.kind == RESUME_RUST:
+            return "dispatched" if self.dispatch(t) else "ignored"
+        if self.phase == "WORK":
+            return "handled" if self.s.handle(c) else "ignored"
+        return "ignored"
 
     @property
     def hot_xy(self) -> np.ndarray:
@@ -455,6 +490,23 @@ class Unit1:
 
     def step(self, t: float, gas_frac: float) -> None:
         self.bridge.gas_override = gas_frac
+        if self.phase != "WORK":
+            arrived = self.body.step(DT)
+            if self.phase == "TRANSIT" and arrived:
+                self.phase = "WORK"
+                self.bridge.t = t
+                self.last, self.entered = self.s.state, t
+            elif self.phase == "RETURN" and arrived:
+                self.phase = "HOME"
+            else:
+                self.bridge.t = t
+            return
+        if self.dock is not None and self.s.done:
+            self.phase = "RETURN"
+            self.target = self.dock.copy()
+            self.body.go(self.dock, self.dock_yaw)
+            self.body.step(DT)
+            return
         st = self.s.state
         if st != self.last:
             self.last, self.entered = st, t
@@ -471,7 +523,18 @@ class Unit1:
 
     @property
     def state(self) -> str:
+        if self.phase in ("DOCKED", "HOME"):
+            return "DOCKED"
+        if self.phase in ("QUEUED", "TRANSIT", "RETURN"):
+            return self.phase
         return "HOLD" if self.s.held else self.s.state
+
+    @property
+    def caption(self) -> str:
+        return {"DOCKED": "Unit 1 docked" if self.phase == "DOCKED" else "Unit 1 back at its dock, rust job done",
+                "QUEUED": "Rust on the F5 line queued for Unit 1: held by the spark rule until G-F5 is green",
+                "TRANSIT": "Unit 1 walking to the rust patch on the F5 line",
+                "RETURN": "Unit 1 walking back to its dock"}.get(self.state, self.s.caption)
 
     def surface(self) -> dict:
         o, w = self.s.orch, self.world_rust
@@ -486,7 +549,7 @@ class Unit1:
         h = self.s.hud()
         ev = {"force": h["force_n"], "force_limit": 40.0, "rust_fraction": h["rust_fraction"], "gas": lel / 100.0,
               "soak_left": h["soak_left_s"], "job": "rust"}
-        return {"state": self.state, "caption": self.s.caption, "held": self.s.held,
+        return {"state": self.state, "caption": self.caption, "held": self.s.held,
                 "paused_state": h["paused_state"], "force_n": h["force_n"], "rust": h["rust_fraction"],
                 "soak_left_s": h["soak_left_s"], "ev": ev}
 
@@ -558,7 +621,10 @@ class FleetDemo:
     def __init__(self, control: str = "edge", out: Optional[Path] = None, cut_link_at: Optional[float] = None,
                  replay_from: Optional[str] = None, stuck_at=2.0,
                  drop_at: Optional[float] = None, push_at: Optional[float] = None, log_hz: float = 5.0,
-                 max_t: float = 150.0, t_leak: float = 18.0):
+                 max_t: float = 150.0, t_leak: float = 18.0, film: bool = False):
+        self.film = film
+        if film:
+            stuck_at, drop_at, push_at, cut_link_at, t_leak = False, None, None, None, FILM_CALM_S
         self.out = Path(out) if out else None
         self.timeline = Timeline(self.out / "timeline.jsonl" if self.out else None)
         self.hud_path = self.out / "hud.jsonl" if self.out else None
@@ -586,7 +652,8 @@ class FleetDemo:
         self.fallback = DeckMap([(d.pos, 0.08) for d in self.scn.detectors])
         paths = _mod("integration.fleet_paths")
         self.deck = paths.DeckMap.rig_merged() if paths is not None and _mod("integration.fleet_nav") else None
-        self.u1 = Unit1(self.scn, self.deck, self.fallback, others=lambda: [self.u2.body.xy])
+        self.u1 = Unit1(self.scn, self.deck, self.fallback, others=lambda: [self.u2.body.xy],
+                        dock=FILM_U1_DOCK if film else None)
         self.u2 = Unit2(self.scn, self.deck, self.fallback, lambda: self.t, others=lambda: [self.u1.body.xy])
         self.units = {SCRUBBER: self.u1, FIXER: self.u2}
         self.stuck_enabled = stuck_at is not False
@@ -601,6 +668,9 @@ class FleetDemo:
         self.crate: Optional[dict] = None
         self.resume_at: dict = {}
         self.surface_key = ""
+        self.rust_flag_at: Optional[float] = None
+        self.torque_logged = False
+        self.u1_phase = self.u1.phase
 
     def lel(self, rid: str) -> float:
         return self.scn.sniff(self.units[rid].body.xy, self.t)
@@ -720,6 +790,15 @@ class FleetDemo:
                     body.w.resume()
 
     def _start_leak(self, t: float) -> None:
+        if self.film:
+            if self.leak_at is None and t >= self.leak_min:
+                self.leak_at = t
+                self.scn.start_leak(t)
+                self.rust_flag_at = t
+                self.timeline.log("scenario", t, name="rust_flag", segment=RUST_SEGMENT, robot=SCRUBBER,
+                                  corrosion_index=self.corrosion(), limit=CORROSION_LIMIT,
+                                  why="inspection pass flags rust on the F5 line above the corrosion limit")
+            return
         if self.scrub_t is None and self.u1.state == "SCRUB":
             self.scrub_t = t
         if self.leak_at is not None or self.scrub_t is None or t < max(self.leak_min, self.scrub_t + LEAK_AFTER_SCRUB_S):
@@ -743,6 +822,13 @@ class FleetDemo:
         self.scn.detector_readings(t)
         self.u1.step(t + DT, self.scn.gas_frac((*self.u1.body.xy, SNIFF_Z), t))
         self.u2.step(t)
+        if self.u2.fixed_at is not None and not self.torque_logged:
+            self.torque_logged = True
+            self.timeline.log("torque_done", self.u2.fixed_at, robot=FIXER, flange=LEAK, bolt=self.scn.bolt,
+                              why="bolt re-torqued: the leak source stops now and the gas starts to decay")
+        if self.u1.phase != self.u1_phase:
+            self.timeline.log("u1_phase", t, robot=SCRUBBER, was=self.u1_phase, phase=self.u1.phase)
+            self.u1_phase = self.u1.phase
         self.drain()
         self._disturb()
         fds = self.findings(t)
@@ -757,6 +843,11 @@ class FleetDemo:
                 self.timeline.log("hold_skipped", t, robot=SCRUBBER, target=c.target, source=c.source,
                                   why=f"{c.target} is {self.far(c.target):.1f} m from hot work, outside the "
                                       f"{SPARK_RADIUS_M:.0f} m spark radius")
+            elif c.robot == SCRUBBER and self.film:
+                res = self.u1.handle(c, t)
+                if res in ("queued", "dispatched"):
+                    self.timeline.log("u1_" + res, t, robot=SCRUBBER, source=c.source, command=c.kind,
+                                      why=c.reason, target=RUST_SEGMENT)
             elif c.robot == SCRUBBER:
                 self.u1.s.handle(c)
             elif c.robot == FIXER and not self.u2.f.command(c) and c.kind == GO_CHECK:
@@ -776,6 +867,9 @@ class FleetDemo:
     def done(self) -> bool:
         if self.t >= self.max_t:
             return True
+        if self.film:
+            return self.u1.phase == "HOME" and self.u2.state == "DOCKED" and self.u2.fixed_at is not None \
+                and self.link.pending is None and not self.link.queue
         quiet = self.u1.s.done and self.u2.state == "DOCKED" and self.u2.fixed_at is not None
         return quiet and (not self.stuck_enabled or bool(self.link.tickets)) and self.link.pending is None \
             and not self.link.queue
@@ -789,7 +883,8 @@ class FleetDemo:
             robots[SCRUBBER]["surface"] = surf
         self.surface_key = key
         row = self.timeline.log("tick", self.t, robots=robots, detectors=dets, fusion=[f.to_dict() for f in fds],
-                                argon=self.link.header(), banner=banner(self.link), stuck=self.stuck.hud())
+                                argon=self.link.header(), banner=banner(self.link), stuck=self.stuck.hud(),
+                                board=self.board())
         self.write_header(row, surf)
 
     def write_header(self, row: dict, surf: dict) -> None:
@@ -829,7 +924,7 @@ class FleetDemo:
                **surf,
                "gas": {"sensors": sensors, "max": round(mx, 4), "alarm": any(d["led"] == "red" for d in row["detectors"])},
                "detectors": row["detectors"], "fusion": row["fusion"], "argon": row["argon"], "banner": row["banner"],
-               "stuck": row["stuck"], "source": "EDGE" if self.link.link_cut or self.control == "edge" else "CLOUD",
+               "stuck": row["stuck"], "board": row["board"], "source": "EDGE" if self.link.link_cut or self.control == "edge" else "CLOUD",
                "fleet": {"schema": "fleet_state.v1", "t": row["t"],
                          "robots": [{"id": e["id"], "name": e["name"], "state": e["state"], "job_state": e["state"],
                                      "deck": "top_deck", "battery": {"soc": e["battery"]}, "pose": {"x": e["world_pos"][0], "y": e["world_pos"][1],
@@ -845,12 +940,62 @@ class FleetDemo:
             self.step()
         self.link.wait_idle()
         self.log_tick(self.findings(self.t), self.robots())
-        s = {"control": self.control, "t_end": self.t, "beats": beats(self.timeline.rows),
+        rows = self.timeline.rows
+        s = {"control": self.control, "t_end": self.t, "beats": film_beats(rows) if self.film else beats(rows),
              "argon": self.link.summary(), "nav": self.u2.body.backend,
              "inbox": list(self.stuck.inbox.filed.values()), "dock_unit2": [round(float(v), 3) for v in self.u2.dock]}
+        if self.film:
+            s.update(scenario="film", argon_calls=[{k: c.get(k) for k in ("key", "t_request", "status", "latency_ms",
+                                                                         "cost_usd", "tokens_in", "tokens_out",
+                                                                         "model", "live")} | {
+                "t_reply": round(c["t_request"] + (c.get("latency_ms") or 0.0) / 1000.0, 2),
+                "commands": [f"{x['kind']}:{x['robot']}:{x['target']}" for x in c.get("commands", [])]}
+                for c in self.link.calls], dock_unit1=list(FILM_U1_DOCK), board_modelled=BOARD_NOTE)
         if self.out:
             (self.out / "summary.json").write_text(json.dumps(s, indent=1, default=str))
         return s
+
+    def corrosion(self) -> dict:
+        out = dict(CORROSION_BASE)
+        r = self.u1.s.rust_fraction
+        r = 1.0 if r is None else float(r)
+        if self.rust_flag_at is None:
+            out[RUST_SEGMENT] = 0.44
+        elif self.u1.s.state in ("PAINT", "VERIFY_PAINT", "DONE") or self.u1.phase in ("RETURN", "HOME"):
+            out[RUST_SEGMENT] = 0.09
+        else:
+            out[RUST_SEGMENT] = round(0.25 + 0.55 * r, 3)
+        return out
+
+    def coating(self) -> dict:
+        out = {k: "good" for k in CORROSION_BASE}
+        st, ph = self.u1.s.state, self.u1.phase
+        if self.rust_flag_at is not None:
+            out[RUST_SEGMENT] = "breached"
+            if ph == "WORK" and st in ("SPRAY", "SOAK", "SCRUB"):
+                out[RUST_SEGMENT] = "under repair"
+            if ph == "WORK" and st == "VERIFY":
+                out[RUST_SEGMENT] = "bare steel"
+            if st in ("PAINT", "VERIFY_PAINT", "DONE") and ph != "DOCKED":
+                out[RUST_SEGMENT] = "new primer" if st != "PAINT" else "painting"
+        return out
+
+    def board(self) -> dict:
+        t = self.t
+        lvl = self.scn.level(t) / max(self.scn.peak, 1e-9)
+        w = np.asarray(self.scn.wind, float)
+        frm = (math.degrees(math.atan2(-w[0], -w[1])) + 360.0) % 360.0
+        seg = self.corrosion()
+        return {"modelled": True,
+                "process": {"pressure_bar": round(41.8 - 0.9 * lvl + 0.05 * math.sin(0.3 * t), 2),
+                            "temperature_c": round(38.4 + 0.1 * math.sin(0.11 * t), 2),
+                            "flow_m3h": round(1240.0 - 35.0 * lvl + 2.0 * math.sin(0.23 * t), 1)},
+                "weather": {"wind_ms": round(7.5 + 0.6 * math.sin(0.07 * t), 2), "wind_from_deg": round(frm, 1),
+                            "sea_state": 3, "sea_state_label": "slight (Douglas 3)"},
+                "battery": {rid: round(v, 4) for rid, v in self.battery.items()},
+                "corrosion_index": seg, "corrosion_limit": CORROSION_LIMIT,
+                "corrosion_alarm": [k for k, v in seg.items() if v >= CORROSION_LIMIT],
+                "coating": self.coating()}
 
 
 def _first(rows, pred, t0=None) -> Optional[float]:
@@ -932,6 +1077,43 @@ def beats(rows: list[dict]) -> dict:
     return b
 
 
+def film_beats(rows: list[dict]) -> dict:
+    b = {}
+
+    def at(name, pred, after=None):
+        t0 = None if after is None else (b.get(after) if b.get(after) is not None else False)
+        b[name] = _first(rows, pred, t0)
+
+    g = f"G-{LEAK}"
+    row = lambda kind, **kw: (lambda r: r["type"] == kind and all(r.get(k) == v for k, v in kw.items()))
+    at("leak_start", row("scenario", name="leak_start"))
+    b["calm_end"] = b["leak_start"]
+    at("rust_flag", row("scenario", name="rust_flag"))
+    at("alarm", _det(g, "red"), "leak_start")
+    at("u1_held", row("u1_queued"), "leak_start")
+    at("dispatch_u2", _cmd(GO_CHECK, FIXER, LEAK), "leak_start")
+    at("u2_walk", _state(FIXER, "TRANSIT"), "dispatch_u2")
+    at("u2_arrive", _state(FIXER, "SNIFF"), "u2_walk")
+    at("u2_engage", _state(FIXER, "RETORQUE"), "u2_arrive")
+    at("torque_done", row("torque_done"), "u2_engage")
+    at("gf5_green", _det(g, "green"), "torque_done")
+    at("dispatch_u1", row("u1_dispatched"), "torque_done")
+    at("u1_arrive", row("u1_phase", phase="WORK"), "dispatch_u1")
+    at("spray", _state(SCRUBBER, "SPRAY"), "u1_arrive")
+    at("soak", _state(SCRUBBER, "SOAK"), "spray")
+    at("scrub", _state(SCRUBBER, "SCRUB"), "soak")
+    at("scrub_done", _state(SCRUBBER, "VERIFY"), "scrub")
+    at("paint", _state(SCRUBBER, "PAINT"), "scrub_done")
+    at("paint_done", _state(SCRUBBER, "VERIFY_PAINT", "DONE"), "paint")
+    at("u1_return", row("u1_phase", phase="RETURN"), "paint_done")
+    at("u2_return", _state(FIXER, "RETURN"), "torque_done")
+    at("u1_docked", row("u1_phase", phase="HOME"), "u1_return")
+    at("u2_docked", _state(FIXER, "DOCKED"), "u2_return")
+    ds = [b["u1_docked"], b["u2_docked"]]
+    b["both_docked"] = None if None in ds else max(ds)
+    return b
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--mock", action="store_true", help="CPU scenario, no Isaac")
@@ -944,12 +1126,16 @@ def main(argv=None):
     ap.add_argument("--drop-object-at", type=float, default=None)
     ap.add_argument("--push-at", type=float, default=None)
     ap.add_argument("--log-hz", type=float, default=5.0)
+    ap.add_argument("--film", action="store_true", help="film story: both docked, leak and rust, sequential jobs")
     a = ap.parse_args(argv)
     out = Path(a.out) / a.control
     out.mkdir(parents=True, exist_ok=True)
     demo = FleetDemo(a.control, out, a.cut_link_at, a.replay_from, False if a.no_stuck else a.stuck_at,
-                     a.drop_object_at, a.push_at, a.log_hz)
+                     a.drop_object_at, a.push_at, a.log_hz, film=a.film)
     s = demo.run()
+    if a.film:
+        print(json.dumps({k: s[k] for k in ("control", "t_end", "beats", "argon_calls")}, indent=1))
+        return
     if a.control == "live":
         (Path(a.out) / "live_timeline.jsonl").write_text((out / "timeline.jsonl").read_text())
         (Path(a.out) / "live_hud.jsonl").write_text((out / "hud.jsonl").read_text())
