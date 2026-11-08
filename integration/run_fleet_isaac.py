@@ -79,6 +79,7 @@ def parse_args(argv=None):
     p.add_argument("--film", action="store_true", help="render only the EDL's sim windows, per shot")
     p.add_argument("--edl", default="", help="EDL module (default integration.film_edl) or a .json file")
     p.add_argument("--shots", default="", help="comma-separated shot names to render (film mode)")
+    p.add_argument("--half-shots", default="", help="film: shots rendered at half rate with duplicated frames")
     p.add_argument("--colors", action="store_true", help="unit paint colours (on in film mode)")
     p.add_argument("--control-room", default="", help="x,y,z,w,d,h[,yaw] bare lit interior")
     return p.parse_args(argv)
@@ -468,8 +469,9 @@ def load_edl(spec: str = "") -> list:
     return [s for s in (normalize_shot(x) for x in (raw or [])) if s is not None]
 
 
-def film_steps(shots: list, fps: int, only: str = "", fast_div: int = 2) -> list:
+def film_steps(shots: list, fps: int, only: str = "", fast_div: int = 2, half: str = "") -> list:
     pick = {s for s in only.split(",") if s} if only else None
+    halves = {s for s in half.split(",") if s}
     tasks = []
     for sh in shots:
         if pick and sh["name"] not in pick:
@@ -478,7 +480,7 @@ def film_steps(shots: list, fps: int, only: str = "", fast_div: int = 2) -> list
         if sh.get("still") or sh["sim_t1"] <= sh["sim_t0"]:
             tasks.append((round(sh["sim_t0"], 6), (sh["name"], 0, round(sh["film_t0"], 4), n)))
             continue
-        step = fast_div if sh["rate"] > 1.0 else 1
+        step = fast_div if sh["rate"] > 1.0 or sh["name"] in halves else 1
         dt = (sh["sim_t1"] - sh["sim_t0"]) / n
         for i in range(0, n, step):
             tasks.append((round(sh["sim_t0"] + i * dt, 6),
@@ -1112,7 +1114,7 @@ def main(argv=None):
         n_frames = min(n_frames, args.max_frames * max(1, args.every))
     shots = load_edl(args.edl) if args.film else []
     shots_by_name = {s_["name"]: s_ for s_ in shots}
-    steps = film_steps(shots, args.fps, args.shots) if args.film else \
+    steps = film_steps(shots, args.fps, args.shots, half=args.half_shots) if args.film else \
         [(args.start + k / args.fps, k) for k in range(n_frames)]
     if args.film:
         n_frames = sum(1 for _, task in steps if task is not None)
