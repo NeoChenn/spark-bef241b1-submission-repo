@@ -10,7 +10,7 @@ import numpy as np
 from policy.fleet.api import corners
 from policy.fleet.assign import INF, assign, pick_responder
 from policy.fleet.battery import Battery
-from policy.fleet.hazards import OBSTACLES, Hazards
+from policy.fleet.hazards import OBSTACLES, Hazards, seg_dist
 from policy.fleet.jobs import JobLibrary
 from policy.fleet.reservations import Leg, Reservations, plan_legs
 from policy.fleet.rigmap import DECKS, DOCK_PADS, RigMap
@@ -179,13 +179,15 @@ class Fleet:
             ob_kind = d.get("kind", "crate")
             if ob_kind not in OBSTACLES:
                 raise ValueError(f"unknown obstacle {ob_kind!r}; expected one of {list(OBSTACLES)}")
-            xyz = self._resolve_at(d.get("at"), d.get("deck"))
+            if d.get("at") is None and not self.robots:
+                raise ValueError("drop needs at: robot id, walkway id or xy/xyz")
+            xyz = self._resolve_at(d["at"] if d.get("at") is not None else self.robots[0].id, d.get("deck"))
             h = self.hz.drop(ob_kind, xyz, d.get("at") if isinstance(d.get("at"), str) else None)
             what = {"block": "walkway blocked", "slow": "trip hazard, slow", "slip": "slippery, avoid stairs"}
             msg, cause = (f"{ob_kind} {h['id']} dropped at {np.round(xyz, 1).tolist()} -> {what[h['effect']]}",
                           f"{ob_kind} {h['id']}")
         elif kind in ("close_walkway", "close_stairs"):
-            target = d.get("edge", d.get("id"))
+            target = d.get("edge", d.get("id")) or self._default_target(kind == "close_stairs")
             h = self.hz.close(self.rm, target, "stairs" if kind == "close_stairs" else None)
             msg, cause = f"{target} closed ({h['id']}) -> route around", f"{target} closed"
         elif kind == "clear":
@@ -244,6 +246,16 @@ class Fleet:
             raise ValueError("drop needs at: robot id, walkway id or xy/xyz")
         p = [float(v) for v in at]
         return self._snap(p if len(p) == 3 else [*p, DECKS[deck or "top_deck"]])
+
+    def _default_target(self, stairs: bool) -> str:
+        if stairs:
+            used = [lg.corridor for r in self.robots for lg in r.legs if lg.kind == "stairs"]
+            return used[0] if used else "stairs_west_upper"
+        if not self.robots:
+            raise ValueError("close_walkway needs edge: a walkway id")
+        p = np.asarray(self._ahead(self.robots[0], AHEAD_M))
+        cs = [c for c in self.rm.coarse if c["kind"] in ("walk", "catwalk")]
+        return min(cs, key=lambda c: seg_dist(p, c["a"], c["b"]))["id"]
 
     def _robot(self, rid: str) -> Robot:
         r = next((x for x in self.robots if x.id == rid), None)

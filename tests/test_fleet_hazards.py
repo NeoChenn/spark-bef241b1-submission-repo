@@ -238,3 +238,20 @@ def test_person_at_xy_creates_person_zone():
     assert len(f.persons) == 1
     with pytest.raises(ValueError):
         f.event("explode")
+
+
+def test_hud_commands_with_empty_args_pick_sensible_defaults():
+    f, rm = make([("R1", "dock", 1.0)])
+    f.add_task("leak_check", "F5")
+    for _ in range(3):
+        f.step()
+    f.event("drop_obstacle")
+    f.event("close_walkway")
+    f.event("close_stairs")
+    f.step()
+    hz = f.hz.to_json(rm)
+    assert hz["obstacles"][0]["kind"] == "crate"
+    assert [c["kind"] for c in hz["closures"]] == ["walkway", "stairs"]
+    assert any(e["kind"] == "reroute" for e in f.event_log)
+    f.event("clear")
+    assert not f.hz.active()
