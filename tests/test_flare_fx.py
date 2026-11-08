@@ -82,3 +82,13 @@ def test_billboard_roll_keeps_unit_quats():
     q = fx.billboard_quats(np.zeros((3, 3)), (0, -10, 0), np.array([0.0, 1.0, 2.5]))
     assert np.allclose(np.linalg.norm(q, axis=1), 1.0)
     assert q[0] == pytest.approx([1, 0, 0, 0])
+
+
+def test_parts_by_quality(monkeypatch):
+    monkeypatch.delenv("RIG_FLARE_PARTS", raising=False)
+    monkeypatch.setenv("RIG_QUALITY", "offline")
+    assert {"side", "halo", "smoke"} <= fx.parts()
+    monkeypatch.setenv("RIG_QUALITY", "live")
+    assert "side" not in fx.parts() and "flame" in fx.parts()
+    monkeypatch.setenv("RIG_FLARE_PARTS", "flame")
+    assert fx.parts() == {"flame"}

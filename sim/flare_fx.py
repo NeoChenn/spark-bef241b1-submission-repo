@@ -37,6 +37,8 @@ SMOKE_N, SMOKE_LIFE, SMOKE_LEVELS = 110, 12.0, 8
 SMOKE_TINT, SMOKE_ALPHA, SMOKE_GLOW = (0.055, 0.045, 0.036), 0.42, (1.0, 0.42, 0.12)
 HALO_SIZE, HALO_GAIN, HALO_ALPHA = 46.0, EMISSION * 0.08, 0.35
 SIDE_GAIN = 0.8
+PARTS = {"offline": "flame,side,smoke,halo,anim", "live": "flame,smoke,anim"}
+LIVE_SMOKE = 36
 STOPS = (
     (0.0, (0.7, 0.1, 0.01)),
     (0.3, (1.0, 0.38, 0.05)),
@@ -371,26 +373,44 @@ def billboard_quats(pos: np.ndarray, eye, roll=None) -> np.ndarray:
     return np.column_stack([c1 * c2, -s1 * s2, c1 * s2, s1 * c2])
 
 
+def parts() -> set:
+    quality = os.environ.get("RIG_QUALITY", "live")
+    return set(os.environ.get("RIG_FLARE_PARTS", PARTS.get(quality, PARTS["live"])).split(","))
+
+
+def _put(attr, value) -> None:
+    if attr.Get() != value:
+        attr.Set(value)
+
+
 def update(stage, t: float, wind=WIND) -> None:
     from pxr import Gf, Sdf, UsdGeom, UsdShade, Vt
 
     root = stage.GetPrimAtPath(ROOT)
     if not root or not root.IsValid():
         return
+    use = parts()
     flow = stage.GetPrimAtPath(FLOW)
     flow_flame = bool(flow and flow.IsValid()) and os.environ.get("RIG_FLARE_FLOW", "0") == "1"
     shown = "invisible" if flow_flame else "inherited"
     emitter = stage.GetPrimAtPath(f"{FLOW}/flowEmitterSphere")
     if emitter and emitter.IsValid() and not flow_flame:
-        emitter.GetAttribute("fuel").Set(0.0)
-        emitter.GetAttribute("temperature").Set(0.0)
-    for name in [f"flame_{k}" for k in range(len(CARDS))]:
-        UsdGeom.Imageable(stage.GetPrimAtPath(f"{ROOT}/{name}")).GetVisibilityAttr().Set(shown)
+        _put(emitter.GetAttribute("fuel"), 0.0)
+        _put(emitter.GetAttribute("temperature"), 0.0)
+    for k, card in enumerate(CARDS):
+        on = "flame" in use and (card[0] == 0 or "side" in use)
+        _put(UsdGeom.Imageable(stage.GetPrimAtPath(f"{ROOT}/flame_{k}")).GetVisibilityAttr(),
+             shown if on else "invisible")
+    for name in ("smoke", "halo"):
+        _put(UsdGeom.Imageable(stage.GetPrimAtPath(f"{ROOT}/{name}")).GetVisibilityAttr(),
+             "inherited" if name in use else "invisible")
     eye = _eye(stage)
     rows = SEGMENTS + 1
     line = centerline(np.linspace(0, 1, rows), t, wind)
     level = flicker(t)
     for k, (yaw, ws, hs, phase, rate, side) in enumerate(CARDS):
+        if "flame" not in use or (yaw != 0 and "side" not in use):
+            continue
         v = np.linspace(0, 1, rows)
         sub = centerline(v * hs, t + phase, wind)
         away = np.asarray(eye, float) - line[rows // 3]
@@ -400,15 +420,31 @@ def update(stage, t: float, wind=WIND) -> None:
         UsdGeom.Mesh(stage.GetPrimAtPath(f"{ROOT}/flame_{k}")).GetPointsAttr().Set(
             Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
         frame = int(math.floor((t + phase * 7.0) * FPS * rate))
-        sh = UsdShade.Shader.Get(stage, f"{ROOT}/Looks/flame_{k}/shader")
-        sh.GetInput("frame").Set(float(frame % FRAMES))
-        sh.GetInput("gain").Set(EMISSION * flicker(t, k + 1.0) * (1.0 if yaw == 0 else SIDE_GAIN))
-    pos, scale, bucket, roll = smoke_state(t, wind)
+        if "anim" in use:
+            sh = UsdShade.Shader.Get(stage, f"{ROOT}/Looks/flame_{k}/shader")
+            _put(sh.GetInput("frame").GetAttr(), float(frame % FRAMES))
+            sh.GetInput("gain").Set(EMISSION * flicker(t, k + 1.0) * (1.0 if yaw == 0 else SIDE_GAIN))
+    if "smoke" in use:
+        _smoke(stage, t, wind, eye, "side" in use)
+    if "halo" in use:
+        _halo(stage, line, rows, eye, level, shown)
+    _light(stage, line, rows, level)
+
+
+def _smoke(stage, t, wind, eye, full):
+    from pxr import Gf, UsdGeom, Vt
+
+    pos, scale, bucket, roll = smoke_state(t, wind, n=SMOKE_N if full else LIVE_SMOKE)
     inst = UsdGeom.PointInstancer(stage.GetPrimAtPath(f"{ROOT}/smoke"))
     inst.GetPositionsAttr().Set(Vt.Vec3fArray.FromNumpy(pos.astype(np.float32)))
     inst.GetScalesAttr().Set(Vt.Vec3fArray.FromNumpy(np.repeat(scale[:, None], 3, 1).astype(np.float32)))
     inst.GetProtoIndicesAttr().Set(Vt.IntArray.FromNumpy(bucket.astype(np.int32)))
     inst.GetOrientationsAttr().Set(Vt.QuathArray([Gf.Quath(*map(float, q)) for q in billboard_quats(pos, eye, roll)]))
+
+
+def _halo(stage, line, rows, eye, level, shown):
+    from pxr import UsdGeom, UsdShade, Vt
+
     centre = line[int(rows * 0.4)]
     right = facing_right(centre, eye) * HALO_SIZE * 0.5
     toward = np.asarray(eye, float) - centre
@@ -420,6 +456,11 @@ def update(stage, t: float, wind=WIND) -> None:
     UsdGeom.Mesh(stage.GetPrimAtPath(f"{ROOT}/halo")).GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(quad.astype(np.float32)))
     UsdShade.Shader.Get(stage, f"{ROOT}/Looks/halo/shader").GetInput("gain").Set(
         HALO_GAIN * level * (0.4 if shown == "invisible" else 1.0))
+
+
+def _light(stage, line, rows, level):
+    from pxr import Gf, Sdf
+
     lamp = stage.GetPrimAtPath(LIGHT)
     if lamp:
         c = line[rows // 4]
