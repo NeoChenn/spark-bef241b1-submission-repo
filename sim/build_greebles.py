@@ -262,27 +262,63 @@ def sleeve_mesh(x0, x1, y, z, radius, rows=4, sides=36):
     return mesh_data(pts, [4] * (rows * sides), idx, uvs, normals)
 
 
+def flange_joint(kit, bolts, centre, axis, r, material, new=True):
+    c, ax = np.asarray(centre, float), np.asarray(axis, float)
+    e1 = np.cross(ax, (0.0, 0.0, 1.0))
+    e1 = e1 / np.linalg.norm(e1) if np.linalg.norm(e1) > 1e-6 else np.array((1.0, 0.0, 0.0))
+    e2 = np.cross(ax, e1)
+    f = g.flange_dims(r)
+    at = lambda t, off=0.0: tuple(c + ax * t + off)
+    hw = f["half_width"]
+    if new:
+        for side in (-1, 1):
+            kit.seg(material, "cyl", at(side * 0.004), at(side * 0.049), 2 * f["outer"])
+            kit.seg(material, "cyl", at(side * 0.048), at(side * 0.11), 2 * r * 1.12)
+        kit.seg(MAT["black"], "cyl", at(-0.004), at(0.004), 2 * f["outer"] - 0.006)
+        hw = 0.049
+    else:
+        kit.seg(MAT["black"], "cyl", at(-0.004), at(0.004), 2 * f["outer"] + 0.004)
+    for du, dv in g.bolt_ring(f["pcd"], f["count"]):
+        off = e1 * du + e2 * dv
+        bolts.seg(MAT["steel"], "cyl", at(-hw - 0.03, off), at(hw + 0.03, off), 2 * f["bolt_r"])
+        for side in (-1, 1):
+            m = side * (hw + 0.011)
+            bolts.seg(MAT["steel"], "hex", at(m - 0.011, off), at(m + 0.011, off), 2 * f["nut_r"])
+
+
 def flanges(kit):
     for new, table in ((False, g.EXISTING_FLANGES), (True, g.NEW_FLANGES)):
         for line, xs in table.items():
             y, z, r, _ = g.LINES[line]
-            f = g.flange_dims(r)
             for x in xs:
-                hw = f["half_width"]
-                if new:
-                    for side in (-1, 1):
-                        kit.seg(line_mat(line), "cyl", (x + side * 0.004, y, z), (x + side * 0.049, y, z), 2 * f["outer"])
-                        kit.seg(line_mat(line), "cyl", (x + side * 0.048, y, z), (x + side * 0.11, y, z), 2 * r * 1.12)
-                    kit.seg(MAT["black"], "cyl", (x - 0.004, y, z), (x + 0.004, y, z), 2 * f["outer"] - 0.006)
-                    hw = 0.049
-                else:
-                    kit.seg(MAT["black"], "cyl", (x - 0.004, y, z), (x + 0.004, y, z), 2 * f["outer"] + 0.004)
-                for dy, dz in g.bolt_ring(f["pcd"], f["count"]):
-                    p = (y + dy, z + dz)
-                    kit.seg(MAT["steel"], "cyl", (x - hw - 0.03, *p), (x + hw + 0.03, *p), 2 * f["bolt_r"])
-                    for side in (-1, 1):
-                        c = x + side * (hw + 0.011)
-                        kit.seg(MAT["steel"], "hex", (c - 0.011, *p), (c + 0.011, *p), 2 * f["nut_r"])
+                flange_joint(kit, kit, (x, y, z), (1.0, 0.0, 0.0), r, line_mat(line), new)
+
+
+RACK_SERVICES = ("insulated", "pipe_grey", "pipe_red", "pipe_yellow", "pipe_green", "insulated")
+
+
+def topside_racks(live, off):
+    import topside as ts
+
+    for k, (start, end, z0, tiers, width, count) in enumerate(ts.RACKS):
+        r = tf.pipe_rack(start, end, z0, tiers=tiers, width=width, pipes_per_tier=count, seed=11 + k)
+        length = math.dist(start, end)
+        portals = tf.stations(0.0, length, 6.0)
+        mids = [(p + q) / 2 for p, q in zip(portals, portals[1:])]
+        yaw = IDENT if r["along_x"] else (math.sqrt(0.5), 0.0, 0.0, math.sqrt(0.5))
+        for n, ((a, b), radius) in enumerate(r["pipes"]):
+            a, b = np.asarray(a, float), np.asarray(b, float)
+            u = (b - a) / np.linalg.norm(b - a)
+            material = f"{WL}/topside_{RACK_SERVICES[n % len(RACK_SERVICES)]}"
+            for t in portals:
+                p = a + u * t
+                shoe = (0.3, 2 * radius + 0.08, 0.1) if r["along_x"] else (2 * radius + 0.08, 0.3, 0.1)
+                live.box(MAT["galv"], (p[0], p[1], p[2] - radius - 0.05), shoe)
+                s = radius + 0.006
+                off.add(MAT["galv"], "ubolt", tuple(p), yaw, (s, s, s))
+            for j, t in enumerate(mids):
+                if (j + n) % 2 == 0:
+                    flange_joint(live, off, a + u * (t + 0.7 * (n % 3 - 1)), u, radius, material)
 
 
 def welds(kit):
@@ -598,7 +634,12 @@ def build(path=g.LAYER) -> dict:
     trays = Kit(f"{g.OFFLINE}/Zone/Kit")
     UsdGeom.Scope.Define(stage, f"{g.OFFLINE}/Zone/Cables")
     tray(trays, f"{g.OFFLINE}/Zone/Cables")
-    counts = {"zone_instances": kit.write(), "offline_instances": trays.write()}
+    top_live, top_off = Kit(f"{g.ROOT}/Topside/Kit"), Kit(f"{g.OFFLINE}/Topside/Kit")
+    UsdGeom.Xform.Define(stage, f"{g.ROOT}/Topside")
+    UsdGeom.Xform.Define(stage, f"{g.OFFLINE}/Topside")
+    topside_racks(top_live, top_off)
+    counts = {"zone_instances": kit.write(), "offline_instances": trays.write(), "topside_instances": top_live.write(),
+              "topside_offline": top_off.write()}
     stage.GetRootLayer().Save()
     counts["prims"] = sum(1 for _ in Usd.PrimRange(stage.GetPrimAtPath(g.ROOT)))
     print(f"GREEBLES_WRITTEN {path} {counts}")
