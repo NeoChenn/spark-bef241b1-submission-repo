@@ -142,3 +142,11 @@ def test_bind_overlay_accepts_a_file_mask():
     hm.bind_overlay(stage, "/World/RustOverlay", "/tmp/mask.png", 0.154, 1.2)
     shader = UsdShade.Shader.Get(stage, f"{hm.OVERLAY_MATERIAL}/{hm.SHADER}")
     assert shader.GetInput("mask").Get().path == "/tmp/mask.png"
+
+
+def test_tube_recipes_use_seamless_tube_mapping():
+    r = hm.recipes(META)
+    for kind in ("rail", "zone_pipe_grey", "zone_pipe_orange"):
+        sub, v = r[kind]
+        assert sub == "rig_hero_paint" and v["tube"] is True and v["tube_r"] > 0
+    assert "/World/Looks/rail" in hm.TARGETS

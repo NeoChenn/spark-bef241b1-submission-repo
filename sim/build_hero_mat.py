@@ -23,6 +23,8 @@ def set_inputs(shader, values: dict) -> None:
             attr = shader.CreateInput(key, Sdf.ValueTypeNames.Asset)
             attr.Set(Sdf.AssetPath(rel(value)))
             attr.GetAttr().SetColorSpace("sRGB" if key.endswith("_diff") else "raw")
+        elif isinstance(value, bool):
+            shader.CreateInput(key, Sdf.ValueTypeNames.Bool).Set(value)
         elif isinstance(value, (int, float)):
             shader.CreateInput(key, Sdf.ValueTypeNames.Float).Set(float(value))
         elif key in COLORS:

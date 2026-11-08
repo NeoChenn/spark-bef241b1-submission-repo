@@ -30,8 +30,11 @@ TARGETS = {
     "/World/Looks/zone_marking": "line",
     "/World/Looks/frame": "frame",
     "/World/RepairZone/Looks/rusty_painted_metal": "zone_steel",
+    "/World/Looks/rail": "rail",
+    "/World/RepairZone/Looks/pipe_grey": "zone_pipe_grey",
+    "/World/RepairZone/Looks/pipe_orange": "zone_pipe_orange",
 }
-WET_PUDDLES = ("deck", "frame", "zone_steel")
+WET_PUDDLES = ("deck", "frame", "zone_steel", "rail", "zone_pipe_grey", "zone_pipe_orange")
 PATCH_GEOM = "/World/Pipes/damage_patch/geom"
 
 
@@ -98,6 +101,12 @@ def recipes(meta: dict) -> dict:
                                      "rust_amount": 0.35}),
         "zone_steel": ("rig_hero_paint", {**paint_set, "paint_color": (0.09, 0.105, 0.11), "chip_amount": 0.8,
                                           "rust_amount": 0.65, "streak_amount": 0.9}),
+        "rail": ("rig_hero_paint", {**paint_set, "paint_color": (0.6, 0.38, 0.025), "chip_amount": 0.7,
+                                    "rust_amount": 0.35, "scale": 0.45, "tube": True, "tube_r": 0.04}),
+        "zone_pipe_grey": ("rig_hero_paint", {**paint_set, "paint_color": (0.27, 0.29, 0.3), "chip_amount": 0.7,
+                                              "rust_amount": 0.45, "scale": 0.7, "tube": True, "tube_r": 0.1}),
+        "zone_pipe_orange": ("rig_hero_paint", {**paint_set, "paint_color": (0.5, 0.16, 0.03), "chip_amount": 0.65,
+                                                "rust_amount": 0.35, "scale": 0.7, "tube": True, "tube_r": 0.07}),
     }
 
 

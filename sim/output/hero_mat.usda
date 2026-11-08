@@ -143,6 +143,98 @@ over "World"
                     token outputs:out
                 }
             }
+
+            over "pipe_grey"
+            {
+                token outputs:mdl:surface.connect = </World/RepairZone/Looks/pipe_grey/hero_mdl.outputs:out>
+                token outputs:surface.connect = </World/RepairZone/Looks/pipe_grey/hero_mdl.outputs:out>
+
+                def Shader "hero_mdl"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_hero.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "rig_hero_paint"
+                    float inputs:chip_amount = 0.7
+                    asset inputs:chip_mask = @../assets/third_party/textures/PaintedMetal010_4k/diff.jpg@ (
+                        colorSpace = "raw"
+                    )
+                    asset inputs:grime_tex = @../assets/third_party/textures/SurfaceImperfections011/diff.jpg@ (
+                        colorSpace = "raw"
+                    )
+                    asset inputs:noise = @../assets/generated/hero_noise.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:paint_color = (0.27, 0.29, 0.3)
+                    asset inputs:paint_normal = @../assets/third_party/textures/PaintedMetal010_4k/nor_gl.jpg@ (
+                        colorSpace = "raw"
+                    )
+                    asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:puddles = 0.7206
+                    float inputs:rust_amount = 0.45
+                    asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
+                        colorSpace = "sRGB"
+                    )
+                    asset inputs:rust_normal = @../assets/third_party/textures/Rust007_4k/nor_gl.jpg@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:scale = 0.7
+                    asset inputs:streaks = @../assets/generated/rig_streaks.png@ (
+                        colorSpace = "raw"
+                    )
+                    bool inputs:tube = 1
+                    float inputs:tube_r = 0.1
+                    float inputs:wetness = 0.64
+                    token outputs:out
+                }
+            }
+
+            over "pipe_orange"
+            {
+                token outputs:mdl:surface.connect = </World/RepairZone/Looks/pipe_orange/hero_mdl.outputs:out>
+                token outputs:surface.connect = </World/RepairZone/Looks/pipe_orange/hero_mdl.outputs:out>
+
+                def Shader "hero_mdl"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_hero.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "rig_hero_paint"
+                    float inputs:chip_amount = 0.65
+                    asset inputs:chip_mask = @../assets/third_party/textures/PaintedMetal010_4k/diff.jpg@ (
+                        colorSpace = "raw"
+                    )
+                    asset inputs:grime_tex = @../assets/third_party/textures/SurfaceImperfections011/diff.jpg@ (
+                        colorSpace = "raw"
+                    )
+                    asset inputs:noise = @../assets/generated/hero_noise.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:paint_color = (0.5, 0.16, 0.03)
+                    asset inputs:paint_normal = @../assets/third_party/textures/PaintedMetal010_4k/nor_gl.jpg@ (
+                        colorSpace = "raw"
+                    )
+                    asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:puddles = 0.7206
+                    float inputs:rust_amount = 0.35
+                    asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
+                        colorSpace = "sRGB"
+                    )
+                    asset inputs:rust_normal = @../assets/third_party/textures/Rust007_4k/nor_gl.jpg@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:scale = 0.7
+                    asset inputs:streaks = @../assets/generated/rig_streaks.png@ (
+                        colorSpace = "raw"
+                    )
+                    bool inputs:tube = 1
+                    float inputs:tube_r = 0.07
+                    float inputs:wetness = 0.64
+                    token outputs:out
+                }
+            }
         }
     }
 
@@ -265,6 +357,52 @@ over "World"
                 asset inputs:streaks = @../assets/generated/rig_streaks.png@ (
                     colorSpace = "raw"
                 )
+                float inputs:wetness = 0.64
+                token outputs:out
+            }
+        }
+
+        over "rail"
+        {
+            token outputs:mdl:surface.connect = </World/Looks/rail/hero_mdl.outputs:out>
+            token outputs:surface.connect = </World/Looks/rail/hero_mdl.outputs:out>
+
+            def Shader "hero_mdl"
+            {
+                uniform token info:implementationSource = "sourceAsset"
+                uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_hero.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "rig_hero_paint"
+                float inputs:chip_amount = 0.7
+                asset inputs:chip_mask = @../assets/third_party/textures/PaintedMetal010_4k/diff.jpg@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:grime_tex = @../assets/third_party/textures/SurfaceImperfections011/diff.jpg@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:noise = @../assets/generated/hero_noise.png@ (
+                    colorSpace = "raw"
+                )
+                color3f inputs:paint_color = (0.6, 0.38, 0.025)
+                asset inputs:paint_normal = @../assets/third_party/textures/PaintedMetal010_4k/nor_gl.jpg@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
+                    colorSpace = "raw"
+                )
+                float inputs:puddles = 0.7206
+                float inputs:rust_amount = 0.35
+                asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
+                    colorSpace = "sRGB"
+                )
+                asset inputs:rust_normal = @../assets/third_party/textures/Rust007_4k/nor_gl.jpg@ (
+                    colorSpace = "raw"
+                )
+                float inputs:scale = 0.45
+                asset inputs:streaks = @../assets/generated/rig_streaks.png@ (
+                    colorSpace = "raw"
+                )
+                bool inputs:tube = 1
+                float inputs:tube_r = 0.04
                 float inputs:wetness = 0.64
                 token outputs:out
             }

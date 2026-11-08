@@ -409,7 +409,7 @@ hero_sample paint_sample(
     uniform texture_2d chip_mask, uniform texture_2d paint_rough, uniform texture_2d paint_normal,
     uniform texture_2d rust_diff, uniform texture_2d rust_normal, uniform texture_2d noise, uniform texture_2d streaks,
     uniform texture_2d grime_tex, float3 paint_color, float3 primer_color, float scale, float chip_amount,
-    float rust_amount, float streak_amount, float grime_amount, float wetness, float puddles)
+    float rust_amount, float streak_amount, float grime_amount, float wetness, float puddles, bool tube, float tube_r)
 {
     float3 p = wpos();
     float3 n = wnrm();
@@ -419,6 +419,21 @@ hero_sample paint_sample(
     float2 q = zf ? float2(p.x, p.y) : (a.x > a.y ? float2(p.y, p.z) : float2(p.x, p.z));
     float3 t = zf ? float3(1.0, 0.0, 0.0) : (a.x > a.y ? float3(0.0, 1.0, 0.0) : float3(1.0, 0.0, 0.0));
     float3 b = zf ? float3(0.0, 1.0, 0.0) : float3(0.0, 0.0, 1.0);
+    if (tube) {
+        if (a.x <= a.y && a.x <= a.z) {
+            q = float2(p.x, math::atan2(n.z, n.y) * tube_r);
+            t = float3(1.0, 0.0, 0.0);
+            b = math::normalize(float3(0.0, -n.z, n.y));
+        } else if (a.y <= a.z) {
+            q = float2(p.y, math::atan2(n.z, n.x) * tube_r);
+            t = float3(0.0, 1.0, 0.0);
+            b = math::normalize(float3(-n.z, 0.0, n.x));
+        } else {
+            q = float2(p.z, math::atan2(n.y, n.x) * tube_r);
+            t = float3(0.0, 0.0, 1.0);
+            b = math::normalize(float3(-n.y, n.x, 0.0));
+        }
+    }
     float2 uv = q / scale;
     float3 m1 = f3(noise, q / 5.3 + float2(0.19, 0.47));
     float3 m2 = f3(noise, q / 17.0 + float2(0.83, 0.29));
@@ -486,12 +501,14 @@ export material rig_hero_paint(
     float streak_amount = 0.6,
     float grime_amount = 0.6,
     float wetness = 0.0 [[ anno::hard_range(0.0, 1.0) ]],
-    float puddles = 0.0 [[ anno::hard_range(0.0, 1.0) ]]
+    float puddles = 0.0 [[ anno::hard_range(0.0, 1.0) ]],
+    uniform bool tube = false,
+    float tube_r = 0.1
 )
 = let {
     hero_sample s = paint_sample(chip_mask, paint_rough, paint_normal, rust_diff, rust_normal, noise, streaks, grime_tex,
         float3(paint_color), float3(primer_color), scale, chip_amount, rust_amount, streak_amount, grime_amount, wetness,
-        puddles);
+        puddles, tube, tube_r);
 } in hero_surface(s.albedo, s.rough, s.metal, s.normal, s.coat, s.coat_rough, s.opacity);
 
 hero_sample rust_mask_sample(
