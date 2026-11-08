@@ -12,7 +12,12 @@ MDL = SIM_DIR / "assets" / "mdl" / "rig_hero.mdl"
 LAYER = SIM_DIR / "output" / "hero_mat.usda"
 NOISE = SIM_DIR / "assets" / "generated" / "hero_noise.png"
 SHADER = "hero_mdl"
-SUBS = ("rig_hero_pipe", "rig_hero_rust", "rig_hero_deck", "rig_hero_line", "rig_hero_paint")
+SUBS = ("rig_hero_pipe", "rig_hero_rust", "rig_hero_deck", "rig_hero_line", "rig_hero_paint", "rig_hero_rust_mask")
+OVERLAY_SUB = "rig_hero_rust_mask"
+OVERLAY_MATERIAL = "/World/Looks/HeroRustOverlay"
+PATCH_MATERIAL = "/World/RepairZone/Looks/rust_coarse_01"
+STAGE_WET = {"SPRAY": (0.4, 0.6), "SOAK": (1.0, 0.0), "SCRUB": (0.75, 0.0), "VERIFY": (0.45, 0.0), "PAINT": (0.3, -0.2)}
+PATCH_LEFT = 0.15
 PATCH_RINGS, PATCH_SEGMENTS = 8, 48
 PIPE_TINT = (0.95, 1.0, 0.92)
 PUDDLE_BOOST = 0.25
@@ -25,8 +30,14 @@ TARGETS = {
     "/World/Looks/zone_marking": "line",
     "/World/Looks/frame": "frame",
     "/World/RepairZone/Looks/rusty_painted_metal": "zone_steel",
+    "/World/Looks/rail": "rail",
+    "/World/RepairZone/Looks/pipe_grey": "zone_pipe_grey",
+    "/World/RepairZone/Looks/pipe_orange": "zone_pipe_orange",
 }
-WET_PUDDLES = ("deck", "frame", "zone_steel")
+WET_PUDDLES = ("deck", "frame", "zone_steel", "rail", "zone_pipe_grey", "zone_pipe_orange")
+DETAIL = WET_PUDDLES
+LIVE_KINDS = ("pipe", "rust", "line", "frame", "zone_steel", "rail", "zone_pipe_grey", "zone_pipe_orange")
+FALLBACK = "rig_mdl"
 PATCH_GEOM = "/World/Pipes/damage_patch/geom"
 
 
@@ -89,10 +100,16 @@ def recipes(meta: dict) -> dict:
             "noise": NOISE, "rust_diff": tex("Rust007_4k", "diff"), "grime_tex": tex("SurfaceImperfections011", "diff"),
         }),
         "line": ("rig_hero_line", {"noise": NOISE, "wear_tex": tex("SurfaceImperfections011", "diff")}),
-        "frame": ("rig_hero_paint", {**paint_set, "paint_color": (0.19, 0.21, 0.22), "chip_amount": 0.5,
+        "frame": ("rig_hero_paint", {**paint_set, "paint_color": (0.13, 0.14, 0.145), "chip_amount": 0.5,
                                      "rust_amount": 0.35}),
         "zone_steel": ("rig_hero_paint", {**paint_set, "paint_color": (0.09, 0.105, 0.11), "chip_amount": 0.8,
                                           "rust_amount": 0.65, "streak_amount": 0.9}),
+        "rail": ("rig_hero_paint", {**paint_set, "paint_color": (0.6, 0.38, 0.025), "chip_amount": 1.0,
+                                    "rust_amount": 0.5, "scale": 0.35, "tube": True, "tube_r": 0.075}),
+        "zone_pipe_grey": ("rig_hero_paint", {**paint_set, "paint_color": (0.27, 0.29, 0.3), "chip_amount": 0.7,
+                                              "rust_amount": 0.45, "scale": 0.7, "tube": True, "tube_r": 0.1}),
+        "zone_pipe_orange": ("rig_hero_paint", {**paint_set, "paint_color": (0.5, 0.16, 0.03), "chip_amount": 0.9,
+                                                "rust_amount": 0.35, "scale": 0.7, "tube": True, "tube_r": 0.07}),
     }
 
 
@@ -125,17 +142,108 @@ def attach(stage) -> bool:
     return True
 
 
-def apply(stage, preset: str) -> dict:
+def apply(stage, preset: str, quality: str | None = None) -> dict:
     from pxr import Sdf, UsdShade
 
     if not attach(stage):
         return {}
     w = weather(preset)
+    detail = (quality or pr.current_quality()) == "offline"
     for path, kind in TARGETS.items():
         shader = UsdShade.Shader.Get(stage, f"{path}/{SHADER}")
         if not shader:
             continue
+        use = shader
+        if not detail and kind not in LIVE_KINDS:
+            use = UsdShade.Shader.Get(stage, f"{path}/{FALLBACK}") or shader
+        material = UsdShade.Material(stage.GetPrimAtPath(path))
+        out = use.GetOutput("out") or use.CreateOutput("out", Sdf.ValueTypeNames.Token)
+        material.CreateSurfaceOutput("mdl").ConnectToSource(out)
+        material.CreateSurfaceOutput().ConnectToSource(out)
         shader.CreateInput("wetness", Sdf.ValueTypeNames.Float).Set(w["wetness"])
         if kind in WET_PUDDLES:
             shader.CreateInput("puddles", Sdf.ValueTypeNames.Float).Set(w["puddles"])
-    return w
+        if kind in DETAIL:
+            shader.CreateInput("detail", Sdf.ValueTypeNames.Bool).Set(detail)
+    return {**w, "detail": detail}
+
+
+def stage_inputs(state: str, progress: float = 0.0, base_wetness: float = 0.0) -> dict:
+    p = min(max(float(progress), 0.0), 1.0)
+    w0, dw = STAGE_WET.get(str(state).upper(), (0.0, 0.0))
+    wet = max(base_wetness, min(max(w0 + dw * p, 0.0), 1.0))
+    state = str(state).upper()
+    if state == "SCRUB":
+        amount = 1.0 - (1.0 - PATCH_LEFT) * p
+    elif state == "VERIFY":
+        amount = PATCH_LEFT
+    elif state == "PAINT":
+        amount = PATCH_LEFT * (1.0 - p)
+    elif state == "DONE":
+        amount = 0.0
+    else:
+        amount = 1.0
+    return {"amount": round(amount, 4), "wetness": round(wet, 4)}
+
+
+def overlay_rgba(rust, wet=None, primer=None):
+    import numpy as np
+
+    r = np.clip(np.asarray(rust, np.float32), 0.0, 1.0)
+    w = np.zeros_like(r) if wet is None else np.clip(np.asarray(wet, np.float32), 0.0, 1.0)
+    p = np.zeros_like(r) if primer is None else np.clip(np.asarray(primer, np.float32), 0.0, 1.0)
+    r = np.where(p > 0.5, 0.0, r)
+    a = np.maximum(np.maximum(r, w), p)
+    return (np.stack([r, w, p, a], -1) * 255.0).round().astype(np.uint8)
+
+
+def overlay_values(radius: float, length: float) -> dict:
+    return {"rust_diff": tex("rust_coarse_01_4k", "diff"), "rust_rough": tex("rust_coarse_01_4k", "rough"),
+            "rust_normal": tex("rust_coarse_01_4k", "nor_gl"), "scale_diff": tex("Rust007_4k", "diff"),
+            "scale_normal": tex("Rust007_4k", "nor_gl"), "noise": NOISE,
+            "uv_scale": (2.0 * math.pi * radius, float(length)), "rust_scale": wrap_scale(radius, 0.3)}
+
+
+def _inputs(shader, values: dict) -> None:
+    from pxr import Gf, Sdf
+
+    for key, value in values.items():
+        if isinstance(value, (Path, str)):
+            attr = shader.CreateInput(key, Sdf.ValueTypeNames.Asset)
+            attr.Set(Sdf.AssetPath(str(value)))
+            attr.GetAttr().SetColorSpace("sRGB" if key.endswith("_diff") else "raw")
+        elif isinstance(value, (int, float)):
+            shader.CreateInput(key, Sdf.ValueTypeNames.Float).Set(float(value))
+        elif len(value) == 2:
+            shader.CreateInput(key, Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(*value))
+        else:
+            shader.CreateInput(key, Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*value))
+
+
+def bind_overlay(stage, prim_path: str, mask: str, radius: float, length: float,
+                 material_path: str = OVERLAY_MATERIAL):
+    from pxr import Sdf, UsdShade
+
+    material = UsdShade.Material.Define(stage, material_path)
+    shader = UsdShade.Shader.Define(stage, f"{material_path}/{SHADER}")
+    shader.SetSourceAsset(Sdf.AssetPath(str(MDL)), "mdl")
+    shader.SetSourceAssetSubIdentifier(OVERLAY_SUB, "mdl")
+    _inputs(shader, {"mask": mask, **overlay_values(radius, length), **stage_inputs("PATROL")})
+    out = shader.CreateOutput("out", Sdf.ValueTypeNames.Token)
+    material.CreateSurfaceOutput("mdl").ConnectToSource(out)
+    material.CreateSurfaceOutput().ConnectToSource(out)
+    UsdShade.MaterialBindingAPI.Apply(stage.GetPrimAtPath(prim_path)).Bind(
+        material, UsdShade.Tokens.strongerThanDescendants)
+    return material
+
+
+def set_state(stage, state: str, progress: float = 0.0, material_path: str = OVERLAY_MATERIAL,
+              base_wetness: float = 0.0, keys=("amount", "wetness")) -> dict:
+    from pxr import Sdf, UsdShade
+
+    values = {k: v for k, v in stage_inputs(state, progress, base_wetness).items() if k in keys}
+    shader = UsdShade.Shader.Get(stage, f"{material_path}/{SHADER}")
+    if shader:
+        for key, value in values.items():
+            shader.CreateInput(key, Sdf.ValueTypeNames.Float).Set(value)
+    return values
