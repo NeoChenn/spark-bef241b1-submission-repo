@@ -235,7 +235,9 @@ class Plume:
         origin = domain_origin(source, shape, dx, wind)
         solid = np.zeros(shape, bool)
         solid[:, :, : int((DECK_Z - origin[2]) / dx)] = True
-        if obstacles:
+        if isinstance(obstacles, np.ndarray):
+            solid |= obstacles.astype(bool)
+        elif obstacles:
             from sim.plume.voxelize import obstacles_for
 
             vox = obstacles_for(stage if stage is not None else RIG_USD, origin, shape, dx)

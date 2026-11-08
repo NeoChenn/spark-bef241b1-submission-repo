@@ -27,13 +27,18 @@ def main(argv=None):
     a.add_argument("--snap-every", type=float, default=1.0)
     a.add_argument("--out", default="runs/plume/F5")
     a.add_argument("--no-obstacles", action="store_true")
+    a.add_argument("--solid", default="", help="npy obstacle mask to use instead of voxelising the rig")
+    a.add_argument("--save-solid", default="")
     args = a.parse_args(argv)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     shape = tuple(int(s) for s in args.shape.split(","))
     t0 = time.perf_counter()
     p = Plume.for_flange(args.flange, args.hole_mm, args.bar, args.h2s, Wind(args.wind, args.heading, args.storm),
-                         dx=args.dx, shape=shape, obstacles=not args.no_obstacles)
+                         dx=args.dx, shape=shape,
+                         obstacles=np.load(args.solid) if args.solid else not args.no_obstacles)
+    if args.save_solid:
+        np.save(args.save_solid, p.solid_np)
     init_s = time.perf_counter() - t0
     rows, snaps, snap_t = [], [], []
     next_snap = 0.0
