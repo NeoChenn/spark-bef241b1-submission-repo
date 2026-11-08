@@ -1,3 +1,4 @@
+import hashlib
 import json
 
 from fastapi.testclient import TestClient
@@ -45,22 +46,59 @@ def test_live_run_folder_is_full_rate_with_disturbances_and_gzip():
         assert any(x["type"] == "nav_event" and x["event"] == "recovered" for x in rows)
 
 
-def test_replay_finds_the_isaac_video_and_serves_ranges(tmp_path):
+def _video(root, name, t1, meta, moov=True):
+    v = root / "runs/fleet_isaac" / name
+    v.mkdir(parents=True)
+    (v / "fleet_isaac.mp4").write_bytes(b"\0" * 64 + (b"moov" if moov else b"mdat") + b"\0" * 4000)
+    (v / "fleet_isaac_header.jsonl").write_text(json.dumps({"frame": 0, "t": 0.0}) + "\n" + json.dumps({"frame": 1, "t": t1}) + "\n")
+    if meta is not None:
+        (v / "fleet_isaac.json").write_text(json.dumps(meta))
+    return v
+
+
+def _run(tmp_path):
     d = tmp_path / "runs_sample/fleet_demo"
     d.mkdir(parents=True)
-    (d / "live_hud.jsonl").write_text(json.dumps({"t": 0.0, "robots": [{"id": "unit1"}]}) + "\n")
-    (d / "live_timeline.jsonl").write_text("")
-    for name, tl in (("old", "runs_sample/other/live_timeline.jsonl"), ("final2", "runs_sample/fleet_demo/live_timeline.jsonl"), ("broken", None)):
-        v = tmp_path / "runs/fleet_isaac" / name
-        v.mkdir(parents=True)
-        (v / "fleet_isaac.mp4").write_bytes(b"\0" * 64 + (b"moov" if name != "broken" else b"mdat") + b"\0" * 4000)
-        (v / "fleet_isaac_header.jsonl").write_text(json.dumps({"frame": 0, "t": 0.0}) + "\n" + json.dumps({"frame": 30, "t": 1.0}) + "\n")
-        if tl:
-            (v / "fleet_isaac.json").write_text(json.dumps({"timeline": tl}))
+    (d / "live_hud.jsonl").write_text("".join(json.dumps({"t": float(t), "robots": [{"id": "unit1"}]}) + "\n" for t in range(11)))
+    (d / "live_timeline.jsonl").write_text(json.dumps({"type": "command", "kind": "hold", "t": 1.0}) + "\n")
+    return hashlib.sha256((d / "live_timeline.jsonl").read_bytes()).hexdigest()
+
+
+def _picked(tmp_path, **kw):
     with TestClient(create_app(sim_port=0, root=tmp_path)) as c:
-        s = c.get("/api/replay", params={"path": "runs_sample/fleet_demo"}).json()
-        assert s["video"] == {"url": "/api/video?path=runs/fleet_isaac/final2/fleet_isaac.mp4", "t0": 0.0, "t1": 1.0}
-        assert c.get("/api/replay", params={"path": "runs_sample/fleet_demo", "video": "runs/none.mp4"}).json()["video"] is None
-        r = c.get(s["video"]["url"], headers={"Range": "bytes=10-19"})
+        v = c.get("/api/replay", params={"path": "runs_sample/fleet_demo", **kw}).json()["video"]
+        return v and v["url"].split("/")[-2]
+
+
+def test_replay_attaches_only_a_video_whose_span_matches(tmp_path):
+    _run(tmp_path)
+    tl = "runs_sample/fleet_demo/live_timeline.jsonl"
+    _video(tmp_path, "final2", 10.3, {"timeline": tl})
+    _video(tmp_path, "other", 10.0, {"timeline": "runs_sample/x/live_timeline.jsonl"})
+    _video(tmp_path, "broken", 10.0, None, moov=False)
+    _video(tmp_path, "full", 87.87, {"timeline": tl})
+    assert _picked(tmp_path) == "final2"
+    assert _picked(tmp_path, video="runs/fleet_isaac/full/fleet_isaac.mp4") == "full"
+    assert _picked(tmp_path, video="runs/none.mp4") is None
+
+
+def test_replay_trusts_a_matching_timeline_sha_and_rejects_a_stale_one(tmp_path):
+    sha = _run(tmp_path)
+    _video(tmp_path, "partial", 4.0, {"timeline_sha256": sha})
+    _video(tmp_path, "stale", 10.0, {"timeline_sha256": "0" * 64})
+    assert _picked(tmp_path) == "partial"
+
+
+def test_replay_attaches_nothing_it_cannot_verify(tmp_path):
+    _run(tmp_path)
+    _video(tmp_path, "full", 87.87, None)
+    assert _picked(tmp_path) is None
+
+
+def test_video_route_serves_ranges_under_runs_only(tmp_path):
+    _run(tmp_path)
+    _video(tmp_path, "final2", 10.0, None)
+    with TestClient(create_app(sim_port=0, root=tmp_path)) as c:
+        r = c.get("/api/video", params={"path": "runs/fleet_isaac/final2/fleet_isaac.mp4"}, headers={"Range": "bytes=10-19"})
         assert r.status_code == 206 and len(r.content) == 10
         assert c.get("/api/video", params={"path": "../x.mp4"}).status_code == 403

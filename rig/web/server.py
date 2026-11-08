@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import gzip
+import hashlib
 import json
 import os
 from collections import deque
@@ -30,6 +31,7 @@ BLACK_MEAN = 3.0
 HEADER_FILES = ("headers.jsonl", "header.jsonl", "hud.jsonl", "frames.jsonl", "live_hud.jsonl", "live_hud_1hz.jsonl")
 TIMELINE_FILES = ("timeline.jsonl", "live_timeline.jsonl")
 VIDEO_DIRS = ("runs/fleet_isaac", "runs_sample/fleet_isaac")
+SPAN_TOL_S = 1.0
 TIMELINE_TYPES = ("finding", "argon_request", "argon_call", "command", "ticket", "vetoed", "object_report", "nav_event", "scenario")
 
 
@@ -80,22 +82,35 @@ def video_info(root: Path, mp4: Path) -> dict | None:
     return {"url": "/api/video?path=" + str(mp4.relative_to(root)), "t0": t0, "t1": t1}
 
 
-def find_video(root: Path, timeline: str | None) -> dict | None:
-    found = []
+def _sha256(f: Path) -> str:
+    return hashlib.sha256(f.read_bytes()).hexdigest()
+
+
+def find_video(root: Path, timeline: str | None, t_end: float | None = None) -> dict | None:
+    found, sha = [], None
     for vd in VIDEO_DIRS:
         for mp4 in (root / vd).glob("*/fleet_isaac.mp4"):
             d = mp4.parent
             if not (d / "fleet_isaac_header.jsonl").is_file():
                 continue
             meta = d / "fleet_isaac.json"
-            tl = json.loads(meta.read_text()).get("timeline") if meta.is_file() else None
-            if timeline and tl and tl != timeline:
+            m = json.loads(meta.read_text()) if meta.is_file() else {}
+            if timeline and m.get("timeline") and m["timeline"] != timeline:
                 continue
-            found.append(mp4)
-    for mp4 in sorted(found, key=lambda f: f.stat().st_mtime, reverse=True):
+            found.append((mp4, m.get("timeline_sha256")))
+    for mp4, want in sorted(found, key=lambda f: f[0].stat().st_mtime, reverse=True):
+        if want:
+            if timeline is None:
+                continue
+            sha = sha or _sha256(root / timeline)
+            if want != sha:
+                continue
         info = video_info(root, mp4)
-        if info:
-            return info
+        if not info:
+            continue
+        if not want and (t_end is None or abs(info["t1"] - t_end) > SPAN_TOL_S):
+            continue
+        return info
     return None
 
 
@@ -270,7 +285,8 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             tf = fleet.pop("timeline_file", None)
             rel = str(Path(tf).relative_to(root)) if tf and Path(tf).is_relative_to(root) else None
             v = inside(video) if video else None
-            fleet["video"] = await asyncio.to_thread(lambda: video_info(root, v) if v else find_video(root, rel))
+            t_end = float(fleet["snapshots"][0]["t"]) + float(fleet["duration"]) if fleet["snapshots"] else None
+            fleet["video"] = await asyncio.to_thread(lambda: video_info(root, v) if v else find_video(root, rel, t_end))
             body = await asyncio.to_thread(lambda: json.dumps(fleet, separators=(",", ":")).encode())
             if "gzip" not in request.headers.get("accept-encoding", ""):
                 return Response(body, media_type="application/json")

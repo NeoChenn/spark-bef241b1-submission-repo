@@ -12,7 +12,7 @@ If port 9000 is taken by a running sim, add `SIM_PORT=9079` in front. Then open:
 
 **http://localhost:8080/?replay=runs_sample/fleet_demo**
 
-The recorded Isaac render plays behind the HUD, synced to the replay clock. The server picks the newest valid `runs/fleet_isaac/*/fleet_isaac.mp4` whose `fleet_isaac.json` names this timeline; `&video=runs/fleet_isaac/final2/fleet_isaac.mp4` forces one. Without a video the still rig image stays. Camera keys 1–3 only work in the live sim.
+The recorded Isaac render plays behind the HUD, synced to the replay clock. The server attaches the newest playable `runs/fleet_isaac/*/fleet_isaac.mp4` only if it can verify that the render belongs to this run. Either its `fleet_isaac.json` has a `timeline_sha256` equal to this timeline's, or the render ends within 1 s of the replay's end. Otherwise nothing is attached; `&video=runs/fleet_isaac/final2/fleet_isaac.mp4` forces one. Without a video the still rig image stays. Camera keys 1–3 only work in the live sim.
 
 **Scenes** (also on the Guide card). Press once for the first moment, and again for the second:
 
