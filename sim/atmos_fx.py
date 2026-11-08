@@ -48,6 +48,11 @@ def _material(stage, name, diffuse, emissive=(0.0, 0.0, 0.0), opacity=1.0, textu
     return mat
 
 
+def _assign(prim, attrs):
+    for k, v in attrs.items():
+        prim.GetAttribute(k).Set(v)
+
+
 def _bind(prim, mat):
     UsdShade.MaterialBindingAPI.Apply(prim.GetPrim()).Bind(mat)
 
@@ -204,30 +209,24 @@ class Atmosphere:
         if not found or not omni.kit.app.get_app().get_extension_manager().set_extension_enabled_immediate("omni.flowusd", True):
             return None
         vents = list(VENTS) + [(EXHAUST[0], EXHAUST[1], EXHAUST[2] + EXHAUST[3] + 0.5)]
-        groups = atmos.flow_overrides(FLARE_TIP, vents[0], self.w["wind"], self.q["flow_cell"], **self.flow_kw)
-        for name, prims in groups.items():
-            root = self.stage.DefinePrim(f"{ROOT}/Flow_{name}", "Xform")
-            root.GetReferences().AddReference(found[0])
-            for rel, values in prims.items():
-                prim = self.stage.GetPrimAtPath(f"{root.GetPath()}/{rel}")
-                for k, v in values.items():
-                    prim.GetAttribute(k).Set(v)
-            box = self.stage.DefinePrim(f"{root.GetPath()}/wind", "FlowEmitterBox")
-            centre = np.asarray(FLARE_TIP if name == "fire" else np.mean(vents, 0), float) + [0.0, 0.0, 12.0]
-            for k, v in {"layer": prims["flowSimulate"]["layer"], "allocationScale": 0.0, "coupleRateVelocity": 0.6,
-                         "coupleRateTemperature": 0.0, "coupleRateFuel": 0.0, "coupleRateSmoke": 0.0, "fuel": 0.0,
-                         "temperature": 0.0, "velocityIsWorldSpace": True, "position": Gf.Vec3f(*centre),
-                         "halfSize": Gf.Vec3f(22.0, 22.0, 18.0)}.items():
-                box.GetAttribute(k).Set(v)
-        steam = groups["steam"]["flowEmitterSphere"]
-        for i, pos in enumerate(vents[1:]):
-            e = self.stage.DefinePrim(f"{ROOT}/Flow_steam/vent_{i}", "FlowEmitterSphere")
-            for k, v in {**steam, "position": tuple(map(float, pos))}.items():
-                e.GetAttribute(k).Set(v)
+        over = atmos.flow_overrides(FLARE_TIP, vents, self.w["wind"], self.q["flow_cell"], **self.flow_kw)
+        root = self.stage.DefinePrim(f"{ROOT}/Flow", "Xform")
+        root.GetReferences().AddReference(found[0])
+        for rel, values in over.items():
+            if rel == "vents":
+                for i, attrs in enumerate(values):
+                    _assign(self.stage.DefinePrim(f"{ROOT}/Flow/vent_{i}", "FlowEmitterSphere"), attrs)
+            else:
+                _assign(self.stage.GetPrimAtPath(f"{ROOT}/Flow/{rel}"), values)
+        for i, centre in enumerate((FLARE_TIP, np.mean(vents, 0))):
+            _assign(self.stage.DefinePrim(f"{ROOT}/Flow/wind_{i}", "FlowEmitterBox"), {"allocationScale": 0.0, "coupleRateVelocity": 0.6, "coupleRateTemperature": 0.0,
+                         "coupleRateFuel": 0.0, "coupleRateSmoke": 0.0, "fuel": 0.0, "temperature": 0.0,
+                         "velocityIsWorldSpace": True, "position": Gf.Vec3f(*(np.asarray(centre) + [0.0, 0.0, 12.0])),
+                         "halfSize": Gf.Vec3f(24.0, 24.0, 18.0)})
         self._settings({"/rtx/flow/enabled": True, "/rtx/flow/pathTracingEnabled": True,
                         "/rtx/flow/rayTracedReflectionsEnabled": True, "/rtx/flow/rayTracedTranslucencyEnabled": True,
                         "/rtx/flow/rayTracedShadowsEnabled": True})
-        return groups
+        return root
 
     def _collect_roughness(self):
         out = []
@@ -259,8 +258,8 @@ class Atmosphere:
             attr.Set(max(0.04, base * wet))
         if self.flow is not None:
             wind = Gf.Vec3f(self.w["wind"][0], self.w["wind"][1], 0.0)
-            for name in self.flow:
-                self.stage.GetPrimAtPath(f"{ROOT}/Flow_{name}/wind").GetAttribute("velocity").Set(wind)
+            for i in (0, 1):
+                self.stage.GetPrimAtPath(f"{ROOT}/Flow/wind_{i}").GetAttribute("velocity").Set(wind)
         return self.w
 
     def _eye(self):

@@ -21,7 +21,7 @@ TIERS = {
                 "subframes": 16, "spp": 2},
 }
 MEDIA = {
-    "night": {"vis": 240.0, "albedo": (0.9, 0.86, 0.8), "transmit": (0.5, 0.58, 0.62), "height": 60.0, "g": 0.55},
+    "night": {"vis": 240.0, "albedo": (0.6, 0.57, 0.53), "transmit": (0.5, 0.58, 0.62), "height": 52.0, "g": 0.55},
     "storm": {"vis": 170.0, "albedo": (0.82, 0.86, 0.9), "transmit": (0.5, 0.55, 0.6), "height": 70.0, "g": 0.35},
     "golden": {"vis": 420.0, "albedo": (0.95, 0.82, 0.66), "transmit": (0.62, 0.55, 0.48), "height": 60.0, "g": 0.6},
 }
@@ -168,9 +168,8 @@ def soft_texture(size: int, seed: int = 0, octaves: int = 5) -> np.ndarray:
     return (np.clip(acc * 1.3 - 0.05, 0, 1) * edge * 255).astype(np.uint8)
 
 
-FIRE_MAP = ([(0.02, 0.02, 0.02, 0.3), (0.025, 0.024, 0.022, 0.45), (0.035, 0.033, 0.03, 0.5), (1.0, 0.16, 0.013, 0.8),
+FIRE_MAP = ([(0.07, 0.07, 0.075, 0.28), (0.04, 0.038, 0.035, 0.45), (0.035, 0.033, 0.03, 0.5), (1.0, 0.16, 0.013, 0.8),
              (13.5, 3.0, 0.126, 0.8), (78.0, 39.0, 6.1, 0.7)], [0, 0.05, 0.15, 0.6, 0.85, 1])
-STEAM_MAP = ([(0.5, 0.51, 0.53, 0.22), (0.5, 0.51, 0.53, 0.22), (0.55, 0.55, 0.57, 0.25), (0.6, 0.6, 0.62, 0.3)], [0, 0.2, 0.6, 1])
 
 
 def billboard_quats(pos, eye) -> np.ndarray:
@@ -187,28 +186,24 @@ def fade_bucket(age, ttl, n: int) -> np.ndarray:
     return np.clip((level * n).astype(int), 0, n - 1)
 
 
-def flow_overrides(flare, vent, wind, cell: float, flame_radius: float = 2.6, fuel: float = 0.8, cooling: float = 2.2,
-                   steam: float = 1.0, smoke_fade: float = 0.25, jet: float = 3.0) -> dict:
+def flow_overrides(flare, vents, wind, cell: float, flame_radius: float = 2.6, fuel: float = 0.8, cooling: float = 2.2,
+                   steam: float = 0.9, smoke_fade: float = 0.25, jet: float = 3.0) -> dict:
     s = flame_radius / 10.0
     lean = (float(wind[0]) * 0.3, float(wind[1]) * 0.3)
+    rgba, xs = FIRE_MAP
 
-    def group(layer, pos, radius, emit, advection, colormap, fade, up):
-        rgba, xs = colormap
-        return {
-            "flowEmitterSphere": {"layer": layer, "position": tuple(map(float, pos)), "radius": float(radius),
-                                  "velocity": (lean[0], lean[1], up), "velocityIsWorldSpace": True, **emit},
-            "flowSimulate": {"layer": layer, "densityCellSize": float(cell)},
-            "flowSimulate/advection": {"gravity": (0.0, 0.0, -100.0 * s), **advection},
-            "flowSimulate/advection/smoke": {"fade": fade},
-            "flowOffscreen": {"layer": layer},
-            "flowOffscreen/colormap": {"rgbaPoints": list(rgba), "xPoints": [float(x) for x in xs],
-                                       "colorScalePoints": [1.0] * len(xs)},
-            "flowRender": {"layer": layer},
-        }
+    def emitter(pos, radius, up, **emit):
+        return {"layer": 0, "position": tuple(map(float, pos)), "radius": float(radius),
+                "velocity": (lean[0], lean[1], up), "velocityIsWorldSpace": True, **emit}
 
     return {
-        "fire": group(0, flare, flame_radius, {"fuel": fuel, "temperature": 2.0},
-                      {"coolingRate": cooling, "combustionEnabled": True}, FIRE_MAP, smoke_fade, jet),
-        "steam": group(1, vent, 1.0, {"fuel": 0.0, "temperature": 0.2, "smoke": steam, "coupleRateSmoke": 2.0},
-                       {"combustionEnabled": False, "buoyancyPerSmoke": 40.0 * s}, STEAM_MAP, 1.2, 3.0),
+        "flowEmitterSphere": emitter(flare, flame_radius, jet, fuel=fuel, temperature=2.0),
+        "flowSimulate": {"layer": 0, "densityCellSize": float(cell)},
+        "flowSimulate/advection": {"gravity": (0.0, 0.0, -100.0 * s), "coolingRate": cooling, "combustionEnabled": True},
+        "flowSimulate/advection/smoke": {"fade": smoke_fade},
+        "flowOffscreen": {"layer": 0},
+        "flowOffscreen/colormap": {"rgbaPoints": list(rgba), "xPoints": [float(x) for x in xs],
+                                   "colorScalePoints": [1.0] * len(xs)},
+        "flowRender": {"layer": 0},
+        "vents": [emitter(p, 1.0, 3.0, fuel=0.0, temperature=0.08, smoke=steam, coupleRateSmoke=2.0) for p in vents],
     }

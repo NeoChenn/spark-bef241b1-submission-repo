@@ -177,14 +177,13 @@ def test_fade_bucket_ramps_in_and_out():
     assert b[2] == 3 and b[0] < b[2] and b[3] < b[2]
 
 
-def test_flow_overrides_retarget_preset_for_fire_and_steam():
+def test_flow_overrides_retarget_preset_for_flare_and_vents():
     from sim.atmos import flow_overrides
 
-    o = flow_overrides((-58.0, 8.0, 70.0), (0.0, 0.0, 40.0), wind=(6.0, 0.0), cell=0.3)
-    fire, steam = o["fire"], o["steam"]
-    assert fire["flowEmitterSphere"]["position"] == (-58.0, 8.0, 70.0)
-    assert fire["flowSimulate"]["densityCellSize"] == 0.3
-    assert fire["flowSimulate/advection"]["gravity"][2] < 0 and fire["flowSimulate/advection"]["gravity"][1] == 0
-    assert steam["flowSimulate/advection"]["combustionEnabled"] is False
-    assert {steam[k]["layer"] for k in ("flowEmitterSphere", "flowSimulate", "flowOffscreen", "flowRender")} == {1}
-    assert fire["flowEmitterSphere"]["velocity"][0] > 0 and fire["flowEmitterSphere"]["velocity"][2] > 0
+    o = flow_overrides((-58.0, 8.0, 70.0), [(0.0, 0.0, 40.0), (5.0, 5.0, 41.0)], wind=(6.0, 0.0), cell=0.3)
+    assert o["flowEmitterSphere"]["position"] == (-58.0, 8.0, 70.0)
+    assert o["flowSimulate"]["densityCellSize"] == 0.3
+    assert o["flowSimulate/advection"]["gravity"][2] < 0 and o["flowSimulate/advection"]["gravity"][1] == 0
+    assert o["flowEmitterSphere"]["velocity"][0] > 0 and o["flowEmitterSphere"]["velocity"][2] > 0
+    assert [v["position"] for v in o["vents"]] == [(0.0, 0.0, 40.0), (5.0, 5.0, 41.0)]
+    assert all(v["fuel"] == 0 and v["smoke"] > 0 and v["layer"] == 0 for v in o["vents"])
