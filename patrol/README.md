@@ -54,7 +54,8 @@ Mission eval (`eval_mission`, 30 episodes x 4 legs = ~80 m each, 360 beams):
 
 | policy | mission | all 4 legs done | collision | picked / pickable | false picks | blocked events |
 |---|---|---|---|---|---|---|
-| `nav_v3a` | pick fixes | 63% | 37% | **8 / 12** | 1 | 17 |
+| **`nav_v3a`** | **stop + report big objects (current)** | **97%** | **3%** | 5 / 12 | **0** | 0 (112 reports) |
+| `nav_v3a` | pick fixes, drives around big objects | 63% | 37% | 8 / 12 | 1 | 17 |
 | `nav_v3a` | before | 63% | 37% | 6 / 16 | 0 | 17 |
 | `nav_v1b` | before | 53% | 47% | 6 / 16 | 0 | 0 |
 
@@ -68,8 +69,13 @@ about +-5 cm noisy, so the max rejected objects that fit), and the final size ch
 measures only the contiguous run of beams on the object, so a wall beside it no longer makes it look too
 big; that check now uses the strict 0.11 m limit.
 
-Collisions by cause (same 30 episodes): 7 of 11 are the nav policy driving into a large object in FOLLOW,
-1 a small object, 3 walls. Tried and dropped: a lidar speed governor in FOLLOW (cap vx by the free distance
-in the robot's lane). It made things worse (collision 53%, blocked 35) because the policy was not trained
-with it. Object avoidance has to improve in training (next: more large objects, and the 0.3 m clearance
-band applied to objects separately from walls).
+**Current design: the robot never drives around anything.** An object in the lane is picked up if it fits
+the gripper, otherwise the robot stops >= 1 m short, reports it (`Command.report`), waits `report_wait`
+(5 s) and turns back unless it was cleared. With that, collisions fell from 37% to 3% (the one left: a wall
+during the in-place turn). All 112 reports were real large objects in the lane (re-reported on every
+shuttle back to them), and all 7 missed pickable objects lay behind a blocker, so out of reach by design:
+the robot picks every pickable object it can reach.
+
+History: when big objects were handed back to the nav policy to drive around, 7 of 11 collisions were the
+policy hitting them. A lidar speed governor on top of the policy made that worse (collision 53%) and was
+dropped.

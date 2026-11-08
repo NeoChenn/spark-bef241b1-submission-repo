@@ -119,22 +119,29 @@ while running:                                             # every 0.1 s of sim 
     if cmd.state == "DUMP":
         # at start_bin / end_bin: tip the on-robot container (or pick items out of it) into the station bin
         dump_container_into_station_bin()
+    if cmd.report is not None:                              # once per REPORT: object too big to pick
+        report_to_control_center(cmd.report)                # {"xy": [x, y], "width_m": w, "s_m": s} (stub for now)
     hud(mission.overlay_text())                             # 4 lines: state, event, items/legs, target
-    # states: FOLLOW, APPROACH, PICK, DUMP, BLOCKED, TURN (turn in place after every reversal)
+    # states: FOLLOW, APPROACH, PICK, DUMP, REPORT, BLOCKED, TURN (turn in place after every reversal)
     advance(0.1)
 ```
 
-Picked items go into the on-robot `container` first (released at `container_drop`); the container is
-emptied into the station bin during `DUMP`. `MissionCfg` holds capacity, standoff, timings and the
-detector thresholds; the mission reverses the path itself after a dump or a block.
+**The robot never drives around an object.** Anything in its lane (within 0.36 m of the path centre-line)
+is either picked up (width <= 0.11 m) or reported: the robot stops >= 1 m short of it, emits
+`cmd.report` once, holds for `report_wait` (5 s), resumes if the object is gone, otherwise turns back to
+the previous bin. Picked items go into the on-robot `container` first (released at `container_drop`);
+the container is emptied into the station bin during `DUMP`. `MissionCfg` holds capacity, standoff,
+timings and the detector thresholds; the mission reverses the path itself after a dump or a report.
 
 ## 6. Disturbance hooks for testing (not announced to the mission)
 
 | Hook | Implementation | Expected reaction |
 |---|---|---|
 | `drop_object(s, size ≤ 0.11 m)` | spawn a small rigid body (bolt, can, rag-sized box) on the walkway ahead of the robot | `FOLLOW → APPROACH → PICK → FOLLOW`, item counter +1 |
-| `drop_big(s, size 0.15–0.5 m)` that leaves a gap | spawn a crate beside the path centre | not pickable: policy steers around it and rejoins the path |
-| `block_corridor(s)` | a crate or pipe spool spanning the walkway | no progress → `BLOCKED` → reverses and heads back to the previous bin |
+| `drop_big(s, size 0.15–0.5 m)` in the lane | spawn a crate on or near the path centre | `FOLLOW → REPORT` (stops >= 1 m short, `cmd.report` once) → after 5 s `TURN` → back to the previous bin |
+| `clear_big()` while in REPORT | delete that crate within 5 s | `REPORT → FOLLOW` (event `cleared`), continues along the path |
+| `block_corridor(s)` | a crate or pipe spool spanning the walkway | same as `drop_big`: `REPORT`, then turns back |
+| object beside the walkway | anything > 0.36 m from the path centre-line | ignored, robot passes it on the line |
 | `push(dir, 0.3–0.8 m/s)` | apply a base velocity impulse | recovers to the path (trained with random pushes) |
 | `fill_container()` | set the item counter to capacity | heads to the nearer bin, `DUMP`, resumes |
 | `move_bin` / new path | load another path JSON (build a new `PatrolController` + `PatrolMission`) | follows the new path; no retraining |

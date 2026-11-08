@@ -73,10 +73,15 @@ def run_episode(policy: str, seed: int, legs: int, beams: int, max_steps: int, m
             steps += 1
             if bool(info["collision"][0]):
                 collision, collide_state = True, mission.state
+                dob = (sim.pos[0] - sim.obs_c[0]).norm(dim=-1) - sim.obs_r[0] - sim.cfg.robot_r
+                dob = torch.where(sim.obs_on[0], dob, torch.full_like(dob, 9.0))
+                k = int(dob.argmin())
+                hit = ("small_obj" if 2 * float(sim.obs_r[0, k]) <= PICKABLE_DIAM else "big_obj") if float(dob[k]) < 0.02 else "wall"
                 break
     return {"seed": seed, "legs": mission.legs, "targets": n_targets, "picked": picked_ok,
             "missed": len(targets), "false_picks": false_picks, "false_pick_info": false_info,
-            "collision": collision, "collision_state": collide_state,
+            "collision": collision, "collision_state": collide_state, "collision_hit": hit if collision else None,
+            "reports": len(mission.reports),
             "blocked": mission.blocked_events, "sim_time_s": round(steps * sim.cfg.dt, 1)}
 
 
@@ -102,6 +107,9 @@ def main(argv=None):
         "pick_rate": sum(e["picked"] for e in eps) / max(tgt, 1),
         "false_picks": sum(e["false_picks"] for e in eps),
         "blocked_events": sum(e["blocked"] for e in eps),
+        "reports": sum(e["reports"] for e in eps),
+        "collisions_by_cause": {f"{s}:{h}": sum(1 for e in eps if e["collision_state"] == s and e["collision_hit"] == h)
+                                for s, h in {(e["collision_state"], e["collision_hit"]) for e in eps if e["collision"]}},
         "mean_sim_time_s": sum(e["sim_time_s"] for e in eps) / n,
         "wall_sec": round(time.time() - t0, 1),
         "per_episode": eps,

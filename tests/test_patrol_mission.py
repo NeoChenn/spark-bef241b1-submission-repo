@@ -151,14 +151,22 @@ def test_size_check_ignores_wall_but_rejects_wide_objects(radius, pickable):
     assert (width <= mission.cfg.detect.pick_max_width) == pickable
 
 
-def cautious(obs):
-    front = obs[features.SECTORS // 2 - 1: features.SECTORS // 2 + 1].min() * features.LIDAR_RANGE
-    return np.array([0.5 if front > 0.7 else 0.0, 0.0], dtype=np.float32)
+
+def test_big_object_is_reported_then_robot_turns_back_to_start_bin():
+    sim = straight_world([((6.0, 0.05), 0.15)])
+    mission = PatrolMission(PatrolController("pure_pursuit", sim.P[0].numpy()), MissionCfg())
+    events = drive(sim, mission, 1200, stop_on="arrived")  # drive() fails on any collision
+    assert events[:2] == ["reported", "turn_back"], events
+    assert events[-1] == "arrived" and "blocked" not in events and mission.picked == 0
+    rep = mission.reports[0]
+    assert rep["width_m"] > mission.cfg.detect.pick_max_width and abs(rep["s_m"] - 6.0) < 0.3
+    assert float(sim.pos[0, 0]) < 1.0  # back at the start bin, never went past the object
 
 
-def test_blocking_object_triggers_blocked_and_turn_around():
-    sim = straight_world([((6.0, 0.0), 0.5)])
-    mission = PatrolMission(PatrolController(cautious, sim.P[0].numpy()), MissionCfg(blocked_timeout=3.0))
-    events = drive(sim, mission, 400, stop_on="blocked")
-    assert events[-1] == "blocked" and mission.blocked_events == 1
-    assert mission.state == "TURN" and mission.picked == 0
+def test_reported_object_that_gets_cleared_lets_the_robot_continue():
+    sim = straight_world([((6.0, 0.05), 0.15)])
+    mission = PatrolMission(PatrolController("pure_pursuit", sim.P[0].numpy()), MissionCfg(report_wait=30.0))
+    drive(sim, mission, 400, stop_on="reported")
+    sim.remove_obstacle(0, 0)
+    events = drive(sim, mission, 600, stop_on="arrived")
+    assert events[0] == "cleared" and events[-1] == "arrived" and mission.legs == 1

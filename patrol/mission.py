@@ -5,7 +5,9 @@ States
   APPROACH  a confirmed pickable object is within `pick_trigger_ahead` m: P-controller to `pick_standoff`
   PICK      robot stopped, arm goes to the object, gripper closes for `pick_time` s -> items += 1
   DUMP      at a path end (a bin): gripper opens for `dump_time` s, items = 0, wait `dwell_at_bin`, turn around
-  BLOCKED   no progress for `blocked_timeout` s (path blocked by something it cannot pick or pass): turn around
+  REPORT    an object in the lane is too big to pick: stop, report it (Command.report), hold; resume if it is
+            cleared, else after `report_wait` s turn back to the previous bin. The robot never drives around it.
+  BLOCKED   no progress for `blocked_timeout` s (fallback when nothing was detected): turn around
   TURN      after any turn-around: rotate in place until facing along the (reversed) path, then FOLLOW
 
     mission = PatrolMission(PatrolController("policy.onnx", path_xy))
@@ -21,7 +23,7 @@ import numpy as np
 from patrol.controller import PatrolController
 from patrol.detect import DetectCfg, Detection, Tracker, detect_frame, hits_world
 
-FOLLOW, APPROACH, PICK, DUMP, BLOCKED, TURN = "FOLLOW", "APPROACH", "PICK", "DUMP", "BLOCKED", "TURN"
+FOLLOW, APPROACH, PICK, DUMP, BLOCKED, TURN, REPORT = "FOLLOW", "APPROACH", "PICK", "DUMP", "BLOCKED", "TURN", "REPORT"
 
 
 @dataclass
@@ -41,6 +43,8 @@ class MissionCfg:
     turn_done: float = 0.35
     turn_rate: float = 1.2
     bin_ignore: float = 0.7
+    stop_trigger_ahead: float = 1.5
+    report_wait: float = 5.0
     detect: DetectCfg = field(default_factory=lambda: DetectCfg(confirm=2))
 
 
@@ -52,6 +56,7 @@ class Command:
     arm_target_xy: np.ndarray | None
     state: str
     event: str | None = None
+    report: dict | None = None  # set once per REPORT: {"xy": [x, y], "width_m": w, "s_m": along-path position}
 
 
 class PatrolMission:
@@ -75,6 +80,8 @@ class PatrolMission:
         self.max_width = 0.0
         self.widths: list[float] = []
         self.reversed_count = 0
+        self.reports: list[dict] = []
+        self.blocker: np.ndarray | None = None
 
     # ------------------------------------------------------------------ helpers
     def _is_handled(self, xy) -> bool:
@@ -117,6 +124,10 @@ class PatrolMission:
                 self.target = min(cands, key=lambda d: d.range)
                 self.state, self.timer, self.lost = APPROACH, 0.0, 0.0
                 return self._approach(dets, event="target", pose=pose)
+            blockers = [d for d in dets if not d.pickable and d.ahead < c.stop_trigger_ahead]
+            if blockers:
+                b = min(blockers, key=lambda d: d.ahead)
+                return self._start_report(b.xy, b.width)
             if self.ctl.progress_idx > self.best_idx:
                 self.best_idx, self.stall = self.ctl.progress_idx, 0.0
             else:
@@ -152,6 +163,21 @@ class PatrolMission:
                 return self._cmd(0.0, 0.0, "open", None, "dumped")
             return self._cmd(0.0, 0.0, "open")
 
+        if self.state == REPORT:
+            self.timer += c.dt
+            still_there = any(np.linalg.norm(d.xy - self.blocker) < c.ignore_radius for d in dets) \
+                or self._extent_near(self.blocker, 0.18) > 0.0
+            if not still_there:
+                self.blocker = None
+                self.state = FOLLOW
+                self.best_idx, self.stall = self.ctl.progress_idx, 0.0
+                return self._cmd(0.0, 0.0, None, None, "cleared")
+            if self.timer >= c.report_wait:
+                self.blocker = None
+                self._turn_around(pose)
+                return self._cmd(0.0, 0.0, None, None, "turn_back")
+            return self._cmd(0.0, 0.0)
+
         if self.state == TURN:
             self.timer += c.dt
             err = self.ctl.heading_error(pose[2])
@@ -176,10 +202,14 @@ class PatrolMission:
         # median, not max: single-frame width estimates are noisy (about +-5 cm)
         self.max_width = float(np.median(self.widths))
         too_big = len(self.widths) >= 3 and self.max_width > c.detect.pick_max_width
-        if too_big or self.lost > c.lost_timeout or self.timer > c.approach_timeout:
+        if too_big:
+            xy = self.target.xy.copy()
+            self.target = None
+            return self._start_report(xy, self.max_width)
+        if self.lost > c.lost_timeout or self.timer > c.approach_timeout:
             self.handled.append(self.target.xy.copy())
             self.target, self.state = None, FOLLOW
-            return self._cmd(0.0, 0.0, None, None, "too_big" if too_big else "target_lost")
+            return self._cmd(0.0, 0.0, None, None, "target_lost")
         # range / bearing from the target's world position and the current pose (stays valid between hits)
         dx, dy = self.target.xy[0] - pose[0], self.target.xy[1] - pose[1]
         rng = math.hypot(dx, dy)
@@ -187,10 +217,11 @@ class PatrolMission:
         self.target.range, self.target.bearing = rng, b
         err = rng - c.pick_standoff
         if abs(err) < 0.05 and abs(b) < 0.15:
-            if self._extent_near(self.target.xy, 0.18) > c.detect.pick_max_width:
-                self.handled.append(self.target.xy.copy())
-                self.target, self.state = None, FOLLOW
-                return self._cmd(0.0, 0.0, None, None, "too_big")
+            width = self._extent_near(self.target.xy, 0.18)
+            if width > c.detect.pick_max_width:
+                xy = self.target.xy.copy()
+                self.target = None
+                return self._start_report(xy, width)
             self.state, self.timer = PICK, 0.0
             return self._cmd(0.0, 0.0, "open", self.target.xy.copy(), "pick_start")
         wz = float(np.clip(2.0 * b, -1.5, 1.5))
@@ -198,6 +229,16 @@ class PatrolMission:
         if 0 < err and abs(b) < 0.3:
             vx = max(vx, 0.03)
         return self._cmd(vx, wz, "open", None, event)
+
+    def _start_report(self, xy, width) -> Command:
+        """Too big to pick: stop where we are and report it. Never drive around it."""
+        _, _, s = self.ctl.ref.project(np.asarray(xy)[None])
+        self.blocker = np.asarray(xy, dtype=np.float64).copy()
+        rep = {"xy": [float(xy[0]), float(xy[1])], "width_m": round(float(width), 3), "s_m": round(float(s[0]), 2)}
+        self.reports.append(rep)
+        self.state, self.timer = REPORT, 0.0
+        self.last_event = "reported"
+        return Command(0.0, 0.0, None, None, REPORT, "reported", rep)
 
     def _extent_near(self, xy, radius, gap: float = 0.05) -> float:
         """Width of the object at xy from the raw scan (no path-tube clipping): the run of consecutive
@@ -229,6 +270,6 @@ class PatrolMission:
         return [
             f"PATROL {self.state}  leg {self.legs}",
             f"to bin {self.ctl.dist_to_goal:.1f} m  |  {tgt}",
-            f"bin {self.items}/{self.cfg.capacity_items}  picked {self.picked}  blocked {self.blocked_events}",
+            f"bin {self.items}/{self.cfg.capacity_items}  picked {self.picked}  reported {len(self.reports)}",
             f"last: {self.last_event or '-'}",
         ]
