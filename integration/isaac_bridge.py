@@ -45,6 +45,7 @@ class BridgeState:
     view: int = 0
     hud: list = field(default_factory=list)
     spraying: bool = False
+    shot: int = 2
 
 
 class IsaacRigBridge:
@@ -320,6 +321,9 @@ class IsaacRigBridge:
         theta, z = self.ee_theta_z()
         self.bumps.append((theta, z, height, radius))
         rs.add_weld_bead(self.stage, f"{rs.PIPE_SCOPE}/weld_bead_{len(self.bumps)}", self._pipe, theta, z, height, radius)
+
+    def camera(self, shot: int) -> None:
+        self.state.shot = int(shot)
 
     def person_at(self, distance: Optional[float]) -> None:
         if distance is None:

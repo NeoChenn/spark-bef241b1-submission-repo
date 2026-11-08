@@ -13,6 +13,7 @@ mock demo, and the scrub policy is the mock's greedy policy; both are printed at
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import math
 import os
@@ -35,6 +36,7 @@ parser.add_argument("--fps", type=int, default=12, help="video frame rate")
 parser.add_argument("--hero-size", default="1280x720")
 parser.add_argument("--no-events", action="store_true", help="skip the unscripted scene changes")
 parser.add_argument("--glare", action="store_true", help="add glare on the nominal inspection view")
+parser.add_argument("--stream", default="", help="host:port of the web viewer's sim socket, e.g. 127.0.0.1:9000")
 parser.add_argument("--no-gemini", action="store_true",
                     help="skip the Gemini second opinion even if GEMINI_API_KEY is set")
 args = parser.parse_args()
@@ -95,8 +97,10 @@ def setup_scene(stage):
     n = damage["surface_normal"]
     theta = math.atan2(float(n[2]), float(n[1])) % (2 * math.pi)
     hero = rs.Camera(stage, rs.HERO_CAMERA, focal=24.0, aperture=20.955, clip=(0.05, 4000.0))
-    hero.look((origin[0] + 2.6, 2.9, 2.15), (origin[0] - 0.1, 0.25, 0.95))
-    return theta, hero
+    shots = {1: ((origin[0] + 9.0, 9.5, 6.5), (origin[0] - 0.5, 0.0, 0.8)),
+             2: ((origin[0] + 2.6, 2.9, 2.15), (origin[0] - 0.1, 0.25, 0.95))}
+    hero.look(*shots[2])
+    return theta, hero, shots
 
 
 def make_world(pipe, theta):
@@ -139,11 +143,18 @@ def main() -> None:
     for old in FRAMES.glob("*.jpg"):
         old.unlink()
     stage = open_deck()
-    theta, hero = setup_scene(stage)
+    theta, hero, shots = setup_scene(stage)
     pipe = rs.read_pipe(rs.find_main_pipe(stage))
     world = make_world(pipe, theta)
 
-    state = {"orch": None, "frame": 0}
+    state = {"orch": None, "frame": 0, "shot": 2, "feed": None}
+    sender = None
+    if args.stream:
+        from rig.hud import HudFeed, apply_event
+        from rig.sim.sender import FrameSender
+        host, port = args.stream.rsplit(":", 1)
+        sender = FrameSender(host, int(port)).start()
+        print(f"STREAM frames + HUD header to {args.stream}", flush=True)
     annotators = {}
 
     def render() -> dict:
@@ -161,6 +172,29 @@ def main() -> None:
         frame = draw_hud(frame, hud) if hud else frame
         Image.fromarray(frame).save(FRAMES / f"{state['frame']:05d}.jpg", quality=92)
         state["frame"] += 1
+        if sender is not None and state["feed"] is not None:
+            stream(rgb)
+
+    def stream(rgb: np.ndarray) -> None:
+        while not sender.inbox.empty():
+            event = sender.inbox.get_nowait()
+            try:
+                apply_event(bridge, event)
+                print(f"   >>> [web event t={bridge.sim_time():5.1f}s] {event}", flush=True)
+            except Exception as e:
+                print(f"   >>> [web event rejected] {event}: {e}", flush=True)
+        shot = bridge.state.shot
+        if shot != state["shot"]:
+            state["shot"] = shot
+            if shot in shots:
+                hero.look(*shots[shot])
+        img = bridge.last_inspection if shot == 3 and bridge.last_inspection is not None else rgb
+        buf = io.BytesIO()
+        Image.fromarray(np.ascontiguousarray(img[..., :3])).save(buf, "JPEG", quality=85)
+        header = {"type": "frame", "w": img.shape[1], "h": img.shape[0], "seq": state["frame"],
+                  "t": round(bridge.sim_time(), 2), "mean": round(float(img.mean()), 1), "shot": shot}
+        header.update(state["feed"].header())
+        sender.send(header, buf.getvalue())
 
     bridge = IsaacRigBridge(stage, world, Frames(render, record), inspection_size=INSPECTION_SIZE)
     for _ in range(20):
@@ -188,6 +222,8 @@ def main() -> None:
                         OrchestratorConfig(log_path=str(OUT / "decisions.jsonl"), scrub_steps=200,
                                            scrub_redetect_every=40), advisor=advisor)
     state["orch"] = orch
+    if sender is not None:
+        state["feed"] = HudFeed(orch)
     if args.glare:
         bridge.set_glare(True)
         original = bridge.request_view
