@@ -87,9 +87,21 @@ class JobResult:
     phases: list[tuple[float, str, str]] = field(default_factory=list)
 
     def to_json(self) -> dict:
-        d = asdict(self)
+        d = _plain(asdict(self))
         d["status"] = self.status.value
         return d
+
+
+def _plain(x):
+    if isinstance(x, dict):
+        return {k: _plain(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_plain(v) for v in x]
+    if isinstance(x, (set, frozenset)):
+        return sorted(_plain(v) for v in x)
+    if isinstance(x, Enum):
+        return x.value
+    return x
 
 
 @runtime_checkable

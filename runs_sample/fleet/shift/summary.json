@@ -1,9 +1,9 @@
 {
  "counts": {
-  "DONE": 24,
-  "FINDING": 5,
-  "QUEUED": 1,
+  "DONE": 22,
   "ASSIGNED": 1,
+  "QUEUED": 3,
+  "FINDING": 5,
   "HANDED_TO_HUMAN": 1
  },
  "jobs": [
@@ -54,8 +54,8 @@
    "level": "AUTO",
    "priority": 4,
    "robot": "Q2",
-   "status": "FINDING",
-   "findings": "gauge_second_look"
+   "status": "DONE",
+   "findings": ""
   },
   {
    "job": "gauge_read-006",
@@ -63,7 +63,7 @@
    "target": "gauge_06",
    "level": "AUTO",
    "priority": 4,
-   "robot": "Q2",
+   "robot": "Q1",
    "status": "DONE",
    "findings": ""
   },
@@ -84,7 +84,7 @@
    "level": "AUTO",
    "priority": 5,
    "robot": "Q2",
-   "status": "DONE",
+   "status": "ASSIGNED",
    "findings": ""
   },
   {
@@ -113,8 +113,8 @@
    "target": "valve_04",
    "level": "AUTO",
    "priority": 5,
-   "robot": "Q2",
-   "status": "DONE",
+   "robot": "",
+   "status": "QUEUED",
    "findings": ""
   },
   {
@@ -263,8 +263,8 @@
    "target": "valve_middle_west",
    "level": "AUTO",
    "priority": 5,
-   "robot": "Q2",
-   "status": "ASSIGNED",
+   "robot": "",
+   "status": "QUEUED",
    "findings": ""
   },
   {
@@ -298,17 +298,27 @@
    "findings": "gas_leak"
   },
   {
-   "job": "gas_survey-028-iso",
+   "job": "gas_survey-028-isolate-valve_06",
    "kind": "valve_isolate",
-   "target": "valve_05",
+   "target": "valve_06",
    "level": "SUPV",
    "priority": 1,
    "robot": "Q1",
    "status": "FINDING",
-   "findings": "valve_isolated"
+   "findings": "valve_closed"
   },
   {
-   "job": "gas_survey-028-iso-prep",
+   "job": "gas_survey-028-isolate-valve_06-confirm",
+   "kind": "gas_survey",
+   "target": "leak_01",
+   "level": "AUTO",
+   "priority": 1,
+   "robot": "Q2",
+   "status": "FINDING",
+   "findings": "leak_isolated"
+  },
+  {
+   "job": "gas_survey-028-isolate-valve_06-confirm-prep",
    "kind": "leak_repair_prep",
    "target": "leak_01",
    "level": "ASSIST",
@@ -316,21 +326,14 @@
    "robot": "Q2",
    "status": "HANDED_TO_HUMAN",
    "findings": ""
-  },
-  {
-   "job": "gauge_read-005.relook_gauge_05",
-   "kind": "gauge_read",
-   "target": "gauge_05",
-   "level": "AUTO",
-   "priority": 2,
-   "robot": "Q1",
-   "status": "DONE",
-   "findings": ""
   }
  ],
  "used_gemini": false,
  "modules": [
+  "aerial",
+  "crawler",
   "flange",
+  "gas_valves",
   "rounds",
   "rust_repair"
  ],
@@ -338,15 +341,13 @@
   "valve_check",
   "aerial_survey",
   "crawler_ut",
-  "gas_survey",
-  "valve_isolate",
   "leak_repair_prep"
  ],
  "metrics": {
   "t": 900.0,
-  "jobs_done": 29,
+  "jobs_done": 27,
   "jobs_escalated": 1,
-  "open_tasks": 2,
+  "open_tasks": 4,
   "jobs_by_kind": {
    "aerial_survey": {
     "done": 3
@@ -361,10 +362,10 @@
     "done": 1
    },
    "gas_survey": {
-    "done": 1
+    "done": 2
    },
    "gauge_read": {
-    "done": 8
+    "done": 7
    },
    "leak_repair_prep": {
     "escalated": 1
@@ -373,9 +374,9 @@
     "done": 1
    },
    "valve_check": {
-    "done": 6,
-    "pending": 1,
-    "assigned": 1
+    "assigned": 1,
+    "done": 4,
+    "pending": 3
    },
    "valve_isolate": {
     "done": 1
@@ -385,24 +386,24 @@
   "gas_alarms_escalated": 0,
   "gas_response_mean_s": 24.0,
   "gas_response_max_s": 24.0,
-  "gas_resolve_mean_s": 193.0,
-  "idle_pct": 27.5,
+  "gas_resolve_mean_s": 396.0,
+  "idle_pct": 24.9,
   "state_pct": {
-   "CHARGING": 11.2,
+   "CHARGING": 11.4,
    "TO_DOCK": 0.5,
-   "IDLE": 27.5,
-   "TRANSIT": 31.8,
-   "WORK": 29.1
+   "IDLE": 24.9,
+   "TRANSIT": 32.4,
+   "WORK": 30.9
   },
-  "energy_used_wh": 127.9,
-  "energy_charged_wh": 78.4,
+  "energy_used_wh": 132.7,
+  "energy_charged_wh": 79.5,
   "energy_by_robot_wh": {
-   "Q1": 40.4,
-   "Q2": 52.0,
-   "A1": 24.6,
+   "Q1": 45.0,
+   "Q2": 51.1,
+   "A1": 25.7,
    "C1": 11.0
   },
-  "distance_m": 1021.1,
+  "distance_m": 1054.2,
   "preemptions": 2,
   "robot_failures": 0,
   "replans": 0,
@@ -414,5 +415,5 @@
   "used_gemini": false
  },
  "planner": "rig",
- "wall_s": 3.48
+ "wall_s": 3.66
 }

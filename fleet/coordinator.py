@@ -224,20 +224,29 @@ class Coordinator:
 
     def _hold(self, job_id: str, by: str, note: str):
         job = self.jobs[job_id]
+        job.params.pop("approved", None)
         self.status[job_id] = JobStatus.WAITING_APPROVAL
         if job_id not in self.approvals:
             self.approvals.append(job_id)
         self.requests.setdefault(job_id, []).append({"t": round(self.t, 2), "by": by, "note": note})
         self.emit("approval_requested", job_id, None, kind=job.kind, target=job.target, by=by, note=note)
 
+    def self_requested(self, job_id: str, by: str) -> bool:
+        job = self.jobs.get(job_id)
+        if job is None or not is_agent(by):
+            return False
+        who = {str(job.params.get("requested_by", ""))} | {r["by"] for r in self.requests.get(job_id, [])}
+        return any(is_agent(w) for w in who)
+
     def approve(self, job_id: str, by: str = "operator") -> bool:
-        if is_agent(by):
-            self.emit("approval_refused", job_id, None, by=by, reason="agents cannot approve SUPV jobs")
+        if self.self_requested(job_id, by):
+            self.emit("approval_refused", job_id, None, by=by, reason="an agent cannot approve a SUPV job it asked for")
             return False
         if self.status.get(job_id) != JobStatus.WAITING_APPROVAL:
             return False
         self.approvals.remove(job_id)
         self.status[job_id] = JobStatus.QUEUED
+        self.jobs[job_id].params["approved"] = True
         self.emit("approved", job_id, None, by=by)
         return True
 

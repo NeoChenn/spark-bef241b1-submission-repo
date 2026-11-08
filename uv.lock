@@ -2597,6 +2597,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "numpy" },
     { name = "pillow" },
+    { name = "scipy" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -2611,7 +2612,6 @@ dev = [
     { name = "peft" },
     { name = "pytest" },
     { name = "scikit-learn" },
-    { name = "scipy" },
     { name = "timm" },
     { name = "torch" },
     { name = "usd-core" },
@@ -2631,6 +2631,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.162.2" },
     { name = "numpy", specifier = ">=2.5.4" },
     { name = "pillow", specifier = ">=13.0.0" },
+    { name = "scipy", specifier = ">=1.18.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]
 
@@ -2645,7 +2646,6 @@ dev = [
     { name = "peft", specifier = ">=0.21.2" },
     { name = "pytest", specifier = ">=9.2.0" },
     { name = "scikit-learn", specifier = ">=1.9.1" },
-    { name = "scipy", specifier = ">=1.18.1" },
     { name = "timm", specifier = ">=1.0.31" },
     { name = "torch", specifier = ">=2.15.0" },
     { name = "usd-core", specifier = ">=26.11" },

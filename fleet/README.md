@@ -45,7 +45,8 @@ pytest tests/test_fleet_coordinator.py tests/test_fleet_unified.py tests/test_fl
 - **Deconfliction**: one active job per asset (`job.target`) and per zone (`job.params["zone"]`); a
   quadruped may not enter a walkway segment another quadruped is on (`segment_wait` / `segment_clear`).
 - **Levels**: AUTO runs; SUPV waits in `approvals` until `approve(job_id)` or `reject(job_id)`
-  (`auto_approve=True` for unattended runs); ASSIST runs, then is `HANDED_TO_HUMAN`; HUMAN goes straight
+  (`auto_approve=True` for unattended runs; never for jobs an agent queued). `approve` sets
+  `params["approved"]`, and an agent (`by` gemini/agent/planner) cannot approve a job it requested; ASSIST runs, then is `HANDED_TO_HUMAN`; HUMAN goes straight
   to `crew`. A job kind with no executor goes to the crew; an executor that raises gives `FAILED`.
 - **Follow-ups**: every `Finding.follow_up` job is submitted with `parent` set (gas leak -> valve isolate).
 - **Safety**: a person within 3 m (`World.people`) pauses the robot (no motion, no work); planners with

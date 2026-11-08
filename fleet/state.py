@@ -107,7 +107,7 @@ def zones_json(c: Coordinator) -> list[dict]:
     return z
 
 
-RESOLVED = {"valve_isolated", "flange_retorqued"}
+RESOLVED = {"valve_isolated", "valve_closed", "leak_isolated", "flange_retorqued"}
 
 
 def alarms_json(c: Coordinator) -> list[dict]:

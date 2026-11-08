@@ -314,7 +314,10 @@
   }
  ],
  "modules": [
+  "aerial",
+  "crawler",
   "flange",
+  "gas_valves",
   "rounds",
   "rust_repair"
  ],
@@ -322,9 +325,7 @@
   "valve_check",
   "aerial_survey",
   "crawler_ut",
-  "gas_survey",
-  "valve_isolate",
   "leak_repair_prep"
  ],
- "wall_s": 5.67
+ "wall_s": 5.72
 }
