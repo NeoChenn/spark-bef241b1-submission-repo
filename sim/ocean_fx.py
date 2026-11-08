@@ -121,6 +121,10 @@ def pixel_angle(aperture_mm: float, focal_mm: float, width_px: float = REFERENCE
     return aperture_mm / max(focal_mm, 1e-3) / width_px
 
 
+def wave_stride(quality: str) -> int:
+    return 1 if quality == "offline" else 2
+
+
 def parse_overrides(text: str) -> dict:
     return {k.strip(): float(v) for k, v in (item.split("=") for item in text.split(",") if "=" in item)}
 
@@ -154,6 +158,7 @@ def apply(stage, name: str, height: float) -> bool:
             shader.CreateInput(key, Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*value))
         else:
             shader.CreateInput(key, Sdf.ValueTypeNames.Float).Set(float(value))
+    shader.CreateInput("wave_stride", Sdf.ValueTypeNames.Int).Set(wave_stride(os.environ.get("RIG_QUALITY", "live")))
     shader.CreateInput("debug", Sdf.ValueTypeNames.Float).Set(float(os.environ.get("RIG_OCEAN_FX_DEBUG", "0")))
     for key, value in parse_overrides(os.environ.get("RIG_OCEAN_FX_INPUTS", "")).items():
         shader.CreateInput(key, Sdf.ValueTypeNames.Float).Set(value)

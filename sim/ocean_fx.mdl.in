@@ -3,7 +3,6 @@ mdl 1.7;
 import ::df::*;
 import ::state::*;
 import ::math::*;
-import ::base::*;
 import ::anno::*;
 
 const int BIG_COUNT = @BIG_COUNT@;
@@ -24,7 +23,7 @@ struct sea {
     float lost;
 };
 
-sea sea_eval(float2 p, float t, float height, float chop, float near_chop, float slope_gain, float footprint)
+sea sea_eval(float2 p, float t, float height, float chop, float near_chop, float slope_gain, float footprint, uniform int stride)
 {
     float fade = math::exp(-math::length(p) / FADE);
     float sx = 0.0, sy = 0.0, jxx = 0.0, jyy = 0.0, jxy = 0.0, h = 0.0, lost = 0.0;
@@ -44,13 +43,13 @@ sea sea_eval(float2 p, float t, float height, float chop, float near_chop, float
         jxy += qs * a.x * a.y;
         h += amp * s;
     }
-    for (int i = 0; i < WAVE_COUNT; ++i) {
+    for (int i = 0; i < WAVE_COUNT; i += stride) {
         float4 a = WAVE_A[i];
         float4 b = WAVE_B[i];
         float lambda = 6.2831853 / a.z;
         float w = math::smoothstep(1.0, 2.5, lambda / footprint);
         float wj = math::smoothstep(0.7, 1.6, lambda / footprint);
-        float amp = a.w * (lambda < 3.0 ? near_chop : chop);
+        float amp = a.w * math::sqrt(float(stride)) * (lambda < 3.0 ? near_chop : chop);
         float th = a.z * (a.x * p.x + a.y * p.y) - (b.x * t - b.y);
         float s = math::sin(th);
         float c = math::cos(th);
@@ -68,13 +67,38 @@ sea sea_eval(float2 p, float t, float height, float chop, float near_chop, float
     return sea(math::normalize(n), h, jac, lost);
 }
 
+float hash(float2 c)
+{
+    return math::frac(math::sin(c.x * 127.1 + c.y * 311.7) * 43758.5453);
+}
+
+float vnoise(float2 q)
+{
+    float2 i = math::floor(q);
+    float2 f = q - i;
+    float2 u = f * f * (3.0 - 2.0 * f);
+    float a = hash(i);
+    float b = hash(i + float2(1.0, 0.0));
+    float c = hash(i + float2(0.0, 1.0));
+    float d = hash(i + float2(1.0, 1.0));
+    return math::lerp(math::lerp(a, b, u.x), math::lerp(c, d, u.x), u.y);
+}
+
 float noise(float2 p, float t, uniform float size, uniform int levels)
 {
-    return base::perlin_noise_texture(
-        uvw: base::texture_coordinate_info(position: float3(p.x, p.y, t), tangent_u: float3(1, 0, 0), tangent_v: float3(0, 1, 0)),
-        size: size,
-        noise_levels: levels
-    ).mono;
+    float2 q = p / size;
+    float e = t / size;
+    float sum = 0.0;
+    float norm = 0.0;
+    float w = 1.0;
+    for (int i = 0; i < levels; ++i) {
+        float2 o = float2(e * (0.7 + 0.3 * float(i)), -e * (0.4 + 0.25 * float(i)));
+        sum += w * 0.5 * (vnoise(q + o) + vnoise(q * 1.07 - o + float2(17.3, 9.1)));
+        norm += w;
+        q = float2(1.6 * q.x - 1.2 * q.y, 1.2 * q.x + 1.6 * q.y);
+        w *= 0.5;
+    }
+    return sum / norm;
 }
 
 float ridge(float n, float width)
@@ -125,6 +149,7 @@ export material OceanFx(
     float min_footprint = 0.01,
     float slope_gain = 1.0,
     float debug = 0.0,
+    uniform int wave_stride = 1,
     float debug_mode = 0.0
 )
 = let {
@@ -141,7 +166,7 @@ export material OceanFx(
     float wash = lg.y;
     float wake = lg.z;
     float near = math::max(ring, wash) * leg_foam;
-    sea o = sea_eval(p, time, height, chop, chop * (1.0 + leg_chop * near), slope_gain, footprint);
+    sea o = sea_eval(p, time, height, chop, chop * (1.0 + leg_chop * near), slope_gain, footprint, wave_stride);
     float alpha = math::min(math::sqrt(roughness * roughness + 2.0 * o.lost), 0.3);
 
     float2 adv = p - DRIFT * (time * drift_speed);

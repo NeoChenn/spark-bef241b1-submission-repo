@@ -59,3 +59,7 @@ def test_preset_inputs_and_pixel_angle():
 def test_parse_overrides():
     assert fx.parse_overrides("chop=2, slope_gain=1.5,bad") == {"chop": 2.0, "slope_gain": 1.5}
     assert fx.parse_overrides("") == {}
+
+
+def test_live_tier_halves_waves():
+    assert fx.wave_stride("offline") == 1 and fx.wave_stride("live") == 2
