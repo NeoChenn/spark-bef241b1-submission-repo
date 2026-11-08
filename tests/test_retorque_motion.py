@@ -117,3 +117,25 @@ def test_cli_writes_rows(tmp_path):
     data = main(["--t0", "24", "--fps", "10", "--out", str(out)])
     assert out.exists() and data["rows"][0]["t"] == 24.0 and data["rows"][0]["gas_scale"] == 1.0
     assert set(data["rows"][0]["q"]) == set(JOINTS)
+
+
+def test_fit_to_the_film_recording(tmp_path):
+    import json
+
+    from integration.retorque_motion import from_timeline
+
+    rows = [{"type": "tick", "t": t, "robots": {"unit2": {"state": st}}}
+            for t, st in ((40.5, "SNIFF"), (44.8, "INSPECT"), (46.8, "RETORQUE"), (51.8, "VERIFY"), (54.7, "RETURN"))]
+    rows.insert(4, {"type": "torque_done", "robot": "unit2", "flange": "F5", "bolt": 3, "t": 50.2})
+    tl = tmp_path / "timeline.jsonl"
+    tl.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    m = from_timeline(tl)
+    assert m.bolt == 3 and m.flange.id == "F5"
+    assert m.t0 + m.spans["engage"][1] == pytest.approx(46.8)
+    assert m.t_fix == pytest.approx(50.2)
+    assert m.t_end <= 54.7 and m.t0 >= 40.5
+    assert m.gas_scale(50.19) == 1.0 and m.gas_scale(50.3) < 1.0
+    assert m.phase(46.7) == "engage" and m.phase(48.0) == "torque" and m.phase(54.0) == "home"
+    k = JOINTS.index("socket_drive_joint")
+    assert math.degrees(m.vector(50.2)[k] - m.vector(46.8)[k]) == pytest.approx(120.0)
+    assert m.vector(50.2)[k] == pytest.approx(m.vector(50.3)[k])

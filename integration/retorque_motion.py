@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Optional
 
@@ -233,15 +233,56 @@ class RetorqueMotion:
                 "coaxial_deg": round(self.coaxial_error_deg(), 3), "gas_tau_s": self.cfg.gas_tau_s, "joints": JOINTS}
 
 
+def fit(t_engaged: float, t_torque_done: float, t_leave: Optional[float] = None, flange=None, bolt: int = 3,
+        config: Optional[MotionConfig] = None, **kw) -> RetorqueMotion:
+    c = config or MotionConfig()
+    span = t_torque_done - t_engaged
+    n = c.turn_steps
+    hold = min(c.hold_s, 0.4 * span / max(n - 1, 1)) if n > 1 else 0.0
+    turn = (span - (n - 1) * hold) / n
+    if turn < 0.3:
+        raise ValueError(f"torque span {span:.2f} s too short for {n} visible turns")
+    c = replace(c, turn_s=turn, hold_s=hold)
+    if t_leave is not None:
+        room = t_leave - t_torque_done - hold - c.disengage_s - c.retract_s - 0.05
+        c = replace(c, home_s=max(1.0, min(c.home_s, room)))
+    t0 = t_engaged - (c.approach_s + c.align_s + c.engage_s)
+    return RetorqueMotion(flange, bolt, t0=t0, config=c, **kw)
+
+
+def timeline_marks(path, robot: str = "unit2") -> dict:
+    marks: dict = {}
+    for line in Path(path).read_text().splitlines():
+        r = json.loads(line)
+        if r.get("type") == "torque_done" and r.get("robot", robot) == robot:
+            marks.setdefault("torque_done", float(r["t"]))
+            marks.setdefault("bolt", int(r.get("bolt", 3)))
+            marks.setdefault("flange", r.get("flange", "F5"))
+        if r.get("type") == "tick":
+            st = r.get("robots", {}).get(robot, {}).get("state")
+            if st == "RETORQUE":
+                marks.setdefault("engaged", float(r["t"]))
+            if st == "RETURN" and "torque_done" in marks:
+                marks.setdefault("leave", float(r["t"]))
+    return marks
+
+
+def from_timeline(path, robot: str = "unit2", **kw) -> RetorqueMotion:
+    m = timeline_marks(path, robot)
+    return fit(m["engaged"], m["torque_done"], m.get("leave"), flange_from_meta(m.get("flange", "F5")),
+               m.get("bolt", 3), **kw)
+
+
 def main(argv=None) -> dict:
     ap = argparse.ArgumentParser()
     ap.add_argument("--flange", default="F5")
     ap.add_argument("--bolt", type=int, default=3)
     ap.add_argument("--t0", type=float, default=0.0)
     ap.add_argument("--fps", type=float, default=30.0)
+    ap.add_argument("--timeline", default="", help="fit to a recorded run: engage at RETORQUE, turn ends at torque_done")
     ap.add_argument("--out", default="runs/retorque_motion.json")
     a = ap.parse_args(argv)
-    m = RetorqueMotion(flange_from_meta(a.flange), a.bolt, t0=a.t0)
+    m = from_timeline(a.timeline) if a.timeline else RetorqueMotion(flange_from_meta(a.flange), a.bolt, t0=a.t0)
     data = {**m.summary(), "rows": m.rows(a.fps)}
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(data, separators=(",", ":")))
