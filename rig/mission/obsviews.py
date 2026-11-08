@@ -7,6 +7,7 @@ import zlib
 import numpy as np
 from PIL import Image, ImageDraw
 
+from policy.gasbot.locate import SeekConfig, SourceEstimator
 from rig.views.draw import encode, font, label
 
 W, H = 256, 192
@@ -31,6 +32,8 @@ HIT = {1: EDGE, 2: AMBER, 3: PERSON, 4: GAS}
 FORCE_CLAMP = 38.0
 OBS_STATES = ("DETECT", "SPRAY", "SOAK", "SCRUB", "VERIFY", "PAINT")
 GRID = (16, 9)
+GAS_JOBS = ("gas", "leak_check")
+GAS_WINDOW_M = 8.0
 EVERY_S = 1.0
 
 
@@ -151,12 +154,11 @@ def lidar_bev(rid, pose, path, walkways, hazards, persons, rays=RAYS, rmax=RANGE
     _robot(d, o, yaw, PX)
     hits = int((cls > 0).sum())
     near = float(rng[cls > 0].min() / PX) if hits else rmax
-    im = label(im, f"{rid} · LIDAR BEV", f"{rays} rays · {rmax:.0f} m")
+    im = label(im, f"{rid} · LIDAR BEV", f"{rays} rays · nearest {near:.1f} m")
     d = ImageDraw.Draw(im)
-    d.text((5, H - 13), f"nearest {near:.1f} m", font=font(9), fill=DIM)
     if (cls == 2).any() or (cls == 3).any() or (cls == 4).any():
         tag = "person" if (cls == 3).any() else "closed" if (cls == 4).any() else "obstacle"
-        d.text((W - 5 - d.textlength(tag, font=font(9)), H - 13), tag, font=font(9),
+        d.text((5, 20), tag, font=font(9),
                fill=HIT[3 if tag == "person" else 4 if tag == "closed" else 2])
     return im, {"rays": rays, "hits": hits, "nearest_m": round(near, 2)}
 
@@ -246,8 +248,8 @@ def gas_belief(rid, pose, est, track, lels, wind_unit, wind_ms, flanges, walkway
     d.text((wc[0] - 14, wc[1] + 15), f"{wind_ms:.1f} m/s", font=f9, fill=DIM)
     fid = min(flanges, key=lambda k_: math.hypot(flanges[k_][0] - mean[0], flanges[k_][1] - mean[1])) if flanges else "?"
     for n in range(5):
-        d.rectangle([5 + n * 9, H - 10, 13 + n * 9, H - 6], fill=tuple(int(q) for q in _heat(np.array(0.3 + 0.7 * n / 4))))
-    d.text((52, H - 14), "0-20 %LEL", font=f9, fill=DIM)
+        d.rectangle([W - 50 + n * 9, H - 22, W - 42 + n * 9, H - 18], fill=tuple(int(q) for q in _heat(np.array(0.3 + 0.7 * n / 4))))
+    d.text((W - 50, H - 14), "0-20 %LEL", font=f9, fill=DIM)
     im = label(im, f"{rid} · GAS BELIEF", f"{str(mode).lower()} · {hits} hits")
     return im, {"flange": fid, "sigma_m": round(sig, 2), "x": round(float(mean[0]), 2), "y": round(float(mean[1]), 2)}
 
@@ -338,7 +340,7 @@ def rust_obs(rid, job, state, u, force, rust_fraction=None, left=None):
     fn = vals[-1] if vals else 0.0
     d.text((bx0 + 3, by0 + 2), f"brush force {fn:.1f} N" if vals else "brush force · idle", font=f9, fill=FG if vals else DIM)
     im = label(im, f"{rid} · SCRUB OBS", f"{GRID[0]}x{GRID[1]} cells")
-    return im, {"rust": round(float((r > 0.3).mean()), 3), "brush": brush, "force_n": round(fn, 1)}
+    return im, {"rust": round(frac, 3), "brush": brush, "force_n": round(fn, 1)}
 
 
 def force_trace(job: str, t0: float, t1: float, window: float = 15.0, dt: float = 0.1) -> list[float]:
@@ -358,8 +360,44 @@ class ObsViews:
         self.seq: dict = {}
         self.force: dict = {}
         self.walk: tuple = (None, [])
+        self.live: set = set()
+        self.policy: set = set()
+        self.gas: dict = {}
+
+    def _retire(self, out, live):
+        for key in [k for k in self.jpg if k not in live and k[1] != "lidar"]:
+            self.jpg.pop(key)
+            out.setdefault(key[0], {})[key[1]] = None
+
+    def _own_belief(self, mission, d, walk):
+        rid, p = d["id"], d["pose"]
+        task = d.get("task") or ""
+        lk = mission.leak
+        g = self.gas.get(rid)
+        if g is None or g["job"] != task:
+            poi = task.split(":")[-1]
+            c = lk.flanges[poi][:2] if poi in lk.flanges else np.array([p["x"], p["y"]])
+            est = SourceEstimator((c[0] - GAS_WINDOW_M, c[0] + GAS_WINDOW_M), (c[1] - GAS_WINDOW_M, c[1] + GAS_WINDOW_M), 0.25)
+            near = [v for v in lk.flanges.values() if abs(v[0] - c[0]) < GAS_WINDOW_M and abs(v[1] - c[1]) < GAS_WINDOW_M]
+            if near:
+                est.prior(near)
+            g = self.gas[rid] = {"job": task, "est": est, "track": [], "lels": []}
+        xy = [round(p["x"], 2), round(p["y"], 2)]
+        lel = float(d.get("gas_lel") or 0.0)
+        if not g["track"] or math.hypot(xy[0] - g["track"][-1][0], xy[1] - g["track"][-1][1]) > 0.3:
+            g["track"].append(xy)
+            g["lels"].append(round(lel, 4))
+            del g["track"][:-300], g["lels"][:-300]
+            g["est"].observe(xy, lk.wind_unit[:2], lel >= SeekConfig.hit_lel)
+        m, sig, _ = g["est"].estimate()
+        fls = {k: list(v) for k, v in lk.flanges.items()}
+        st = (d.get("job_state") or d["state"]).replace("_", " ")
+        hits = g["est"].n_hits
+        return gas_belief(rid, (p["x"], p["y"], p["z"], p["yaw"]), g["est"], g["track"], g["lels"], lk.wind_unit[:2],
+                          lk.speed, fls, walk, st, hits, (m, sig))
 
     def _put(self, out, rid, kind, im, caption):
+        self.live.add((rid, kind))
         e = encode_small(im, caption, 0)
         if self.jpg.get((rid, kind)) == e["jpg"]:
             return
@@ -368,7 +406,7 @@ class ObsViews:
         e["seq"] = self.seq[(rid, kind)]
         out.setdefault(rid, {})[kind] = e
 
-    def update(self, mission, fl: dict) -> dict:
+    def update(self, mission, fl: dict, policy=()) -> dict:
         now = self.clock()
         robots = fl.get("robots") or []
         for d in robots:
@@ -383,6 +421,7 @@ class ObsViews:
             return {}
         self.last["t"] = now
         out: dict = {}
+        self.live = set()
         rm = mission.fleet.f.rm
         if self.walk[0] != len(rm.pos):
             self.walk = (len(rm.pos), graph_walkways(rm))
@@ -406,8 +445,16 @@ class ObsViews:
                 self._put(out, rid, "obs", im, f"{rid} · scrub obs · {st.lower()} · rust {info['rust'] * 100:.0f} %")
         lk = mission.leak
         sk = lk.seek
-        if sk is not None and lk.robot_id:
-            rid = lk.robot_id
+        kind = {x["id"]: (x.get("task") or "").split(":")[0] for x in robots}
+        seeker = lk.robot_id if sk is not None and lk.robot_id and (not sk.done or kind.get(lk.robot_id) in GAS_JOBS) else None
+        for d in robots:
+            if kind[d["id"]] in GAS_JOBS and d["id"] != seeker:
+                im, info = self._own_belief(mission, d, walk)
+                self._put(out, d["id"], "belief", im, f"{d['id']} · gas belief · est {info['flange']} ±{info['sigma_m']:.1f} m")
+            elif kind[d["id"]] not in GAS_JOBS:
+                self.gas.pop(d["id"], None)
+        if seeker:
+            rid = seeker
             d = next((x for x in robots if x["id"] == rid), None)
             z = d["pose"]["z"] if d else sk.deck_z
             fls = {k: list(v) for k, v in lk.flanges.items()}
@@ -415,4 +462,8 @@ class ObsViews:
                                   getattr(sk, "lels", []), lk.wind_unit[:2], lk.speed, fls, walk, sk.mode, sk.hits,
                                   sk.estimate)
             self._put(out, rid, "belief", im, f"{rid} · gas belief · est {info['flange']} ±{info['sigma_m']:.1f} m")
+        self._retire(out, self.live)
+        for rid in self.policy - set(policy):
+            out.setdefault(rid, {})["policy"] = None
+        self.policy = set(policy)
         return out
