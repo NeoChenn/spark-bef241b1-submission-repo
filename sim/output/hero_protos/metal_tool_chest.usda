@@ -1,0 +1,18 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/metal_tool_chest/metal_tool_chest_1k.usdc@
+    )
+    {
+        double3 xformOp:translate = (1.7881393432617188e-7, 0.01945529878139496, 0.17584174871444702)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}
+

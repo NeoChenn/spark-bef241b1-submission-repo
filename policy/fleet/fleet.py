@@ -228,7 +228,7 @@ class Fleet:
                 h["auto"] = bool(d.get("auto"))
                 self._rolled[h["id"]] = list(h["xyz"])
                 msg = (f"{'gust knocks an oil drum loose' if h['auto'] else 'oil drum'} {h['id']} at "
-                       f"{np.round(h['xyz'], 1).tolist()} -> rolling{' with the wind' if self.hz.weather['wind'] > 0.05 else ' loose'}, walkway blocked")
+                       f"{np.round(h['xyz'], 1).tolist()} -> rolling{' with the wind' if self.hz.weather['wind'] >= 0.5 else ' loose'}, walkway blocked")
                 cause = f"rolling barrel {h['id']}"
             elif h["effect"] == "soft":
                 self.hz.apply(self.rm)

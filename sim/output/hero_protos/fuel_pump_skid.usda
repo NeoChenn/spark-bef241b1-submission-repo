@@ -1,0 +1,18 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/fuel_pump_skid/fuel_pump_skid.usdc@
+    )
+    {
+        double3 xformOp:translate = (-0, -0, 0.0000073699998210940976)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}
+

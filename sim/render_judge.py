@@ -79,6 +79,7 @@ VIEWS["repair"] = zoom.at(zoom.orbit_s + zoom.descend_s + 1.0)
 VIEWS["approach"] = zoom.at(zoom.orbit_s + 0.62 * zoom.descend_s)
 for k, f in enumerate((0.0, 0.25, 0.45, 0.65, 0.85)):
     VIEWS[f"zoom{k}"] = zoom.at(zoom.orbit_s + f * zoom.descend_s)
+VIEWS.update({v: zoom.at(float(v[5:])) for v in args.views.split(",") if v.startswith("zoom@")})
 cam = UsdGeom.Camera.Define(stage, "/World/Judge/Cam")
 cam.CreateClippingRangeAttr(Gf.Vec2f(0.05, 60000))
 cam.CreateHorizontalApertureAttr(20.955)

@@ -118,7 +118,8 @@ class ObstacleScene:
                 pr = self.props[oid]
                 pr["mv"] = {"p": tuple(o["xyz"]), "v": tuple(o.get("vel") or (0.0, 0.0)) if o.get("rolling") else (0.0, 0.0),
                             "t": self.now, "from": pr.get("at", tuple(o["xyz"]))}
-        key = tuple((tuple(c["a"]), tuple(c["b"])) for c in hz.get("closed", []))
+        drums = {o["id"] for o in hz.get("obstacles", []) if o.get("kind") == "barrel"}
+        key = tuple((tuple(c["a"]), tuple(c["b"])) for c in hz.get("closed", []) if c.get("why") not in drums)
         if key != self.closed_key:
             self.closed_key = key
             self.stage.RemovePrim(f"{ROOT}/Closed")
@@ -359,10 +360,10 @@ class ObstacleScene:
         self.b.tube(path, "handle", (-r * 0.6, 0, h + 0.012), (r * 0.6, 0, h + 0.012), 0.008, tin, segments=8)
 
     def _build_barrel(self, path, o):
-        paint = self._mat("obst_drum_red", (0.52, 0.05, 0.035), 0.42, 0.55)
-        rim = self._mat("obst_drum_rim", (0.2, 0.19, 0.18), 0.5, 0.85)
-        lid = self._mat("obst_drum_lid", (0.62, 0.08, 0.05), 0.5, 0.5)
-        band = self._mat("obst_drum_band", (0.9, 0.86, 0.78), 0.55, 0.1)
+        paint = self._mat("obst_drum_paint", (0.2, 0.035, 0.025), 0.62, 0.35)
+        rim = self._tex("rusty_metal_02", self._mat("obst_drum_rim", (0.16, 0.15, 0.14), 0.6, 0.8))
+        lid = self._mat("obst_drum_lid", (0.17, 0.035, 0.025), 0.7, 0.3)
+        band = self._mat("obst_drum_band", (0.42, 0.38, 0.3), 0.75, 0.05)
         spin = UsdGeom.Xform.Define(self.stage, f"{path}/spin")
         ops = UsdGeom.Xformable(spin)
         ops.AddTranslateOp().Set(Gf.Vec3d(0, 0, DRUM_R))

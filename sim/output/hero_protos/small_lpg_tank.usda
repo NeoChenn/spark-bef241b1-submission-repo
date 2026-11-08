@@ -1,0 +1,67 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/small_lpg_tank/small_lpg_tank_1k.usdc@
+    )
+    {
+        double3 xformOp:translate = (-0.00031666457653045654, -0.00030441582202911377, -0.0000015020370938145788)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        over "_materials"
+        {
+            over "small_lpg_tank"
+            {
+                over "Image_Texture"
+                {
+                    asset inputs:file = @../../assets/third_party/models/small_lpg_tank/textures/small_lpg_tank_diff_1k.jpg@
+                }
+
+                over "Image_Texture_001"
+                {
+                    asset inputs:file = @../../assets/third_party/models/small_lpg_tank/textures/small_lpg_tank_metal_1k.exr@
+                }
+
+                over "Image_Texture_002"
+                {
+                    asset inputs:file = @../../assets/third_party/models/small_lpg_tank/textures/small_lpg_tank_rough_1k.exr@
+                }
+
+                over "Image_Texture_003"
+                {
+                    asset inputs:file = @../../assets/third_party/models/small_lpg_tank/textures/small_lpg_tank_nor_gl_1k.exr@
+                }
+
+                over "NodeGraphs"
+                {
+                    over "bnode__Image_Texture_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/small_lpg_tank/textures/small_lpg_tank_diff_1k.jpg@
+                    }
+
+                    over "bnode__Image_Texture_001_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/small_lpg_tank/textures/small_lpg_tank_metal_1k.exr@
+                    }
+
+                    over "bnode__Image_Texture_002_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/small_lpg_tank/textures/small_lpg_tank_rough_1k.exr@
+                    }
+
+                    over "bnode__Image_Texture_003_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/small_lpg_tank/textures/small_lpg_tank_nor_gl_1k.exr@
+                    }
+                }
+            }
+        }
+    }
+}
+
