@@ -221,11 +221,14 @@ class LabRepairBridge:
     def record_decision(self, rec: dict) -> None:
         self.pending_events.append(rec)
 
-    def _interp_joints(self, q1, steps: int = 24):
+    def _interp_joints(self, q1, steps: int = 24, stop_force: float | None = None) -> bool:
         q0 = self.base._robot.data.joint_pos[:1, self.arm_ids].clone()
         for k in range(1, steps + 1):
             self.joint_target = q0 + (q1 - q0) * smooth(k / steps)
             self._step()
+            if stop_force is not None and self.force_peak > stop_force:
+                return False
+        return True
 
     def _park(self):
         if self.parked:
@@ -238,12 +241,19 @@ class LabRepairBridge:
     def _unpark(self):
         if not self.parked:
             return
-        self._interp_joints(self.q_work)
+        clear = self._interp_joints(self.q_work, stop_force=8.0)
+        b = self.base
+        if not clear:
+            self.joint_target = b._robot.data.joint_pos[:1, self.arm_ids].clone()
+            self.log(f"   unpark: brush touched the pipe ({self.force_peak:.0f} N) -> lift off in task space")
         for _ in range(4):
             self._step()
-        b = self.base
         b.p_tgt[:] = b.brush_w
         self.joint_target = None
+        if not clear:
+            th = b.theta[:1]
+            n = torch.cos(th)[:, None] * b.pipe_e[:1] + torch.sin(th)[:, None] * b.pipe_b[:1]
+            self._goto(self._brush() + 0.06 * n[0].cpu().numpy(), 10)
         self.parked = False
         self.chunk_peak = 0.0
 

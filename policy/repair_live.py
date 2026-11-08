@@ -30,6 +30,7 @@ def worker(argv):
     p.add_argument("--no-gemini", dest="no_gemini", action="store_true")
     p.add_argument("--still", action="store_true")
     p.add_argument("--spp", type=int, default=1)
+    p.add_argument("--hue_lo", type=float, default=0.3)
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -50,7 +51,7 @@ def worker(argv):
     from isaaclab.sim import RenderCfg
     from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
 
-    from detection.localize import RustLocalizer, fake_colour_classifier
+    from detection.localize import RustLocalizer, colour_classifier
     from integration.lab_bridge import ExternalScrub, LabRepairBridge, LabWorld, frame_telemetry, write_jsonl
     from integration.lab_video import FrameComposer
     from policy.envs import scrub_env_cfg as C
@@ -188,8 +189,8 @@ def worker(argv):
     for _ in range(20):
         base.sim.render()
 
-    localizer = RustLocalizer(fake_colour_classifier, patch=32, stride=16, threshold=0.5, temperature=1.0)
-    print("DETECTOR colour stand-in (no detector checkpoint on this box)", flush=True)
+    localizer = RustLocalizer(colour_classifier(args.hue_lo), patch=32, stride=16, threshold=0.5, temperature=1.0)
+    print(f"DETECTOR colour stand-in hue_lo={args.hue_lo} (no detector checkpoint on this box)", flush=True)
     advisor = None
     if not args.no_gemini:
         from policy.gemini_verifier import GeminiVerifier

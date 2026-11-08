@@ -71,3 +71,13 @@ def test_telemetry_frame_is_json_with_40x64_grid():
     assert max(max(r) for r in fr["rust_grid"]) <= 1.0
     assert fr["force_model_n"] == 30.0
     json.dumps(fr)
+
+
+def test_colour_classifier_hue_threshold_rejects_olive_paint():
+    from detection.localize import colour_classifier, fake_colour_classifier
+
+    olive = np.tile(np.array([51, 47, 15], np.uint8), (2, 8, 8, 1))
+    rust = np.tile(np.array([133, 54, 10], np.uint8), (2, 8, 8, 1))
+    strict = colour_classifier(0.3)
+    assert (strict(olive) < 0).all() and (strict(rust) > 0).all()
+    assert (fake_colour_classifier(rust) > 0).all()
