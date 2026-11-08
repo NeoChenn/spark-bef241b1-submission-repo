@@ -55,13 +55,22 @@ def frames(eye, target, focal: float, pts, margin: float = 30.0) -> bool:
                for u, v, z in (project(cam, p) for p in pts))
 
 
-def rig_radius(az0: float, sweep: float, el: float, focal: float) -> float:
+RIG_DECK = [(x, y, z) for x in (-37.0, 37.5) for y in (-39.0, 27.4) for z in (18.0, 42.5)]
+RIG_FILL = 0.675
+
+
+def width_fraction(eye, focal: float, pts=RIG_DECK) -> float:
+    cam = look_at(eye, RIG_CENTER, focal, APERTURE, W, H)
+    us = [project(cam, p)[0] for p in pts]
+    return (max(us) - min(us)) / W
+
+
+def rig_radius(az0: float, sweep: float, el: float, focal: float, fill: float = RIG_FILL) -> float:
     lo, hi = 20.0, 600.0
     for _ in range(40):
         d = (lo + hi) / 2
-        ok = all(frames(spherical(RIG_CENTER, d, az0 + sweep * k / 16, el), RIG_CENTER, focal, RIG_CORNERS)
-                 for k in range(17))
-        lo, hi = (lo, d) if ok else (d, hi)
+        wide = width_fraction(spherical(RIG_CENTER, d, az0 + sweep / 2, el), focal) > fill
+        lo, hi = (d, hi) if wide else (lo, d)
     return hi
 
 
@@ -99,13 +108,21 @@ def unit2_job(scene: FilmScene = DEFAULT_FILM_SCENE) -> tuple[Vec3, Vec3, float]
 def unit1_job(scene: FilmScene = DEFAULT_FILM_SCENE) -> tuple[Vec3, Vec3, float]:
     s = scene
     n = np.asarray(s.patch_normal)
-    pts = [s.patch, tuple(np.asarray(s.patch) + 0.35 * n), _up(s.unit1_work, 0.3), _up(s.unit1_work, 0.8)]
-    return _fit(pts, 60.0, 22.0, 40.0, margin=40.0, target=_lerp(s.patch, _up(s.unit1_work, 0.5), 0.3))
+    w = s.unit1_work
+    pts = _body(w) + [(w[0] + 0.35, w[1], w[2] + 0.2), _up(w, 1.1), s.patch, tuple(np.asarray(s.patch) + 0.2 * n)]
+    return _fit(pts, 45.0, 20.0, 33.0, margin=45.0, target=_lerp(s.patch, (w[0], w[1], 42.9), 0.5))
 
 
-def birdseye(scene: FilmScene = DEFAULT_FILM_SCENE) -> tuple[Vec3, Vec3, float]:
-    s = scene
-    return _fit(bodies(s.unit1_dock, s.unit1_work, s.unit2_dock, s.unit2_work), 100.0, 75.0, 24.0, margin=60.0)
+BIRD = (-110.0, 62.0, 24.0, 12.0)
+
+
+def birdseye(a: Vec3, b: Vec3) -> tuple[Vec3, Vec3, float]:
+    az, el, focal, near = BIRD
+    target = (0.5 * (a[0] + b[0]), 0.5 * (a[1] + b[1]), 42.9)
+    eye, _, _ = _fit(bodies(a, b), az, el, focal, margin=60.0, target=target)
+    if math.dist(eye, target) < near:
+        eye = spherical(target, near, az, el)
+    return eye, target, focal
 
 
 def conclusion(u: float) -> tuple[Vec3, Vec3, float]:

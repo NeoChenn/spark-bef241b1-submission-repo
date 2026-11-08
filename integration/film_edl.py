@@ -161,7 +161,9 @@ def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE
         ("unit1_soak", 1.0, (b.soak, b.scrub), j1, "cut", "cut", False),
         ("unit1_scrub", 8.0, (b.scrub, b.scrub_done), j1, "cut", "cut", False),
         ("unit1_paint", 4.6, (b.scrub_done, b.paint_done + 0.3), j1, "cut", "xfade", False),
-        ("walk_back", 4.0, (home, home + 10.0), _still(birdseye(s)), "xfade", "xfade", False),
+        ("walk_back", 4.0, (home, home + 10.0), lambda u, t: birdseye(tr("unit1", home if t is None else t),
+                                                                      tr("unit2", home if t is None else t)),
+         "xfade", "xfade", False),
     ]
     shots, t, prev = [], 0.0, None
     for name, dur, sim, cam, t_in, t_out, two_d in plan:
