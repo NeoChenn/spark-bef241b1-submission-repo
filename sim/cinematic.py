@@ -6,6 +6,7 @@ import carb.settings
 import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
+import greebles
 import ocean
 import photoreal
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
@@ -432,6 +433,7 @@ def build_stage() -> Usd.Stage:
 def apply_preset(stage, name: str) -> None:
     preset = PRESETS[name]
     photoreal.apply(stage, name)
+    greebles.apply(stage)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))
     dome.GetIntensityAttr().Set(preset["dome"])
