@@ -27,7 +27,7 @@ DEADLINE_WINDOW_S = 600.0
 DEADLINE_BOOST = 2.0
 CUTOFF_EVERY_S = 10.0
 GAS_RESPONSE = {"gas_survey", "valve_isolate", "leak_repair_prep", "gas", "flange_retorque"}
-AGENTS = {"gemini", "agent", "planner", "orchestrator", "llm"}
+AGENTS = {"gemini", "argon", "agent", "planner", "orchestrator", "llm"}
 ACTIVE = (JobStatus.ASSIGNED, JobStatus.RUNNING)
 OPEN = (JobStatus.QUEUED, JobStatus.WAITING_APPROVAL) + ACTIVE
 LEVEL_RANK = {Level.AUTO: 0, Level.SUPV: 1, Level.ASSIST: 2, Level.HUMAN: 3}
@@ -337,7 +337,24 @@ class Coordinator:
 
     def eligible(self, job: Job, robot: Robot) -> bool:
         needs, kinds = self.requirements(job)
-        return needs <= set(robot.capabilities) and (not kinds or robot.kind in kinds)
+        pin = job.params.get("robot")
+        return needs <= set(robot.capabilities) and (not kinds or robot.kind in kinds) and pin in (None, robot.id)
+
+    def hold(self, robot_id: str, by: str = "operator", why: str = "") -> bool:
+        rt = self.rt.get(robot_id)
+        if rt is None or rt.state in ("FAILED", "HELD", "DOCKING", "CHARGING", "DOCK_QUEUE"):
+            return False
+        rt.paused_from, rt.state = rt.state, "HELD"
+        self.emit("robot_held", rt.job, robot_id, by=by, why=why)
+        return True
+
+    def resume(self, robot_id: str, by: str = "operator", why: str = "") -> bool:
+        rt = self.rt.get(robot_id)
+        if rt is None or rt.state != "HELD":
+            return False
+        rt.state = rt.paused_from or "IDLE"
+        self.emit("robot_resumed", rt.job, robot_id, by=by, why=why, resume=rt.state)
+        return True
 
     def locks(self, job: Job) -> set[str]:
         keys = {f"asset:{job.target}"}
@@ -427,7 +444,7 @@ class Coordinator:
                 continue
             if rt.state == "WORKING" and cur.level == Level.SUPV:
                 continue
-            if rt.state in ("DOCKING", "CHARGING", "DOCK_QUEUE", "FAILED") or not self.eligible(job, rt.robot):
+            if rt.state in ("DOCKING", "CHARGING", "DOCK_QUEUE", "FAILED", "HELD") or not self.eligible(job, rt.robot):
                 continue
             if self.locked_by_other(job, rt.robot.id):
                 continue
@@ -607,7 +624,7 @@ class Coordinator:
         p = self.power(r)
         if rt.state == "FAILED":
             return
-        if rt.state == "PAUSED_PERSON":
+        if rt.state in ("PAUSED_PERSON", "HELD"):
             self._drain(rt, p.idle_w * dt / 3600.0)
             return
         if rt.state in ("MOVING", "WAITING_SEGMENT", "DOCKING"):

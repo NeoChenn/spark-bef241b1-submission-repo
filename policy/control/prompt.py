@@ -8,6 +8,7 @@ from policy.control.schema import CLOUD_KINDS, RESPONSE_SCHEMA
 from policy.control.snapshot import SensorSnapshot
 
 MAX_EVENTS = 12
+MAX_CANDIDATES = 4
 MAX_OUTPUT_TOKENS = 16384
 
 SYSTEM = (
@@ -26,15 +27,24 @@ SYSTEM = (
     "(3) anomalies: patterns that no single sensor shows, fused across sensors and robots, e.g. gas %LEL and "
     "acoustic dB rising together at one flange -> probable leak; force spikes with rust residual -> surface damage "
     "or weld bead; on-board detector and verifier disagreeing; storm level rising during exposed work. "
-    "Prefer the conservative action when evidence is mixed. Empty lists are fine when all is nominal."
+    "Prefer the conservative action when evidence is mixed. Empty lists are fine when all is nominal.\n"
+    "Fixed rig sensors (gas heads, thermal, acoustic, pressure gauges) are checked by an on-rig health monitor; "
+    "health lists each faulty sensor (DEAD, STUCK, DRIFT, OUT_OF_RANGE, NOISY) with evidence numbers and the robots "
+    "that could verify it, ranked by path time over the rig graph (stairs, corridors), with the onboard sensor they "
+    "would use and whether their battery covers the round trip (ok). To verify a suspect sensor, return a dispatch "
+    "with purpose verify_sensor, target = sensor id and a robot whose candidate entry is ok; prefer the nearest. "
+    "Skip faults that already have a job. Hazard first: a faulty gas head marked hazard sits beside live gas; treat "
+    "its zone as real gas, never as just a broken sensor."
 )
 
 
 def build(snap: SensorSnapshot, edge=(), max_images: int = 1) -> dict:
     d = snap.to_dict(images=False)
     d["events"] = d["events"][-MAX_EVENTS:]
+    d["health"] = [{**{k: v for k, v in h.items() if k != "candidates"},
+                    "candidates": h["candidates"][:MAX_CANDIDATES]} for h in d["health"] if h["status"] != "OK"]
     ids = {"robots": [r.id for r in snap.robots], "jobs": [j.get("id") for j in snap.jobs],
-           "zones": sorted(snap.zones())}
+           "zones": sorted(snap.zones()), "suspect_sensors": [h["id"] for h in d["health"]]}
     text = (
         "Fleet snapshot (JSON):\n" + json.dumps(d, separators=(",", ":"), default=str) +
         "\nValid ids: " + json.dumps(ids, separators=(",", ":")) +

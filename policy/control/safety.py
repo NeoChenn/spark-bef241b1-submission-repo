@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from policy.control.schema import Action
-from policy.control.snapshot import SensorSnapshot
+from typing import Optional
+
+from policy.control.schema import VERIFY, Action
+from policy.control.snapshot import GasSensor, SensorSnapshot
 
 FORCE_LIMIT_N = 40.0
 LEL_EVACUATE = 50.0
@@ -49,7 +51,62 @@ def _zone_of(target: str, snap: SensorSnapshot) -> str:
     if job:
         return job.get("zone", "")
     r = snap.robot(target)
-    return r.zone if r else target
+    if r:
+        return r.zone
+    s = next((x for x in [*snap.health, *snap.gas, *snap.fixed] if x.id == target and x.zone), None)
+    return s.zone if s else target
+
+
+def hazard_first(snap: SensorSnapshot) -> list[Action]:
+    gas = {g.id: g for g in snap.gas}
+    out = []
+    for h in snap.health:
+        if h.kind != "gas" or h.status == "OK" or not h.hazard:
+            continue
+        g = gas.get(h.id)
+        if g is None:
+            g = GasSensor(h.id, zone=h.zone, lel=0.0)
+            snap.gas.append(g)
+        zone = max((x.lel for x in snap.gas if x is not g and x.zone == h.zone), default=0.0)
+        g.lel = max(g.lel, zone, float(h.evidence.get("peer_max") or 0.0))
+        out.append(_edge("escalate", "", h.id, f"{h.id} {h.status} beside live gas ({g.lel:.0f}% LEL): treated as "
+                                                 "real gas until a robot reads it", "hazard_first"))
+    return out
+
+
+def verify_fallback(snap: SensorSnapshot, edge: list[Action], skip=frozenset()) -> list[Action]:
+    locked = {a.robot for a in edge if a.robot}
+    evacuated = {a.target for a in edge if a.kind == "evacuate"}
+    taken, out = set(), []
+    for h in sorted(snap.faults(), key=lambda h: (not h.hazard, h.since)):
+        if h.job or h.id in skip:
+            continue
+        if h.zone in evacuated or in_live_gas(snap, h.id) is not None:
+            continue
+        ok = [c for c in h.candidates if c.get("ok") and c["robot"] not in locked | taken]
+        if not ok:
+            out.append(_edge("escalate", "", h.id, f"{h.id} {h.status}: no capable robot with battery for the "
+                                                   "round trip", "sensor"))
+            continue
+        c = min(ok, key=lambda c: c["eta_s"])
+        taken.add(c["robot"])
+        a = _edge("dispatch", c["robot"], h.id, f"{h.id} {h.status}; nearest capable robot {c['robot']} "
+                                                f"({c.get('kind', 'robot')}, {c['eta_s']:.0f} s by route, {c['sensor']})", "sensor")
+        a.purpose = VERIFY
+        out.append(a)
+    return out
+
+
+def live_gas(snap: SensorSnapshot, zone: str) -> float:
+    return max((g.lel for g in snap.gas if g.zone == zone), default=0.0)
+
+
+def in_live_gas(snap: SensorSnapshot, sid: str) -> Optional[float]:
+    h = next((h for h in snap.health if h.id == sid), None)
+    if h is None or not h.hazard:
+        return None
+    lel = live_gas(snap, h.zone)
+    return lel if lel >= LEL_CLEAR else None
 
 
 def arbitrate(edge: list[Action], cloud: list[Action], snap: SensorSnapshot) -> tuple[list[Action], list[dict]]:
@@ -59,7 +116,10 @@ def arbitrate(edge: list[Action], cloud: list[Action], snap: SensorSnapshot) -> 
     for a in cloud:
         why = None
         robot = snap.robot(a.robot)
-        if a.kind in UNSAFE_FOR_LOCKED and a.robot in locked:
+        gas = in_live_gas(snap, a.target) if a.purpose == VERIFY else None
+        if gas is not None:
+            why = f"hazard first: {a.target} sits in live gas ({gas:.0f}% LEL); the gas response goes first"
+        elif a.kind in UNSAFE_FOR_LOCKED and a.robot in locked:
             why = f"edge rule '{locked[a.robot].rule}' holds {a.robot}: {locked[a.robot].rationale}"
         elif a.kind in ("dispatch", "second_view") and _zone_of(a.target, snap) in hz:
             why = f"target zone {_zone_of(a.target, snap)} is evacuated by the edge gas rule"

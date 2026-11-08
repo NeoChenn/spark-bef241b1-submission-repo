@@ -181,7 +181,7 @@ def apply_event(bridge, event: dict, control=None) -> bool:
         if name == "cut_link":
             control.cut_link(bool(args.get("on", True)))
         else:
-            control.intent(str(args.get("text") or ""))
+            control.intent(str(args.get("text") or ""), background=True)
         return True
     if name in SCENARIO and not hasattr(bridge, name):
         if hasattr(bridge, "scenario"):

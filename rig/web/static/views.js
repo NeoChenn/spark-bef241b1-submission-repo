@@ -48,7 +48,7 @@
     ["thermal_c", "Thermal", "°C", 1, 1, { min: 0, max: 80, color: "rgba(255,255,255,.75)" }],
     ["force_n", "Contact force", "N", 1, 1, { min: 0, max: 70, ramp: H.fc, refs: [[40, "rgba(248,81,73,.6)"]] }],
     ["battery", "Battery", "%", 100, 0, { min: 0, max: 1, color: "#3FB950", refs: [[0.2, "rgba(227,179,65,.5)"]] }],
-    ["reach", "IK reach", "%", 100, 0, { min: 0, max: 1, color: "#D97757" }]];
+    ["reach", "IK reach", "%", 100, 0, { min: 0, max: 1, color: "#2EC4B6" }]];
   H.view({ id: "sensors", title: "Sensors", icon: "wave", key: "⇧S", keys: "gas ppm thermal force battery reach sparkline per robot",
     desc: "Per robot: gas, thermal, contact force against the 40 N line, battery and IK reach, over the last 30 s.",
     render(el) {

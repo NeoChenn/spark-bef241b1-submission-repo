@@ -80,7 +80,8 @@ class ArgonBackend:
                      self.model)
 
 
-HAZARD_KEYS = ("evacuate", "force_spike", "person", "leak_suspect", "recovering", "verifier_dispute", "storm")
+HAZARD_KEYS = ("evacuate", "force_spike", "person", "leak_suspect", "sensor_fault", "recovering", "verifier_dispute",
+               "storm")
 MAX_COMBINED = 3
 
 
@@ -95,6 +96,8 @@ def situation_keys(s: SensorSnapshot) -> list[str]:
         keys.append("person")
     if "evacuate" not in keys and any(g.lel >= 10.0 and g.lel_trend > 3.0 and g.db_trend > 3.0 for g in s.gas):
         keys.append("leak_suspect")
+    if any(h.job is None for h in s.faults()):
+        keys.append("sensor_fault")
     if "evacuate" not in keys and any(g.lel >= 5.0 and g.lel_trend < -3.0 for g in s.gas):
         keys.append("recovering")
     for v in s.verdicts:
@@ -115,6 +118,41 @@ def situation_key(s: SensorSnapshot) -> str:
     return situation_keys(s)[0]
 
 
+def _evidence(h) -> str:
+    e = h.evidence
+    if h.status == "STUCK":
+        return f"flat at {e.get('value')} (std {e.get('std')}) while neighbours vary (std {e.get('nbr_std')})"
+    if h.status == "DEAD":
+        return f"silent for {e.get('silent_s')} s"
+    if h.status == "DRIFT":
+        return f"bias {e.get('bias')} {e.get('unit', '')} vs neighbours (tol {e.get('tol')})"
+    if h.status == "NOISY":
+        return f"noise {e.get('noise')} = {e.get('ratio')}x neighbours"
+    return f"reads {e.get('value')} outside [{e.get('lo')}, {e.get('hi')}]"
+
+
+def fault_reply(snap: SensorSnapshot) -> dict:
+    actions, anomalies, lines = [], [], []
+    for h in snap.faults():
+        if h.job is not None:
+            continue
+        ok = sorted((c for c in h.candidates if c.get("ok")), key=lambda c: c["eta_s"])
+        why = _evidence(h)
+        lines.append(f"{h.id} {h.status}: {why}.")
+        anomalies.append({"kind": "sensor_fault", "zone": h.zone, "severity": "critical" if h.hazard else "warn",
+                          "confidence": 0.85, "sensors": [h.id], "note": f"{h.id} {why}"})
+        if ok:
+            c = ok[0]
+            actions.append({"kind": "dispatch", "robot": c["robot"], "target": h.id, "purpose": "verify_sensor",
+                            "confidence": 0.8, "rationale": f"{h.id} {why}; {c['robot']} is nearest with "
+                                                            f"{c['sensor']} ({c['eta_s']:.0f} s)."})
+        if h.hazard:
+            actions.append({"kind": "escalate", "robot": "", "target": h.id, "confidence": 0.9,
+                            "rationale": f"{h.id} is faulty beside live gas; treating {h.zone} as real gas."})
+    return {"situation": "\n".join(lines) or "Sensor faults already have jobs.", "actions": actions,
+            "anomalies": anomalies}
+
+
 class ReplayBackend:
     live = False
 
@@ -127,8 +165,9 @@ class ReplayBackend:
     def available(self) -> bool:
         return True
 
-    def compose(self, keys: list[str]) -> dict:
-        parts = [self.responses.get(k) or self.responses["nominal"] for k in keys]
+    def compose(self, keys: list[str], snap: Optional[SensorSnapshot] = None) -> dict:
+        parts = [fault_reply(snap) if k == "sensor_fault" and snap is not None else
+                 self.responses.get(k) or self.responses["nominal"] for k in keys]
         if len(parts) == 1:
             return parts[0]
         return {"situation": "\n".join(p["situation"].splitlines()[0] for p in parts),
@@ -141,7 +180,32 @@ class ReplayBackend:
         else:
             keys = situation_keys(snap)
             keys = [k for k in keys if k in HAZARD_KEYS][:MAX_COMBINED] or keys[:1]
-        text = json.dumps(self.compose(keys))
+        text = json.dumps(self.compose(keys, snap))
         h = int(prompt_hash(prompt), 16)
         tokens_in = (len(prompt["system"]) + len(prompt["text"])) // 4 + IMAGE_TOKENS * len(prompt["images"])
         return Reply(text, tokens_in, len(text) // 4, 280 + h % 420, 0, 1150.0 + h % 1400, self.model, "+".join(keys))
+
+
+def status_reply(snap: SensorSnapshot) -> dict:
+    working = [r.id for r in snap.robots if r.task]
+    g = max(snap.gas, key=lambda g: g.lel, default=None)
+    faults = snap.faults()
+    lines = [f"{len(working)} of {len(snap.robots)} robots on jobs; {len(faults)} of {len(snap.health)} fixed "
+             f"sensors suspect."]
+    actions, anomalies = [], []
+    if g is not None:
+        lines.append(f"Highest gas {g.id} {g.lel:.0f}% LEL in zone {g.zone or '-'} ({g.lel_trend:+.1f}%/min).")
+        if g.lel >= 10.0:
+            actions.append({"kind": "escalate", "robot": "", "target": g.zone, "confidence": 0.9,
+                            "rationale": f"{g.id} at {g.lel:.0f}% LEL: gas response running, crew informed."})
+            anomalies.append({"kind": "probable_leak", "zone": g.zone, "severity": "critical", "confidence": 0.85,
+                              "sensors": [g.id], "note": f"{g.id} {g.lel:.0f}% LEL rising {g.lel_trend:+.1f}%/min"})
+    return {"situation": "\n".join(lines), "actions": actions, "anomalies": anomalies}
+
+
+class ShiftReplayBackend(ReplayBackend):
+    def compose(self, keys: list[str], snap: Optional[SensorSnapshot] = None) -> dict:
+        parts = ([fault_reply(snap)] if "sensor_fault" in keys else []) + [status_reply(snap)]
+        return {"situation": "\n".join(p["situation"] for p in parts if p["actions"] or p is parts[-1]),
+                "actions": [a for p in parts for a in p["actions"]],
+                "anomalies": [a for p in parts for a in p["anomalies"]]}
