@@ -478,11 +478,11 @@ class DemoCan(Demo):
     id, name, main = "demo_can", "Demo: Can pick-up", "R3"
     steps = ("A can drops on the walkway", "Unit 3 walks to the can", "Suction cup seals on the can",
              "Learned pick-up carries it to the back tote", "Can stowed, Unit 3 moves on")
-    robots = (("R1", [-21.0, 4.0, 31.25], 0.9), ("R2", [10.0, 12.0, 20.0], 0.9), ("R3", [2.0, -4.6, 42.5], 0.95))
+    robots = (("R1", [-21.0, 4.0, 31.25], 0.9), ("R2", [10.0, 12.0, 20.0], 0.9), ("R3", [1.0, -4.6, 42.5], 0.95))
     weather = DEMO_WEATHER
-    start, stop, away, yaw = (2.0, -4.6), (5.5, -4.6), (7.0, -4.6), 0.0
-    drop_s, walk_s, rep_s, away_s = 0.8, (1.5, 6.0), 6.5, 1.8
-    cam = {"mode": "zoom", "at": [4.4, -4.3, 42.5], "lens": {"dist": 5.5, "elev": 32.0, "focal": 24.0, "az": [-65.0, 65.0, -115.0, 115.0]}}
+    start, stop, away, yaw = (1.0, -4.6), (3.5, -4.6), (4.5, -4.6), 0.0
+    drop_s, walk_s, rep_s, away_s = 0.8, (1.5, 5.0), 5.5, 1.5
+    cam = {"mode": "zoom", "at": [3.0, -4.4, 42.5], "lens": {"dist": 4.8, "elev": 32.0, "focal": 24.0, "az": [-65.0, 65.0, -115.0, 115.0]}}
 
     def setup(self) -> None:
         from rig.sim.taskmotion import Rollout
