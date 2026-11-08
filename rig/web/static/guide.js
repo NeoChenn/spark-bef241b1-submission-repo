@@ -2,24 +2,26 @@
   const H = HUD, { S, esc, icon } = H, Q = new URLSearchParams(location.search);
   const calls = () => {
     const c = S.argonCalls || [], lat = c.map((r) => +r.latency_ms || 0), cost = c.reduce((a, r) => a + (+r.cost_usd || 0), 0);
-    return c.length ? `${c.length} Argon calls, ${(lat.reduce((a, b) => a + b, 0) / lat.length / 1000).toFixed(1)} s mean latency, $${cost.toFixed(4)} in total.` : "";
+    return c.length ? `${c.length} Argon calls, ${(Math.min(...lat) / 1000).toFixed(1)}–${(Math.max(...lat) / 1000).toFixed(1)} s each, $${cost.toFixed(4)} in total.` : "";
   };
   const STEPS = [
     { t: 0, at: "0 s", title: "The setup", pause: true, pins: ["fleet", "control"], keys: ["B", "A", "⇧M"],
       say: "Two Go2 robots on the top deck: Unit 1 Scrubber does rust, Unit 2 Fixer does gas. Six fixed detectors G-F1…G-F6. Argon (gemini-4-argon) is the command centre." },
     { t: 2, at: "2–11 s", title: "Rust job", pins: ["vitals", "mission"], keys: ["V", "N"],
       say: "Unit 1 sprays remover, soaks, then scrubs. Brush force stays under the 40 N limit." },
-    { t: 4.5, at: "5–10 s", title: "A faulty detector", pins: ["gas", "control", "log"], keys: ["G", "A", "L"],
+    { t: 4.5, at: "5–13 s", title: "A faulty detector", pins: ["gas", "control", "log"], keys: ["G", "A", "L"],
       say: "G-F6 reads 14 % LEL, but Unit 2 right beside it reads 2 %: PIPE_SENSOR_FAULT. Argon files ticket MT-001 for a human. No repair is sent." },
     { t: 17.5, at: "18–21 s", title: "Leak at F5", pins: ["gas", "control", "log"], keys: ["G", "A"],
       say: "Bolt 3 at F5 works loose. G-F5 goes amber, then red. The spark rule holds Unit 1 at once, on the edge, without waiting for Gemini." },
-    { t: 23.5, at: "24.8 s", title: "Dispatch, and a refusal", pins: ["control", "log"], keys: ["A", "L"],
-      say: "Argon sends Unit 2 to check. The 'resume rust' in the same reply is refused, because G-F5 is still red." },
-    { t: 40.5, at: "41–57 s", title: "Unit 2 fixes the leak", pins: ["fleet", "control", "log"], keys: ["B", "A"],
+    { t: 27.5, at: "28.4 s", title: "Dispatch, and a refusal", pins: ["control", "log"], keys: ["A", "L"],
+      say: "Argon sends Unit 2 to check. The 'resume rust' in the same reply is refused: the leak at F5 is still open." },
+    { t: 29.5, at: "30–41 s", title: "Disturbances", pins: ["fleet", "nav", "log"], keys: ["B", "J", "L"],
+      say: "A crate drops on Unit 2's walkway. Its lidar stops it short and it reports the object; the edge rule, not Argon, holds it for the deck crew. After the crate is cleared, a sideways push knocks it off its path and it recovers." },
+    { t: 48.5, at: "50–66 s", title: "Unit 2 fixes the leak", pins: ["fleet", "control", "log"], keys: ["B", "A"],
       say: "Unit 2 sniffs at the flange: both sources agree, LEAK_CONFIRMED. Argon sends fix_leak, and Unit 2 re-torques bolt 3." },
-    { t: 57.5, at: "58–69 s", title: "All clear", pins: ["gas", "control", "log"], keys: ["G", "A"],
+    { t: 69, at: "70–76 s", title: "All clear", pins: ["gas", "control", "log"], keys: ["G", "A"],
       say: "G-F5 falls back to green. Argon clears the zone and Unit 1 resumes the paused rust job." },
-    { t: 80.5, at: "81–88 s", title: "Finish", pins: ["vitals", "pipe", "control"], keys: ["V", "M"],
+    { t: 88.5, at: "89–96 s", title: "Finish", pins: ["vitals", "pipe", "control"], keys: ["V", "M"],
       say: () => `Unit 1 verifies and paints; Unit 2 is docked. ${calls()}` },
     { at: "Live only", title: "Cut the link, give an order", keys: ["⇧8", "⇧A"],
       say: "In this replay, ⇧8 and the order box only add a banner and a log row; the recorded run does not change. In a live run the edge rules take over when the link is cut, and Argon reads the order." },
@@ -33,7 +35,7 @@
   card.hidden = true;
   document.body.append(btn);
   let cur = +(Q.get("guide") || 0), open = false, shown = "";
-  const now_ = () => STEPS.reduce((k, st, i) => (st.t != null && S.started && S.t >= st.t - 0.6 ? i : k), -1);
+  const now_ = () => STEPS.reduce((k, st, i) => (st.t != null && S.started && S.t >= st.t ? i : k), -1);
   function render() {
     const st = STEPS[cur], n = now_(), say = typeof st.say === "function" ? st.say() : st.say;
     const html = `<header>${icon("play")}<span>Guide</span><em>${cur + 1} / ${STEPS.length}</em><button class="gp" data-a="prev" aria-label="Previous step">‹</button><button class="gp" data-a="next" aria-label="Next step">›</button><button class="x" data-a="close" aria-label="Close guide">${icon("x")}</button></header>`
@@ -72,7 +74,7 @@
     else if (a === "close") toggle(false);
   });
   btn.onclick = () => toggle();
-  H.command({ id: "guide", group: "Demo", label: "Guided tour", icon: "play", key: "t", keys: "guide tour walkthrough steps help demo", desc: "A 9-step walkthrough of the fleet run. Each step jumps the replay to its moment and opens the right panels.", active: () => open, run: () => toggle() });
+  H.command({ id: "guide", group: "Demo", label: "Guided tour", icon: "play", key: "t", keys: "guide tour walkthrough steps help demo", desc: "A 10-step walkthrough of the fleet run. Each step jumps the replay to its moment and opens the right panels.", active: () => open, run: () => toggle() });
   H.command({ id: "pause", group: "Demo", label: "Pause or play the replay", icon: "play", key: "k", keys: "pause play stop freeze", desc: "Freezes the replay clock; press again to carry on.", active: () => H.paused(), run: () => { H.pause(); if (open) render(); } });
   setInterval(() => open && render(), 250);
   addEventListener("DOMContentLoaded", () => {
