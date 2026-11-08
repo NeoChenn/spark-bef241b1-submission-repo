@@ -216,10 +216,10 @@ def bind_overlay(stage, prim_path: str, mask: str, radius: float, length: float,
 
 
 def set_state(stage, state: str, progress: float = 0.0, material_path: str = OVERLAY_MATERIAL,
-              base_wetness: float = 0.0) -> dict:
+              base_wetness: float = 0.0, keys=("amount", "wetness")) -> dict:
     from pxr import Sdf, UsdShade
 
-    values = stage_inputs(state, progress, base_wetness)
+    values = {k: v for k, v in stage_inputs(state, progress, base_wetness).items() if k in keys}
     shader = UsdShade.Shader.Get(stage, f"{material_path}/{SHADER}")
     if shader:
         for key, value in values.items():
