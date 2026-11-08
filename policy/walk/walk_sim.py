@@ -274,7 +274,8 @@ def render(args, meta, full):
     cfg.scene.robot.spawn.make_instanceable = False
     cfg.viewer = ViewerCfg(eye=(0, 0, 3), lookat=(1, 0, 0), resolution=(1280, 720), origin_type="world")
     cfg.sim.render = RenderCfg(rendering_mode="quality", antialiasing_mode="DLAA", carb_settings={
-        "/rtx/rendermode": args.renderer, "/rtx/post/motionblur/enabled": False, "/rtx/post/dof/enabled": False})
+        "/rtx/rendermode": args.renderer, "/rtx/post/motionblur/enabled": False, "/rtx/post/dof/enabled": False,
+        "/rtx/post/histogram/enabled": False})
     env, policy = load_policy(make_env(cfg, render=True), args.ckpt)
     base = env.unwrapped
     stage = omni.usd.get_context().get_stage()
