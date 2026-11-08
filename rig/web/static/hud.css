@@ -448,3 +448,20 @@ body.presenter #guide-btn { opacity: 0; pointer-events: none; }
 .fu-cmd li.vetoed b s { opacity: .75; }
 .fu-quiet { display: flex; align-items: center; gap: 8px; margin: 2px 0 0; font-size: 12px; color: var(--label3); }
 .fu-cmd small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.nv { display: grid; grid-template-columns: 4.4em minmax(0, 1fr) 4.6em; align-items: center; column-gap: 8px; row-gap: 3px; font-size: 12px; margin-bottom: 6px; }
+.nv:last-child { margin-bottom: 0; }
+.nv > span { color: var(--label2); }
+.nv b { font-weight: 600; }
+.nv em { font-style: normal; text-align: right; color: var(--label2); }
+.nv i { position: relative; height: 4px; border-radius: 2px; background: var(--fill); }
+.nv i s { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--accent); }
+.nv i u { position: absolute; left: 50%; top: -3px; width: 1.5px; height: 10px; background: var(--warn); }
+#sim-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 400ms ease; }
+body.video #sim-video { opacity: 1; }
+body.video .shot { opacity: 0; }
+.g-scenes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--hair); }
+.g-scenes > span { grid-column: 1 / -1; font-size: 11px; color: var(--label3); }
+.g-scenes button { min-width: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 5px; height: 26px; border-radius: 7px; font-size: 11.5px; font-weight: 500; color: var(--label); background: var(--fill); white-space: nowrap; }
+.g-scenes button.on { box-shadow: inset 0 0 0 1px rgba(46,196,182,.6); }
+.g-scenes kbd { font-family: "JetBrains Mono", ui-monospace, monospace; padding: 1px 4px; min-width: 0; }
+.g-scenes button { padding: 0 4px; gap: 4px; text-overflow: ellipsis; }

@@ -113,15 +113,20 @@ def test_scenario_f5_bolt_3_is_retorqued_with_the_arm_skill_and_nav():
     fx = from_scenario(sc)
     fx.t = 10.0
     fx.command(command(FIX_LEAK, "F5", "argon", "both agree"))
-    phases, seen = set(), []
+    phases, seen, prev, jump = set(), [], None, 0.0
     while fx.t < 150.0 and not (fx.state == DOCKED and len(seen) > 1):
         sc.detector_readings(fx.t)
         fx.step(0.1)
         if fx.arm_phase:
             phases.add(fx.arm_phase)
-            assert fx.arm_q and "ur3_elbow_joint" in fx.arm_q
+        q = fx.arm_q
+        if prev is not None:
+            jump = max(jump, max(abs(q[k] - prev[k]) for k in q if k != "socket_drive_joint"))
+        prev = q
+        assert q["ur3_wrist_2_joint"] > 0.3 and q["ur3_elbow_joint"] > 0.3
         if not seen or seen[-1] != fx.state:
             seen.append(fx.state)
+    assert jump < 0.12
     assert seen == [TRANSIT, SNIFF, INSPECT, RETORQUE, VERIFY, RETURN, DOCKED]
     assert fx.arm.started == [("F5", 3)] and fx.alert["kind"] == "repaired"
     assert {"approach", "engage", "torque", "retract"} <= phases

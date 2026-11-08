@@ -97,8 +97,8 @@ tr.crit td{background:rgba(240,122,58,.13)}
 <section class="slide" style="justify-content:center;align-items:center;text-align:center;background:linear-gradient(rgba(15,23,32,.82),rgba(15,23,32,.82)),url('img/fleet_f5_unit2.png') center/cover">
   <h2 style="font-size:26px;color:var(--accent);letter-spacing:3px;text-transform:uppercase">Demo · one take · ≤ 60 s</h2>
   <div class="big">▶ Play video</div>
-  <p style="margin-top:26px;max-width:1040px">Unit 1 sprays and scrubs → a bolt loosens at F5 (scripted, not announced) → detector amber: spark rule holds Unit 1 → Argon sends Unit 2 → leak confirmed → re-torque → green → Argon resumes Unit 1 → paint</p>
-  <p style="font-size:21px;max-width:1040px">Also in the run: a stuck detector gets a ticket, not a repair · Argon's premature “resume” is refused while the leak is open</p>
+  <p style="margin-top:26px;max-width:1040px">Unit 1 sprays and scrubs → a bolt loosens at F5 (scripted, not announced) → detector amber: spark rule holds Unit 1 → Argon sends Unit 2 → a crate blocks its path: lidar stop, report, push recovery → leak confirmed → re-torque → green → Argon resumes Unit 1 → paint</p>
+  <p style="font-size:21px;max-width:1040px">Also in the run: the gas plume at the loose bolt · a stuck detector gets a ticket, not a repair · Argon's premature “resume” is refused while the leak is open</p>
   <p class="mute" style="font-size:19px">File: <span class="tbd">TBD</span> (runs/fleet/fleet_video.mp4) · fallback: the fleet HUD replay of the live Argon run</p>
 </section>
 
@@ -112,7 +112,7 @@ tr.crit td{background:rgba(240,122,58,.13)}
     <tr><td>High</td><td>Too far away to tell</td><td><b>UNVERIFIED</b></td><td>Send Unit 2 to check</td></tr>
     <tr><td>Clean</td><td>Clean</td><td><b>OK</b></td><td>Carry on</td></tr>
   </table>
-  <div class="stat"><div><b>18/18</b>scenario evals correct</div><div><b>4/4</b>valid live calls in the demo run</div><div><b>4–9 s</b>per call, non-blocking</div><div><b>≈ $0.003</b>per call</div></div>
+  <div class="stat"><div><b>18/18</b>scenario evals correct</div><div><b>4/4</b>valid live calls in the demo run</div><div><b>6–11 s</b>per call, non-blocking</div><div><b>≈ $0.003</b>per call</div></div>
   <p class="foot"><b style="color:var(--ink)">Hazard first:</b> ≥ 20 %LEL is always real gas. <b style="color:var(--ink)">Spark rule:</b> hot work stops within 6 m of an amber or red detector. Link cut, timeout or a bad reply → the same rules decide locally.</p>
 </section>
 
@@ -173,8 +173,8 @@ tr.crit td{background:rgba(240,122,58,.13)}
 <section class="slide">
   <h2><small>Edge autonomy · what's next</small>The fast loop never leaves the robot</h2>
   <div class="row">
-    <div class="zone" style="border-color:var(--accent)"><h3 class="acc">On the robot · CPU</h3><ul><li>Rust detector: 1.1 ms</li><li>Scrub policy: 0.012 ms*</li><li>Leak check: ~90 ms / frame*</li><li>Lidar navigation · safety rules</li><li>GB10 TensorRT: <span class="tbd">TBD</span></li></ul></div>
-    <div class="zone"><h3>Cloud · Argon</h3><ul><li>gemini-4-argon fleet decisions</li><li>Non-blocking · 4–9 s per call</li><li>Gemini rust second opinion</li><li>Offline → edge rules make the safe call</li></ul></div>
+    <div class="zone" style="border-color:var(--accent)"><h3 class="acc">On the robot · CPU</h3><ul><li>Rust detector: 1.1 ms</li><li>Scrub policy: 0.012 ms*</li><li>Leak check: ~90 ms / frame*</li><li>Lidar stop-and-report · push recovery · safety rules</li><li>GB10 TensorRT: <span class="tbd">TBD</span></li></ul></div>
+    <div class="zone"><h3>Cloud · Argon</h3><ul><li>gemini-4-argon fleet decisions</li><li>Non-blocking · 6–11 s per call</li><li>Gemini rust second opinion</li><li>Offline → edge rules make the safe call</li></ul></div>
     <div class="zone"><h3>Training only</h3><ul><li>Modal A10G · L40S</li><li>GB10: PPO + RTX render + stream</li></ul></div>
   </div>
   <div class="card g" style="margin-top:22px;flex:none"><h3 class="gas" style="font-size:22px">Next</h3><p>Trained PPO lidar navigation on both units (the demo uses the pure-pursuit fallback) · 3D gas plume with orifice leak rate · storm adaptation · more units and jobs under Argon</p></div>

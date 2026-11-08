@@ -1,6 +1,6 @@
 # Demo guide: two-robot fleet with Argon
 
-A replay of the recorded live run (`runs_sample/fleet_demo`, gemini-4-argon, 88 s). Unit 1 Scrubber does rust, Unit 2 Fixer does gas, and Argon is the command centre.
+A replay of the recorded live run (`runs_sample/fleet_demo`, gemini-4-argon, 96 s, full-rate HUD). Unit 1 Scrubber does rust, Unit 2 Fixer does gas, and Argon is the command centre.
 
 ## Open it
 
@@ -12,6 +12,16 @@ If port 9000 is taken by a running sim, add `SIM_PORT=9079` in front. Then open:
 
 **http://localhost:8080/?replay=runs_sample/fleet_demo**
 
+The recorded Isaac render plays behind the HUD, synced to the replay clock. The server attaches the newest playable `runs/fleet_isaac/*/fleet_isaac.mp4` only if it can verify that the render belongs to this run. Either its `fleet_isaac.json` has a `timeline_sha256` equal to this timeline's, or the render ends within 1 s of the replay's end. Otherwise nothing is attached; `&video=runs/fleet_isaac/final2/fleet_isaac.mp4` forces one. Without a video the still rig image stays. Camera keys 1–3 only work in the live sim.
+
+**Scenes** (also on the Guide card). Press once for the first moment, and again for the second:
+
+| Key | Scene | Jumps to | Panels |
+|---|---|---|---|
+| 4 | Rust job | 2 s spray, soak, scrub → 75.5 s resume and paint | Vitals (brush force), Pipe map |
+| 5 | Pipe fix | 17.5 s leak and hold → 60 s re-torque | Gas, Control centre |
+| 6 | Disturbances | 29.5 s crate stop → 37 s push | Navigation, Fleet map |
+
 Press **T** (or click **Guide**, top left). Each step has a **Jump** button that seeks the replay and opens the right panels. **K** pauses and plays, and **H** lists every key.
 
 ## Steps
@@ -20,19 +30,21 @@ Press **T** (or click **Guide**, top left). Each step has a **Jump** button that
 |---|---|---|---|
 | 1 | 0 s (paused) | Two Go2 robots on the top deck. Unit 1 Scrubber does rust, Unit 2 Fixer does gas. Six fixed detectors G-F1…G-F6. Argon is the command centre. | B fleet, A control, ⇧M map |
 | 2 | 2 s | Unit 1 sprays remover, soaks, then scrubs. Brush force stays under 40 N. | V vitals, N mission |
-| 3 | 4.5 s | G-F6 reads 14 % LEL, but Unit 2 beside it reads 2 %: PIPE_SENSOR_FAULT. Argon files ticket MT-001 for a human (9.7 s). No repair is sent. | G gas, A, L log |
+| 3 | 4.5 s | G-F6 reads 14 % LEL, but Unit 2 beside it reads 2 %: PIPE_SENSOR_FAULT (5 s). Argon files ticket MT-001 for a human (12.9 s). No repair is sent. | G gas, A, L log |
 | 4 | 17.5 s | Bolt 3 at F5 loosens. G-F5 goes amber (18.8 s), then red (20.6 s). The spark rule holds Unit 1 at once, on the edge. | G, A |
-| 5 | 23.5 s | Argon sends Unit 2 to check (24.8 s). The "resume rust" in the same reply is refused, because G-F5 is still red. | A, L |
-| 6 | 40.5 s | Unit 2 sniffs: LEAK_CONFIRMED (41.1 s). Argon sends fix_leak (49.7 s), and Unit 2 re-torques bolt 3 (53–57 s). | B, A |
-| 7 | 57.5 s | G-F5 is green at 60.6 s. Argon clears the zone and Unit 1 resumes (68.7 s). | G, A |
-| 8 | 80.5 s | Unit 1 verifies and paints, and Unit 2 docks. 4 Argon calls, 6.4 s mean latency, $0.0123 in total. | V, M pipe |
-| 9 | live only | ⇧8 cuts the Gemini link and ⇧A opens the order box. In a replay they only add a banner and a log row; in a live run the edge rules take over and Argon reads the order. | ⇧8, ⇧A |
+| 5 | 27.5 s | Argon sends Unit 2 to check (28.4 s). The "resume rust" in the same reply is refused: the leak at F5 is still open. | A, L |
+| 6 | 29.5 s | A crate drops on Unit 2's walkway (30.0 s). Lidar stops it 1.4 m short and it reports the object (31.2 s). The edge rule, not Argon, holds it for the deck crew. The crate is cleared at 34.2 s, and Unit 2 walks on. A 0.4 m push (37.5 s) knocks it off its path, and it recovers by 41.0 s. | B, J navigation, L |
+| 7 | 48.5 s | Unit 2 sniffs: LEAK_CONFIRMED (49.9 s). Argon sends fix_leak (60.5 s), and Unit 2 re-torques bolt 3 (62.6–66.1 s). | B, A |
+| 8 | 69 s | G-F5 is green at 70.0 s. Argon clears the zone and Unit 1 resumes (75.9 s). | G, A |
+| 9 | 88.5 s | Unit 1 verifies and paints (90.6 s), and Unit 2 docks (92.2 s). The run ends at 95.9 s. 4 Argon calls, 5.9–10.5 s each, $0.0116 in total. | V, M pipe |
+| 10 | live only | ⇧8 cuts the Gemini link and ⇧A opens the order box. In a replay they only add a banner and a log row; in a live run the edge rules take over and Argon reads the order. | ⇧8, ⇧A |
 
 ## Keys
 
 | Key | Does |
 |---|---|
 | T | Guide |
+| 4 5 6 | Scenes: rust job, pipe fix, disturbances |
 | K | Pause / play |
 | Space | Start |
 | H or ? | All controls |
@@ -40,7 +52,7 @@ Press **T** (or click **Guide**, top left). Each step has a **Jump** button that
 | P | Presenter mode (clean video) |
 | X | Close all panels |
 | Esc | Close a view |
-| A B G L M N V | Control centre, Fleet, Gas, Decisions, Pipe map, Mission, Vitals |
+| A B G J L M N V | Control centre, Fleet, Gas, Navigation, Decisions, Pipe map, Mission, Vitals |
 | ⇧M ⇧F ⇧S ⇧O ⇧B | Mission map, First person, Sensors, Orchestrator, Benchmarks |
 
 You can also start the replay at any time with a URL parameter, for example `&t=40`.

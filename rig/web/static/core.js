@@ -505,14 +505,14 @@
   isl.onclick = () => (palOpen ? closePal() : openPal());
   $("p-keep").textContent = MAC ? "⌘↵" : "Ctrl ↵";
   B.classList.toggle("presenter", presenter);
-  window.HUD = { S, commands: () => [...C.values()], begin, pause, paused: () => pausedAt != null, jump, layout, replayed: () => !!session, ask, panel, command, uncommand, view, on: (f) => hooks.push(f), apply, event, post, judge, banner, addLog, setState, focus, shot, openView, num, set, esc, q, fit, spark, push, icon, nice, now, json };
+  window.HUD = { S, commands: () => [...C.values()], clock: () => (playT0 == null ? offset : clock()), speed: SPEED, session: () => session, begin, pause, paused: () => pausedAt != null, jump, layout, replayed: () => !!session, ask, panel, command, uncommand, view, on: (f) => hooks.push(f), apply, event, post, judge, banner, addLog, setState, focus, shot, openView, num, set, esc, q, fit, spark, push, icon, nice, now, json };
   addEventListener("DOMContentLoaded", () => {
     booted = true;
     pins.forEach((id) => show(id));
     if (SIM) {
       set($("status"), REPLAY ? "Replay " + REPLAY.split("/").pop() : "Mock replay");
       shot(1);
-      json(REPLAY ? "/api/replay?path=" + encodeURIComponent(REPLAY) : "/api/mock").then((s) => {
+      json(REPLAY ? "/api/replay?path=" + encodeURIComponent(REPLAY) + (Q.get("video") ? "&video=" + encodeURIComponent(Q.get("video")) : "") : "/api/mock").then((s) => {
         if (!s) return set($("status"), "Replay not found");
         s.snapshots = s.snapshots.concat(s.fleet || []); session = s;
         if (playT0 != null && offset) seek(offset);
