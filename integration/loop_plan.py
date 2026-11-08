@@ -97,3 +97,26 @@ def plan_reposition(err: Callable, targets, dxs=(0.0, 0.1, -0.1, 0.2, -0.2, 0.3,
     if n <= before:
         dx, lift, n = 0.0, lift0, before
     return {"dx": float(dx), "lift": float(lift), "reached": int(n), "before": int(before), "targets": len(targets)}
+
+
+def ik_error(model, base: np.ndarray, q: dict, target, joints, iterations: int = 60, damping: float = 0.05) -> float:
+    fk = brush_fk(model, base)
+    q = dict(q)
+    target = np.asarray(target, float)
+    for _ in range(iterations):
+        p = fk(q)
+        e = target - p
+        n = float(np.linalg.norm(e))
+        if n < 2e-3:
+            break
+        J = np.zeros((3, len(joints)))
+        for k, name in enumerate(joints):
+            d = dict(q)
+            d[name] += 1e-5
+            J[:, k] = (fk(d) - p) / 1e-5
+        e = e * min(1.0, 0.05 / n)
+        dq = J.T @ np.linalg.solve(J @ J.T + damping ** 2 * np.eye(3), e)
+        for k, name in enumerate(joints):
+            j = model.joints[name]
+            q[name] = float(np.clip(q[name] + dq[k], j.lower, j.upper))
+    return float(np.linalg.norm(target - fk(q)))

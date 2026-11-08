@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from integration.kinematics import ARM_START, ARM_STOWED, RobotModel, pose
-from integration.loop_plan import (PipeCyl, brush_fk, clearance, path_clearance, plan_reposition, plan_staged,
+from integration.loop_plan import (PipeCyl, brush_fk, clearance, ik_error, path_clearance, plan_reposition, plan_staged,
                                    retract_target)
 
 PIPE = PipeCyl(origin=(0.0, -0.5, 1.1), axis=(1.0, 0.0, 0.0), radius=0.15, half_length=2.0)
@@ -73,3 +73,14 @@ def test_reposition_picks_smallest_move_that_reaches_all():
 def test_reposition_stays_put_when_already_reachable():
     plan = plan_reposition(lambda dx, l, t: 0.0, [np.zeros(3)], dxs=(0.2, 0.0), lifts=(0.45, 0.42), lift0=0.42)
     assert plan["dx"] == 0.0 and plan["lift"] == 0.42
+
+
+def test_ik_error_reachable_and_far():
+    m = RobotModel.from_urdf()
+    base = pose(0.0, 0.0, 0.32)
+    fk = brush_fk(m, base)
+    q = dict(ARM_START)
+    p = fk(q)
+    names = [n for n in ARM_START if n != "lift_joint"]
+    assert ik_error(m, base, q, p + np.array([0.05, 0.03, -0.04]), names) < 0.005
+    assert ik_error(m, base, q, p + np.array([2.0, 0.0, 0.0]), names) > 1.0

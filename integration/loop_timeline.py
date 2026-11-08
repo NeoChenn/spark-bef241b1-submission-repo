@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from rig.captions import robot_entry
 
-MISSION = ("WALK", "STANCE", "DEPLOY", "DETECT", "SPRAY", "SOAK", "SCRUB", "VERIFY", "REPOSITION", "PAINT",
+MISSION = ("WALK", "STANCE", "DETECT", "DEPLOY", "SPRAY", "SOAK", "SCRUB", "VERIFY", "REPOSITION", "PAINT",
            "VERIFY_PAINT", "DONE")
 ORCH = {"PATROL": "WALK", "APPROACH": "DEPLOY", "BACK_OFF": "SCRUB", "SCRUB_LIFT": "SCRUB",
         "PAUSE_PERSON": "PAUSE", "HOLD": "HOLD"}
