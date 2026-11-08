@@ -207,12 +207,26 @@ def test_film_story_runs_in_order_with_both_units_back_home(film):
     assert not [k for k in FILM + ["leak_start", "rust_flag", "u1_held", "u2_return", "u2_docked"] if b[k] is None]
     assert [b[k] for k in FILM] == sorted(b[k] for k in FILM)
     assert b["calm_end"] >= 3.0 and b["rust_flag"] - b["leak_start"] <= 1.0 and b["u1_held"] < b["dispatch_u2"]
-    assert b["u2_return"] < b["dispatch_u1"] + 5.0
+    assert b["u2_return"] == b["u1_return"] and b["torque_done"] < b["u2_standby"] < b["u1_arrive"]
     last = ticks(rows)[-1]
     assert last["robots"][SCRUBBER]["state"] == "DOCKED" and last["robots"][FIXER]["state"] == "DOCKED"
     assert math.dist(last["robots"][SCRUBBER]["pose"][:2], demo.u1.dock) < 0.3
     assert math.dist(last["robots"][FIXER]["pose"][:2], demo.u2.dock) < 0.3
     assert not [r for r in rows if r["type"] in ("ticket", "object_report") or r.get("name") in ("push", "object_dropped")]
+
+
+def test_film_unit2_stands_by_at_f5_and_both_walk_home_together(film):
+    demo, s, rows = film
+    b = s["beats"]
+    stand = [r for r in ticks(rows) if b["u2_standby"] <= r["t"] < b["u2_return"]]
+    assert stand and all(r["robots"][FIXER]["state"] == "STANDBY" for r in stand)
+    assert all(r["robots"][FIXER]["caption"] == "Unit 2 standing by at F5 while Unit 1 works" for r in stand)
+    xy = [r["robots"][FIXER]["pose"][:2] for r in stand]
+    assert max(math.dist(p, xy[0]) for p in xy) < 0.05 and math.dist(xy[0], demo.u2.dock) > 5.0
+    home = lambda rid: [r["t"] for r in ticks(rows) if r["robots"][rid]["state"] == "RETURN"]
+    u1, u2 = home(SCRUBBER), home(FIXER)
+    assert u1 and u2 and max(min(u1), min(u2)) < min(max(u1), max(u2))
+    assert b["u2_return"] >= b["paint_done"] and b["both_docked"] == max(b["u1_docked"], b["u2_docked"])
 
 
 def test_film_unit1_waits_docked_until_g_f5_is_green(film):
