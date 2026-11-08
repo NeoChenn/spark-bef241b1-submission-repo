@@ -1,4 +1,5 @@
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -186,3 +187,71 @@ def test_replay_of_the_live_recording_reaches_every_beat():
     assert all(s["beats"][k] is not None for k in ORDER)
     assert s["argon"]["ok"] >= 1
     assert beats(demo.timeline.rows) == s["beats"]
+
+
+FILM = ["calm_end", "alarm", "dispatch_u2", "u2_walk", "u2_arrive", "u2_engage", "torque_done", "gf5_green",
+        "dispatch_u1", "u1_arrive", "spray", "soak", "scrub", "scrub_done", "paint", "paint_done", "u1_return",
+        "u1_docked", "both_docked"]
+FILM_SAMPLE = Path(__file__).resolve().parent.parent / "runs_sample/film"
+
+
+@pytest.fixture(scope="module")
+def film():
+    demo = FleetDemo("edge", None, film=True)
+    return demo, demo.run(), demo.timeline.rows
+
+
+def test_film_story_runs_in_order_with_both_units_back_home(film):
+    demo, s, rows = film
+    b = s["beats"]
+    assert not [k for k in FILM + ["leak_start", "rust_flag", "u1_held", "u2_return", "u2_docked"] if b[k] is None]
+    assert [b[k] for k in FILM] == sorted(b[k] for k in FILM)
+    assert b["calm_end"] >= 3.0 and b["rust_flag"] - b["leak_start"] <= 1.0 and b["u1_held"] < b["dispatch_u2"]
+    assert b["u2_return"] < b["dispatch_u1"] + 5.0
+    last = ticks(rows)[-1]
+    assert last["robots"][SCRUBBER]["state"] == "DOCKED" and last["robots"][FIXER]["state"] == "DOCKED"
+    assert math.dist(last["robots"][SCRUBBER]["pose"][:2], demo.u1.dock) < 0.3
+    assert math.dist(last["robots"][FIXER]["pose"][:2], demo.u2.dock) < 0.3
+    assert not [r for r in rows if r["type"] in ("ticket", "object_report") or r.get("name") in ("push", "object_dropped")]
+
+
+def test_film_unit1_waits_docked_until_g_f5_is_green(film):
+    _, s, rows = film
+    b = s["beats"]
+    before = [r for r in ticks(rows) if r["t"] < b["dispatch_u1"]]
+    assert {r["robots"][SCRUBBER]["state"] for r in before} <= {"DOCKED", "QUEUED"}
+    tick = max((r for r in ticks(rows) if r["t"] <= b["dispatch_u1"]), key=lambda r: r["t"])
+    assert next(d for d in tick["detectors"] if d["id"] == "G-F5")["led"] == "green"
+
+
+def test_film_gas_only_falls_after_the_torque_completes(film):
+    _, s, rows = film
+    td = s["beats"]["torque_done"]
+    g5 = [(r["t"], next(d["lel"] for d in r["detectors"] if d["id"] == "G-F5")) for r in ticks(rows)]
+    pre = [v for t, v in g5 if s["beats"]["leak_start"] <= t <= td]
+    assert all(b >= a - 0.01 for a, b in zip(pre, pre[1:]))
+    post = [v for t, v in g5 if t > td + 1.0]
+    assert post[0] < pre[-1] and post[-1] < 5.0
+
+
+def test_film_board_is_modelled_and_tells_the_same_story(film):
+    _, s, rows = film
+    b = s["beats"]
+    t = ticks(rows)
+    calm = [r["board"] for r in t if r["t"] < b["calm_end"]]
+    flagged = [r["board"] for r in t if b["rust_flag"] < r["t"] < b["dispatch_u1"]]
+    done = t[-1]["board"]
+    assert calm and all(x["modelled"] and not x["corrosion_alarm"] for x in calm)
+    assert all("F5-F6" in x["corrosion_alarm"] and x["coating"]["F5-F6"] == "breached" for x in flagged)
+    assert not done["corrosion_alarm"] and done["coating"]["F5-F6"] == "new primer"
+    assert {"pressure_bar", "temperature_c", "flow_m3h"} <= set(done["process"]) and "sea_state" in done["weather"]
+    assert set(done["battery"]) == {SCRUBBER, FIXER} and s["board_modelled"]
+
+
+@pytest.mark.skipif(not (FILM_SAMPLE / "timeline.jsonl").exists(), reason="no recorded film run")
+def test_film_replay_reproduces_the_recorded_run():
+    rec = json.loads((FILM_SAMPLE / "summary.json").read_text())
+    demo = FleetDemo("replay", None, replay_from=str(FILM_SAMPLE / "timeline.jsonl"), film=True)
+    s = demo.run()
+    assert s["beats"] == rec["beats"] and s["argon"]["commands"] == rec["argon"]["commands"]
+    assert [c["key"] for c in s["argon_calls"]] == ["G-F5:UNVERIFIED", "G-F5:LEAK_CONFIRMED", "zone:clear"]
