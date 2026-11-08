@@ -58,6 +58,15 @@ STATE_COLORS = {
 }
 
 
+# On-screen names and colours (the timeline keeps the ids). Unknown ids show as themselves.
+ROBOT_NAMES = {"Q1": "Dog-1", "Q2": "Dog-2", "A1": "Drone", "C1": "Crawler"}
+ROBOT_COLORS = {"Q1": (0x2E, 0xE6, 0xD6), "Q2": (0xFF, 0xB0, 0x20), "A1": (0xF3, 0xF5, 0xF8), "C1": (0xA7, 0x8B, 0xFA)}
+
+
+def display_name(rid: Optional[str]) -> str:
+    return ROBOT_NAMES.get(rid, rid or "")
+
+
 def state_color(state: str) -> tuple[int, int, int]:
     state = (state or "").upper()
     if state in STATE_COLORS:
@@ -92,7 +101,7 @@ class Event:
         return np.asarray(p, float) if p is not None and len(p) == 3 else None
 
     def text(self) -> str:
-        who = f"{self.robot} " if self.robot else ""
+        who = f"{display_name(self.robot)} " if self.robot else ""
         what = self.event.replace("_", " ")
         job = f" [{self.job}]" if self.job else ""
         note = self.detail.get("summary") or self.detail.get("note") if isinstance(self.detail, dict) else None
@@ -616,8 +625,8 @@ def draw_fleet_hud(rgb: np.ndarray, timeline: Timeline, t: float, shot: Shot,
         r = int(5 * scale)
         d.ellipse([pad * 2, y + 3, pad * 2 + 2 * r, y + 3 + 2 * r], fill=color + (255,))
         job = tr.job(t) or "-"
-        style = (255, 255, 255) if rid == shot.robot else (215, 215, 215)
-        d.text((pad * 2 + 3 * r, y), f"{rid}  {tr.state(t):<11} {job}"[:52], fill=style, font=font)
+        style = ROBOT_COLORS.get(rid) or ((255, 255, 255) if rid == shot.robot else (215, 215, 215))
+        d.text((pad * 2 + 3 * r, y), f"{display_name(rid):<7} {tr.state(t):<11} {job}"[:52], fill=style, font=font)
     events = recent_events(timeline, t)
     if events:
         h = line * len(events) + pad
@@ -631,9 +640,11 @@ def draw_fleet_hud(rgb: np.ndarray, timeline: Timeline, t: float, shot: Shot,
         if not (0 <= x < im.width and 0 <= y < im.height):
             continue
         color = state_color(timeline.tracks[rid].state(t))
-        tw = int(30 * scale)
-        d.rectangle([x - tw / 2, y - line, x + tw / 2, y - 3], fill=(0, 0, 0, 150), outline=color + (255,))
-        d.text((x - tw / 2 + 4, y - line + 2), rid, fill=(255, 255, 255), font=small)
+        name = display_name(rid)
+        own = ROBOT_COLORS.get(rid, color)
+        tw = int((8 * len(name) + 14) * scale)
+        d.rectangle([x - tw / 2, y - line, x + tw / 2, y - 3], fill=(0, 0, 0, 150), outline=own + (255,))
+        d.text((x - tw / 2 + 4, y - line + 2), name, fill=own if rid in ROBOT_COLORS else (255, 255, 255), font=small)
         d.line([x, y - 3, x, y + 6], fill=color + (220,), width=2)
     return np.asarray(im)
 

@@ -14,7 +14,7 @@ from typing import Optional
 import numpy as np
 from pxr import Gf, Sdf, UsdGeom, UsdShade
 
-from fleet_replay import Track, deck_height, state_color
+from fleet_replay import ROBOT_COLORS, Track, deck_height, state_color
 from integration import repair_scene as rs
 from integration.kinematics import ARM_START, ARM_STOWED, TRUNK_HEIGHT, RobotModel, axis_angle, pose
 
@@ -147,7 +147,8 @@ class FleetRobot:
 
     def __init__(self, stage, robot_id: str, index: int, root: str):
         self.stage, self.id, self.path = stage, robot_id, f"{root}/{robot_id}"
-        self.color = ID_COLORS[index % len(ID_COLORS)]
+        own = ROBOT_COLORS.get(robot_id)
+        self.color = tuple(c / 255.0 for c in own) if own else ID_COLORS[index % len(ID_COLORS)]
         self.xform = UsdGeom.Xform.Define(stage, self.path)
         self.op = self.xform.AddTransformOp()
         self.op.Set(Gf.Matrix4d(1.0))

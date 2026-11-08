@@ -1,0 +1,118 @@
+{
+ "scenario": "gas leak at a flange near valve_05; drone localises, Dog-1 isolates (SUPV), confirm survey, crawler UT on the spool",
+ "times_s": {
+  "leak_to_detect_s": 6.0,
+  "leak_to_localised_s": 77.0,
+  "leak_to_approval_requested_s": 77.0,
+  "leak_to_approved_s": 107.0,
+  "leak_to_valve_turned_s": 110.0,
+  "leak_to_isolated_s": 260.0,
+  "leak_to_confirmed_s": 312.0,
+  "leak_to_ut_done_s": 501.0,
+  "approval_wait_s": 30.0
+ },
+ "milestones_t": {
+  "leak_t": 15.0,
+  "detect_t": 21.0,
+  "gauge_read_start_t": 25.0,
+  "survey_start_t": 37.0,
+  "gauge_read_done_t": 45.0,
+  "survey_done_t": 92.0,
+  "localised_t": 92.0,
+  "approval_requested_t": 92.0,
+  "approved_t": 122.0,
+  "isolate_start_t": 125.0,
+  "isolate_done_t": 275.0,
+  "isolated_t": 275.0,
+  "confirm_start_t": 305.0,
+  "confirm_done_t": 327.0,
+  "confirmed_t": 327.0,
+  "prep_start_t": 328.0,
+  "ut_start_t": 362.0,
+  "prep_done_t": 388.0,
+  "ut_done_t": 516.0,
+  "valve_turned_t": 125.0
+ },
+ "localisation": {
+  "estimate_xy": [
+   20.96,
+   -10.09
+  ],
+  "radius95_m": 0.24,
+  "error_m": 0.117,
+  "truth_inside_radius": true,
+  "peak_lel": 0.126,
+  "n_samples": 22,
+  "valves_skipped": [
+   "valve_05 (predicted 0.33 LEL at its stance)"
+  ]
+ },
+ "truth_xy": [
+  21.0,
+  -10.2
+ ],
+ "valve": "valve_06",
+ "approved_by": "operator",
+ "actuated_before_approval": false,
+ "gas_lel": {
+  "at_source_before": 0.42,
+  "at_source_after": 0.04,
+  "confirm_excess_before": 0.0699,
+  "confirm_excess_after": 0.0041,
+  "confirm_ratio": 0.059,
+  "background": 0.02
+ },
+ "confirm_result": "leak_isolated",
+ "torque_peak_nm": 6.06,
+ "ut": {
+  "status": "DONE",
+  "log": "25 UT points (0 re-takes), min 11.97 mm at {'theta_deg': 82.8, 'z_m': 0.3}, allowed 9.70 mm",
+  "finding": null
+ },
+ "robots_by_role": {
+  "survey": "A1",
+  "isolate": "Q1",
+  "confirm": "Q2",
+  "prep": "Q2",
+  "ut": "C1"
+ },
+ "robots_involved": [
+  "A1",
+  "C1",
+  "Q1",
+  "Q2"
+ ],
+ "names": {
+  "A1": "Drone",
+  "C1": "Crawler",
+  "Q1": "Dog-1",
+  "Q2": "Dog-2"
+ },
+ "executors": {
+  "gas_survey": "real",
+  "gauge_read": "real",
+  "leak_repair_prep": "stub",
+  "ut_thickness": "real",
+  "valve_isolate": "real"
+ },
+ "used_gemini": false,
+ "approve_after_s": 30.0,
+ "end_t": 525.0,
+ "status": {
+  "gauge_read-001": "DONE",
+  "gas_survey-002": "FINDING",
+  "gas_survey-002-isolate-valve_06": "FINDING",
+  "gas_survey-002-isolate-valve_06-confirm": "FINDING",
+  "ut_thickness-003": "DONE",
+  "gas_survey-002-isolate-valve_06-confirm-prep": "HANDED_TO_HUMAN"
+ },
+ "render": {
+  "true_start_t": 9.0,
+  "true_end_t": 524.0,
+  "render_s": 76.3,
+  "speedup_overall": 6.75,
+  "rates": "1.5x within 3 s of a key event, 6x while any robot moves or samples, 24x otherwise",
+  "step_s": 0.25,
+  "drone_survey_path": "drawn through the survey's 8 strongest sample points"
+ }
+}
