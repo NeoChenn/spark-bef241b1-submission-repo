@@ -85,6 +85,14 @@ def test_loop_rate():
     assert math.isinf(loop_rate([]))
 
 
+def test_window_samples_assigns_by_time_and_skips_settle():
+    from infra.edge.stats import window_samples
+
+    samples = [(0.05, 1.0), (0.2, 2.0), (0.9, 3.0), (1.1, 4.0), (1.6, 5.0), (2.5, 6.0)]
+    assert window_samples(samples, [(0.0, 1.0), (1.5, 2.0)], settle=0.1) == [2.0, 3.0, 5.0]
+    assert window_samples(samples, [], settle=0.0) == []
+
+
 def _fake_run(det_ms, pol_ms):
     def e(ms, w):
         return {"latency": {"p50_ms": ms, "p99_ms": 2 * ms}, "power": {"load_mean_w": w, "delta_w": 1.5}}

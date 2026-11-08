@@ -64,6 +64,10 @@ def binary_metrics(z, y, thr_logit: float = 0.0) -> dict:
             "precision": prec, "recall": rec, "f1": 2 * prec * rec / (prec + rec) if prec + rec else 0.0}
 
 
+def window_samples(samples, windows, settle: float = 0.15) -> list[float]:
+    return [v for t, v in samples if any(t0 + settle <= t <= t1 for t0, t1 in windows)]
+
+
 def loop_rate(stage_ms) -> float:
     t = float(sum(stage_ms))
     return float("inf") if t <= 0 else 1000.0 / t
