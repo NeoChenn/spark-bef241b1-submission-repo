@@ -60,6 +60,7 @@ def request_body(p: dict, model: str, thinking: str = "low", max_output_tokens: 
         "store": False,
         "system_instruction": p["system"],
         "input": parts,
-        "generation_config": {"thinking_level": thinking, "max_output_tokens": max_output_tokens},
+        "generation_config": {"thinking_level": thinking, "thinking_summaries": "auto",
+                              "max_output_tokens": max_output_tokens},
         "response_format": {"type": "text", "mime_type": "application/json", "schema": RESPONSE_SCHEMA},
     }
