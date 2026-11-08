@@ -107,21 +107,28 @@ def zones_json(c: Coordinator) -> list[dict]:
     return z
 
 
+RESOLVED = {"valve_isolated", "flange_retorqued"}
+
+
 def alarms_json(c: Coordinator) -> list[dict]:
     out = []
     for l in c.world.state.get("gas_leaks", []):
         lid = l.get("id")
-        rep = next((e for e in c.timeline if e["event"] in ("gas_detected", "gas_alarm") and
-                    c.jobs.get(e["job"]) is not None and c.jobs[e["job"]].target == lid), None)
-        survey = rep["job"] if rep else None
-        start = next((e for e in c.timeline if e["event"] == "job_started" and e["job"] == survey), None)
-        iso = next((e for e in c.timeline if e["event"] == "finding" and e["detail"].get("kind") == "valve_isolated"
-                    and c.jobs[e["job"]].params.get("leak") == lid), None)
+        names = {lid, l.get("source")}
+
+        def about(e):
+            j = c.jobs.get(e["job"]) if e.get("job") else None
+            return j is not None and (j.target in names or j.params.get("leak") == lid)
+        rep = next((e for e in c.timeline if e["event"] in ("gas_detected", "gas_alarm") and about(e)), None)
+        start = next((e for e in c.timeline if e["event"] == "job_started" and rep and e["job"] == rep["job"]), None)
+        given = next((e for e in c.timeline if e["event"] == "assigned" and rep and e["job"] == rep["job"]), None)
+        fix = next((e for e in c.timeline if e["event"] == "finding" and e["detail"].get("kind") in RESOLVED
+                    and about(e)), None)
         t0 = rep["t"] if rep else None
-        out.append({"id": lid, "source": l.get("source"), "t": l.get("t0"), "reported_t": t0,
-                    "responder": start["robot"] if start else None,
+        out.append({"id": lid, "flange": l.get("source"), "source": l.get("source"), "t": l.get("t0"),
+                    "reported_t": t0, "responder": given["robot"] if given else None,
                     "response_s": round(start["t"] - t0, 2) if start and t0 is not None else None,
-                    "resolved_s": round(iso["t"] - t0, 2) if iso and t0 is not None else None,
+                    "resolved_s": round(fix["t"] - t0, 2) if fix and t0 is not None else None,
                     "outcome": "isolated" if l.get("isolated") else ("reported" if rep else "undetected")})
     return out
 

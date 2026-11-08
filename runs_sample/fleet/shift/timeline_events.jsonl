@@ -1,0 +1,159 @@
+{"t": 0.0, "event": "job_queued", "job": "gauge_read-001", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_01", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "gauge_read-002", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_02", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "gauge_read-003", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_03", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "gauge_read-004", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_04", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "gauge_read-005", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_05", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "gauge_read-006", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_06", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "gauge_read-007", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_07", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "valve_check-008", "robot": null, "detail": {"kind": "valve_check", "target": "valve_01", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "valve_check-009", "robot": null, "detail": {"kind": "valve_check", "target": "valve_02", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "valve_check-010", "robot": null, "detail": {"kind": "valve_check", "target": "valve_03", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "valve_check-011", "robot": null, "detail": {"kind": "valve_check", "target": "valve_04", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "valve_check-012", "robot": null, "detail": {"kind": "valve_check", "target": "valve_05", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "valve_check-013", "robot": null, "detail": {"kind": "valve_check", "target": "valve_06", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "aerial_survey-014", "robot": null, "detail": {"kind": "aerial_survey", "target": "flare_tip", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "aerial_survey-015", "robot": null, "detail": {"kind": "aerial_survey", "target": "crane_boom", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "aerial_survey-016", "robot": null, "detail": {"kind": "aerial_survey", "target": "leg_splash_zone_ne", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "crawler_ut-017", "robot": null, "detail": {"kind": "crawler_ut", "target": "separator_V101", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "crawler_ut-018", "robot": null, "detail": {"kind": "crawler_ut", "target": "riser_R2", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "flange_leak_check-019", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F1", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "flange_leak_check-020", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F2", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "flange_leak_check-021", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F3", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "flange_leak_check-022", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F4", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "flange_leak_check-023", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F5", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "flange_leak_check-024", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F6", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "valve_check-025", "robot": null, "detail": {"kind": "valve_check", "target": "valve_lower_east", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "valve_check-026", "robot": null, "detail": {"kind": "valve_check", "target": "valve_middle_west", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "rust_repair-027", "robot": null, "detail": {"kind": "rust_repair", "target": "pipe_rack_A", "level": "SUPV", "priority": 3}}
+{"t": 0.0, "event": "approval_requested", "job": "rust_repair-027", "robot": null, "detail": {"kind": "rust_repair", "target": "pipe_rack_A", "by": "coordinator", "note": ""}}
+{"t": 0.0, "event": "assigned", "job": "gauge_read-001", "robot": "Q1", "detail": {"cost_s": 21.6, "bids": {"Q1": 21.6, "Q2": 30.8}, "route_m": 8.2}}
+{"t": 0.0, "event": "assigned", "job": "flange_leak_check-019", "robot": "Q2", "detail": {"cost_s": 30.2, "bids": {"Q2": 30.2}, "route_m": 12.9}}
+{"t": 0.0, "event": "assigned", "job": "aerial_survey-015", "robot": "A1", "detail": {"cost_s": 73.1, "bids": {"A1": 73.1}, "route_m": 28.3}}
+{"t": 0.0, "event": "assigned", "job": "crawler_ut-017", "robot": "C1", "detail": {"cost_s": 100.0, "bids": {"C1": 100.0}, "route_m": 12.7}}
+{"t": 7.0, "event": "job_started", "job": "aerial_survey-015", "robot": "A1", "detail": {"kind": "aerial_survey", "target": "crane_boom"}}
+{"t": 15.0, "event": "job_started", "job": "gauge_read-001", "robot": "Q1", "detail": {"kind": "gauge_read", "target": "gauge_01"}}
+{"t": 18.0, "event": "job_started", "job": "flange_leak_check-019", "robot": "Q2", "detail": {"kind": "flange_leak_check", "target": "F1"}}
+{"t": 35.0, "event": "job_done", "job": "gauge_read-001", "robot": "Q1", "detail": {"status": "DONE", "findings": 0, "log": "done in 20 s -> DONE, 0 finding(s)"}}
+{"t": 36.0, "event": "assigned", "job": "gauge_read-002", "robot": "Q1", "detail": {"cost_s": 25.3, "bids": {"Q1": 25.3}, "route_m": 10.2}}
+{"t": 36.0, "event": "job_done", "job": "flange_leak_check-019", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "view 0 read 2/3: 8 bolts read, crack p=0.00"}}
+{"t": 37.0, "event": "assigned", "job": "flange_leak_check-021", "robot": "Q2", "detail": {"cost_s": 29.2, "bids": {"Q2": 29.2}, "route_m": 10.6}}
+{"t": 40.0, "event": "approved", "job": "rust_repair-027", "robot": null, "detail": {"by": "operator"}}
+{"t": 53.0, "event": "job_started", "job": "flange_leak_check-021", "robot": "Q2", "detail": {"kind": "flange_leak_check", "target": "F3"}}
+{"t": 54.0, "event": "job_started", "job": "gauge_read-002", "robot": "Q1", "detail": {"kind": "gauge_read", "target": "gauge_02"}}
+{"t": 67.0, "event": "job_done", "job": "aerial_survey-015", "robot": "A1", "detail": {"status": "DONE", "findings": 0, "log": "[stub] structure imaged, no visible damage"}}
+{"t": 68.0, "event": "assigned", "job": "aerial_survey-014", "robot": "A1", "detail": {"cost_s": 90.8, "bids": {"A1": 90.8}, "route_m": 79.2}}
+{"t": 71.0, "event": "job_done", "job": "flange_leak_check-021", "robot": "Q2", "detail": {"status": "FINDING", "findings": 1, "log": "view 0 read 2/3: 8 bolts read, crack p=0.00"}}
+{"t": 71.0, "event": "finding", "job": "flange_leak_check-021", "robot": "Q2", "detail": {"kind": "flange_leak", "severity": "warning", "summary": "F3: bolt preload loss, gas above clear level", "position": [-15.942, 23.167, 43.35]}}
+{"t": 71.0, "event": "job_queued", "job": "flange_leak_check-021-torque", "robot": null, "detail": {"kind": "flange_retorque", "target": "F3", "level": "SUPV", "priority": 2, "parent": "flange_leak_check-021"}}
+{"t": 71.0, "event": "approval_requested", "job": "flange_leak_check-021-torque", "robot": null, "detail": {"kind": "flange_retorque", "target": "F3", "by": "coordinator", "note": ""}}
+{"t": 72.0, "event": "assigned", "job": "gauge_read-003", "robot": "Q2", "detail": {"cost_s": 28.2, "bids": {"Q2": 28.2}, "route_m": 9.5}}
+{"t": 74.0, "event": "job_done", "job": "gauge_read-002", "robot": "Q1", "detail": {"status": "DONE", "findings": 0, "log": "done in 20 s -> DONE, 0 finding(s)"}}
+{"t": 75.0, "event": "assigned", "job": "rust_repair-027", "robot": "Q1", "detail": {"cost_s": 54.5, "bids": {"Q1": 54.5}, "route_m": 38.1}}
+{"t": 76.0, "event": "job_started", "job": "crawler_ut-017", "robot": "C1", "detail": {"kind": "crawler_ut", "target": "separator_V101"}}
+{"t": 87.0, "event": "job_started", "job": "gauge_read-003", "robot": "Q2", "detail": {"kind": "gauge_read", "target": "gauge_03"}}
+{"t": 87.0, "event": "job_started", "job": "aerial_survey-014", "robot": "A1", "detail": {"kind": "aerial_survey", "target": "flare_tip"}}
+{"t": 107.0, "event": "job_done", "job": "gauge_read-003", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "done in 20 s -> DONE, 0 finding(s)"}}
+{"t": 108.0, "event": "assigned", "job": "gauge_read-004", "robot": "Q2", "detail": {"cost_s": 30.7, "bids": {"Q2": 30.7}, "route_m": 9.5}}
+{"t": 111.0, "event": "approved", "job": "flange_leak_check-021-torque", "robot": null, "detail": {"by": "operator"}}
+{"t": 111.0, "event": "preempted", "job": "rust_repair-027", "robot": "Q1", "detail": {"reason": "preempted by flange_leak_check-021-torque (priority 2)"}}
+{"t": 111.0, "event": "priority_change", "job": "flange_leak_check-021-torque", "robot": "Q1", "detail": {"explanation": "flange_retorque at F3 (priority 2) takes Q1 from rust_repair at pipe_rack_A; that job is back in the queue.", "used_gemini": false}}
+{"t": 111.0, "event": "assigned", "job": "flange_leak_check-021-torque", "robot": "Q1", "detail": {"cost_s": 42.3, "bids": {"Q1": 42.3}, "route_m": 27.8}}
+{"t": 124.0, "event": "job_started", "job": "gauge_read-004", "robot": "Q2", "detail": {"kind": "gauge_read", "target": "gauge_04"}}
+{"t": 144.0, "event": "job_done", "job": "gauge_read-004", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "done in 20 s -> DONE, 0 finding(s)"}}
+{"t": 145.0, "event": "assigned", "job": "flange_leak_check-020", "robot": "Q2", "detail": {"cost_s": 16.2, "bids": {"Q2": 16.2}, "route_m": 0.9}}
+{"t": 145.0, "event": "job_started", "job": "flange_leak_check-021-torque", "robot": "Q1", "detail": {"kind": "flange_retorque", "target": "F3"}}
+{"t": 146.0, "event": "job_started", "job": "flange_leak_check-020", "robot": "Q2", "detail": {"kind": "flange_leak_check", "target": "F2"}}
+{"t": 147.0, "event": "job_done", "job": "aerial_survey-014", "robot": "A1", "detail": {"status": "DONE", "findings": 0, "log": "[stub] structure imaged, no visible damage"}}
+{"t": 148.0, "event": "assigned", "job": "aerial_survey-016", "robot": "A1", "detail": {"cost_s": 94.3, "bids": {"A1": 94.3}, "route_m": 68.5}}
+{"t": 164.0, "event": "job_done", "job": "flange_leak_check-020", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "view 0 read 2/3: 8 bolts read, crack p=0.00"}}
+{"t": 165.0, "event": "assigned", "job": "flange_leak_check-022", "robot": "Q2", "detail": {"cost_s": 43.4, "bids": {"Q2": 43.4}, "route_m": 14.3}}
+{"t": 165.0, "event": "job_started", "job": "aerial_survey-016", "robot": "A1", "detail": {"kind": "aerial_survey", "target": "leg_splash_zone_ne"}}
+{"t": 166.0, "event": "job_done", "job": "crawler_ut-017", "robot": "C1", "detail": {"status": "DONE", "findings": 0, "log": "[stub] UT 11.8 mm, nominal"}}
+{"t": 167.0, "event": "assigned", "job": "crawler_ut-018", "robot": "C1", "detail": {"cost_s": 160.7, "bids": {"C1": 160.7}, "route_m": 30.9}}
+{"t": 168.0, "event": "job_done", "job": "flange_leak_check-021-torque", "robot": "Q1", "detail": {"status": "DONE", "findings": 1, "log": "patrol complete: no rust perceived at any pose"}}
+{"t": 168.0, "event": "finding", "job": "flange_leak_check-021-torque", "robot": "Q1", "detail": {"kind": "flange_retorqued", "severity": "info", "summary": "F3 re-torqued, gas back under the clear level", "position": [-15.942, 23.167, 43.35]}}
+{"t": 169.0, "event": "assigned", "job": "gauge_read-006", "robot": "Q1", "detail": {"cost_s": 175.9, "bids": {"Q1": 175.9}, "route_m": 107.6}}
+{"t": 193.0, "event": "job_started", "job": "flange_leak_check-022", "robot": "Q2", "detail": {"kind": "flange_leak_check", "target": "F4"}}
+{"t": 205.0, "event": "gas_leak_injected", "job": null, "robot": null, "detail": {"position": [21.0, -10.2, 43.4], "source": "flange near valve_05", "rate_g_s": 3.5}}
+{"t": 211.0, "event": "job_done", "job": "flange_leak_check-022", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "view 0 read 2/3: 8 bolts read, crack p=0.00"}}
+{"t": 212.0, "event": "assigned", "job": "gauge_read-005", "robot": "Q2", "detail": {"cost_s": 94.0, "bids": {"Q2": 94.0}, "route_m": 67.9}}
+{"t": 225.0, "event": "job_done", "job": "aerial_survey-016", "robot": "A1", "detail": {"status": "DONE", "findings": 0, "log": "[stub] structure imaged, no visible damage"}}
+{"t": 265.0, "event": "gas_alarm", "job": "gas_survey-028", "robot": null, "detail": {"position": [21.0, -10.2, 43.4], "source": "fixed gas detector"}}
+{"t": 265.0, "event": "job_queued", "job": "gas_survey-028", "robot": null, "detail": {"kind": "gas_survey", "target": "leak_01", "level": "AUTO", "priority": 1}}
+{"t": 265.0, "event": "requeued", "job": "gauge_read-006", "robot": "Q1", "detail": {"reason": "gas zone: work stopped until the leak is isolated"}}
+{"t": 265.0, "event": "gas_zone_hold", "job": "gauge_read-006", "robot": "Q1", "detail": {"radius_m": 8.0, "leak": "leak_01"}}
+{"t": 265.0, "event": "priority_change", "job": "leak_01", "robot": "Q1", "detail": {"explanation": "Gas at flange near valve_05: Q1 stops gauge_read at gauge_06 inside the 8 m gas zone; it waits until the leak is isolated.", "used_gemini": false}}
+{"t": 265.0, "event": "requeued", "job": "gauge_read-005", "robot": "Q2", "detail": {"reason": "gas zone: work stopped until the leak is isolated"}}
+{"t": 265.0, "event": "gas_zone_hold", "job": "gauge_read-005", "robot": "Q2", "detail": {"radius_m": 8.0, "leak": "leak_01"}}
+{"t": 265.0, "event": "priority_change", "job": "leak_01", "robot": "Q2", "detail": {"explanation": "Gas at flange near valve_05: Q2 stops gauge_read at gauge_05 inside the 8 m gas zone; it waits until the leak is isolated.", "used_gemini": false}}
+{"t": 265.0, "event": "requeued", "job": "crawler_ut-018", "robot": "C1", "detail": {"reason": "gas zone: work stopped until the leak is isolated"}}
+{"t": 265.0, "event": "gas_zone_hold", "job": "crawler_ut-018", "robot": "C1", "detail": {"radius_m": 8.0, "leak": "leak_01"}}
+{"t": 265.0, "event": "priority_change", "job": "leak_01", "robot": "C1", "detail": {"explanation": "Gas at flange near valve_05: C1 stops crawler_ut at riser_R2 inside the 8 m gas zone; it waits until the leak is isolated.", "used_gemini": false}}
+{"t": 265.0, "event": "assigned", "job": "gas_survey-028", "robot": "A1", "detail": {"cost_s": 108.1, "bids": {"Q2": 47.1, "A1": 108.1}, "route_m": 99.2}}
+{"t": 265.0, "event": "assigned", "job": "rust_repair-027", "robot": "Q1", "detail": {"cost_s": 121.6, "bids": {"Q1": 121.6}, "route_m": 78.5}}
+{"t": 265.0, "event": "assigned", "job": "flange_leak_check-024", "robot": "Q2", "detail": {"cost_s": 62.2, "bids": {"Q2": 62.2}, "route_m": 37.8}}
+{"t": 289.0, "event": "job_started", "job": "gas_survey-028", "robot": "A1", "detail": {"kind": "gas_survey", "target": "leak_01"}}
+{"t": 311.0, "event": "job_started", "job": "flange_leak_check-024", "robot": "Q2", "detail": {"kind": "flange_leak_check", "target": "F6"}}
+{"t": 329.0, "event": "job_done", "job": "flange_leak_check-024", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "view 0 read 2/3: 8 bolts read, crack p=0.00"}}
+{"t": 329.0, "event": "job_done", "job": "gas_survey-028", "robot": "A1", "detail": {"status": "FINDING", "findings": 1, "log": "[stub] leak located at flange near valve_05"}}
+{"t": 329.0, "event": "finding", "job": "gas_survey-028", "robot": "A1", "detail": {"kind": "gas_leak", "severity": "critical", "summary": "methane plume at flange near valve_05, ~3.5 g/s; isolate valve_05", "position": [21.0, -10.2, 43.4]}}
+{"t": 329.0, "event": "job_queued", "job": "gas_survey-028-iso", "robot": null, "detail": {"kind": "valve_isolate", "target": "valve_05", "level": "SUPV", "priority": 1, "parent": "gas_survey-028"}}
+{"t": 329.0, "event": "approval_requested", "job": "gas_survey-028-iso", "robot": null, "detail": {"kind": "valve_isolate", "target": "valve_05", "by": "coordinator", "note": ""}}
+{"t": 330.0, "event": "low_battery", "job": null, "robot": "A1", "detail": {"battery": 0.262, "to_dock": 0.014, "reason": "idle and low: charge while there is time"}}
+{"t": 330.0, "event": "assigned", "job": "gauge_read-007", "robot": "Q2", "detail": {"cost_s": 49.8, "bids": {"Q2": 49.8}, "route_m": 16.3}}
+{"t": 347.0, "event": "docked", "job": null, "robot": "A1", "detail": {"battery": 0.248}}
+{"t": 362.0, "event": "job_started", "job": "gauge_read-007", "robot": "Q2", "detail": {"kind": "gauge_read", "target": "gauge_07"}}
+{"t": 369.0, "event": "approved", "job": "gas_survey-028-iso", "robot": null, "detail": {"by": "operator"}}
+{"t": 369.0, "event": "preempted", "job": "rust_repair-027", "robot": "Q1", "detail": {"reason": "preempted by gas_survey-028-iso (priority 1)"}}
+{"t": 369.0, "event": "priority_change", "job": "gas_survey-028-iso", "robot": "Q1", "detail": {"explanation": "valve_isolate at valve_05 (priority 1) takes Q1 from rust_repair at pipe_rack_A; that job is back in the queue.", "used_gemini": false}}
+{"t": 369.0, "event": "assigned", "job": "gas_survey-028-iso", "robot": "Q1", "detail": {"cost_s": 56.3, "bids": {"Q1": 56.3}, "route_m": 38.0}}
+{"t": 382.0, "event": "job_done", "job": "gauge_read-007", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "done in 20 s -> DONE, 0 finding(s)"}}
+{"t": 383.0, "event": "assigned", "job": "valve_check-013", "robot": "Q2", "detail": {"cost_s": 21.0, "bids": {"Q2": 21.0}, "route_m": 1.5}}
+{"t": 386.0, "event": "job_started", "job": "valve_check-013", "robot": "Q2", "detail": {"kind": "valve_check", "target": "valve_06"}}
+{"t": 413.0, "event": "job_started", "job": "gas_survey-028-iso", "robot": "Q1", "detail": {"kind": "valve_isolate", "target": "valve_05"}}
+{"t": 414.0, "event": "assigned", "job": "crawler_ut-018", "robot": "C1", "detail": {"cost_s": 67.1, "bids": {"C1": 67.1}, "route_m": 8.8}}
+{"t": 416.0, "event": "job_done", "job": "valve_check-013", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "[stub] valve position and stem temperature normal"}}
+{"t": 417.0, "event": "assigned", "job": "gauge_read-006", "robot": "Q2", "detail": {"cost_s": 40.0, "bids": {"Q2": 40.0}, "route_m": 10.7}}
+{"t": 438.0, "event": "job_started", "job": "gauge_read-006", "robot": "Q2", "detail": {"kind": "gauge_read", "target": "gauge_06"}}
+{"t": 452.0, "event": "job_started", "job": "crawler_ut-018", "robot": "C1", "detail": {"kind": "crawler_ut", "target": "riser_R2"}}
+{"t": 458.0, "event": "job_done", "job": "gas_survey-028-iso", "robot": "Q1", "detail": {"status": "FINDING", "findings": 1, "log": "[stub] closed valve_05"}}
+{"t": 458.0, "event": "finding", "job": "gas_survey-028-iso", "robot": "Q1", "detail": {"kind": "valve_isolated", "severity": "info", "summary": "valve_05 closed, gas reading falling", "position": [20.0, -10.7, 43.4]}}
+{"t": 458.0, "event": "job_queued", "job": "gas_survey-028-iso-prep", "robot": null, "detail": {"kind": "leak_repair_prep", "target": "leak_01", "level": "ASSIST", "priority": 2, "parent": "gas_survey-028-iso"}}
+{"t": 458.0, "event": "job_done", "job": "gauge_read-006", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "done in 20 s -> DONE, 0 finding(s)"}}
+{"t": 459.0, "event": "assigned", "job": "gas_survey-028-iso-prep", "robot": "Q2", "detail": {"cost_s": 27.8, "bids": {"Q1": 14.2, "Q2": 27.8}, "route_m": 6.1}}
+{"t": 459.0, "event": "assigned", "job": "rust_repair-027", "robot": "Q1", "detail": {"cost_s": 56.2, "bids": {"Q1": 56.2}, "route_m": 36.0}}
+{"t": 467.0, "event": "job_started", "job": "gas_survey-028-iso-prep", "robot": "Q2", "detail": {"kind": "leak_repair_prep", "target": "leak_01"}}
+{"t": 501.0, "event": "job_started", "job": "rust_repair-027", "robot": "Q1", "detail": {"kind": "rust_repair", "target": "pipe_rack_A"}}
+{"t": 527.0, "event": "handed_to_crew", "job": "gas_survey-028-iso-prep", "robot": "Q2", "detail": {"reason": "[stub] leak marked, barrier set, gas monitor placed"}}
+{"t": 528.0, "event": "assigned", "job": "flange_leak_check-023", "robot": "Q2", "detail": {"cost_s": 22.4, "bids": {"Q2": 22.4}, "route_m": 1.0}}
+{"t": 529.0, "event": "job_started", "job": "flange_leak_check-023", "robot": "Q2", "detail": {"kind": "flange_leak_check", "target": "F5"}}
+{"t": 542.0, "event": "job_done", "job": "crawler_ut-018", "robot": "C1", "detail": {"status": "FINDING", "findings": 1, "log": "[stub] UT 7.1 mm"}}
+{"t": 542.0, "event": "finding", "job": "crawler_ut-018", "robot": "C1", "detail": {"kind": "wall_loss", "severity": "warning", "summary": "riser_R2 wall 7.1 mm of 9.5 mm nominal (25 % loss)", "position": [18.0, -6.5, 43.0]}}
+{"t": 547.0, "event": "job_done", "job": "flange_leak_check-023", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "view 0 read 2/3: 8 bolts read, crack p=0.00"}}
+{"t": 548.0, "event": "assigned", "job": "gauge_read-005", "robot": "Q2", "detail": {"cost_s": 29.8, "bids": {"Q2": 29.8}, "route_m": 5.8}}
+{"t": 557.0, "event": "job_started", "job": "gauge_read-005", "robot": "Q2", "detail": {"kind": "gauge_read", "target": "gauge_05"}}
+{"t": 571.0, "event": "job_done", "job": "rust_repair-027", "robot": "Q1", "detail": {"status": "DONE", "findings": 1, "log": "outcome DONE (success): paint coverage 99.2% >= 98% and no rust visible -> repair complete"}}
+{"t": 571.0, "event": "finding", "job": "rust_repair-027", "robot": "Q1", "detail": {"kind": "corrosion_repaired", "severity": "info", "summary": "rust removed and painted, 3.4% left", "position": [1.2, 4.0, 43.3]}}
+{"t": 577.0, "event": "job_done", "job": "gauge_read-005", "robot": "Q2", "detail": {"status": "FINDING", "findings": 1, "log": "done in 20 s -> FINDING, 1 finding(s)"}}
+{"t": 577.0, "event": "finding", "job": "gauge_read-005", "robot": "Q2", "detail": {"kind": "gauge_second_look", "severity": "info", "summary": "gauge_05 not readable from this view; re-reading square-on", "position": [17.8, -10.67, 43.86]}}
+{"t": 577.0, "event": "job_queued", "job": "gauge_read-005.relook_gauge_05", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_05", "level": "AUTO", "priority": 2, "parent": "gauge_read-005"}}
+{"t": 578.0, "event": "assigned", "job": "gauge_read-005.relook_gauge_05", "robot": "Q1", "detail": {"cost_s": 57.1, "bids": {"Q1": 57.1, "Q2": 24.7}, "route_m": 34.2}}
+{"t": 578.0, "event": "assigned", "job": "valve_check-012", "robot": "Q2", "detail": {"cost_s": 28.9, "bids": {"Q2": 28.9}, "route_m": 5.1}}
+{"t": 585.0, "event": "job_started", "job": "valve_check-012", "robot": "Q2", "detail": {"kind": "valve_check", "target": "valve_05"}}
+{"t": 615.0, "event": "job_done", "job": "valve_check-012", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "[stub] valve position and stem temperature normal"}}
+{"t": 616.0, "event": "assigned", "job": "valve_check-009", "robot": "Q2", "detail": {"cost_s": 93.3, "bids": {"Q2": 93.3}, "route_m": 65.6}}
+{"t": 619.0, "event": "job_started", "job": "gauge_read-005.relook_gauge_05", "robot": "Q1", "detail": {"kind": "gauge_read", "target": "gauge_05"}}
+{"t": 639.0, "event": "job_done", "job": "gauge_read-005.relook_gauge_05", "robot": "Q1", "detail": {"status": "DONE", "findings": 0, "log": "done in 20 s -> DONE, 0 finding(s)"}}
+{"t": 687.0, "event": "job_started", "job": "valve_check-009", "robot": "Q2", "detail": {"kind": "valve_check", "target": "valve_02"}}
+{"t": 717.0, "event": "job_done", "job": "valve_check-009", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "[stub] valve position and stem temperature normal"}}
+{"t": 718.0, "event": "assigned", "job": "valve_check-010", "robot": "Q2", "detail": {"cost_s": 43.2, "bids": {"Q2": 43.2}, "route_m": 12.8}}
+{"t": 737.0, "event": "job_started", "job": "valve_check-010", "robot": "Q2", "detail": {"kind": "valve_check", "target": "valve_03"}}
+{"t": 750.0, "event": "charged", "job": null, "robot": "A1", "detail": {"battery": 0.901}}
+{"t": 767.0, "event": "job_done", "job": "valve_check-010", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "[stub] valve position and stem temperature normal"}}
+{"t": 768.0, "event": "assigned", "job": "valve_check-008", "robot": "Q2", "detail": {"cost_s": 38.5, "bids": {"Q2": 38.5}, "route_m": 9.4}}
+{"t": 782.0, "event": "job_started", "job": "valve_check-008", "robot": "Q2", "detail": {"kind": "valve_check", "target": "valve_01"}}
+{"t": 812.0, "event": "job_done", "job": "valve_check-008", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "[stub] valve position and stem temperature normal"}}
+{"t": 813.0, "event": "assigned", "job": "valve_check-011", "robot": "Q2", "detail": {"cost_s": 58.2, "bids": {"Q2": 58.2}, "route_m": 21.8}}
+{"t": 846.0, "event": "job_started", "job": "valve_check-011", "robot": "Q2", "detail": {"kind": "valve_check", "target": "valve_04"}}
+{"t": 876.0, "event": "job_done", "job": "valve_check-011", "robot": "Q2", "detail": {"status": "DONE", "findings": 0, "log": "[stub] valve position and stem temperature normal"}}
+{"t": 877.0, "event": "assigned", "job": "valve_check-026", "robot": "Q2", "detail": {"cost_s": 107.7, "bids": {"Q2": 107.7}, "route_m": 53.5}}

@@ -258,3 +258,60 @@ def test_legacy_walkway_planner_demo_still_runs(tmp_path):
     sim, _, _ = demo.build(offline=True, timeline_path=tmp_path / "t.jsonl", planner="walkway")
     sim.run(120)
     assert (tmp_path / "t.jsonl").exists() and sim.c.counts().get("DONE", 0) >= 1
+
+
+def test_risk_priority_orders_gas_crack_rust_flange_inspect():
+    from fleet.risk import risk_priority
+    order = [risk_priority("gas"), risk_priority("crack"), risk_priority("rust", 0.9, 1.0),
+             risk_priority("leak_check"), risk_priority("inspect")]
+    assert order == sorted(order) and order[0] == 1 and order[-1] == 5
+    assert risk_priority("rust", 0.2, 0.2) > risk_priority("rust", 0.9, 1.0)
+
+
+def test_deadline_pulls_routine_work_forward():
+    c = Coordinator([Robot("r1", Q, {"camera"}, (0, 0, 0))], World(), {"look": Exec("look")})
+    a = job("a", (5, 0, 0), priority=4)
+    b = job("b", (5, 1, 0), priority=5, params={"deadline": 1000.0})
+    c.submit(a)
+    c.submit(b)
+    assert c.effective_priority(b) == 5.0
+    c.world.t = 1000.0
+    assert c.effective_priority(b) == 3.0 and [j.id for j in c.queued()] == ["b", "a"]
+
+
+def test_job_cut_off_by_a_failed_robot_goes_to_the_crew(planner):
+    rm = planner.rm
+    gauge = next(p for p in rm.inspection if p["type"] == "gauge")
+    node = rm.poi_node[gauge["id"]]
+    robots = [Robot("q1", Q, {"camera"}, (-12.0, 9.4, TOP)), Robot("q2", Q, {"camera"}, (-12.0, 9.4, TOP))]
+    c = Coordinator(robots, World(), {"look": Exec("look", duration=500)}, planner=RigPlanner(rm))
+    c.submit(job("g", gauge["position_m"]))
+    for _ in range(300):
+        c.tick()
+        if c.status["g"] == JobStatus.RUNNING:
+            break
+    rid = c.assigned_to["g"]
+    c.rt[rid].robot.position = tuple(float(v) for v in rm.pos[node])
+    c.fail_robot(rid)
+    run(c, 200)
+    crew = events(c, "handed_to_crew")
+    assert c.status["g"] == JobStatus.HANDED_TO_HUMAN and "no safe route" in crew[0]["detail"]["reason"]
+
+
+def test_rigshift_runs_the_policy_fleet_scenario_on_the_unified_coordinator(tmp_path):
+    pytest.importorskip("torch")
+    from fleet import rigshift
+    sim, loaded, _ = rigshift.build(3, True, tmp_path / "t.jsonl", tmp_path / "s.jsonl")
+    rigshift.run(sim, 2400)
+    c = sim.c
+    names = [e["event"] for e in c.timeline]
+    for ev in ("gas_leak_injected", "gas_alarm", "robot_failure", "crack_reported", "new_rust", "replanned",
+               "approval_requested", "approved", "priority_change"):
+        assert ev in names, ev
+    assert not c.approvals and rigshift.finished(sim)
+    m = snapshot(c)["metrics"]
+    assert m["gas_alarms"] == 2 and m["gas_response_mean_s"] is not None and m["corridor_conflicts"] == 0
+    assert m["robot_failures"] == 1 and m["open_tasks"] == 0
+    assert "flange_replace" in {c.jobs[j].kind for j in c.crew}
+    decks = {json.loads(x)["robots"][0]["deck"] for x in (tmp_path / "s.jsonl").read_text().splitlines()}
+    assert {"top_deck", "lower_deck"} <= decks

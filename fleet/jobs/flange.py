@@ -51,8 +51,8 @@ class FlangeLeakCheck:
                         {"scenario": sc, "alerts": [a.get("kind") for a in tr.alerts]}, [fix])
             return JobResult(job.id, robot.id, JobStatus.FINDING, t0, t1, [f], log, phases=ph)
         if any(st not in INSPECT | {"DONE"} for _, st, _ in tr.segments):
-            fix = Job(f"{job.id}-torque", "flange_retorque", job.target, where, Level.SUPV, priority=2,
-                      params={"leak": sc, "zone": f"flange:{job.target}"})
+            fix = Job(f"{job.id}-torque", "flange_retorque", job.target, where, Level.SUPV,
+                      priority=min(2, job.priority), params={"leak": sc, "zone": f"flange:{job.target}"})
             f = Finding("flange_leak", "warning", f"{job.target}: bolt preload loss, gas above clear level", where,
                         {"scenario": sc}, [fix])
             return JobResult(job.id, robot.id, JobStatus.FINDING, t0, t1, [f], log, phases=ph)
@@ -78,6 +78,9 @@ class FlangeRetorque:
         log = [why for _, _, why in ph[-2:]]
         if tr.outcome == "DONE":
             world.state.setdefault("flanges", {})[job.target] = "none"
+            for leak in world.state.get("gas_leaks", []):
+                if leak.get("source") == job.target:
+                    leak["isolated"], leak["rate_g_s"] = True, 0.0
             f = Finding("flange_retorqued", "info", f"{job.target} re-torqued, gas back under the clear level",
                         job.position, {"scenario": sc, "alerts": [a.get("kind") for a in tr.alerts]})
             return JobResult(job.id, robot.id, JobStatus.DONE, t0, t1, [f], log, phases=ph)

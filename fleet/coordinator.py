@@ -22,6 +22,10 @@ PRIORITY_STEP_S = 3600.0
 DOCK_PADS = 2
 GAS_ZONE_M = 8.0
 FAILED_RADIUS_M = 1.0
+CUTOFF_S = 120.0
+DEADLINE_WINDOW_S = 600.0
+DEADLINE_BOOST = 2.0
+CUTOFF_EVERY_S = 10.0
 GAS_RESPONSE = {"gas_survey", "valve_isolate", "leak_repair_prep", "gas", "flange_retorque"}
 AGENTS = {"gemini", "agent", "planner", "orchestrator", "llm"}
 ACTIVE = (JobStatus.ASSIGNED, JobStatus.RUNNING)
@@ -170,6 +174,7 @@ class Coordinator:
         self.replans = 0
         self.failures = 0
         self.wait_s = 0.0
+        self.cutoff: dict[str, float] = {}
         self._seq = 0
 
     @property
@@ -368,9 +373,16 @@ class Coordinator:
         return any(dist(job.position[:2], l["position"][:2]) < GAS_ZONE_M and abs(job.position[2] - l["position"][2]) < 5.0
                    for l in self.leaks())
 
+    def effective_priority(self, job: Job) -> float:
+        dl = job.params.get("deadline")
+        if dl is None:
+            return float(job.priority)
+        urgency = min(1.0, max(0.0, 1.0 - (float(dl) - self.t) / DEADLINE_WINDOW_S))
+        return max(1.0, job.priority - DEADLINE_BOOST * urgency)
+
     def queued(self) -> list[Job]:
         ids = [j for j, s in self.status.items() if s == JobStatus.QUEUED]
-        return sorted((self.jobs[j] for j in ids), key=lambda j: (j.priority, j.created_t, j.id))
+        return sorted((self.jobs[j] for j in ids), key=lambda j: (self.effective_priority(j), j.created_t, j.id))
 
     def assign(self):
         jobs = [j for j in self.queued() if not self.gas_held(j)]
@@ -384,10 +396,10 @@ class Coordinator:
                     c = self.cost(job, rt)
                     if c is not None:
                         base[i, k] = c
-            prio = np.array([PRIORITY_STEP_S * (j.priority - 1) for j in jobs])
+            prio = np.array([PRIORITY_STEP_S * (self.effective_priority(j) - 1) for j in jobs])
             cost = np.where(base < INF, base + prio[None, :], INF)
             taken: set[str] = set()
-            for i, k in sorted(hungarian(cost), key=lambda p: (jobs[p[1]].priority, jobs[p[1]].created_t)):
+            for i, k in sorted(hungarian(cost), key=lambda p: (self.effective_priority(jobs[p[1]]), jobs[p[1]].created_t)):
                 job, rt = jobs[k], idle[i]
                 if self.locks(job) & taken or self.locked_by_other(job, rt.robot.id):
                     continue
@@ -470,6 +482,7 @@ class Coordinator:
         self._obstacles()
         self._safety()
         self._gas_zone()
+        self._cutoffs()
         self.assign()
         for rt in self.rt.values():
             self._advance(rt, dt)
@@ -502,6 +515,22 @@ class Coordinator:
             self.replans += 1
             self.emit("replanned", rt.job, rt.robot.id, reason="obstacle on route", old_m=round(old_m, 1),
                       new_m=round(rt.route.length, 1))
+
+    def _cutoffs(self):
+        closed = getattr(getattr(self.planner, "rm", None), "closed", None)
+        if self.t % CUTOFF_EVERY_S > 1e-6 or not (closed or any(rt.state == "FAILED" for rt in self.rt.values())):
+            return
+        live = [rt for rt in self.rt.values() if rt.state != "FAILED"]
+        for job in self.queued():
+            fleet = [rt for rt in live if self.eligible(job, rt.robot)]
+            if not fleet or not all(self.planner.route(rt.robot, job.position, job.params.get("standoff", 1.0)).blocked
+                                    for rt in fleet):
+                self.cutoff.pop(job.id, None)
+                continue
+            since = self.cutoff.setdefault(job.id, self.t)
+            if self.t - since >= CUTOFF_S:
+                self.cutoff.pop(job.id)
+                self._to_crew(job.id, f"no safe route for {CUTOFF_S:.0f} s (blocked by a failed robot or closure)")
 
     def _safety(self):
         for rt in self.rt.values():
