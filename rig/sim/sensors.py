@@ -10,10 +10,11 @@ from rig.views.compose import robot_views, role_of
 from rig.views.schedule import Schedule
 
 ROBOTS = "/World/Obstacles/Robots"
-EYE = (0.30, 0.0, 0.32)
+EYE = (0.32, 0.0, 0.45)
 LOOK = (6.0, 0.0, -0.5)
 APERTURE = 20.955
 SETTLE = 3
+NEAR = 0.6
 
 
 class SensorRig:
@@ -46,7 +47,7 @@ class SensorRig:
         cam.CreateFocalLengthAttr(self.focal)
         cam.CreateHorizontalApertureAttr(APERTURE)
         cam.CreateVerticalApertureAttr(APERTURE * self.size[1] / self.size[0])
-        cam.CreateClippingRangeAttr(Gf.Vec2f(0.05, 400.0))
+        cam.CreateClippingRangeAttr(Gf.Vec2f(NEAR, 400.0))
         cam.AddTransformOp().Set(Gf.Matrix4d(look_at_rows(EYE, LOOK)))
         if self.rp is None and self.on:
             self._product(path)
