@@ -1295,8 +1295,10 @@ def main(argv=None):
     if room:
         print(f"[fleet] control room {room} parts {add_control_room(stage, room['center'], room['size'], room.get('yaw', 0.0))}",
               flush=True)
+    film_turn_op = None
     if args.film:
-        print(f"[fleet] flange patch F5 double-sided prims {patch_flange(stage, flanges, 'F5')}", flush=True)
+        film_turn_op = build_film_flange(stage)
+        print(f"[fleet] film flange built, bolt turn op {film_turn_op is not None}", flush=True)
         from pxr import UsdLux
 
         f5 = UsdLux.SphereLight.Define(stage, "/World/Fleet/f5_fill")
@@ -1457,8 +1459,12 @@ def main(argv=None):
             from integration import retorque_motion as rm
 
             lk = leak_info(scn) or {"flange": "F5", "bolt": 3}
+            from integration import film_flange as FF
+
             try:
-                motion = rm.from_timeline(str(resolve(tl)))
+                mk = rm.timeline_marks(str(resolve(tl)))
+                motion = rm.fit(mk["engaged"], mk["torque_done"], mk.get("leave"), FF.geometry(), FF.LEAK_BOLT,
+                                base=FF.work_base(float(meta["world"]["deck_z_m"])))
             except Exception as exc:
                 print(f"[fleet] from_timeline failed ({exc}), fixed t0", flush=True)
                 motion = rm.RetorqueMotion(flange=rm.flange_from_meta(lk["flange"]), bolt=lk["bolt"])
@@ -1468,6 +1474,8 @@ def main(argv=None):
             retq = None
             fx.gas_fn = motion.gas_scale
             svis = SocketVis(stage, f"/World/Leak/{motion.flange.id}/bolt_{motion.bolt}", "/World/Fleet/unit2")
+            svis.loosen = film_turn_op if film_turn_op is not None else svis.loosen
+            fx.origin, fx.jet = FF.gas_source(), FF.gas_jet()
             sp = stage.GetPrimAtPath(f"/World/Leak/{motion.flange.id}/bolt_{motion.bolt}")
             if sp.IsValid():
                 r_ = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default", "render"]).ComputeWorldBound(sp)
@@ -1825,6 +1833,85 @@ class SocketVis:
             M = np.array(UsdGeom.XformCache().GetLocalToWorldTransform(self.usd_tip))
             out["socket_tip_usd"] = [round(float(v), 4) for v in M[3, :3]]
         return out
+
+
+def _hex_prism(stage, path, radius, height, mat, x0=0.0):
+    from pxr import UsdGeom, UsdShade, Vt
+
+    a = np.arange(6) * math.pi / 3
+    ring = np.stack([np.zeros(6), radius * np.cos(a), radius * np.sin(a)], 1)
+    pts = np.vstack([ring + [x0, 0, 0], ring + [x0 + height, 0, 0]]).astype(np.float32)
+    faces = [[(i + 1) % 6, i, 6 + i, 6 + (i + 1) % 6] for i in range(6)] + [list(range(5, -1, -1)), list(range(6, 12))]
+    m = UsdGeom.Mesh.Define(stage, path)
+    m.CreatePointsAttr(Vt.Vec3fArray.FromNumpy(pts))
+    m.CreateFaceVertexCountsAttr(Vt.IntArray([len(f) for f in faces]))
+    m.CreateFaceVertexIndicesAttr(Vt.IntArray([i for f in faces for i in f]))
+    m.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+    m.CreateDoubleSidedAttr(True)
+    UsdShade.MaterialBindingAPI.Apply(m.GetPrim()).Bind(mat)
+    return m
+
+
+def build_film_flange(stage, root: str = "/World/Fleet/film_flange"):
+    from pxr import Gf, UsdGeom, UsdShade
+
+    from integration import film_flange as FF
+
+    old = stage.GetPrimAtPath(f"/World/Leak/{FF.FLANGE_ID}")
+    if old.IsValid():
+        old.SetActive(False)
+    UsdGeom.Xform.Define(stage, root)
+    steel = _surface(stage, f"{root}/Looks/steel", (0.34, 0.35, 0.37), 0.45, 0.6)
+    bright = _surface(stage, f"{root}/Looks/bolt", (0.55, 0.56, 0.58), 0.35, 0.8)
+    red = _surface(stage, f"{root}/Looks/stripe", (0.85, 0.05, 0.03), 0.5, emissive=(0.5, 0.02, 0.01))
+    c = np.array([0.0, FF.PIPE_Y, FF.PIPE_Z])
+
+    def cyl(name, x0, x1, r, mat):
+        g = UsdGeom.Cylinder.Define(stage, f"{root}/{name}")
+        g.CreateAxisAttr("X")
+        g.CreateRadiusAttr(float(r))
+        g.CreateHeightAttr(float(x1 - x0))
+        UsdGeom.Xformable(g).AddTranslateOp().Set(Gf.Vec3d((x0 + x1) / 2, c[1], c[2]))
+        UsdShade.MaterialBindingAPI.Apply(g.GetPrim()).Bind(mat)
+
+    x0, x1 = FF.FLANGE_X
+    cyl("flange_valve", x0, x0 + FF.FLANGE_THICKNESS - 0.001, FF.FLANGE_OUTER, steel)
+    cyl("flange_pipe", x0 + FF.FLANGE_THICKNESS + 0.001, x1, FF.FLANGE_OUTER, steel)
+    cyl("gasket", x0 + FF.FLANGE_THICKNESS - 0.001, x0 + FF.FLANGE_THICKNESS + 0.001, FF.BOLT_CIRCLE - 0.02, red)
+    cyl("hub_valve", x0 - 0.05, x0, FF.PIPE_RADIUS + 0.03, steel)
+    cyl("hub_pipe", x1, x1 + 0.05, FF.PIPE_RADIUS + 0.03, steel)
+    turn_op = None
+    for b in FF.bolt_heads():
+        k = b["k"]
+        seat = np.asarray(b["seat"])
+        r = FF.radial(k)
+        phase = math.degrees(math.atan2(-r[2], -r[1]))
+        x = UsdGeom.Xform.Define(stage, f"{root}/bolt_{k}")
+        xf = UsdGeom.Xformable(x)
+        xf.AddTranslateOp().Set(Gf.Vec3d(*seat.tolist()))
+        xf.AddRotateXOp(opSuffix="phase").Set(phase)
+        op = xf.AddRotateXOp(opSuffix="turn")
+        op.Set(FF.LOOSE_DEG if k == FF.LEAK_BOLT else 0.0)
+        if k == FF.LEAK_BOLT:
+            turn_op = op
+        _hex_prism(stage, f"{root}/bolt_{k}/head", FF.HEAD_RADIUS, FF.HEAD_HEIGHT, bright)
+        _hex_prism(stage, f"{root}/bolt_{k}/nut", FF.HEAD_RADIUS, FF.NUT_HEIGHT, bright,
+                   x0=-2 * FF.FLANGE_THICKNESS - FF.NUT_HEIGHT)
+        st_ = UsdGeom.Cube.Define(stage, f"{root}/bolt_{k}/stripe")
+        st_.CreateSizeAttr(1.0)
+        sx = UsdGeom.Xformable(st_)
+        sx.AddTranslateOp().Set(Gf.Vec3d(FF.HEAD_HEIGHT + 0.0006, 0.0, 0.0))
+        sx.AddScaleOp().Set(Gf.Vec3f(0.0015, 2 * FF.HEAD_RADIUS * 0.95, 0.005))
+        UsdShade.MaterialBindingAPI.Apply(st_.GetPrim()).Bind(red)
+        mk = UsdGeom.Cube.Define(stage, f"{root}/mark_{k}")
+        mk.CreateSizeAttr(1.0)
+        mx = UsdGeom.Xformable(mk)
+        mpos = np.asarray(b["seat"]) + (FF.HEAD_RADIUS + 0.007) * r + 0.0006 * FF.axis()
+        mx.AddTranslateOp().Set(Gf.Vec3d(*mpos.tolist()))
+        mx.AddRotateXOp().Set(phase)
+        mx.AddScaleOp().Set(Gf.Vec3f(0.0015, 0.012, 0.004))
+        UsdShade.MaterialBindingAPI.Apply(mk.GetPrim()).Bind(red)
+    return turn_op
 
 
 def film_overlay_looks(stage, overlay, texture) -> None:
