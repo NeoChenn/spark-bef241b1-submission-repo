@@ -272,9 +272,10 @@ class MissionLive:
         if name == "set_weather":
             w = (self.fleet.state().get("hazards") or {}).get("weather") or {}
             lv = w.get("level", args.get("level", "storm"))
+            when = f" at {w['time']}" if w.get("time") else ""
             if lv == "calm":
-                return ("Weather calm", " — normal walking speed, plume settles", "ok", "DONE")
-            return (f"Weather · {lv}", f" — walk x{(w.get('speed') or {}).get('walk', 1):.2f}, sight "
+                return (f"Weather calm{when}", " — normal walking speed, plume settles", "ok", "DONE")
+            return (f"Weather · {lv}{when}", f" — walk x{(w.get('speed') or {}).get('walk', 1):.2f}, sight "
                     f"{w.get('perception_range_m', 12):.0f} m; the gas plume turns with the wind", "warn", "WAIT_LULL")
         if name in ("drop_obstacle", "close_walkway", "close_stairs"):
             log = ((out.get("fleet") or {}).get("log") or [{}])[-1]
