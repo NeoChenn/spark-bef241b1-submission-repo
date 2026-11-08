@@ -208,3 +208,42 @@ def test_soak_and_long_walks_lapse_while_rust_beats_and_retorque_stay_at_one_x()
     walk_only = [{**h, "robots": [h["robots"][1]]} for h in hs]
     q = av.plan(walk_only, 30, [], budget_s=200.0)
     assert q.speed[int(11 * 30)] == 4.0 and q.speed[int(21.5 * 30)] == 1.0
+
+
+def test_header_camera_projects_labels_and_scales_to_the_frame():
+    from rig.camera import look_at
+    cam = look_at((10.0, -20.0, 50.0), (18.0, -5.0, 43.67), 24.0, 20.955, 1280, 720)
+    fn = av.camera_labels()
+    h = {"t": 0.0, "camera": cam, "isaac": {"robots": {"unit1": {"pos": [18.0, -5.0]}}}}
+    out = fn(h, (1280, 720))
+    x, y = out["unit1"]["xy"]
+    assert abs(x - 640) < 2 and abs(y - 360) < 2 and out["unit1"]["mode"] == "on"
+    x2, y2 = fn(h, (1920, 1080))["unit1"]["xy"]
+    assert abs(x2 - 1.5 * x) < 1e-6 and abs(y2 - 1.5 * y) < 1e-6
+
+
+def test_isaac_run_drives_frames_and_hud_by_time(tmp_path):
+    run = tmp_path / "run"
+    (run / "frames").mkdir(parents=True)
+    for i in range(3):
+        Image.fromarray(np.full((72, 128, 3), 30 * i, np.uint8)).save(run / "frames" / f"{i:05d}.jpg")
+    rows = [{"frame": i, "t": 3.0 + 0.6 * i, "camera": {"K": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]},
+             "robots": {"unit1": {"pos": [1.0, 2.0]}}} for i in range(3)]
+    (run / "fleet_isaac_header.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    (run / "fleet_isaac.json").write_text(json.dumps({"fps": 24, "beats": {"amber": 1.0}}))
+    hud = [{"t": 3.0, "state": "SPRAY"}, {"t": 4.0, "state": "SOAK"}]
+    r = av.isaac_run(run)
+    assert r["frames"] == run / "frames" and r["meta"]["fps"] == 24
+    merged = av.merge_isaac(r["rows"], hud)
+    assert [m["state"] for m in merged] == ["SPRAY", "SPRAY", "SOAK"]
+    assert merged[2]["camera"] == rows[2]["camera"] and av.world_positions(merged[0])["unit1"][2] == av.ROBOT_Z
+
+
+def test_unusable_beats_fall_back_instead_of_crashing(monkeypatch):
+    import sys, types
+
+    def bad(_):
+        raise TypeError("summary is not beats")
+
+    fc = types.SimpleNamespace(Beats=types.SimpleNamespace(from_events=bad), DEFAULT_BEATS="default")
+    assert av._beats(fc, {"beats": {"1_scrubbing": 5.0}}) == "default"

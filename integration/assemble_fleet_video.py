@@ -21,6 +21,7 @@ from policy.hud import font
 
 FFMPEG = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
 FPS = 30
+ROBOT_Z = 42.82
 TITLE = "Argon · rig fleet"
 TITLE_S = 1.5
 END_S = 3.5
@@ -318,30 +319,82 @@ def labels_for(fn: Optional[Callable], header: dict, size: tuple[int, int]) -> d
         return {}
 
 
-def world_positions(header: dict) -> dict:
-    rs = header.get("robots") or []
+def world_positions(header: dict, z: float = ROBOT_Z) -> dict:
+    rs = (header.get("isaac") or {}).get("robots") or header.get("robots") or []
     items = rs.items() if isinstance(rs, dict) else ((r.get("id"), r) for r in rs if isinstance(r, dict))
     out = {}
     for rid, r in items:
         p = r.get("world_pos") or r.get("pos") or (r.get("pose")[:3] if isinstance(r.get("pose"), list) else None)
-        if rid and p is not None and len(p) >= 3:
-            out[rid] = tuple(float(c) for c in p[:3])
+        if rid and p is not None and len(p) >= 2:
+            out[rid] = (float(p[0]), float(p[1]), float(p[2]) if len(p) >= 3 else z)
     return out
 
 
+def isaac_run(raw) -> Optional[dict]:
+    p = Path(raw)
+    d = p if p.is_dir() else p.parent
+    hp = d / "fleet_isaac_header.jsonl"
+    if not hp.exists():
+        return None
+    mp = d / "fleet_isaac.json"
+    meta = json.loads(mp.read_text()) if mp.exists() else {}
+    if p.is_dir():
+        mp4 = sorted(d.glob("*.mp4"))
+        p = d / "frames" if (d / "frames").is_dir() else mp4[0] if mp4 else d
+    rows = sorted(read_jsonl(hp), key=lambda r: r.get("frame", 0))
+    return {"frames": p, "rows": rows, "meta": meta}
+
+
+def merge_isaac(rows: list[dict], hud: list[dict]) -> list[dict]:
+    ts = np.array([float(h.get("t", 0.0)) for h in hud])
+    out = []
+    for r in rows:
+        t = float(r.get("t", 0.0))
+        base = hud[max(int(np.searchsorted(ts, t + 1e-6, side="right")) - 1, 0)] if hud else {}
+        out.append({**base, "t": t, "frame": r.get("frame"), "camera": r.get("camera"), "isaac": r})
+    return out
+
+
+def _beats(fc, beats):
+    if not beats:
+        return fc.DEFAULT_BEATS
+    try:
+        return fc.Beats.from_events(beats)
+    except Exception as e:
+        print(f"assemble: beats unusable ({e}); DEFAULT_BEATS", file=sys.stderr)
+        return fc.DEFAULT_BEATS
+
+
+def _label(a: dict, sx: float = 1.0, sy: float = 1.0) -> dict:
+    return {"xy": (a["x"] * sx, a["y"] * sy), "visible": a.get("mode") in ("on", "edge"), "mode": a.get("mode")}
+
+
 def camera_labels(beats=None) -> Optional[Callable]:
+    from rig.camera import anchor
+
     try:
         fc = importlib.import_module("integration.fleet_camera")
     except ImportError as e:
-        print(f"assemble: integration.fleet_camera unavailable ({e}); no labels", file=sys.stderr)
-        return None
-    b = fc.Beats.from_events(beats) if beats else fc.DEFAULT_BEATS
+        print(f"assemble: integration.fleet_camera unavailable ({e}); header cameras only", file=sys.stderr)
+        fc = None
+    b = _beats(fc, beats) if fc else None
+    scene = getattr(fc, "DEFAULT_SCENE", None)
+    z = float(scene.unit1_work[2]) if scene is not None else ROBOT_Z
+    lift = float(getattr(fc, "LABEL_LIFT", 0.85))
+    dets = {scene.detector_id: tuple(scene.detector)} if scene is not None and hasattr(scene, "detector_id") else {}
 
     def fn(header: dict, size: tuple[int, int]) -> dict:
-        raw = fc.labels(float(header.get("t", 0.0)), b, positions=world_positions(header) or None, w=size[0],
-                        h=size[1])
-        return {k: {"xy": (a["x"], a["y"]), "visible": a.get("mode") in ("on", "edge"), "mode": a.get("mode")}
-                for k, a in raw.items() if a.get("x") is not None}
+        cam = header.get("camera")
+        pos = world_positions(header, z)
+        if isinstance(cam, dict) and "K" in cam and "T" in cam:
+            raw = {k: anchor(cam, p, lift=lift) for k, p in pos.items()}
+            raw.update({k: anchor(cam, p, lift=0.12) for k, p in dets.items()})
+            sx, sy = size[0] / cam.get("w", size[0]), size[1] / cam.get("h", size[1])
+            return {k: _label(a, sx, sy) for k, a in raw.items() if a.get("x") is not None}
+        if fc is None:
+            return {}
+        raw = fc.labels(float(header.get("t", 0.0)), b, positions=pos or None, w=size[0], h=size[1])
+        return {k: _label(a) for k, a in raw.items() if a.get("x") is not None}
     return fn
 
 
@@ -486,13 +539,20 @@ def _even(f: np.ndarray) -> np.ndarray:
     return f[: h - h % 2, : w - w % 2]
 
 
-def assemble(raw, headers_path, out, timeline_path=None, fps_in: float = FPS,
+def assemble(raw, headers_path, out, timeline_path=None, fps_in: Optional[float] = None,
              overlay: Optional[str] = "policy.fleet_overlay:draw", labels: Optional[str] = None, beats=None,
              hd: bool = True, teaser: bool = True, budget_s: float = BUDGET_S) -> dict:
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     headers = load_headers(headers_path)
     timeline = read_jsonl(timeline_path) if timeline_path else []
+    run = isaac_run(raw)
+    if run is not None:
+        raw = run["frames"]
+        fps_in = fps_in or float(run["meta"].get("fps", FPS))
+        beats = beats or run["meta"].get("beats")
+        headers = merge_isaac(run["rows"], headers)
+    fps_in = fps_in or FPS
     frames, size, n = source(raw, headers, fps_in)
     headers = align(headers, n, fps_in)
     p = plan(headers, fps_in, timeline, budget_s)
@@ -553,11 +613,12 @@ def assemble(raw, headers_path, out, timeline_path=None, fps_in: float = FPS,
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Assemble the fleet video: HUD burn-in, Argon-wait time-lapse, cards.")
-    ap.add_argument("raw", help="Isaac render: MP4, a frames directory, or one still to loop")
-    ap.add_argument("headers", help="per-frame header JSONL")
+    ap.add_argument("raw", help="Isaac run dir (fleet_isaac_header.jsonl + frames/ or MP4), MP4, frames dir, "
+                                "or one still to loop")
+    ap.add_argument("headers", help="HUD header JSONL (per frame or per tick)")
     ap.add_argument("--timeline", help="dual_argon Timeline JSONL (argon_request/argon_call spans)")
     ap.add_argument("--out", default="runs/fleet/fleet_video.mp4")
-    ap.add_argument("--fps-in", type=float, default=FPS)
+    ap.add_argument("--fps-in", type=float, default=None)
     ap.add_argument("--overlay", default="policy.fleet_overlay:draw")
     ap.add_argument("--labels", default="", help="module:fn(header, size); default projects via fleet_camera")
     ap.add_argument("--beats", help="JSON of fleet_camera beat times (dict or event list) used for the render")
