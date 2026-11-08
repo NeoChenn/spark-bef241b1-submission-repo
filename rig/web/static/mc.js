@@ -350,6 +350,7 @@
     R.push({ g: "Views", id: "strip", label: "Sensor strip", sub: "Readings along the bottom", key: "S", on: S.strip, run: () => (S.strip = !S.strip) });
     R.push({ g: "Views", id: "gemini", label: "Gemini 4 Argon", sub: "Thoughts, calls and refusals", key: "G", on: S.g, run: () => (S.g = !S.g) });
     const ds = Array.isArray(s?.disturbances) ? s.disturbances : [];
+    R.push({ g: "Disturbances", id: "clear", label: "Clear walkway", sub: "Remove every dropped can, crate, drum and puddle; routes restored", key: "", run: () => post("clear", { id: "all" }) });
     R.push({ g: "Disturbances", id: "drop.crate", label: "Drop crate ahead", sub: "Crate 3 m in front of the walking robot; it re-routes", key: "", run: () => post("drop_obstacle", { kind: "crate", at: "ahead", ahead_m: 3 }) });
     R.push({ g: "Disturbances", id: "drop.can", label: "Drop can in view", sub: "Small can where the camera looks; nearest gripper picks it up", key: "", run: () => post("drop_can", { size: "small", at: "view" }) });
     ds.forEach((d, i) => R.push({ g: "Disturbances", id: "dist." + (d.id || i), label: d.name || nice(d.id), sub: d.fired ? "Fired" : i === s.next ? "Next" : "Later", key: i === s.next ? "I" : d.fired ? "✓" : "", tag: i === s.next, dis: i !== s.next, run: disturb }));
