@@ -76,8 +76,13 @@
     S.h = { ...S.h, ...h };
     const hs = "selected" in h ? h.selected || null : h.camera_mode && typeof h.camera_mode === "object" ? (h.camera_mode.mode === "chase" && h.camera_mode.robot) || null : undefined;
     if (hs !== undefined && now() - S.selAt > 4 && hs !== S.sel) { if (!hs) closeCard(); S.sel = hs; }
-    if (h.scenario && h.scenario.id && h.scenario.id !== "flyby" && h.scenario.id !== S.scenId) S.mc = true;
-    S.scenId = h.scenario?.id || null;
+    const sid = h.scenario?.id && h.scenario.id !== "flyby" ? h.scenario.id : null;
+    if ("scenario" in h && sid !== (S.scenId ?? null)) {
+      if (sid) S.mc = true;
+      const c = S.h.control || {}, ag = c.agent || S.h.orchestrator?.planner || {}, top = (xs) => (Array.isArray(xs) ? xs : []).reduce((m, x) => Math.max(m, +x?.t || 0), -Infinity);
+      S.base = S.scenId === undefined || !sid ? null : { th: top(c.thoughts), calls: top(ag.calls), ref: top(c.refused || c.vetoed) };
+    }
+    if ("scenario" in h) S.scenId = sid;
     record(h);
     alerts(h.alerts);
     hooks.forEach((f) => { try { f(h, S); } catch (e) { console.warn(e); } });
@@ -174,12 +179,12 @@
   }
   function labels() {
     const L = $("labels"), m = mode(), cam = S.h.camera, sel = selected();
-    const show = m !== "flyby" && cam?.T && cam?.K && cam.w && !S.spot ? robots().filter((r) => Array.isArray(r.world_pos) && r.world_pos.length > 2 && (m === "mc" || r.id === sel)) : [];
+    const show = m !== "flyby" && S.h.camera_mode?.mode !== "flyby" && cam?.T && cam?.K && cam.w && !S.spot ? robots().filter((r) => Array.isArray(r.world_pos) && r.world_pos.length > 2 && (m === "mc" || r.id === sel)) : [];
     const keep = new Set(), W = innerWidth, H = innerHeight, at = [];
     const k = cam?.w ? Math.max(W / cam.w, H / cam.h) : 1, ox = cam?.w ? (W - cam.w * k) / 2 : 0, oy = cam?.h ? (H - cam.h * k) / 2 : 0;
     show.forEach((r) => {
       const [u, v, z] = project(cam, r.world_pos), x = ox + u * k, y = oy + v * k;
-      if (!(z > 0.1) || x < 40 || x > W - 40 || y < 110 || y > H - 40 || !isFinite(x + y)) return;
+      if (!(z > 0.3) || z > 400 || x < 40 || x > W - 40 || y < 110 || y > H - 40 || !isFinite(x + y)) return;
       keep.add(r.id);
       let el = L.querySelector(`[data-id="${r.id}"]`);
       if (!el) { el = document.createElement("div"); el.dataset.id = r.id; el.innerHTML = `<div class="lc"><b></b><span></span></div>`; L.appendChild(el); }
@@ -231,14 +236,15 @@
   }
   function geminiPanel() {
     const c = S.h.control || {}, ag = c.agent || S.h.orchestrator?.planner || {};
-    const th = (Array.isArray(c.thoughts) ? c.thoughts : []).filter((x) => x && x.text).slice(-6);
-    const calls = (Array.isArray(ag.calls) ? ag.calls : []).filter(Boolean).slice(-5).reverse();
-    const vet = (Array.isArray(c.refused) ? c.refused : Array.isArray(c.vetoed) ? c.vetoed : []).filter(Boolean).slice(-4).reverse();
+    const b = S.base, fresh = (k) => (x) => !b || (+x?.t || 0) > b[k];
+    const th = (Array.isArray(c.thoughts) ? c.thoughts : []).filter((x) => x && x.text).filter(fresh("th")).slice(-6);
+    const calls = (Array.isArray(ag.calls) ? ag.calls : []).filter(Boolean).filter(fresh("calls")).slice(-5).reverse();
+    const vet = (Array.isArray(c.refused) ? c.refused : Array.isArray(c.vetoed) ? c.vetoed : []).filter(Boolean).filter(fresh("ref")).slice(-4).reverse();
     const cut = c.link === "CUT" || ag.link === "CUT";
     const meta = [cut ? "link cut · fleet on rules" : c.mode === "CLOUD" ? "cloud" : c.mode ? "edge" : "", c.calls_today != null ? c.calls_today + " calls today" : "", c.cost_today_usd != null ? "$" + (+c.cost_today_usd).toFixed(2) : ""].filter(Boolean).join(" · ");
     const sit = Array.isArray(c.situation) ? c.situation[0] : c.situation;
     const think = th.length ? `<ol class="th">${th.map((x, i) => `<li class="${i === th.length - 1 ? "new" : ""}">${esc(x.text)}</li>`).join("")}</ol>`
-      : ag.text || sit ? `<ol class="th"><li class="new">${esc(String(ag.text || sit).split("\n")[0])}</li></ol>` : `<p class="none">Waiting for Argon's first thought</p>`;
+      : b ? `<p class="none">Argon is reading the new situation…</p>` : ag.text || sit ? `<ol class="th"><li class="new">${esc(String(ag.text || sit).split("\n")[0])}</li></ol>` : `<p class="none">Waiting for Argon's first thought</p>`;
     const callRows = calls.map((x) => `<div class="call ${x.ok === false ? "no" : ""}"><b>${esc(x.label || x.name || "call")}</b>${x.why || x.note ? `<p>${esc(x.why || x.note)}</p>` : ""}${x.ok === false && x.refused ? `<p class="ref">Refused · ${esc(x.refused)}</p>` : ""}</div>`).join("");
     const vetRows = vet.map((v) => `<div class="call no"><b>${esc(v.label || v.kind || "action")}</b>${v.why ? `<p class="ref">${esc(v.why)}</p>` : ""}</div>`).join("");
     return `<header><b>Gemini 4 Argon</b><span class="tnum">${esc(meta)}</span></header><h3>${c.thoughts_mode === "decisions" ? "Decisions" : "Thinking"}</h3>${think}<h3>Calls</h3>${callRows || `<p class="none">No calls yet</p>`}${vetRows ? `<h3>Refused by the safety envelope</h3>${vetRows}` : ""}`;
@@ -260,7 +266,8 @@
   const C = {};
   $("card").querySelectorAll("[data-k]").forEach((e) => (C[e.dataset.k] = e));
   const pending = new Image();
-  pending.onload = () => { C.img.src = pending.src; C.img.hidden = false; };
+  pending.onload = () => { C.img.src = pending.src; C.img.hidden = false; pending.bad = null; S.dirty = true; };
+  pending.onerror = () => { pending.bad = pending._s; C.img.hidden = true; C.img.removeAttribute("src"); S.dirty = true; };
   function card() {
     const el = $("card"), k = S.card, rid = selected(), live = !!(k && rid);
     el.classList.toggle("on", live);
@@ -273,7 +280,8 @@
     if (e?.w && e?.h) C.box.style.aspectRatio = `${e.w} / ${e.h}`;
     if (src && pending._s !== src) { pending._s = src; pending.src = src; }
     if (!src) { pending._s = null; C.img.hidden = true; }
-    txt(C.none, src ? "" : onDemand(k) ? `Starting ${rid}'s ${k === "d" ? "depth view" : "head camera"}…` : `No ${title.toLowerCase()} view from ${rid} yet`);
+    const ok = src && pending.bad !== src && !C.img.hidden;
+    txt(C.none, ok ? "" : src && pending.bad !== src ? "Loading…" : onDemand(k) ? `Starting ${rid}'s ${k === "d" ? "depth view" : "head camera"}…` : `No ${title.toLowerCase()} view from ${rid} yet`);
     const bx = k === "b" && Array.isArray(e?.boxes) && e.w ? e.boxes : [], bk = JSON.stringify(bx) + (e?.w || 0);
     if (C.svg._k !== bk) {
       C.svg._k = bk;
