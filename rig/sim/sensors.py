@@ -12,9 +12,10 @@ from rig.views.schedule import Schedule
 ROBOTS = "/World/Obstacles/Robots"
 MOUNTS = {"rust": ((0.35, 0.0, 1.05), (1.6, 0.0, -0.75)), "gas": ((0.3, 0.0, 0.95), (6.0, 0.0, 0.4)),
           "inspection": ((0.32, 0.0, 0.45), (6.0, 0.0, -0.5))}
-LIGHT = 40000.0
+LIGHT = 15000.0
+PATIENCE = 12
 APERTURE = 20.955
-SETTLE = 3
+SETTLE = 1
 NEAR = 0.6
 
 
@@ -36,6 +37,8 @@ class SensorRig:
         self.on = True
         self.rp = self.rp_prim = self.texture = None
         self.read_ms = 0.0
+        self.params = None
+        self.stale = 0
         threading.Thread(target=self._work, daemon=True).start()
 
     def _mount(self, rid: str) -> dict:
@@ -48,7 +51,8 @@ class SensorRig:
         cam.CreateFocalLengthAttr(self.focal)
         cam.CreateHorizontalApertureAttr(APERTURE)
         cam.CreateVerticalApertureAttr(APERTURE * self.size[1] / self.size[0])
-        cam.CreateClippingRangeAttr(Gf.Vec2f(NEAR, 400.0))
+        far = 400.0 + len(self.cams)
+        cam.CreateClippingRangeAttr(Gf.Vec2f(NEAR, far))
         role = role_of(len(self.cams))
         cam.AddTransformOp().Set(Gf.Matrix4d(look_at_rows(*MOUNTS[role])))
         lamp = UsdLux.SphereLight.Define(self.stage, f"{path}/work_light")
@@ -60,7 +64,7 @@ class SensorRig:
         shaping.CreateShapingConeSoftnessAttr(0.4)
         if self.rp is None and self.on:
             self._product(path)
-        c = {"path": path, "cam": cam, "role": role}
+        c = {"path": path, "cam": cam, "role": role, "far": far}
         print(f"rig sim: sensor cam {path} {self.size[0]}x{self.size[1]} role={c['role']}", flush=True)
         return c
 
@@ -73,6 +77,12 @@ class SensorRig:
         self.rgb.attach(self.rp)
         self.depth = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane")
         self.depth.attach(self.rp)
+        try:
+            self.params = rep.AnnotatorRegistry.get_annotator("camera_params")
+            self.params.attach(self.rp)
+        except Exception as exc:
+            self.params = None
+            print(f"rig sim: camera_params unavailable {exc!r}", flush=True)
         self.texture = getattr(self.rp, "hydra_texture", None)
         self.rp_prim = self.stage.GetPrimAtPath(getattr(self.rp, "path", ""))
         if self.mode and self.rp_prim.IsValid():
@@ -83,7 +93,9 @@ class SensorRig:
     def _drop(self) -> None:
         if self.rp is None:
             return
-        for ann in (self.rgb, self.depth):
+        for ann in (self.rgb, self.depth, self.params):
+            if ann is None:
+                continue
             try:
                 ann.detach()
             except Exception as exc:
@@ -105,6 +117,12 @@ class SensorRig:
         if self.rp_prim is not None and self.rp_prim.IsValid():
             with self._session():
                 self.rp_prim.GetRelationship("camera").SetTargets([path])
+
+    def _fresh(self, c: dict) -> bool:
+        if self.params is None:
+            return True
+        nf = (self.params.get_data() or {}).get("cameraNearFar")
+        return nf is not None and len(nf) > 1 and abs(float(nf[1]) - c["far"]) < 0.5
 
     def _header(self, c: dict) -> dict:
         from pxr import Usd
@@ -148,8 +166,14 @@ class SensorRig:
         if self.pending is not None:
             p = self.pending
             p["left"] -= 1
+            c = self.cams[p["rid"]]
+            if p["left"] <= 0 and not self._fresh(c):
+                if p["left"] > -PATIENCE:
+                    return
+                self.stale += 1
+                self.pending = None
+                return
             if p["left"] <= 0:
-                c = self.cams[p["rid"]]
                 t1 = time.perf_counter()
                 rgb, depth = np.asarray(self.rgb.get_data()), np.asarray(self.depth.get_data())
                 self.read_ms = 0.8 * self.read_ms + 0.2 * (time.perf_counter() - t1) * 1e3
@@ -192,4 +216,4 @@ class SensorRig:
         return out or None
 
     def summary(self) -> str:
-        return f"views cams={len(self.cams)} caps={self.captures} main_ms={self.main_ms:.2f} read_ms={self.read_ms:.1f} compose_ms={self.compose_ms:.0f}"
+        return f"views cams={len(self.cams)} caps={self.captures} stale={self.stale} main_ms={self.main_ms:.2f} read_ms={self.read_ms:.1f} compose_ms={self.compose_ms:.0f}"
