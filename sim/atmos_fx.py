@@ -126,6 +126,10 @@ class Puffs:
             _bind(m, mat)
             protos.append(m.GetPath())
         self.inst.CreatePrototypesRel().SetTargets(protos)
+        self.inst.CreatePositionsAttr(Vt.Vec3fArray())
+        self.inst.CreateProtoIndicesAttr(Vt.IntArray())
+        self.inst.CreateScalesAttr(Vt.Vec3fArray())
+        self.inst.CreateOrientationsAttr(Vt.QuathArray())
         self.levels = levels
 
     def update(self, dt, wind, eye):
