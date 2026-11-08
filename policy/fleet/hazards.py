@@ -7,7 +7,7 @@ import numpy as np
 from policy.fleet.rigmap import DECKS
 
 OBSTACLES = {"crate": ("block", 1.2), "debris": ("block", 1.5), "scaffold": ("block", 1.8),
-             "hose": ("slow", 1.0), "spill": ("slip", 2.0)}
+             "hose": ("slow", 1.0), "spill": ("slip", 2.0), "can": ("block", 0.6)}
 SLOW = {"slow": 0.45, "slip": 0.3}
 WEATHER = {"calm": (0.0, 0.0, 0.0), "wind": (0.8, 1.0, 0.0), "rain": (0.7, 0.25, 1.0), "fog": (0.6, 0.0, 0.8),
            "storm": (1.0, 1.0, 1.0)}
@@ -107,12 +107,12 @@ class Hazards:
             raise ValueError(f"unknown {kind or 'walkway'} {target!r}; expected one of {ids}")
         return idx
 
-    def drop(self, kind: str, xyz, at=None) -> dict:
+    def drop(self, kind: str, xyz, at=None, **extra) -> dict:
         if kind not in OBSTACLES:
             raise ValueError(f"unknown obstacle {kind!r}; expected one of {list(OBSTACLES)}")
         effect, radius = OBSTACLES[kind]
         ob = {"id": self._next(kind[:2]), "kind": kind, "xyz": [round(float(v), 3) for v in xyz],
-              "radius": radius, "effect": effect, "at": at}
+              "radius": radius, "effect": effect, "at": at, **extra}
         self.obstacles[ob["id"]] = ob
         return ob
 
