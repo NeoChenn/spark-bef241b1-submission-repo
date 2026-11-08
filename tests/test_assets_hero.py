@@ -61,3 +61,26 @@ def test_live_quality_skips_remote_props_by_default(monkeypatch):
     monkeypatch.setenv("RIG_QUALITY", "live")
     monkeypatch.delenv("RIG_ASSETS_REMOTE", raising=False)
     assert ah.remote_ok() is False
+
+
+def test_repair_background_clears_arm_reach_and_zoom_camera():
+    import numpy as np
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from rig.sim.zoom import ZoomPath
+
+    meta = json.loads((ASSETS.parent / "output" / "rig_merged_meta.json").read_text())
+    zoom = ZoomPath(wide_target=tuple(meta["zoom"]["wide_target"]), close_target=tuple(meta["zoom"]["close_target"]))
+    damage = np.array(meta["world"]["damage"]["position_m"])
+    boxes = [(np.array([x - 0.5, y - 0.5, ah.DECK]), np.array([x + 0.5, y + 0.5, ah.DECK + 3.2]))
+             for _, x, y, *_ in ah.REPAIR_BG]
+
+    def dist(p, box):
+        return float(np.linalg.norm(np.maximum(0, np.maximum(box[0] - p, p - box[1]))))
+
+    for box in boxes:
+        assert dist(damage, box) > 0.6 + 0.5
+        for t in np.arange(0, zoom.period, 0.25):
+            eye, target, _ = zoom.at(t)
+            eye, target = np.array(eye), np.array(target)
+            assert min(dist(eye + (target - eye) * s, box) for s in np.linspace(0, 1, 60)) > 0.5

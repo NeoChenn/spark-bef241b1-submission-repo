@@ -1367,7 +1367,7 @@ over "World"
                 }
             }
 
-            def Xform "Barrel_01_01"
+            def Xform "Barrel_02_01"
             {
                 float xformOp:rotateZ = 0
                 float3 xformOp:scale = (1, 1, 1)
@@ -1375,10 +1375,10 @@ over "World"
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
-                    prepend references = @../assets/third_party/models/Barrel_01/Barrel_01_1k.usdc@
+                    prepend references = @../assets/third_party/models/Barrel_02/Barrel_02_2k.usdc@
                 )
                 {
-                    double3 xformOp:translate = (2.9802322387695312e-8, 1.043081283569336e-7, 0.006614277604967356)
+                    double3 xformOp:translate = (-1.4901161193847656e-8, -9.685754776000977e-8, -0.004637363366782665)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
             }
