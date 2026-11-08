@@ -1451,7 +1451,7 @@ def main(argv=None):
             print(f"[fleet] scrub motion unavailable: {exc}", flush=True)
             sjob = None
     hold1, last_base1, turn1 = 0.0, None, 0.0
-    motion = None
+    motion, svis = None, None
     if args.film and tools["unit2"] == "socket_tip":
         try:
             from integration import retorque_motion as rm
@@ -1467,6 +1467,15 @@ def main(argv=None):
                 motion.t0 = args.retorque_t0
             retq = None
             fx.gas_fn = motion.gas_scale
+            svis = SocketVis(stage, f"/World/Leak/{motion.flange.id}/bolt_{motion.bolt}", "/World/Fleet/unit2")
+            sp = stage.GetPrimAtPath(f"/World/Leak/{motion.flange.id}/bolt_{motion.bolt}")
+            if sp.IsValid():
+                r_ = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default", "render"]).ComputeWorldBound(sp)
+                r_ = r_.ComputeAlignedRange()
+                usd_c = (np.array(r_.GetMin()) + np.array(r_.GetMax())) / 2
+                print(f"[fleet] bolt {motion.bolt} usd {np.round(usd_c, 4).tolist()} motion head "
+                      f"{np.round(motion.head, 4).tolist()} offset {float(np.linalg.norm(usd_c - motion.head)):.4f} m",
+                      flush=True)
             print(f"[fleet] retorque motion {motion.summary()}", flush=True)
         except Exception as exc:
             print(f"[fleet] retorque motion unavailable: {exc}", flush=True)
@@ -1641,6 +1650,8 @@ def main(argv=None):
                             * ~painted)
         overlay.primer.update(painted.astype(np.float32))
         fx_state = fx.update(t, shown["unit2"][:3], abs(units["unit2"].v) > 0.05 or abs(units["unit2"].w) > 0.15)
+        sv_ = svis.update(motion.tool_pose(t), motion.socket_angle(t) / max(motion.socket_angle(motion.t_end), 1e-6)) \
+            if svis is not None else {}
         dets = {}
         for did, st in scn.detectors(t).items():
             dets[did] = st
@@ -1691,6 +1702,7 @@ def main(argv=None):
             row.update(shot=task[0], film_t=task[2], sim_t=round(t, 4))
         row["fx"] = fx_state
         if motion is not None:
+            row["retorque_vis"] = sv_
             row["retorque"] = {"phase": motion.phase(t), "bolt": motion.bolt, "flange": motion.flange.id,
                                "socket_angle": round(motion.socket_angle(t), 4), "gas_scale": round(motion.gas_scale(t), 4),
                                "socket_tip": [round(float(v), 4) for v in motion.tool_pose(t)[:3, 3]]}
@@ -1766,6 +1778,53 @@ def paint_unit(stage, root_path: str, body_hex: str) -> dict:
         if role in mats:
             UsdShade.MaterialBindingAPI.Apply(prim).Bind(mats[role], UsdShade.Tokens.strongerThanDescendants)
     return n
+
+
+class SocketVis:
+    def __init__(self, stage, bolt_path: str, unit_root: str, loose_deg: float = 120.0, root="/World/Fleet/socket_vis"):
+        from pxr import Usd, UsdGeom, UsdShade
+
+        UsdGeom.Xform.Define(stage, root)
+        steel = _surface(stage, f"{root}/Looks/steel", (0.8, 0.82, 0.85), 0.25, 0.9)
+        orange = _surface(stage, f"{root}/Looks/stripe", (1.0, 0.35, 0.02), 0.4, emissive=(0.6, 0.18, 0.01))
+        self.body = UsdGeom.Cylinder.Define(stage, f"{root}/body")
+        self.body.CreateAxisAttr("X")
+        self.body.CreateRadiusAttr(1.0)
+        self.body.CreateHeightAttr(1.0)
+        self.body_op = UsdGeom.Xformable(self.body).AddTransformOp()
+        UsdShade.MaterialBindingAPI.Apply(self.body.GetPrim()).Bind(steel)
+        self.stripe = UsdGeom.Cube.Define(stage, f"{root}/stripe")
+        self.stripe.CreateSizeAttr(1.0)
+        self.stripe_op = UsdGeom.Xformable(self.stripe).AddTransformOp()
+        UsdShade.MaterialBindingAPI.Apply(self.stripe.GetPrim()).Bind(orange)
+        bolt = stage.GetPrimAtPath(bolt_path)
+        self.loosen = bolt.GetAttribute("xformOp:rotateX:loosen") if bolt.IsValid() else None
+        self.loose_deg = loose_deg
+        self.usd_tip = next((p for p in Usd.PrimRange(stage.GetPrimAtPath(unit_root)) if p.GetName() == "socket_tip"),
+                            None)
+
+    @staticmethod
+    def _m(x, y, z, c):
+        from pxr import Gf
+
+        return Gf.Matrix4d(*[float(v) for v in (*x, 0, *y, 0, *z, 0, *c, 1)])
+
+    def update(self, T, turned: float) -> dict:
+        x, y, z, p = T[:3, 0], T[:3, 1], T[:3, 2], T[:3, 3]
+        r, L = 0.015, 0.06
+        self.body_op.Set(self._m(x * L, y * r, z * r, p - x * L / 2))
+        self.stripe_op.Set(self._m(x * L * 0.9, y * 0.004, z * 0.006, p - x * L / 2 + y * (r + 0.001)))
+        out = {"bolt_deg": None}
+        if self.loosen is not None:
+            deg = self.loose_deg * (1.0 - float(np.clip(turned, 0.0, 1.0)))
+            self.loosen.Set(deg)
+            out["bolt_deg"] = round(deg, 2)
+        if self.usd_tip is not None:
+            from pxr import UsdGeom
+
+            M = np.array(UsdGeom.XformCache().GetLocalToWorldTransform(self.usd_tip))
+            out["socket_tip_usd"] = [round(float(v), 4) for v in M[3, :3]]
+        return out
 
 
 def film_overlay_looks(stage, overlay, texture) -> None:
