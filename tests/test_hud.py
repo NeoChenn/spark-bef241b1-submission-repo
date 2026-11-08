@@ -91,3 +91,20 @@ def test_draw_card_composites_in_corner(state, force):
     diff = np.abs(out.astype(int) - frame).sum(-1) > 0
     ys, xs = np.nonzero(diff)
     assert xs.min() >= 0 and xs.max() < 640 and ys.min() > 300
+
+
+def test_project_center_and_offsets():
+    from policy.hud import project
+
+    assert project((5, 0, 0), (0, 0, 0), (1, 0, 0), 20.955, 1280, 720) == pytest.approx((640, 360))
+    x, y = project((5, -1, 1), (0, 0, 0), (1, 0, 0), 20.955, 1280, 720)
+    assert x > 640 and y < 360
+    assert x - 640 == pytest.approx(1280 * 20.955 / 20.955 / 5, rel=1e-6)
+    assert project((-5, 0, 0), (0, 0, 0), (1, 0, 0), 20.955, 1280, 720) is None
+
+
+def test_draw_card_with_brush_ring_draws_near_brush():
+    frame = np.zeros((720, 1280, 3), np.uint8)
+    out = draw_card(frame, "SCRUB  removing rust", 0.5, 30.0, [30.0], 1.0, brush_px=(900, 200))
+    assert np.abs(out[160:240, 860:940].astype(int)).sum() > 0
+    assert out[100:300, 700:800].sum() == 0

@@ -129,6 +129,7 @@ def worker(argv):
     p.add_argument("--dome", type=float, default=220.0)
     p.add_argument("--moon", type=float, default=25.0)
     p.add_argument("--lamp_gain", type=float, default=1.0)
+    p.add_argument("--rig_gain", type=float, default=0.15)
     p.add_argument("--still_at", type=float, default=0.0)
     from isaaclab.app import AppLauncher
 
@@ -194,7 +195,8 @@ def worker(argv):
 
             zone = "/World/Backdrop/RepairZone" if full else "/World/Backdrop"
             print("[demo] night look", night_look.apply(st, zone, work, full=full, dome=args.dome, moon=args.moon,
-                                                         lamp_gain=args.lamp_gain, robot_root="/World/envs/env_0/Robot",
+                                                         lamp_gain=args.lamp_gain, rig_gain=args.rig_gain,
+                                                         robot_root="/World/envs/env_0/Robot",
                                                          robot_color=args.robot_color), flush=True)
 
     SE.ScrubEnv._setup_scene = setup_with_look
@@ -289,7 +291,10 @@ def worker(argv):
             force = float(base.force[0])
             if rgb is not None and rgb.size and k > 0 and rgb[..., :3].mean() > 1:
                 frames.append(np.ascontiguousarray(rgb[..., :3]))
-                info.append({"t": round(t, 3), "frac": frac, "force": force, "state": state[0]})
+                info.append({"t": round(t, 3), "frac": frac, "force": force, "state": state[0],
+                             "brush": [round(float(v), 4) for v in base.brush_w[0]],
+                             "eye": [round(float(v), 4) for v in eye], "look": [round(float(v), 4) for v in look],
+                             "focal": spec["focal"]})
             k += 1
         wall = time.time() - t0
         fps = int(round(1 / dt))

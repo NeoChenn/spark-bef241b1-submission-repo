@@ -117,11 +117,12 @@ def _scale_input(shader, name, k, kind):
         inp.Set(Gf.Vec3f(*(c * k for c in v)) if kind == "color" else float(v) * k)
 
 
-def wet_down(stage, root, albedo=0.5, prop_albedo=0.3, rough=0.45, deck_rough=0.3, sea_path=None):
+def wet_down(stage, root, albedo=0.5, prop_albedo=0.3, rough=0.45, deck_rough=0.3,
+             skip=("sea", "lamp", "flare", "window", "ship", "foam", "night_")):
     from pxr import Usd, UsdShade
 
     for prim in Usd.PrimRange(stage.GetPrimAtPath(root)):
-        if not prim.IsA(UsdShade.Shader) or (sea_path and str(prim.GetPath()).startswith(sea_path)):
+        if not prim.IsA(UsdShade.Shader) or any(k in str(prim.GetPath()) for k in skip):
             continue
         sh = UsdShade.Shader(prim)
         if sh.GetIdAttr().Get() != "UsdPreviewSurface":
@@ -139,9 +140,12 @@ def paint_robot(stage, robot_root, color="graphite"):
     body = _material(stage, "/World/Looks/robot_body", ROBOT_COLORS[color], 0.42, 0.3, 0.6)
     pad = _material(stage, "/World/Looks/robot_brush", CORAL_LIN, 0.55, 0.0, 0.2, emissive=tuple(c * 0.06 for c in CORAL_LIN))
     root = stage.GetPrimAtPath(robot_root)
+    for prim in Usd.PrimRange(root):
+        if prim.IsInstanceable():
+            prim.SetInstanceable(False)
     n = {"body": 0, "brush": 0}
     for prim in Usd.PrimRange(root):
-        if not (prim.IsInstance() or prim.IsA(UsdGeom.Gprim)):
+        if not prim.IsA(UsdGeom.Gprim) or "collision" in str(prim.GetPath()):
             continue
         is_pad = "scrubber_link" in str(prim.GetPath())
         UsdShade.MaterialBindingAPI.Apply(prim).Bind(pad if is_pad else body, UsdShade.Tokens.strongerThanDescendants)
@@ -150,9 +154,9 @@ def paint_robot(stage, robot_root, color="graphite"):
 
 
 def apply(stage, zone_root, work, full=False, dome=220.0, moon=25.0, lamp_gain=1.0, robot_root=None,
-          robot_color="graphite"):
+          robot_color="graphite", rig_root="/World/Backdrop", rig_gain=0.15):
     import carb.settings
-    from pxr import Gf, Sdf, UsdGeom, UsdLux, UsdShade
+    from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade
 
     deck_root = zone_root
     if not full:
@@ -167,7 +171,12 @@ def apply(stage, zone_root, work, full=False, dome=220.0, moon=25.0, lamp_gain=1
         sea = UsdShade.Shader.Get(stage, deck_root + "/Looks/sea/surface")
         sea.GetInput("diffuseColor").Set(Gf.Vec3f(0.001, 0.006, 0.009))
         sea.GetInput("roughness").Set(0.07)
-    wet_down(stage, deck_root, sea_path=deck_root + "/Looks/sea")
+    wet_down(stage, rig_root if full else deck_root)
+    if full:
+        for prim in Usd.PrimRange(stage.GetPrimAtPath(rig_root + "/Cinematic")):
+            if prim.IsA(UsdLux.SphereLight):
+                a = prim.GetAttribute("inputs:intensity")
+                a.Set(a.Get() * rig_gain)
 
     base = deck_root + "/NightLook"
     UsdGeom.Scope.Define(stage, base)

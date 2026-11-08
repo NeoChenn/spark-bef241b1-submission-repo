@@ -95,6 +95,36 @@ def sparkline_points(values, x0, y0, w, h, vmax):
             for k, x in enumerate(v)]
 
 
+def project(p, eye, look, focal, w, h, aperture=20.955):
+    p, e, l = (np.asarray(v, float) for v in (p, eye, look))
+    f = (l - e) / np.linalg.norm(l - e)
+    r = np.cross(f, (0.0, 0.0, 1.0))
+    r /= np.linalg.norm(r)
+    u = np.cross(r, f)
+    d = p - e
+    z = d @ f
+    if z <= 1e-6:
+        return None
+    k = focal / aperture * w
+    return float(w / 2 + k * (d @ r) / z), float(h / 2 - k * (d @ u) / z)
+
+
+def _ring(base, xy, force):
+    from PIL import Image, ImageDraw, ImageFilter
+
+    if xy is None or force < 2.0:
+        return
+    c = force_color(force)
+    R = 26
+    im = Image.new("RGBA", (2 * R * S + 40, 2 * R * S + 40), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    o = 20
+    d.ellipse([o, o, o + 2 * R * S, o + 2 * R * S], outline=c + (230,), width=3 * S)
+    glow = im.filter(ImageFilter.GaussianBlur(6))
+    im = Image.alpha_composite(glow, im).resize((im.width // S, im.height // S), Image.LANCZOS)
+    base.alpha_composite(im, (int(xy[0] - im.width / 2), int(xy[1] - im.height / 2)))
+
+
 FONT_DIRS = ("/System/Library/Fonts", "/Library/Fonts", os.path.expanduser("~/Library/Fonts"),
              "/usr/share/fonts/truetype/inter", "/usr/share/fonts/truetype/dejavu")
 SANS = ("Inter-Variable.ttf", "Inter.ttc", "SFNS.ttf", "DejaVuSans.ttf")
@@ -227,10 +257,12 @@ def _card(state, frac, force, history, t, policy):
     return im.resize((CARD_W, CARD_H), Image.LANCZOS)
 
 
-def draw_card(frame, state, frac, force, history, t, policy="PPO policy · Isaac Lab"):
+def draw_card(frame, state, frac, force, history, t, policy="PPO policy · Isaac Lab", brush_px=None):
     from PIL import Image
 
     base = Image.fromarray(np.ascontiguousarray(frame[..., :3])).convert("RGBA")
+    if brush_px is not None and 0 <= brush_px[0] < base.width and 0 <= brush_px[1] < base.height:
+        _ring(base, brush_px, force)
     x0, y0 = MARGIN, base.height - MARGIN - CARD_H
     sh = _shadow(CARD_W, CARD_H, 14)
     shade = Image.new("RGBA", sh.size, (0, 0, 0, 255))
@@ -271,7 +303,9 @@ def composite(raw, log_path, sinks, keys=(), key_stem=None, spark_s=3.0):
         if i >= len(log):
             break
         e = log[i]
-        img = draw_card(grade(fr), e["state"], e["frac"], e["force"], forces[max(0, i - n_spark):i + 1], e["t"])
+        bp = project(e["brush"], e["eye"], e["look"], e["focal"], w, h) if "brush" in e else None
+        img = draw_card(grade(fr), e["state"], e["frac"], e["force"], forces[max(0, i - n_spark):i + 1], e["t"],
+                        brush_px=bp)
         for s in sinks:
             s.write(img.tobytes())
         if i in want and key_stem:
