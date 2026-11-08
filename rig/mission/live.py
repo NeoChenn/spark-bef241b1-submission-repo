@@ -15,8 +15,9 @@ from rig.captions import caption, fleet_robots
 from rig.mission.gas import ALARM_LEL, FLOW_GS, SUB_S, WALK_MS, GasLeak, wind_from_weather
 from rig.mission.jobs import MissionPort
 
-FLEET_EVENTS = ("drop_obstacle", "close_walkway", "close_stairs", "clear", "set_weather", "weld_job")
-ROLE = {"weld": "weld", "rust": "rust", "gas": "gas", "leak_check": "leak check", "inspect": "inspection", "crack": "crack"}
+FLEET_EVENTS = ("drop_obstacle", "close_walkway", "close_stairs", "clear", "set_weather", "weld_job", "drop_can")
+ROLE = {"weld": "weld", "rust": "rust", "gas": "gas", "leak_check": "leak check", "inspect": "inspection", "crack": "crack",
+        "pick_can": "pick can"}
 RUST = ("DETECT", "SPRAY", "SOAK", "SCRUB", "VERIFY", "PAINT", "APPROACH", "BACK_OFF", "GRIND", "WELD", "INSPECT_WELD")
 GAS = ("LEAK_APPROACH", "LEAK_INSPECT", "RETORQUE", "LEAK_VERIFY", "GAS_CHECK")
 RANK = {"stop": 4, "warn": 3, "act": 2, "ok": 1}
