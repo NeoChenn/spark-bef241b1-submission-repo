@@ -39,6 +39,26 @@ def test_the_edl_tiles_sixty_seconds_in_story_order():
     assert {s.t_in for s in SHOTS} <= {"cut", "xfade", "fade"} and '"walk_back"' in to_json(SHOTS)
 
 
+def test_short_and_long_cuts_share_every_3d_shot():
+    short, long = edl(length=60.0), edl(length=None)
+    named = edl(length="long")
+    assert [x.to_dict() for x in short[:-1]] == [x.to_dict() for x in long[:-1]] == [x.to_dict() for x in named[:-1]]
+    assert short[-1].film[1] == 60.0 and short[-1].cards == 3
+    assert long[-1].film[1] == 66.0 and long[-1].cards == 5
+    assert long[-1].film[1] - long[-1].film[0] == pytest.approx(short[-1].film[1] - short[-1].film[0] + 6.0)
+    both = FilmBeats.from_summary({**SUMMARY, "beats": {**SUMMARY["beats"], "u2_return": 114.5}})
+    walk = next(x for x in edl(both) if x.name == "walk_back")
+    assert walk.sim == (114.5, 124.5) and walk.rate == 2.5
+
+
+def test_control_room_constants_describe_the_window_isaac_needs():
+    lo, hi = np.array(CONTROL_ROOM["interior"][0]), np.array(CONTROL_ROOM["interior"][1])
+    eye, target = np.array(CONTROL_ROOM["interior_eye"]), np.array(CONTROL_ROOM["window_target"])
+    assert np.all(lo < eye) and np.all(eye < hi) and CONTROL_ROOM["floor_z"] < eye[2] < CONTROL_ROOM["ceiling_z"]
+    (w0, w1), = [w for w in CONTROL_ROOM["north_windows"] if w[0][0] <= target[0] <= w[1][0]]
+    assert w0[2] <= target[2] <= w1[2]
+
+
 def test_sim_time_follows_the_recorded_beats():
     b = FilmBeats.from_summary(SUMMARY)
     assert (b.u2_engage, b.torque_done, b.u1_walk, b.paint_done, b.end) == (46.8, 50.2, 63.2, 113.6, 129.7)

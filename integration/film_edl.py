@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Callable, Optional
@@ -16,6 +17,7 @@ FILM_RUN = REPO / "runs_sample/film"
 FOLLOW_FOCAL = 33.0
 MOVE_S = 1.2
 LENGTH = 60.0
+CUTS = {"short": (60.0, 3), "long": (66.0, 5)}
 ALIASES = {"u1_walk": "dispatch_u1", "end": "t_end"}
 
 
@@ -67,6 +69,7 @@ class Shot:
     t_out: str = "cut"
     two_d: bool = False
     badge: str = ""
+    cards: int = 0
 
     def sim_at(self, film_t: float) -> Optional[float]:
         if self.sim is None:
@@ -76,7 +79,7 @@ class Shot:
     def to_dict(self) -> dict:
         return {"name": self.name, "film": [round(v, 3) for v in self.film],
                 "sim": None if self.sim is None else [round(v, 3) for v in self.sim], "rate": round(self.rate, 3),
-                "in": self.t_in, "out": self.t_out, "two_d": self.two_d, "badge": self.badge}
+                "in": self.t_in, "out": self.t_out, "two_d": self.two_d, "badge": self.badge, "cards": self.cards}
 
 
 def _walk(t: float, t0: float, t1: float, a, b):
@@ -139,10 +142,11 @@ def _still(pose) -> Callable:
 
 
 def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE, track: Optional[Callable] = None,
-        length: float = LENGTH) -> list[Shot]:
+        length: float | str | None = LENGTH) -> list[Shot]:
     b, s = beats or FilmBeats(), scene
     tr = track or default_track(b, s)
     j2, j1 = _still(unit2_job(s)), _still(unit1_job(s))
+    home = min(b.u1_return, b.u2_return) if b.u2_return >= b.paint_done else b.u1_return
     p2, p1 = _pan(tr, "unit2", j2(0, 0)[0], b.u2_arrive), _pan(tr, "unit1", j1(0, 0)[0], b.u1_arrive)
     plan = [
         ("rig", 6.0, (0.0, 0.0), lambda u, t: rig_orbit(u), "fade", "xfade", False),
@@ -155,7 +159,7 @@ def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE
         ("unit1_soak", 1.0, (b.soak, b.scrub), j1, "cut", "cut", False),
         ("unit1_scrub", 8.0, (b.scrub, b.scrub_done), j1, "cut", "cut", False),
         ("unit1_paint", 4.6, (b.scrub_done, b.paint_done + 0.3), j1, "cut", "xfade", False),
-        ("walk_back", 4.0, (b.u1_return, b.u1_return + 10.0), _still(birdseye(s)), "xfade", "xfade", False),
+        ("walk_back", 4.0, (home, home + 10.0), _still(birdseye(s)), "xfade", "xfade", False),
     ]
     shots, t, prev = [], 0.0, None
     for name, dur, sim, cam, t_in, t_out, two_d in plan:
@@ -165,8 +169,11 @@ def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE
         badge = "" if rate <= 1.05 or two_d else f"{rate:.1f}x".replace(".0x", "x")
         shots.append(Shot(name, (t, t + dur), sim, rate, cam, t_in, t_out, two_d, badge))
         t, prev = t + dur, cam
-    shots.append(Shot("conclusion", (t, max(length, t + 4.0)), None, 1.0, lambda u, tt: conclusion(u), "xfade",
-                      "fade", True))
+    end, cards = CUTS["long" if length in (None, "long") else "short"]
+    if isinstance(length, (int, float)):
+        end = float(length)
+    shots.append(Shot("conclusion", (t, max(end, t + 4.0)), None, 1.0, lambda u, tt: conclusion(u), "xfade",
+                      "fade", True, cards=cards))
     return shots
 
 
@@ -185,4 +192,4 @@ def to_json(shots: list[Shot]) -> str:
 
 if __name__ == "__main__":
     b = FilmBeats.load() if (FILM_RUN / "summary.json").exists() else FilmBeats()
-    print(to_json(edl(b, track=load_track())))
+    print(to_json(edl(b, track=load_track(), length=sys.argv[1] if len(sys.argv) > 1 else LENGTH)))
