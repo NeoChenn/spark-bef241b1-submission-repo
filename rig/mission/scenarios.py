@@ -478,11 +478,12 @@ class DemoCan(Demo):
     id, name, main = "demo_can", "Demo: Can pick-up", "R3"
     steps = ("A can drops on the walkway", "Unit 3 walks to the can", "Suction cup seals on the can",
              "Learned pick-up carries it to the back tote", "Can stowed, Unit 3 moves on")
-    robots = (("R1", [-21.0, 4.0, 31.25], 0.9), ("R2", [10.0, 12.0, 20.0], 0.9), ("R3", [1.0, -4.6, 42.5], 0.95))
+    robots = (("R1", [-21.0, 4.0, 31.25], 0.9), ("R2", [10.0, 12.0, 20.0], 0.9), ("R3", [1.4, -4.6, 42.5], 0.95))
     weather = DEMO_WEATHER
-    start, stop, away, yaw = (1.0, -4.6), (3.5, -4.6), (4.5, -4.6), 0.0
-    drop_s, walk_s, rep_s, away_s = 0.8, (1.5, 5.0), 5.5, 1.5
-    cam = {"mode": "zoom", "at": [3.0, -4.4, 42.5], "lens": {"dist": 4.8, "elev": 32.0, "focal": 24.0, "az": [-65.0, 65.0, -115.0, 115.0]}}
+    start, stop, away, yaw = (1.4, -4.6), (3.5, -4.6), (4.3, -4.6), 0.0
+    drop_s, walk_s, rep_s, away_s = 0.8, (1.5, 4.5), 5.0, 1.5
+    lamp = [3.4, -4.6, 46.5, 25000.0]
+    cam = {"mode": "zoom", "at": [3.1, -4.4, 42.5], "lens": {"dist": 4.0, "elev": 32.0, "focal": 24.0, "az": [-65.0, 65.0, -115.0, 115.0]}}
 
     def setup(self) -> None:
         from rig.sim.taskmotion import Rollout
@@ -504,7 +505,7 @@ class DemoCan(Demo):
             with self.m.fleet.lock:
                 self.can = self.f.hz.drop("can", [*xy, self.deck], None, size="small", colour="red", radius=0.0,
                                           rollout=self.main, anchor=[*self.stop, self.deck, self.yaw],
-                                          frames=[self.f0, self.f1], phase="ground")
+                                          frames=[self.f0, self.f1], phase="ground", lamp=self.lamp)
                 self.m.fleet.snap = self.f.snapshot()
             self.run.mine.add(self.can["id"])
         if e < self.walk_s[0]:
