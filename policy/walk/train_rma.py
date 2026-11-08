@@ -46,10 +46,12 @@ def teacher(args):
     cfg, raw = make(args)
     agent = WalkRMAPPORunnerCfg()
     agent.seed, agent.max_iterations, agent.device = args.seed, args.iters, "cuda:0"
+    agent.policy.noise_std_type = "log"
     env = RslRlVecEnvWrapper(raw, clip_actions=agent.clip_actions)
     os.makedirs(args.run_dir, exist_ok=True)
     runner = OnPolicyRunner(env, agent.to_dict(), log_dir=args.run_dir, device=agent.device)
-    sd = torch.load(args.base, map_location="cuda:0", weights_only=False)["model_state_dict"]
+    sd = dict(torch.load(args.base, map_location="cuda:0", weights_only=False)["model_state_dict"])
+    sd["log_std"] = torch.log(sd.pop("std").clamp_min(1e-3))
     runner.alg.policy.load_state_dict(expand_first_layer(sd, EXT_DIM))
     t0 = time.time()
     runner.learn(num_learning_iterations=args.iters, init_at_random_ep_len=True)
