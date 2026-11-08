@@ -20,7 +20,7 @@ app = modal.App("rig-walk-train")
 def train(run: str, num_envs: int, iters: int, extra: list[str]) -> dict:
     run_dir = f"{CKPT_DIR}/walk/{run}"
     os.makedirs(run_dir, exist_ok=True)
-    subprocess.run([ISAACLAB_PY, "-m", "pip", "install", "-q", "--no-deps", "rsl-rl-lib==3.1.2"], check=True)
+    subprocess.run([ISAACLAB_PY, "-m", "pip", "install", "-q", "rsl-rl-lib==3.1.2"], check=True)
     cmd = [ISAACLAB_PY, "-m", "policy.walk.train_walk", "--num_envs", str(num_envs), "--iters", str(iters),
            "--run_dir", run_dir, "--headless", *extra]
     proc = subprocess.Popen(cmd, cwd="/root", env=isaac_env(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
