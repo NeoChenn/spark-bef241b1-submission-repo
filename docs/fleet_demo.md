@@ -14,7 +14,7 @@ Every number cites the file it comes from. Paths are on `origin/fleet-demo` unle
 |---|---|---|---|---|---|
 | Unit 1 "Scrubber" (`unit1`) | Go2 + 0–0.45 m lift mast + UR3 | squishing brush pad, spray/paint nozzle, personal gas sniffer | Rust: detect → spray → soak → scrub (PPO) → verify → paint | rust detector, scrub policy, state machine, force/person/gas gates | Gemini rust second opinion (optional, asynchronous) |
 | Unit 2 "Fixer" (`unit2`) | Go2 + UR3 | 2-finger gripper / torque tool; IR and catalytic %LEL, H₂S cell, ultrasound, OGI-style camera | Gas: cast-and-surge localisation → inspect flange → re-torque bolt → verify | sensor suite, localisation, stripe and crack check | none |
-| Fixed detectors (`G-F1`, `G-F2`, …) | yellow F&G point boxes beside each flange | gas sensor + status LED: green, amber, red, grey (fault) | continuous monitoring, raise the alarm | LED thresholds | none |
+| Fixed detectors (`G-F1` … `G-F6`) | yellow F&G point boxes beside each flange | gas sensor + status LED: green, amber, red, grey (fault) | continuous monitoring, raise the alarm | LED thresholds | none |
 | Argon | command centre, `gemini-4-argon` | fusion, capability routing, spark rule, zone clearance, maintenance tickets | coordinator | deterministic fusion and edge rules run without it | one structured-JSON call per new verdict |
 
 Sources: unit ids, routing, LED and the Argon prompt are in `integration/dual_argon.py` (`SCRUBBER`, `FIXER`, `ROUTE`, `led`, `SYSTEM`). The Unit 2 sensors are in `policy/gasbot/sensors.py` (`PointGasSensor`, `H2SCell`, `AcousticSensor`, `ogi_view`, `SensorSuite`). The robot body is in `sim/assets/go2_ur3/go2_ur3_lift.urdf`. The model id is `MODEL` in `policy/control/backend.py`.
@@ -44,17 +44,19 @@ One take, ≤ 60 s, HUD burned in. The timestamps come from the recorded run.
 
 **TODO:** take every `t` from lane `cpu-runner`'s `runs_sample/fleet_demo/` timeline (`finding`, `argon_request`, `argon_call`, `command`, `ticket` and `vetoed` rows) and from `argon-prompt`'s recorded calls. Video time = timeline `t` + the render offset, so note the offset here when it is known.
 
+The demo leak is at F5 / G-F5, about 5.5 m from Unit 1, and the stuck head is G-F6. Both come from the coordinator's scenario. `integration/fleet_scenario.py` on `fleet/leak-scenario` (aa89f7d) still defaults to `leak_flange="F2"` and `stuck_flange="F1"`, so confirm against the recorded timeline before quoting either.
+
 | # | Video time | What happens | Timeline row to cite | HUD shows |
 |---|---|---|---|---|
-| 1 | TODO 0:00 | Unit 1 scrubbing rust on the main pipe. Unit 2 docked. | first `command` / state rows | rust map, force, G-F2 green |
-| 2 | TODO | A bolt works loose at F2. G-F2 goes amber, then red. | `finding` G-F2 (`fixed_lel` ≥ 5 → amber, ≥ 10 → red) | LED colour, %LEL |
-| 3a | TODO | Spark rule: an amber/red detector within 6 m of hot work. Unit 1 HOLDs and steps back. The rust job is PAUSED, not cancelled. | `command` hold, `source: edge`, reason `spark rule: …` | HOLD, "rust paused" |
-| 3b | TODO | Unit 1's sniffer reads low at ~4 m, so the verdict is UNVERIFIED. Argon is asked. | `finding` UNVERIFIED, then `argon_request` key `G-F2:UNVERIFIED` | verdict, "Argon pending" |
-| 3c | TODO (request + TODO s) | Argon replies: `go_check` F2 → unit2. | `argon_call` (`latency_ms`, tokens, cost), `command` go_check | Argon line, latency |
+| 1 | TODO 0:00 | Unit 1 scrubbing rust on the main pipe. Unit 2 docked. | first `command` / state rows | rust map, force, G-F5 green |
+| 2 | TODO | A bolt works loose at F5. G-F5 goes amber, then red. | `finding` G-F5 (`fixed_lel` ≥ 5 → amber, ≥ 10 → red) | LED colour, %LEL |
+| 3a | TODO | Spark rule: G-F5 is amber/red and ~5.5 m from Unit 1, inside the 6 m spark radius. Unit 1 HOLDs and steps back. The rust job is PAUSED, not cancelled. | `command` hold, `source: edge`, reason `spark rule: …` | HOLD, "rust paused" |
+| 3b | TODO | Unit 1's sniffer reads low at ~5.5 m (outside the 2 m confirm range), so the verdict is UNVERIFIED. Argon is asked. | `finding` UNVERIFIED, then `argon_request` key `G-F5:UNVERIFIED` | verdict, "Argon pending" |
+| 3c | TODO (request + TODO s) | Argon replies: `go_check` F5 → unit2. | `argon_call` (`latency_ms`, tokens, cost), `command` go_check | Argon line, latency |
 | 4a | TODO | Unit 2 walks in and sniffs (cast-and-surge). Both sources agree, so the verdict is LEAK_CONFIRMED. | `finding` LEAK_CONFIRMED | Unit 2 %LEL, distance |
-| 4b | TODO | `fix_leak` F2: the gripper re-torques the loose bolt. Gas falls and G-F2 turns green. | `command` fix_leak; `finding` OK | stripe aligned, gas falling |
+| 4b | TODO | `fix_leak` F5: the gripper re-torques the loose bolt. Gas falls and G-F5 turns green. | `command` fix_leak; `finding` OK | stripe aligned, gas falling |
 | 5 | TODO | Zone clear: Argon is asked once and `resume_rust` goes to unit1. Unit 1 finishes the scrub and paints. Unit 2 returns to dock. | `argon_request` key `zone:clear`, `command` resume_rust | RESUMED, DONE |
-| 6 (opt.) | TODO | G-F1 is stuck high while Unit 2 passes reading clean. The verdict is PIPE_SENSOR_FAULT and ticket MT-001 is raised. No repair is dispatched. | `finding` PIPE_SENSOR_FAULT, `ticket` MT-001 | grey LED, ticket |
+| 6 (opt.) | TODO | G-F6 is stuck high while Unit 2 passes reading clean. The verdict is PIPE_SENSOR_FAULT and ticket MT-001 is raised. No repair is dispatched. | `finding` PIPE_SENSOR_FAULT, `ticket` MT-001 | grey LED, ticket |
 | 7 (opt.) | TODO | Cut link: the same call is made by the edge rule, with `source: edge`. | `link` cut row, `command` with `source: edge` | LINK CUT |
 
 ## Fusion logic: fixed detector vs robot sniffer
@@ -65,7 +67,8 @@ From `fuse()` in `integration/dual_argon.py`. The readings are in %LEL. "Near" m
 |---|---|---|---|
 | ≥ 10 | none within 2 m | **UNVERIFIED** | hold unit1 + go_check unit2 |
 | ≥ 10 | ≥ 5, within 2 m | **LEAK_CONFIRMED** | fix_leak unit2 |
-| ≥ 10 | < 5, within 2 m | **PIPE_SENSOR_FAULT** | log_sensor_fault → maintenance ticket (no repair) |
+| 10 to < 20 | < 5, within 2 m | **PIPE_SENSOR_FAULT** | log_sensor_fault → maintenance ticket (no repair) |
+| ≥ 20 | any | never only a sensor fault: `hazard = true` | hazard actions at once on the edge, even with the link up (fix pending, see below) |
 | < 10 (clean or dead) | ≥ 10, within 2 m | **LEAK_UNSEEN_BY_FIXED** | fix_leak unit2 + log_sensor_fault on the head |
 | < 10 | below alarm, or far | **OK** | resume_rust (only if unit1 is held and the spark rule is clear) |
 | any | robot ≥ 20, or a crack | `hazard = true` | hold unit1 + retreat for the robot at the gas |
@@ -74,7 +77,7 @@ The LED is green below 5, amber from 5, red from 10, and grey for a faulted head
 
 ## Safety envelope
 
-- **Hazard first.** In `fuse()`, a reading of ≥ 20 %LEL from either source sets `hazard`. `led()` won't grey out a faulted head at that level. The Argon prompt states that "anything ≥ 20 %LEL is real gas regardless of a fault verdict" (`SYSTEM`). A robot reading ≥ 20 %LEL, or a crack, makes the edge rule hold and retreat (`edge_rule`, `integration/dual_argon.py`). The older single-robot gates still apply: GAS_RETREAT at ≥ 0.20 LEL (`docs/technical_summary.html`), and the evacuation latch at 50 %LEL that holds until gas falls below 10 % (`LEL_EVACUATE`, `LEL_CLEAR` in `policy/control/safety.py`).
+- **Hazard first.** In `fuse()`, a reading of ≥ 20 %LEL from either source sets `hazard`. `led()` won't grey out a faulted head at that level. The Argon prompt states that "anything ≥ 20 %LEL is real gas regardless of a fault verdict" (`SYSTEM`). A robot reading ≥ 20 %LEL, or a crack, makes the edge rule hold and retreat (`edge_rule`, `integration/dual_argon.py`). The hazard-first fix in `dual_argon` goes further: a fixed reading ≥ 20 %LEL is never treated as just a sensor fault, and hazard actions are issued at once by the edge rule even while the link to Argon is up. **TODO:** this fix isn't on `fleet-demo` at b851bc7, where `fuse()` can still return PIPE_SENSOR_FAULT for a fixed reading ≥ 20 with a clean robot beside it. Cite the commit once it lands. The older single-robot gates still apply: GAS_RETREAT at ≥ 0.20 LEL (`docs/technical_summary.html`), and the evacuation latch at 50 %LEL that holds until gas falls below 10 % (`LEL_EVACUATE`, `LEL_CLEAR` in `policy/control/safety.py`).
 - **Spark rule.** Wire brushing is spark-producing hot work. Any detector within `SPARK_RADIUS_M` = 6 m of unit1 that is amber or red holds unit1 (a faulted head counts only at ≥ 20 %LEL) at once on the edge, without waiting for Argon. A `resume_rust` that arrives while a nearby detector is still amber or red is logged as `vetoed` and dropped (`spark_hot`, `ArgonLink.tick`, `ArgonLink._issue`).
 - **No self-approval.** Gemini can't approve its own supervised job. `approve_request` only files to the human operator inbox ("only a human approves"). Paint, rust repair, re-torque and valve isolation are raised from AUTO to SUPV. Safety jobs can't be cancelled or pushed down, an ESD can only be reset on site, and the 40 N force limit and 3 m person pause can't be changed by the agent (`policy/control/envelope.py`).
 - **Cut-link edge rule.** With the link cut (`ArgonLink.cut(True)` or mode `edge`), each verdict is turned into commands by the same deterministic `edge_rule` and issued at once. An Argon error, a timeout over 25 s or an invalid reply (bad JSON, a command outside the enum, an unknown target) falls back to the same rule, and the reason is tagged on the command (`ArgonLink._finish`). Argon's reply is parsed against a fixed command enum and target set, so it can't name a robot outside `ROUTE` except for a retreat (`parse_reply`).
@@ -87,7 +90,7 @@ The weights come from `HANDOFF.md`. The video moments refer to the beats above.
 | Criterion (weight) | Video moment | Metric to quote | Source |
 |---|---|---|---|
 | Perception-driven action (25 %) | Beats 2–4: the detector LED and both %LEL readings decide the verdict, and the verdict decides the command | Verdict → command per row of the fusion table; rust detector F1 0.977 on 881 real photos, 13/13 held-out Isaac renders; crack check 40/40 found, 0/40 false alarms | `integration/dual_argon.py`, `detection/RESULTS.md`, `docs/technical_summary.html`; beat times **TODO** from `runs_sample/fleet_demo/` |
-| Adaptation to a mid-run change (25 %) | Beat 2→3a: an unscripted bolt loosens mid-scrub. Unit 1 holds and pauses, Unit 2 is dispatched, and Unit 1 resumes the same job | Time from G-F2 red to hold (expected at the same tick, since the spark rule is on the edge); time to go_check; time to green; time to resume. **TODO** from the timeline | `runs_sample/fleet_demo/` (TODO) |
+| Adaptation to a mid-run change (25 %) | Beat 2→3a: an unscripted bolt loosens mid-scrub. Unit 1 holds and pauses, Unit 2 is dispatched, and Unit 1 resumes the same job | Time from G-F5 red to hold (expected at the same tick, since the spark rule is on the edge); time to go_check; time to green; time to resume. **TODO** from the timeline | `runs_sample/fleet_demo/` (TODO) |
 | Edge autonomy (15 %) | Beat 7, cut link; also the spark-rule hold in 3a, which never waits for the cloud | Same command with `source: edge`; 25 s timeout; perception on CPU at 1.1 ms (rust) and ~90 ms (leak check) | `integration/dual_argon.py`, `detection/RESULTS.md`, `docs/technical_summary.html`; cut-link run **TODO** |
 | Relevance + the critical failure mode on screen (20 %) | Beat 3a, spark near gas: hot work is held. Beat 6: a faulty head raises a ticket instead of a needless repair. A crack is never re-torqued | Spark radius 6 m; STOP 20 %LEL; ticket MT-001; crack p ≥ 0.5 → never a robot repair | `integration/dual_argon.py`, `docs/technical_summary.html` |
 | Ambition and quality (15 %) | The whole take: two robots, a fixed detector network, Gemini command centre, one Isaac scene | Live Argon latency 6.0 s and about $0.003 a call; scrub v2 over 40 N in 1.0 % of episodes (v1: 76.8 %) at 97.6 % success | `fleet-demo` @ 44b54de live check (TODO timeline file), `policy/control/limiter.py`, `policy/SCRUB.md` |
