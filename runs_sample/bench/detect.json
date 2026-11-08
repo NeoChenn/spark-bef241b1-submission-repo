@@ -1,0 +1,371 @@
+{
+ "datasets": {
+  "sim_heldout": {
+   "n": 13,
+   "n_rust": 6,
+   "source": "detection/eval.py SIM_HELDOUT labelled crops of sim/output renders; not in any training set (synth_sim.TRAIN_RENDERS uses only full_rig_* except the gauge closeup)"
+  },
+  "rust_sim_test": {
+   "n": 485,
+   "n_rust": 202,
+   "source": "detection/synth_sim.py test split (watson runs/edge/data/rust_sim/test); in-distribution for detector_w, which trained on the same generator"
+  },
+  "real_photos": {
+   "n": 0,
+   "status": "not available here: rust_v1 real test photos live on the teammate's Modal volume rust-data"
+  }
+ },
+ "published": {
+  "source": "detection/RESULTS.md",
+  "status": "published, not re-measured (deployed rust_v2 LoRA checkpoint not available here)",
+  "model": "mobilenetv4_conv_small + LoRA r=16, rust_v2",
+  "real_test_881": {
+   "accuracy": 0.981,
+   "precision": 0.97,
+   "recall": 0.983,
+   "f1": 0.977,
+   "auroc": 0.998,
+   "pr_auc": 0.997
+  },
+  "synthetic_test_485": {
+   "f1": 1.0
+  },
+  "sim_heldout_13": {
+   "correct": 13,
+   "n": 13
+  },
+  "latency_ms": {
+   "ort_cpu_b1_1thr": 2.6,
+   "ort_cpu_b1_4thr": 1.1,
+   "a10_torch_b1": 3.4
+  },
+  "params_M": 2.49,
+  "gmacs": 0.19,
+  "runs_on_robot": true
+ },
+ "arms": [
+  {
+   "name": "Colour stand-in",
+   "label": "fake_colour_classifier via RustLocalizer (patch 16, stride 8), image score = max patch prob \u2014 the orchestrator's CPU-mock stand-in",
+   "threshold": 0.5,
+   "runs_on_robot": true,
+   "compute": "CPU, numpy",
+   "results": {
+    "sim_heldout": {
+     "n": 13,
+     "n_pos": 6,
+     "threshold": 0.5,
+     "confusion": {
+      "tn": 2,
+      "fp": 5,
+      "fn": 0,
+      "tp": 6
+     },
+     "f1": {
+      "mean": 0.7058823529411765,
+      "lo": 0.4,
+      "hi": 0.9002272727272715
+     },
+     "precision": {
+      "mean": 0.5454545454545454,
+      "lo": 0.25,
+      "hi": 0.818560606060604
+     },
+     "recall": {
+      "mean": 1.0,
+      "lo": 1.0,
+      "hi": 1.0
+     },
+     "auroc": {
+      "mean": 0.7142857142857143,
+      "lo": 0.5,
+      "hi": 0.9166666666666667
+     },
+     "latency": {
+      "median_ms": 3.897957969456911,
+      "p90_ms": 9.678565990179777,
+      "n": 13
+     },
+     "per_item": [
+      {
+       "id": "preview_repair_closeup.png:damage patch (rust_coarse_01)",
+       "label": 1,
+       "score": 1.0
+      },
+      {
+       "id": "preview_repair_closeup.png:rusty steel post (rusty_metal_02)",
+       "label": 1,
+       "score": 1.0
+      },
+      {
+       "id": "preview_repair_closeup.png:deck grate (metal_grate_rusty)",
+       "label": 1,
+       "score": 1.0
+      },
+      {
+       "id": "preview_repair_closeup.png:green painted pipe",
+       "label": 0,
+       "score": 1.0
+      },
+      {
+       "id": "preview_repair_closeup.png:green painted pipe right",
+       "label": 0,
+       "score": 1.0
+      },
+      {
+       "id": "preview_hero.png:rusty steel support",
+       "label": 1,
+       "score": 1.0
+      },
+      {
+       "id": "preview_hero.png:rusty steel support 2",
+       "label": 1,
+       "score": 1.0
+      },
+      {
+       "id": "preview_hero.png:deck grate",
+       "label": 1,
+       "score": 1.0
+      },
+      {
+       "id": "preview_hero.png:green painted pipe",
+       "label": 0,
+       "score": 1.0
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:yellow pipe",
+       "label": 0,
+       "score": 1.0
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:blue pipe",
+       "label": 0,
+       "score": 0.011
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:gauge face",
+       "label": 0,
+       "score": 1.0
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:blue pipe right",
+       "label": 0,
+       "score": 0.011
+      }
+     ]
+    },
+    "rust_sim_test": {
+     "n": 485,
+     "n_pos": 202,
+     "threshold": 0.5,
+     "confusion": {
+      "tn": 126,
+      "fp": 157,
+      "fn": 0,
+      "tp": 202
+     },
+     "f1": {
+      "mean": 0.7201426024955436,
+      "lo": 0.6779010524553805,
+      "hi": 0.7620672964957224
+     },
+     "precision": {
+      "mean": 0.5626740947075209,
+      "lo": 0.5127460798787056,
+      "hi": 0.6155967082710732
+     },
+     "recall": {
+      "mean": 1.0,
+      "lo": 1.0,
+      "hi": 1.0
+     },
+     "auroc": {
+      "mean": 0.7826855123674912,
+      "lo": 0.7534191693010186,
+      "hi": 0.8101170678914581
+     },
+     "latency": {
+      "median_ms": 4.752417095005512,
+      "p90_ms": 5.287341168150306,
+      "n": 485
+     }
+    }
+   }
+  },
+  {
+   "name": "MNv4 LoRA (deployed)",
+   "status": "checkpoint not available",
+   "runs_on_robot": true,
+   "note": "runs/detector/best missing; see 'published'"
+  },
+  {
+   "name": "MNv4 full-FT (sim-only)",
+   "label": "MNv4 full-FT, sim-synthetic only, watson retrain (60 s) \u2014 not the deployed LoRA",
+   "threshold": 0.9095683856138623,
+   "runs_on_robot": true,
+   "compute": "CPU, onnxruntime, 4 threads",
+   "meta": {
+    "model_name": "mobilenetv4_conv_small",
+    "lora": false,
+    "full_ft": true,
+    "data_dir": "runs/edge/data/rust_sim",
+    "train_sec": 59.65056562423706,
+    "threshold": 0.9095683856138623,
+    "temperature": 2.303938726947011
+   },
+   "results": {
+    "sim_heldout": {
+     "n": 13,
+     "n_pos": 6,
+     "threshold": 0.9095683856138623,
+     "confusion": {
+      "tn": 7,
+      "fp": 0,
+      "fn": 1,
+      "tp": 5
+     },
+     "f1": {
+      "mean": 0.9090909090909091,
+      "lo": 0.6666666666666666,
+      "hi": 1.0
+     },
+     "precision": {
+      "mean": 1.0,
+      "lo": 1.0,
+      "hi": 1.0
+     },
+     "recall": {
+      "mean": 0.8333333333333334,
+      "lo": 0.5,
+      "hi": 1.0
+     },
+     "auroc": {
+      "mean": 0.9761904761904763,
+      "lo": 0.8571428571428572,
+      "hi": 1.0
+     },
+     "latency": {
+      "median_ms": 2.608250128105283,
+      "p90_ms": 2.8053502086549997,
+      "n": 13
+     },
+     "per_item": [
+      {
+       "id": "preview_repair_closeup.png:damage patch (rust_coarse_01)",
+       "label": 1,
+       "score": 0.9974
+      },
+      {
+       "id": "preview_repair_closeup.png:rusty steel post (rusty_metal_02)",
+       "label": 1,
+       "score": 1.0
+      },
+      {
+       "id": "preview_repair_closeup.png:deck grate (metal_grate_rusty)",
+       "label": 1,
+       "score": 0.7182
+      },
+      {
+       "id": "preview_repair_closeup.png:green painted pipe",
+       "label": 0,
+       "score": 0.0427
+      },
+      {
+       "id": "preview_repair_closeup.png:green painted pipe right",
+       "label": 0,
+       "score": 0.0006
+      },
+      {
+       "id": "preview_hero.png:rusty steel support",
+       "label": 1,
+       "score": 0.9993
+      },
+      {
+       "id": "preview_hero.png:rusty steel support 2",
+       "label": 1,
+       "score": 0.9993
+      },
+      {
+       "id": "preview_hero.png:deck grate",
+       "label": 1,
+       "score": 0.9427
+      },
+      {
+       "id": "preview_hero.png:green painted pipe",
+       "label": 0,
+       "score": 0.8179
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:yellow pipe",
+       "label": 0,
+       "score": 0.0006
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:blue pipe",
+       "label": 0,
+       "score": 0.0
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:gauge face",
+       "label": 0,
+       "score": 0.0032
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:blue pipe right",
+       "label": 0,
+       "score": 0.0092
+      }
+     ]
+    },
+    "rust_sim_test": {
+     "n": 485,
+     "n_pos": 202,
+     "threshold": 0.9095683856138623,
+     "confusion": {
+      "tn": 283,
+      "fp": 0,
+      "fn": 2,
+      "tp": 200
+     },
+     "f1": {
+      "mean": 0.9950248756218906,
+      "lo": 0.9866666666666667,
+      "hi": 1.0
+     },
+     "precision": {
+      "mean": 1.0,
+      "lo": 1.0,
+      "hi": 1.0
+     },
+     "recall": {
+      "mean": 0.9900990099009901,
+      "lo": 0.9736842105263158,
+      "hi": 1.0
+     },
+     "auroc": {
+      "mean": 0.9999475212538922,
+      "lo": 0.9997557741957993,
+      "hi": 1.0
+     },
+     "latency": {
+      "median_ms": 2.377209020778537,
+      "p90_ms": 2.6137915439903736,
+      "n": 485
+     }
+    }
+   }
+  },
+  {
+   "status": "not run \u2014 needs key",
+   "model": "gemini-4-argon",
+   "runs_on_robot": false,
+   "name": "Gemini gemini-4-argon"
+  },
+  {
+   "status": "not run \u2014 needs key",
+   "model": "gemini-robotics-er-2-preview",
+   "runs_on_robot": false,
+   "name": "Gemini gemini-robotics-er-2-preview"
+  }
+ ]
+}
