@@ -227,3 +227,26 @@ def test_containers_fit_deck():
     cs = sg.container_stacks(-38.0, 14.0, 7.5)
     assert cs and all(-38.0 <= c[0][0] - 3.03 and c[0][0] + 3.03 <= 14.0 + 1e-9 for c in cs)
     assert all(abs(c[0][1]) + 1.22 <= 7.5 + 1e-9 for c in cs)
+
+
+def test_vessel_lathe_oriented_horizontally():
+    prof = sg.vessel_profile(8.0, 1.5)
+    assert np.isclose(prof[:, 0].min(), -4.75) and np.isclose(prof[:, 0].max(), 4.75) and np.isclose(prof[:, 1].max(), 1.5)
+    m = sg.orient(sg.lathe(prof, 24), (10, 5, 45), (1, 0, 0))
+    p = m["points"]
+    assert np.allclose(p.min(0), (5.25, 3.5, 43.5), atol=0.02) and np.allclose(p.max(0), (14.75, 6.5, 46.5), atol=0.02)
+    mid = np.abs(p[:, 0] - 10) < 0.5
+    out = p[mid] - (p[mid] * (1, 0, 0) + (0, 5, 45))
+    assert ((m["normals"][mid] * out).sum(1) > 0).all()
+
+
+def test_spiral_stair_climbs():
+    st_ = sg.spiral_stair((0, 0), 4.0, 42.5, 51.5)
+    zs = [s[0][2] for s in st_["steps"]]
+    assert zs == sorted(zs) and np.isclose(zs[-1], 51.5)
+    assert all(np.isclose(math.hypot(s[0][0], s[0][1]), 4.45) for s in st_["steps"])
+
+
+def test_pipe_rack_bents():
+    r = sg.pipe_rack_bents(0.0, 18.0, 9.0, 2.4, (46.0, 48.0), 42.5)
+    assert len(r["xs"]) == 4 and len(r["columns"]) == 8 and len(r["beams"]) == 8 and len(r["ties"]) == 4

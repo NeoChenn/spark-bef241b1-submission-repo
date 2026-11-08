@@ -78,6 +78,12 @@ RECIPES = {
                   "scale": 2.6, "streak_amount": 0.6, "salt_amount": 0.2, "macro_scale": 5.0},
     "box_orange": {"kind": "textured", "texture": "container_side", "tint": (0.9, 0.42, 0.1), "rust_amount": 0.15,
                    "scale": 2.6, "streak_amount": 0.6, "salt_amount": 0.2, "macro_scale": 5.0},
+    "proc_white": {"kind": "paint", "paint_color": (0.55, 0.56, 0.55), "chip_amount": 0.45, "rust_amount": 0.22,
+                   "streak_amount": 0.9, "salt_amount": 0.25, "macro_scale": 6.0},
+    "proc_grey": {"kind": "paint", "paint_color": (0.28, 0.3, 0.31), "chip_amount": 0.5, "rust_amount": 0.3,
+                  "streak_amount": 0.9, "salt_amount": 0.2, "macro_scale": 6.0},
+    "proc_green": {"kind": "paint", "paint_color": (0.09, 0.19, 0.12), "chip_amount": 0.5, "rust_amount": 0.28,
+                   "streak_amount": 0.8, "salt_amount": 0.2, "macro_scale": 6.0},
     "lifeboat_white": {"kind": "paint", "paint_color": (0.58, 0.58, 0.56), "chip_amount": 0.2, "rust_amount": 0.04,
                        "streak_amount": 0.3, "salt_amount": 0.15, "macro_scale": 4.0},
 }
