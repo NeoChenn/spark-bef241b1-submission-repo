@@ -13,6 +13,7 @@
     { id: "hud", name: "HUD", key: "h" }, { id: "map", name: "Pipe map", key: "m" },
     { id: "gemini", name: "Gemini", key: "g" }, { id: "log", name: "Decision log", key: "l" },
     { id: "force", name: "Force sensor", key: "f" }, { id: "pip", name: "Inspection PiP", key: "p" },
+    { id: "plume", name: "Gas plume", key: "v" },
   ];
   const ACTIONS = [
     { id: "rust", label: "New rust", key: "1", ev: () => ({ name: "spawn_patch", args: {} }) },
@@ -273,6 +274,18 @@
     geminiTimer = setTimeout(() => $("gemini").classList.add("hide"), 11000 / (MOCK ? SPEED : 1));
   }
 
+  function showPlume(p) {
+    $("plume").classList.remove("hide");
+    if (p.image && p.seq !== S.plumeSeq) {
+      S.plumeSeq = p.seq;
+      $("plume-img").src = "/api/plume.jpg?s=" + p.seq;
+    }
+    const lel = (p.stats && p.stats.max_lel_pct) || 0;
+    const tag = $("pl-tag");
+    tag.className = "pl-tag " + (lel >= 50 ? "stop" : lel >= 10 ? "warn" : "");
+    tag.textContent = `${p.flange || ""} ${Math.round(lel)}% LEL`;
+  }
+
   function apply(h) {
     if (h.state) setState(h.state);
     if (h.t != null) num($("st-time"), h.t, 1);
@@ -302,6 +315,7 @@
       $("pip-img").src = "data:image/jpeg;base64," + h.inspection.jpg;
     }
     if (h.gemini) showGemini(h.gemini);
+    if (h.plume) showPlume(h.plume);
     $("pip").classList.toggle("hide", !S.insp || !PERCEIVE.has(S.state));
     const soak = h.soak;
     $("soak").classList.toggle("hide", !soak);

@@ -29,6 +29,9 @@ class FrameSender:
                 lost = self._slot[0].get("events")
                 if lost:
                     header = {**header, "events": lost + list(header.get("events") or [])}
+                old = self._slot[0].get("plume")
+                if old:
+                    header = {**header, "plume": {**old, **(header.get("plume") or {})}}
             self._slot = (header, payload)
         self._ready.set()
 

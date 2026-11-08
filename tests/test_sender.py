@@ -111,6 +111,15 @@ def test_dropped_frame_events_carry_over():
     assert [e["to"] for e in h["events"]] == ["A", "B"]
 
 
+def test_dropped_frame_plume_image_carries_over():
+    sender = FrameSender("127.0.0.1", 1)
+    sender.send({**header(0), "plume": {"jpg": "AAA", "stats": {"t": 1}}}, b"x")
+    sender.send({**header(1), "plume": {"stats": {"t": 2}}}, b"y")
+    sender.send(header(2), b"z")
+    h, _ = sender._take()
+    assert h["plume"] == {"jpg": "AAA", "stats": {"t": 2}}
+
+
 def test_receives_events_from_server():
     from rig.frames import encode
     srv = Listener()

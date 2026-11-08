@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import binascii
 import contextlib
 import os
 from collections import deque
@@ -6,12 +8,13 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Body, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from rig.frames import encode, read_message_async
 from rig.hud import EXTRA, HOOKS
+from rig.plume import Field
 
 STATIC = Path(__file__).parent / "static"
 REPO = Path(__file__).resolve().parents[2]
@@ -36,6 +39,10 @@ class FrameHub:
         self._times: list[float] = []
         self.log: list[dict] = []
         self.log_base = 0
+        self.plume: dict | None = None
+        self.plume_jpg: bytes | None = None
+        self.plume_field: Field | None = None
+        self.plume_npz: bytes | None = None
 
     @property
     def fps(self) -> float:
@@ -43,7 +50,28 @@ class FrameHub:
         recent = [t for t in self._times if now - t <= FPS_WINDOW_S]
         return len(recent) / FPS_WINDOW_S
 
+    def take_plume(self, header: dict) -> dict:
+        p = header.get("plume")
+        if not isinstance(p, dict):
+            return header
+        p = dict(p)
+        jpg, field = p.pop("jpg", None), p.pop("field", None)
+        seq = (self.plume or {}).get("seq", 0)
+        try:
+            if jpg:
+                self.plume_jpg = base64.b64decode(jpg)
+                seq += 1
+            if field:
+                self.plume_npz = base64.b64decode(field)
+                self.plume_field = Field.from_bytes(self.plume_npz)
+        except (binascii.Error, ValueError, OSError, KeyError):
+            pass
+        self.plume = {**(self.plume or {}), **p, "seq": seq, "image": self.plume_jpg is not None,
+                      "field": self.plume_field is not None}
+        return {**header, "plume": self.plume}
+
     def publish(self, jpeg: bytes, header: dict) -> None:
+        header = self.take_plume(header)
         now = time.monotonic()
         self._seq += 1
         self.frames += 1
@@ -174,6 +202,41 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             return JSONResponse({"detail": "no frames yet"}, status_code=503)
         return Response(hub.latest[1], media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
+    def plume_field() -> Field:
+        if hub.plume_field is None:
+            raise HTTPException(503, "no plume field yet")
+        return hub.plume_field
+
+    @app.get("/api/plume")
+    async def plume() -> JSONResponse:
+        if hub.plume is None:
+            return JSONResponse({"detail": "no plume"}, status_code=404)
+        return JSONResponse(hub.plume)
+
+    @app.get("/api/plume.jpg")
+    async def plume_jpg() -> Response:
+        if hub.plume_jpg is None:
+            return JSONResponse({"detail": "no plume image yet"}, status_code=503)
+        return Response(hub.plume_jpg, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/plume/field.npz")
+    async def plume_npz() -> Response:
+        plume_field()
+        return Response(hub.plume_npz, media_type="application/octet-stream", headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/plume/sample")
+    async def plume_sample(x: float, y: float, z: float) -> dict:
+        f = plume_field()
+        ppm = f.sample_ppm(x, y, z)
+        return {"ppm": round(ppm, 2), "lel_pct": round(ppm / 1e6 / f.lel * 100, 3), "t": f.t}
+
+    @app.post("/api/plume/sample")
+    async def plume_sample_many(points: list[list[float]] = Body(..., embed=True)) -> dict:
+        f = plume_field()
+        if not points or any(len(p) != 3 for p in points):
+            raise HTTPException(400, "points must be a list of [x, y, z]")
+        return {"ppm": [round(float(v), 2) for v in f.sample(points)], "t": f.t}
+
     @app.websocket("/ws/video")
     async def ws_video(ws: WebSocket) -> None:
         await ws.accept()
@@ -194,7 +257,8 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             while True:
                 seq, _, header = await hub.wait_newer(seq)
                 idx, events = hub.events_since(idx)
-                await ws.send_json({**header, "events": events})
+                extra = {"plume": hub.plume} if hub.plume else {}
+                await ws.send_json({**header, **extra, "events": events})
                 await asyncio.sleep(0.08)
         except (WebSocketDisconnect, RuntimeError):
             pass

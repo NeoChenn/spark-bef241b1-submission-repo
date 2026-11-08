@@ -2,78 +2,78 @@ import math
 
 import numpy as np
 
-from sim.plume.colormap import VISIBLE_PCT, lel_alpha, lel_rgb
+from sim.plume.colormap import lel_rgb
 
 ROOT = "/World/Plume"
+BANDS = (2.0, 5.0, 10.0, 20.0, 35.0, 50.0, 75.0, 1e9)
+BAND_OPACITY = (0.05, 0.08, 0.12, 0.18, 0.26, 0.36, 0.5)
 
 
-def _material(stage, path: str, emissive: float):
-    from pxr import Sdf, UsdShade
+def omnipbr(stage, path: str, color, opacity: float, emissive: float):
+    from pxr import Gf, Sdf, UsdShade
 
     mat = UsdShade.Material.Define(stage, path)
-    sh = UsdShade.Shader.Define(stage, path + "/surface")
-    sh.CreateIdAttr("UsdPreviewSurface")
-    reads = {}
-    for name, typ, out in (("displayColor", "UsdPrimvarReader_float3", Sdf.ValueTypeNames.Float3),
-                           ("displayOpacity", "UsdPrimvarReader_float", Sdf.ValueTypeNames.Float)):
-        r = UsdShade.Shader.Define(stage, f"{path}/{name}")
-        r.CreateIdAttr(typ)
-        r.CreateInput("varname", Sdf.ValueTypeNames.Token).Set(name)
-        reads[name] = r.CreateOutput("result", out)
-    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(reads["displayColor"])
-    if emissive > 0:
-        sh.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(reads["displayColor"])
-    sh.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(reads["displayOpacity"])
-    sh.CreateInput("opacityThreshold", Sdf.ValueTypeNames.Float).Set(0.0)
-    sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(1.0)
-    sh.CreateInput("specularColor", Sdf.ValueTypeNames.Color3f).Set((0.0, 0.0, 0.0))
-    sh.CreateInput("useSpecularWorkflow", Sdf.ValueTypeNames.Int).Set(1)
-    mat.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")
+    sh = UsdShade.Shader.Define(stage, path + "/Shader")
+    sh.CreateImplementationSourceAttr(UsdShade.Tokens.sourceAsset)
+    sh.SetSourceAsset("OmniPBR.mdl", "mdl")
+    sh.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
+    c = Gf.Vec3f(*map(float, color))
+    for name, typ, val in (("diffuse_color_constant", Sdf.ValueTypeNames.Color3f, c),
+                           ("enable_opacity", Sdf.ValueTypeNames.Bool, True),
+                           ("opacity_constant", Sdf.ValueTypeNames.Float, float(opacity)),
+                           ("enable_emission", Sdf.ValueTypeNames.Bool, emissive > 0),
+                           ("emissive_color", Sdf.ValueTypeNames.Color3f, c),
+                           ("emissive_intensity", Sdf.ValueTypeNames.Float, float(emissive)),
+                           ("reflection_roughness_constant", Sdf.ValueTypeNames.Float, 1.0),
+                           ("specular_level", Sdf.ValueTypeNames.Float, 0.0)):
+        sh.CreateInput(name, typ).Set(val)
+    mat.CreateSurfaceOutput("mdl").ConnectToSource(sh.ConnectableAPI(), "out")
     return mat
 
 
-def cloud(field, max_points: int = 60000, floor: float = VISIBLE_PCT, seed: int = 0):
+def cloud(field, lo: float = BANDS[0], hi: float = 1e9, max_points: int = 60000, seed: int = 0):
     pct = field.fraction / field.lel * 100.0
     flat = pct.ravel()
-    idx = np.flatnonzero(flat >= floor)
+    idx = np.flatnonzero((flat >= lo) & (flat < hi))
     if len(idx) > max_points:
         idx = idx[np.argpartition(flat[idx], -max_points)[-max_points:]]
     ijk = np.stack(np.unravel_index(idx, pct.shape), 1)
     off = np.modf(np.abs(np.sin((idx[:, None] + seed) * np.array([12.9898, 78.233, 37.719])) * 43758.5453))[0] - 0.5
-    pts = field.origin + (ijk + 0.5 + 0.6 * off) * field.dx
-    p = flat[idx]
-    return pts.astype(np.float32), lel_rgb(p).astype(np.float32), lel_alpha(p).astype(np.float32), p
+    return (field.origin + (ijk + 0.5 + 0.6 * off) * field.dx).astype(np.float32), flat[idx]
 
 
 class PlumeVisual:
-    def __init__(self, stage, plume, path: str = ROOT + "/Cloud", max_points: int = 60000, size: float = 1.7,
-                 emissive: float = 1.0, opacity: float = 1.0):
+    def __init__(self, stage, plume, path: str = ROOT + "/Cloud", max_points: int = 40000, size: float = 1.7,
+                 emissive: float = 150.0, opacity: float = 1.0):
         from pxr import UsdGeom, UsdShade
 
-        self.stage, self.plume, self.max_points, self.opacity = stage, plume, max_points, opacity
+        self.plume, self.max_points = plume, max_points
         self.width = size * plume.dx
-        self.prim = UsdGeom.Points.Define(stage, path)
-        api = UsdGeom.PrimvarsAPI(self.prim)
-        from pxr import Sdf
-
-        self.color = api.CreatePrimvar("displayColor", Sdf.ValueTypeNames.Color3fArray, UsdGeom.Tokens.vertex)
-        self.alpha = api.CreatePrimvar("displayOpacity", Sdf.ValueTypeNames.FloatArray, UsdGeom.Tokens.vertex)
-        mat = _material(stage, ROOT + "/Looks/gas", emissive)
-        UsdShade.MaterialBindingAPI.Apply(self.prim.GetPrim()).Bind(mat)
+        self.bands = []
+        for k, (lo, hi) in enumerate(zip(BANDS[:-1], BANDS[1:])):
+            prim = UsdGeom.Points.Define(stage, f"{path}/band{k}")
+            mid = lo if hi > 1e8 else 0.5 * (lo + hi)
+            mat = omnipbr(stage, f"{ROOT}/Looks/band{k}", lel_rgb(mid), min(1.0, BAND_OPACITY[k] * opacity), emissive)
+            UsdShade.MaterialBindingAPI.Apply(prim.GetPrim()).Bind(mat)
+            self.bands.append((prim, lo, hi))
         self.count = 0
         self.update()
 
     def update(self) -> int:
-        from pxr import Vt
+        from pxr import UsdGeom, Vt
 
-        pts, rgb, a, _ = cloud(self.plume.field(), self.max_points)
-        if not len(pts):
-            pts, rgb, a = np.full((1, 3), -1e4, np.float32), np.zeros((1, 3), np.float32), np.zeros(1, np.float32)
-        self.prim.GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(pts))
-        self.prim.GetWidthsAttr().Set(Vt.FloatArray.FromNumpy(np.full(len(pts), self.width, np.float32)))
-        self.color.Set(Vt.Vec3fArray.FromNumpy(rgb))
-        self.alpha.Set(Vt.FloatArray.FromNumpy(np.clip(a * self.opacity, 0, 1).astype(np.float32)))
-        self.count = len(pts)
+        field = self.plume.field()
+        self.count = 0
+        for prim, lo, hi in self.bands:
+            pts, _ = cloud(field, lo, hi, self.max_points)
+            img = UsdGeom.Imageable(prim)
+            if not len(pts):
+                img.MakeInvisible()
+                continue
+            img.MakeVisible()
+            prim.GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(pts))
+            prim.GetWidthsAttr().Set(Vt.FloatArray.FromNumpy(np.full(len(pts), self.width, np.float32)))
+            self.count += len(pts)
         return self.count
 
 
@@ -101,3 +101,60 @@ def make_camera(stage, eye, target, path: str = ROOT + "/AnalysisCamera", focal:
     op = UsdGeom.Xformable(cam).AddTransformOp()
     op.Set(Gf.Matrix4d(look_at_rows(tuple(map(float, eye)), tuple(map(float, target)))))
     return path, op
+
+
+class LeakStream:
+    def __init__(self, stage, args):
+        import omni.replicator.core as rep
+
+        from sim.plume.solver import Plume, Wind
+
+        self.args = args
+        self.plume = Plume.for_flange(args.leak, args.leak_mm, args.leak_bar, args.leak_h2s,
+                                      Wind(args.leak_wind, args.leak_heading, args.leak_storm), stage=stage)
+        self.visual = PlumeVisual(stage, self.plume)
+        self.cam, _ = make_camera(stage, *analysis_pose(self.plume, args.leak_side))
+        self.rp = rep.create.render_product(self.cam, tuple(args.pip_size))
+        self.ann = rep.AnnotatorRegistry.get_annotator("rgb")
+        self.ann.attach(self.rp)
+        self.last = None
+        self.stats = None
+        self.pip_at = self.field_at = 0.0
+        self.sim_ms = 0.0
+        self.ticks = 0
+        print(f"rig sim: leak {args.leak} {args.leak_mm} mm {args.leak_bar} bar -> {self.plume.flow_rate()} "
+              f"solid={self.plume.solid_np.mean():.3f} device={self.plume.device}", flush=True)
+
+    def tick(self, t: float) -> None:
+        import time
+
+        dt = 0.0 if self.last is None else min(max(t - self.last, 0.0), 0.1)
+        self.last = t
+        if dt <= 0:
+            return
+        t0 = time.perf_counter()
+        self.stats = self.plume.step(dt)
+        self.ticks += 1
+        if self.ticks % self.args.leak_vis_every == 0:
+            self.visual.update()
+        self.sim_ms = 0.9 * self.sim_ms + 0.1 * (time.perf_counter() - t0) * 1e3
+
+    def header(self, now: float) -> dict | None:
+        import base64
+
+        from sim.plume.pip import compose, jpeg_b64
+
+        if self.stats is None:
+            return None
+        p = self.plume
+        out = {"flange": self.args.leak, "stats": self.stats, "flow": p.flow_rate(), "wind": p.wind.to_json(p.t),
+               "points": self.visual.count, "sim_ms": round(self.sim_ms, 2)}
+        if now >= self.pip_at:
+            data = np.asarray(self.ann.get_data())
+            if data.ndim == 3 and data.size:
+                out["jpg"] = jpeg_b64(compose(data, self.stats, out["flow"], out["wind"], f"GAS PLUME  ·  {self.args.leak}"))
+                self.pip_at = now + self.args.pip_every
+        if now >= self.field_at:
+            out["field"] = base64.b64encode(p.field().to_bytes(2)).decode()
+            self.field_at = now + 1.0
+        return out

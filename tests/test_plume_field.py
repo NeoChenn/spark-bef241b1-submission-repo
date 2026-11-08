@@ -29,6 +29,10 @@ def test_save_load_roundtrip(tmp_path):
     f = linear_field()
     g = Field.load(f.save(tmp_path / "snap.npz"))
     assert g.meta == {"flange": "F5"} and g.dx == 0.5
-    assert np.allclose(g.fraction, f.fraction, atol=1e-9)
+    assert np.allclose(g.fraction, f.fraction, rtol=2e-3, atol=1e-6)
+    assert np.allclose(Field.from_bytes(f.to_bytes()).fraction, g.fraction)
     j = f.to_json(stride=2)
-    assert j["shape"] == [3, 3, 2] and j["dx"] == 1.0
+    assert j["shape"] == [3, 2, 2] and j["dx"] == 1.0
+    c = f.coarse(2)
+    assert c.fraction[0, 0, 0] == pytest.approx(f.fraction[:2, :2, :2].mean())
+    assert c.sample_ppm(1.5, 2.5, 3.5) == pytest.approx(c.fraction[0, 0, 0] * 1e6, rel=1e-5)

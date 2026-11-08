@@ -30,7 +30,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--duration", type=float, default=0.0, help="seconds to run; 0 = forever")
     p.add_argument("--snapshot", default="", help="save frames as PNG here (first good frame, then every --snapshot-every s)")
     p.add_argument("--snapshot-every", type=float, default=0.0)
+    p.add_argument("--leak", default="", help="flange id (F1..F6) to leak gas from; empty = no plume")
+    p.add_argument("--leak-mm", type=float, default=3.0)
+    p.add_argument("--leak-bar", type=float, default=20.0)
+    p.add_argument("--leak-h2s", type=float, default=0.0)
+    p.add_argument("--leak-wind", type=float, default=5.0)
+    p.add_argument("--leak-heading", type=float, default=90.0)
+    p.add_argument("--leak-storm", type=float, default=0.0)
+    p.add_argument("--leak-side", type=float, default=-1.0)
+    p.add_argument("--leak-vis-every", type=int, default=2)
+    p.add_argument("--pip-every", type=float, default=0.25)
+    p.add_argument("--pip-size", type=size, default=(480, 270), metavar="WxH")
     return p.parse_args(argv)
+
+
+def size(text: str) -> tuple[int, int]:
+    w, h = text.lower().split("x")
+    return (int(w), int(h))
 
 
 def vec3(text: str) -> tuple[float, float, float]:

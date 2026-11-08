@@ -52,9 +52,9 @@ def compose(rgb, stats: dict, flow: dict, wind: dict, title: str = "GAS PLUME", 
     d.text((bx - 3, by + bh + 6), "%LEL", font=f9, fill=DIM)
     d.rectangle([0, h - 58, w, h], fill=BG + (215,))
     rows = [
-        ("Leak", f"{flow.get('kg_s', 0) * 1000:.1f} g/s   {flow.get('sm3_h', 0):.0f} Sm³/h", FG),
-        ("Cloud", f">10% LEL {stats.get('vol_10lel_m3', 0):.2f} m³   >50% LEL {stats.get('vol_50lel_m3', 0):.2f} m³", FG),
-        ("Wind", f"{wind.get('speed_m_s', 0):.1f} m/s  →{wind.get('heading_deg', 0):.0f}°   peak {stats.get('max_lel_pct', 0):.0f}% LEL", DIM),
+        ("Leak", f"{flow.get('kg_s', 0) * 1000:.1f} g/s   {flow.get('sm3_h', 0):.0f} Sm3/h", FG),
+        ("Cloud", f">10% LEL {stats.get('vol_10lel_m3', 0):.2f} m3   >50% LEL {stats.get('vol_50lel_m3', 0):.2f} m3", FG),
+        ("Wind", f"{wind.get('speed_m_s', 0):.1f} m/s  to {wind.get('heading_deg', 0):.0f} deg   peak {stats.get('max_lel_pct', 0):.0f}% LEL", DIM),
     ]
     for k, (label, text, c) in enumerate(rows):
         y = h - 54 + k * 17
