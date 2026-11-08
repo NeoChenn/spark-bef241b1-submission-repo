@@ -22,8 +22,8 @@ REPO = Path(__file__).resolve().parents[2]
 MOCK_PATH = REPO / "runs/hud/mock_session.json"
 FLEET_DIRS = (REPO / "runs/fleet", REPO / "runs_sample/fleet")
 FLEET_SCHEMA = "fleet_state.v1"
-SHOTS = {1: "sim/output/cine_storm_aerial.png", 2: "sim/output/preview_hero.png",
-         3: "sim/output/preview_repair_closeup.png"}
+MOCK_SAMPLE = REPO / "runs_sample/hud/mock_session.json"
+SHOTS = {n: f"runs_sample/hud/shot{n}.jpg" for n in (1, 2, 3)}
 LOG_KEEP = 200
 REPLAY_EVENTS = 20
 FPS_WINDOW_S = 2.0
@@ -303,7 +303,7 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
     async def mock_shot(n: int) -> FileResponse:
         if n not in SHOTS:
             raise HTTPException(404, "no such shot")
-        return FileResponse(REPO / SHOTS[n], media_type="image/png")
+        return FileResponse(REPO / SHOTS[n], media_type="image/jpeg")
 
     @app.get("/api/frame.jpg")
     async def frame_jpg() -> Response:

@@ -226,7 +226,7 @@ def test_mock_shots_served(client):
     for n in (1, 2, 3):
         r = client.get(f"/api/mock/shot/{n}")
         assert r.status_code == 200
-        assert r.headers["content-type"] == "image/png"
+        assert r.headers["content-type"] == "image/jpeg"
     assert client.get("/api/mock/shot/9").status_code == 404
 
 
