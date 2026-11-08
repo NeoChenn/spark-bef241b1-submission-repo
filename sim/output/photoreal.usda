@@ -6528,6 +6528,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_ibcTank_a02_obj_00"
@@ -6552,6 +6558,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_body_e02_obj_00"
@@ -6581,6 +6593,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_lid_a01_obj_00"
@@ -6610,6 +6628,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_lid_a01_obj_00"
@@ -6639,6 +6663,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_lid_a01_obj_00"
@@ -6668,6 +6698,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_lid_a02_obj_00"
@@ -6724,6 +6760,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_door2_a01_obj_00"
@@ -6783,6 +6825,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_crate_b01_obj_00"
@@ -6807,6 +6855,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_crate_b01_obj_00"
@@ -7010,6 +7064,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "pressureWasher_01_obj_00"
@@ -7034,6 +7094,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "body_01_obj_00"
@@ -7286,6 +7352,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_body_e02_obj_00"
@@ -7315,6 +7387,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_lid_a01_obj_00"
@@ -7344,6 +7422,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_lid_a01_obj_00"
@@ -7373,6 +7457,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_lid_a02_obj_00"
@@ -7631,6 +7721,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_handle_a01_obj_01"
@@ -7792,6 +7888,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "bag_01_obj_00"
@@ -7816,6 +7918,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "body_02_obj_00"
@@ -8284,6 +8392,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_crate_a08_obj_00"
@@ -8308,6 +8422,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_crate_a08_obj_00"
@@ -8453,6 +8573,12 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Joints" (
+                        active = false
+                    )
+                    {
+                    }
+
                     over "Geometry"
                     {
                         over "sm_handle_a01_obj_01"

@@ -53,7 +53,7 @@ VIEWS = {
 settings = carb.settings.get_settings()
 base = {"/rtx/post/motionblur/enabled": False, "/rtx/post/dof/enabled": False, "/rtx/post/lensFlares/enabled": False}
 if args.renderer == "PathTracing":
-    base.update({"/rtx/rendermode": "PathTracing", "/rtx/pathtracing/spp": 16, "/rtx/pathtracing/totalSpp": args.spp,
+    base.update({"/rtx/rendermode": "PathTracing", "/rtx/pathtracing/spp": 4, "/rtx/pathtracing/totalSpp": args.spp,
                  "/rtx/pathtracing/maxBounces": 8, "/rtx/pathtracing/maxSpecularAndTransmissionBounces": 8,
                  "/rtx/pathtracing/optixDenoiser/enabled": True})
 else:
@@ -104,17 +104,19 @@ last_shot = [None]
 
 def shoot(tag, name):
     start = clock.monotonic()
-    for _ in range(3):
+    for _ in range(4):
         if args.renderer == "PathTracing":
-            rep.orchestrator.step(rt_subframes=2, pause_timeline=False)
-            rep.orchestrator.step(rt_subframes=max(args.spp // 16, 1) + 2, pause_timeline=False)
+            rep.orchestrator.step(rt_subframes=max(args.spp // 4, 1) + 2, pause_timeline=False)
         else:
             for _ in range(40):
                 rep.orchestrator.step(rt_subframes=1, pause_timeline=False)
         data = np.asarray(annotator.get_data())
-        sample = data[::16, ::16, :3].tobytes()
-        if sample != last_shot[0]:
+        sample = data[::16, ::16, :3].tobytes() if data.ndim == 3 else b""
+        if sample and sample != last_shot[0]:
             break
+    if data.ndim != 3:
+        print(f"VIEW {tag} {name} missing", flush=True)
+        return
     last_shot[0] = sample
     out = f"{args.out}/{tag}_{name}.png"
     Image.fromarray(np.ascontiguousarray(data[:, :, :3], dtype=np.uint8)).save(out)
