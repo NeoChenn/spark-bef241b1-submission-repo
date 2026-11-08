@@ -96,3 +96,9 @@ def test_atmos_darkens_far_views_only():
     assert look.view_look("repair", 1.9, True)["ev"] == look.view_look("repair", 1.9)["ev"]
     assert look.view_look(None, 330.0, True)["ev"] == pytest.approx(look.ev_at(330.0) + look.ATMOS_EV_KEYS[-1][1])
     assert look.view_look(None, 3.0, True)["ev"] == pytest.approx(look.ev_at(3.0))
+
+
+def test_preset_exposure_offsets():
+    night = look.view_look("wide", 250.0, True)["ev"]
+    assert look.view_look("wide", 250.0, True, "storm")["ev"] == pytest.approx(night + look.PRESET_EV["storm"])
+    assert look.view_look("wide", 250.0, True, "golden")["ev"] > night

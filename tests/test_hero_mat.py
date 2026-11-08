@@ -180,3 +180,18 @@ def test_live_tier_hands_heavy_looks_back_to_photoreal(monkeypatch):
     assert source("/World/Looks/rail") == hm.SHADER
     hm.apply(stage, "night", "offline")
     assert source("/World/Looks/deck") == hm.SHADER
+
+
+def test_robot_wear_is_heaviest_at_the_feet():
+    foot = hm.robot_wear(hm.ROBOT + "/Geometry/base/FL_hip/FL_thigh/FL_calf/FL_foot/foot/VisualMaterials/x")
+    calf = hm.robot_wear(hm.ROBOT + "/Geometry/base/FL_hip/FL_thigh/FL_calf/calf/VisualMaterials/go2_mat_02")
+    body = hm.robot_wear(hm.ROBOT + "/Geometry/base/base/VisualMaterials/go2_mat_06")
+    arm = hm.robot_wear(hm.ROBOT + "/Geometry/base/lift_housing/lift_carriage/ur3_base_link/base/VisualMaterials/LightGrey")
+    assert foot[0] > calf[0] > body[0] and foot[1] == 1.0 and body[1] == 0.0
+    assert arm == hm.ROBOT_DEFAULT
+
+
+def test_robot_values_keep_the_original_colour_and_satin_finish():
+    v = hm.robot_values((0.787, 0.89, 0.89), 0.5, hm.ROBOT + "/Materials/lift_grey", 42.5)
+    assert v["base_color"] == (0.787, 0.89, 0.89) and 0.35 <= v["base_rough"] <= 0.6 and v["ground_z"] == 42.5
+    assert hm.robot_values((0, 0, 0), 0.02, "x", 0.0)["base_rough"] == 0.35

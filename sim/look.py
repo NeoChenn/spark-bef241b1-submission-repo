@@ -5,14 +5,15 @@ import math
 import numpy as np
 from PIL import Image, ImageChops
 
-EV_KEYS = ((1.9, -0.4), (8.0, 0.0), (40.0, 0.4), (120.0, 0.8), (330.0, 1.0))
+EV_KEYS = ((1.9, -0.4), (8.0, 0.3), (40.0, 0.4), (120.0, 0.8), (330.0, 1.0))
 VIEWS = {
     "wide": {"ev": 1.0, "fstop": 0.0},
-    "deck_mid": {"ev": 0.0, "fstop": 0.0},
+    "deck_mid": {"ev": 0.4, "fstop": 0.0},
     "repair": {"ev": -0.4, "fstop": 1.4},
     "waterline": {"ev": 0.8, "fstop": 0.0},
     "flare": {"ev": 0.3, "fstop": 0.0},
 }
+PRESET_EV = {"storm": -0.7, "golden": 0.3}
 ATMOS_EV = {"wide": -0.6, "waterline": -0.3, "flare": -0.3}
 ATMOS_EV_KEYS = ((8.0, 0.0), (60.0, -0.3), (250.0, -0.6))
 LENS_SCALE = 100.0
@@ -71,8 +72,9 @@ def exposure(ev: float) -> dict:
     return {"/rtx/post/tonemap/filmIso": BASE_ISO * 2.0 ** ev}
 
 
-def view_look(view: str | None, distance: float, atmos: bool = False) -> dict:
+def view_look(view: str | None, distance: float, atmos: bool = False, preset: str = "night") -> dict:
     base = dict(VIEWS.get(view) or {"ev": ev_at(distance), "fstop": 0.0})
+    base["ev"] += PRESET_EV.get(preset, 0.0)
     if atmos:
         base["ev"] += ATMOS_EV.get(view, 0.0) if view in VIEWS else ev_at(distance, ATMOS_EV_KEYS)
     return base

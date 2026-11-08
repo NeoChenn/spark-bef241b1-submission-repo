@@ -95,7 +95,7 @@ import cinematic
 import shafts
 
 tier = next((lk for lk in ("offline", "live") if lk in looks), "none")
-beams = shafts.specs(cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS, tier)
+beams = (shafts.specs(cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS, cinematic.DECK_FLOODS, tier) if cinematic.PRESETS[args.preset]["lights"] > 0 else [])
 keys = {k for lk in looks for k in look.rtx_settings(lk)}
 neutral = {k: settings.get(k) if settings.get(k) is not None else (False if k.endswith("enabled") else None) for k in keys}
 
@@ -116,6 +116,10 @@ for _ in range(20):
 rp = rep.create.render_product(cam_path, (args.width, args.height))
 ann = rep.AnnotatorRegistry.get_annotator("rgb")
 ann.attach(rp)
+dist_ann = None
+if beams:
+    dist_ann = rep.AnnotatorRegistry.get_annotator("distance_to_camera")
+    dist_ann.attach(rp)
 out = Path(args.out)
 out.mkdir(parents=True, exist_ok=True)
 
@@ -138,7 +142,7 @@ for t0 in times:
     for name in filter(None, args.views.split(",")):
         start = time.monotonic()
         eye, target, focal = VIEWS[name]
-        vl = look.view_look(name, float(np.linalg.norm(np.subtract(target, eye))), atm is not None)
+        vl = look.view_look(name, float(np.linalg.norm(np.subtract(target, eye))), atm is not None, args.preset)
         use_look(looks[0], vl["ev"], eye, target, vl["fstop"])
         aim(*VIEWS[name])
         for i in range(args.warm):

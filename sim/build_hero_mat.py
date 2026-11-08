@@ -14,7 +14,7 @@ import hero_mat as hm
 from photoreal_usd import as_overs
 from scene_builder import OUTPUT, rel
 
-COLORS = {"paint_tint", "paint_color", "primer_color", "tint"}
+COLORS = {"paint_tint", "paint_color", "primer_color", "tint", "base_color"}
 
 
 def set_inputs(shader, values: dict) -> None:
@@ -50,6 +50,30 @@ def patch_points() -> int:
     return len(UsdGeom.Mesh(deck.GetPrimAtPath("/World/Pipes/damage_patch")).GetPointsAttr().Get())
 
 
+def robot_looks(meta: dict) -> tuple[list[str], list[tuple[str, dict]]]:
+    stage = Usd.Stage.Open(str(OUTPUT / "rig_merged.usda"))
+    root = stage.GetPrimAtPath(hm.ROBOT)
+    if not root.IsValid():
+        return [], []
+    instances = []
+    while True:
+        found = [p for p in Usd.PrimRange(root) if p.IsInstance()]
+        if not found:
+            break
+        for prim in found:
+            instances.append(str(prim.GetPath()))
+            prim.SetInstanceable(False)
+    ground = float(meta["world"]["robot_spawn"]["position_m"][2]) - float(meta["world"]["robot_spawn"]["trunk_height_above_deck_m"])
+    looks = []
+    for prim in Usd.PrimRange(root):
+        if not prim.IsA(UsdShade.Material):
+            continue
+        color = prim.GetAttribute("inputs:diffuseColor").Get() or (0.5, 0.5, 0.5)
+        rough = prim.GetAttribute("inputs:roughness").Get() or 0.5
+        looks.append((str(prim.GetPath()), hm.robot_values(color, rough, str(prim.GetPath()), ground)))
+    return instances, looks
+
+
 def write_noise() -> None:
     Image.fromarray((hm.noise_rgb() * 255).round().astype(np.uint8), "RGB").save(hm.NOISE, optimize=True)
 
@@ -69,12 +93,17 @@ def build(preset: str = "night") -> Path:
         sub, values = recipes[kind]
         extra = {"wetness": w["wetness"], **({"puddles": w["puddles"]} if kind in hm.WET_PUDDLES else {})}
         bind(stage, path, sub, {**values, **extra})
+    instances, looks = robot_looks(meta)
+    for path in instances:
+        stage.OverridePrim(path).SetInstanceable(False)
+    for path, values in looks:
+        bind(stage, path, "rig_hero_robot", {**values, "wetness": w["wetness"]})
     geom = stage.OverridePrim(hm.PATCH_GEOM)
     st = UsdGeom.PrimvarsAPI(geom).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex)
     st.Set(Vt.Vec2fArray([Gf.Vec2f(*uv) for uv in hm.patch_st(patch_points())]))
     as_overs(stage.GetRootLayer())
     stage.GetRootLayer().Save()
-    print(f"HERO_WRITTEN {hm.LAYER} materials={len(hm.TARGETS)}")
+    print(f"HERO_WRITTEN {hm.LAYER} materials={len(hm.TARGETS)} robot={len(looks)} deinstanced={len(instances)}")
     return hm.LAYER
 
 

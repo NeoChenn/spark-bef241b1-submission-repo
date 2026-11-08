@@ -493,11 +493,28 @@ def add_work_light(stage) -> None:
 
 
 DECK_FLOODS = (
-    ((12.0, -2.0, 46.8), (16.0, -4.0, 42.5), SODIUM, 3.0e6, 40.0),
-    ((26.5, -11.0, 46.8), (21.0, -7.0, 42.5), SODIUM, 3.0e6, 40.0),
-    ((12.0, -11.5, 46.8), (16.0, -8.0, 42.5), SODIUM, 2.0e6, 40.0),
-    ((27.0, -1.5, 46.8), (21.0, -3.5, 42.5), SODIUM, 2.4e6, 40.0),
+    ((12.0, -2.0, 46.8), (14.5, -5.5, 42.5), SODIUM, 3.0e6, 28.0),
+    ((26.5, -11.0, 46.8), (23.5, -10.5, 42.5), SODIUM, 3.0e6, 28.0),
+    ((12.0, -11.5, 46.8), (15.0, -10.5, 42.5), SODIUM, 2.0e6, 28.0),
+    ((27.0, -1.5, 46.8), (24.0, -6.5, 42.5), SODIUM, 2.4e6, 28.0),
 )
+
+
+DECK_Z = 42.5
+ZONE_SPOT = ((20.2, -3.6, 44.8), (18.26, -5.25, 43.1), LED, 9.0e7, 12.0)
+
+
+def add_zone_spot(stage) -> None:
+    pos, target, kelvin, intensity, cone = ZONE_SPOT
+    path = "/World/Cinematic/Lamps/area_610"
+    if not stage.GetPrimAtPath(path):
+        add_fixture(stage, 610, "spot", pos, kelvin, intensity, tuple(np.subtract(target, pos)), cone)
+        UsdGeom.Xformable(stage.GetPrimAtPath(path)).AddScaleOp().Set(Gf.Vec3f(0.4, 0.4, 0.4))
+        b = SceneBuilder(stage)
+        b.tube("/World/Cinematic/Lamps", "zone_stand", (pos[0], pos[1], DECK_Z), (pos[0], pos[1], pos[2] - 0.05), 0.03,
+               b.plain("lamp_pole", (0.3, 0.32, 0.33), 0.5, 0.6), segments=12)
+    f = look.fixture("spot", kelvin, intensity, cone)
+    _relight(stage.GetPrimAtPath(path), {**f, "softness": 0.25})
 
 
 def add_deck_floods(stage, gain: float = 1.0) -> None:
@@ -524,6 +541,7 @@ def apply_preset(stage, name: str) -> None:
     flare_fx.attach(stage)
     relight(stage)
     add_deck_floods(stage)
+    add_zone_spot(stage)
     add_work_light(stage)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))
