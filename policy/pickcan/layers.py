@@ -85,7 +85,7 @@ def main(argv):
     import omni.replicator.core as rep
     import omni.usd
     import torch
-    from PIL import Image, ImageDraw, ImageFilter, ImageFont
+    from PIL import Image, ImageDraw, ImageFilter
     from pxr import Gf, Sdf, UsdGeom, UsdLux
 
     from isaaclab.sim import RenderCfg
@@ -212,8 +212,8 @@ def main(argv):
 
     stage = omni.usd.get_context().get_stage()
     cam = rsc.Camera(stage, "/World/Cameras/layers", focal=22.0)
-    eye = np.array([math.cos(1.05) * 1.75, 0.2 + math.sin(1.05) * 1.75, 1.32])
-    look_at = np.array([-0.08, 0.14, 0.32])
+    eye = np.array([math.cos(1.05) * 1.95, 0.2 + math.sin(1.05) * 1.95, 1.42])
+    look_at = np.array([-0.1, 0.12, 0.4])
     cam.look(eye, look_at)
     rp = rep.create.render_product(cam.path, (W, H))
     ann = {}
@@ -241,11 +241,6 @@ def main(argv):
     lens = Lens(seed=4, rate=4.0)
     rng = np.random.default_rng(0)
     streaks = np.column_stack([rng.uniform(0, W, 520), rng.uniform(0, H, 520), rng.uniform(0.5, 1.0, 520)])
-    try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 30)
-        small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 22)
-    except OSError:
-        font = small = ImageFont.load_default()
     gx = np.arange(-3.0, 3.01, 0.5)
     stills, log, step, fi = {}, [], 0, 0
     fit_shown = None
@@ -270,7 +265,6 @@ def main(argv):
                 nrm = nrm.reshape(H, W, -1)[..., :3].astype(np.float32)
                 full = look.inscatter(rgb, depth, camd, "dusk", sun_dir, 1.0)
                 full = look.grade(full, "offline", fi / args.fps, "dusk")
-                lens.rain(1.0 / args.fps, args.rain)
                 im = Image.fromarray(full)
                 rl = Image.new("RGBA", (W, H), (0, 0, 0, 0))
                 dr = ImageDraw.Draw(rl)
@@ -279,7 +273,7 @@ def main(argv):
                     x0 = (sx + fi * 9 * sv) % W
                     dr.line([x0, y0, x0 + 9 * sv, y0 + 55 * sv], fill=(205, 212, 225, int(46 * args.rain * sv)), width=2)
                 im = Image.alpha_composite(im.convert("RGBA"), rl.filter(ImageFilter.GaussianBlur(0.8))).convert("RGB")
-                full = lens.apply(np.asarray(im), 0.12)
+                full = lens.apply(np.asarray(im), 0.06)
                 e = edges(nrm, depth)
                 valid = np.isfinite(depth) & (depth > 0) & (depth < 60)
                 near = np.clip(1.6 - depth / 6.0, 0.35, 1.0) * valid
@@ -316,7 +310,7 @@ def main(argv):
                         for q in puv[::5]:
                             dg.line([tuple(euv), tuple(q)], fill=(120, 200, 255, 26), width=1)
                     for q, c_ in zip(puv, col):
-                        dg.ellipse([q[0] - 3, q[1] - 3, q[0] + 3, q[1] + 3], fill=tuple(int(v) for v in c_) + (235,))
+                        dg.ellipse([q[0] - 5, q[1] - 5, q[0] + 5, q[1] + 5], fill=tuple(int(v) for v in c_) + (240,))
                 if ez > 0.1:
                     dg.ellipse([euv[0] - 6, euv[1] - 6, euv[0] + 6, euv[1] + 6], outline=(120, 200, 255, 255), width=2)
                 if fit_shown is not None and fit_shown["conf"] > 0.1 and not bool(u.ever_sealed[0]):
@@ -329,20 +323,18 @@ def main(argv):
                     for sgn in (-1, 1):
                         ring = c0 + sgn * ax * L0 / 2 + r0 * (np.cos(th)[:, None] * b1 + np.sin(th)[:, None] * b2)
                         uv, _ = project(ring, K, T)
-                        dg.line([tuple(q) for q in uv], fill=CORAL + (255,), width=3)
+                        dg.line([tuple(q) for q in uv], fill=CORAL + (255,), width=4)
                     for a0 in (0, math.pi / 2, math.pi, 3 * math.pi / 2):
                         off = r0 * (math.cos(a0) * b1 + math.sin(a0) * b2)
                         uv, _ = project(np.stack([c0 - ax * L0 / 2 + off, c0 + ax * L0 / 2 + off]), K, T)
-                        dg.line([tuple(q) for q in uv], fill=CORAL + (200,), width=2)
+                        dg.line([tuple(q) for q in uv], fill=CORAL + (220,), width=3)
                     uv, _ = project(np.stack([c0 - ax * (L0 / 2 + 0.05), c0 + ax * (L0 / 2 + 0.05)]), K, T)
                     for t0 in np.linspace(0, 1, 12)[::2]:
                         q0 = uv[0] + (uv[1] - uv[0]) * t0
                         q1 = uv[0] + (uv[1] - uv[0]) * min(t0 + 1 / 12, 1)
                         dg.line([tuple(q0), tuple(q1)], fill=CORAL + (255,), width=2)
                     gp, _ = project(fit_shown["grasp"], K, T)
-                    dg.ellipse([gp[0] - 9, gp[1] - 9, gp[0] + 9, gp[1] + 9], fill=CORAL + (255,), outline=(255, 235, 225, 255), width=2)
-                    dg.line([gp[0] + 12, gp[1] - 12, gp[0] + 60, gp[1] - 60], fill=CORAL + (255,), width=2)
-                    dg.text((gp[0] + 64, gp[1] - 84), f"grasp  r {r0 * 100:.1f} cm  L {L0 * 100:.0f} cm", fill=CORAL, font=small)
+                    dg.ellipse([gp[0] - 12, gp[1] - 12, gp[0] + 12, gp[1] + 12], fill=CORAL + (255,), outline=(255, 235, 225, 255), width=3)
                 layers = [np.asarray(wim, np.float32), np.asarray(gim, np.float32), np.asarray(full, np.float32)]
             if fi < cuts[0]:
                 out = layers[0]
@@ -357,10 +349,6 @@ def main(argv):
             else:
                 out = layers[2]
             frame = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
-            d = ImageDraw.Draw(frame, "RGBA")
-            label = ("WIREFRAME", "WHAT THE POLICY SEES   depth rays -> cylinder fit -> grasp", "RENDER   dusk, rain")
-            li = 0 if fi < (cuts[0] + cuts[1]) // 2 else (1 if fi < (cuts[2] + cuts[3]) // 2 else 2)
-            d.text((48, H - 70), label[li], fill=(235, 238, 242, 220), font=font)
             arr = np.asarray(frame)
             writer.append_data(arr)
             for key, at in (("wire", cuts[0] // 2), ("geo", (cuts[1] + cuts[2]) // 2), ("full", F - 12)):
