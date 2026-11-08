@@ -31,6 +31,7 @@ class SensorRig:
         self.out: dict[str, dict] = {}
         self.main_ms = self.compose_ms = 0.0
         self.captures = 0
+        self.on = True
         threading.Thread(target=self._work, daemon=True).start()
 
     def _mount(self, rid: str) -> dict:
@@ -82,9 +83,13 @@ class SensorRig:
         return (x, y, z, yaw)
 
     def event(self, ev: dict) -> bool:
+        a = ev.get("args") or {}
+        if ev.get("name") == "views":
+            self.on = bool(a.get("on", True))
+            print(f"rig sim: views {'on' if self.on else 'off'}", flush=True)
+            return True
         if ev.get("name") != "force":
             return False
-        a = ev.get("args") or {}
         rid = str(a.get("robot") or next(iter(self.cams), "R1"))
         self.force.setdefault(rid, []).append(float(a.get("force_n", 0.0)))
         del self.force[rid][:-120]
@@ -95,6 +100,8 @@ class SensorRig:
         for rid in list(self.obstacles.robots):
             if rid not in self.cams:
                 self.cams[rid] = self._mount(rid)
+        if not self.on:
+            return
         if self.pending is not None:
             p = self.pending
             p["left"] -= 1
