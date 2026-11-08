@@ -73,3 +73,7 @@ def test_layer_only_overs_world():
     layer = Sdf.Layer.FindOrOpen(str(g.LAYER))
     assert layer.GetPrimAtPath("/World").specifier == Sdf.SpecifierOver
     assert layer.GetPrimAtPath(g.ROOT).specifier == Sdf.SpecifierDef
+
+
+def test_layer_never_binds_repair_zone_materials():
+    assert "/World/RepairZone/" not in g.LAYER.read_text()

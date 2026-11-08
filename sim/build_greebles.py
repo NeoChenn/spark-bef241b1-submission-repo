@@ -18,14 +18,13 @@ from scene_builder import ASSETS, rel
 from tools.pbr_material import texture_material
 
 LOOKS = f"{g.ROOT}/Looks"
-ZL = "/World/RepairZone/Looks"
 WL = "/World/Looks"
 MAT = {
-    "steel": f"{ZL}/rusty_metal_02",
+    "steel": f"{WL}/support_steel",
     "galv": f"{WL}/topside_galv",
     "black": f"{WL}/topside_black",
     "red": f"{WL}/topside_valve_red",
-    "yellow": f"{ZL}/safety_yellow",
+    "yellow": f"{WL}/topside_yellow",
     "white": f"{WL}/topside_steel_white",
     "stainless": f"{WL}/topside_insulated",
     "grey": f"{WL}/topside_vessel_grey",
@@ -42,11 +41,12 @@ def S():
     return _stage[0]
 
 
-LINE_LOOKS = {"main": f"{WL}/topside_pipe_green", "rusty": f"{WL}/topside_steel_rust"}
+LINE_LOOKS = {"main": f"{WL}/topside_pipe_green", "rusty": f"{WL}/topside_steel_rust", "grey": f"{WL}/topside_pipe_grey",
+              "orange": f"{WL}/pipe"}
 
 
 def line_mat(line):
-    return LINE_LOOKS.get(line, f"{ZL}/{g.LINES[line][3]}")
+    return LINE_LOOKS[line]
 
 
 def mesh_data(points, counts, indices, uvs=None, normals=None):
