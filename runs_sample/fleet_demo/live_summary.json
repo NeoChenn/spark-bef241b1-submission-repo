@@ -1,0 +1,96 @@
+{
+ "control": "live",
+ "t_end": 88.9,
+ "beats": {
+  "1_unit1_spray": 2.3,
+  "1_unit1_soak": 5.4,
+  "1_unit1_scrub": 11.1,
+  "1_unit1_scrubbing": 11.1,
+  "1_unit2_docked": 0.0,
+  "2_leak_start": 18.0,
+  "2_gf5_amber": 18.8,
+  "2_gf5_red": 20.6,
+  "3_spark_hold": 18.8,
+  "3_unit1_held": 18.9,
+  "3_unverified": 20.6,
+  "3_dispatch_unit2": 27.4,
+  "4_unit2_walks": 27.5,
+  "4_unit2_sniffs": 49.6,
+  "4_leak_confirmed": 43.7,
+  "4_fix_leak": 52.3,
+  "4_retorque": 55.9,
+  "4_gf5_green": 63.2,
+  "5_resume_rust": 69.7,
+  "5_unit1_scrubs_again": 69.8,
+  "5_unit1_verify": 82.0,
+  "5_unit1_paint": 83.6,
+  "5_unit1_done": 88.8,
+  "5_unit2_returns": 63.8,
+  "5_unit2_docked": 85.5,
+  "6_gf6_stuck": 2.0,
+  "6_gf6_fault": 5.0,
+  "6_ticket": 15.2,
+  "6_inbox": 15.2,
+  "6_no_repair_at_f6": 15.2,
+  "6_object_report": null,
+  "6_link_cut": null
+ },
+ "argon": {
+  "model": "gemini-4-argon",
+  "prompt": "integration.argon_fleet_prompt",
+  "mode": "live",
+  "calls": 4,
+  "ok": 4,
+  "latency_ms": {
+   "min": 6433.7,
+   "max": 10175.5,
+   "mean": 7962.9
+  },
+  "cost_usd": 0.01225,
+  "tickets": [
+   {
+    "id": "MT-001",
+    "sensor": "G-F6",
+    "t": 15.2,
+    "source": "argon",
+    "reason": "G-F6 at 14.0% LEL but unit2 reads 2.0% LEL at F6; PIPE_SENSOR_FAULT below stop."
+   }
+  ],
+  "commands": [
+   "15.2s argon:log_sensor_fault:supv:G-F6",
+   "18.8s edge:hold:unit1:F5",
+   "27.4s argon:go_check:unit2:F5",
+   "52.3s argon:fix_leak:unit2:F5",
+   "69.7s argon:resume_rust:unit1:"
+  ]
+ },
+ "nav": "fleet_nav.NavWalker (pure_pursuit)",
+ "inbox": [
+  {
+   "ticket": "MT-001",
+   "job_id": "SENS-001",
+   "sensor": "G-F6",
+   "source": "argon",
+   "status": "WAITING_APPROVAL",
+   "health": "STUCK",
+   "envelope": {
+    "name": "approve_request",
+    "args": {
+     "job_id": "SENS-001",
+     "why": "MT-001 G-F6: G-F6 at 14.0% LEL but unit2 reads 2.0% LEL at F6; PIPE_SENSOR_FAULT below stop."
+    },
+    "ok": true,
+    "refused": null,
+    "note": "sent to the operator inbox; only a human approves",
+    "result": {
+     "job_id": "SENS-001",
+     "status": "WAITING_APPROVAL"
+    }
+   }
+  }
+ ],
+ "dock_unit2": [
+  29.6,
+  -9.68
+ ]
+}
