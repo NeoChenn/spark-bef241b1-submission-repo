@@ -1488,6 +1488,8 @@ def main(argv=None):
             hold1 = max(0.0, hold1 - 2.0 * dt)
         if 0 < hold1 < 1:
             turn1 += 0.35 * dt
+        if args.film and task is None:
+            continue
         for rid, u in units.items():
             model = models[rid]
             moving = abs(u.v) > 0.05 or abs(u.w) > 0.15
