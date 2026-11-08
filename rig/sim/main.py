@@ -285,7 +285,7 @@ def main() -> None:
         import cinematic
         import shafts
 
-        beams = shafts.specs(cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS, args.look)
+        beams = shafts.specs(cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS, cinematic.DECK_FLOODS, args.look)
     atm = None
     if args.atmos and args.cinematic:
         atm, atm_tick = load_atmosphere(stage, cam_path, args)
