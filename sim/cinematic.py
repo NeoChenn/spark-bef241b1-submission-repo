@@ -148,13 +148,16 @@ BULBS = (
     ((20.0, -37.2, 33.5), SODIUM, 160000.0),
     ((-5.0, 24.7, 23.0), SODIUM, 80000.0),
     ((-24.7, -15.0, 23.0), SODIUM, 60000.0),
+    ((24.7, -10.0, 23.0), LED, 140000.0),
+    ((14.0, -37.2, 23.0), SODIUM, 160000.0),
+    ((24.7, 15.0, 23.0), SODIUM, 120000.0),
     ((40.2, -1.0, 34.7), SODIUM, 70000.0),
     ((40.2, 2.5, 38.4), SODIUM, 70000.0),
 )
 SEA_FLOODS = (
-    ("spot", (0.0, -37.2, 19.2), SODIUM, 2400000.0, (0.0, -0.7, -1.0), 55.0),
-    ("spot", (30.0, -37.2, 30.4), LED, 1600000.0, (0.0, -0.5, -1.0), 50.0),
-    ("spot", (37.2, 6.0, 30.4), SODIUM, 1800000.0, (0.6, 0.0, -1.0), 55.0),
+    ((2.0, -31.0, 17.0), SODIUM, 330000.0),
+    ((14.0, 8.0, 17.0), LED, 220000.0),
+    ((-16.0, 2.0, 17.0), SODIUM, 120000.0),
 )
 POLES = ((18.75, -11.6, 53.0), (-18.0, 15.8, 50.5), (-5.0, 15.8, 50.5))
 
@@ -168,13 +171,18 @@ def add_fixture(stage, index: int, kind: str, position, kelvin, intensity, aim, 
     ops.AddOrientOp().Set(Gf.Quatf(float(w), float(x), float(y), float(z)))
     color = kelvin_rgb(kelvin)
     glow = emissive_material(stage, f"fixture_{int(kelvin)}", tuple(c * 20 for c in color))
-    housing = UsdGeom.Cube.Define(stage, f"{path}/housing")
-    housing.CreateSizeAttr(1.0)
-    size = (shape[0] + 0.1, shape[1] + 0.1, 0.12) if kind == "rect" else (0.5, 0.35, 0.12)
-    housing_ops = UsdGeom.Xformable(housing)
-    housing_ops.AddTranslateOp().Set(Gf.Vec3d(0, 0, 0.08))
-    housing_ops.AddScaleOp().Set(Gf.Vec3f(*size))
-    UsdShade.MaterialBindingAPI.Apply(housing.GetPrim()).Bind(glow)
+    dark = SceneBuilder(stage).plain("fixture_housing", (0.12, 0.13, 0.14), 0.5, 0.6)
+    width, depth = (shape[0], shape[1]) if kind == "rect" else (0.45, 0.3)
+    for name, z, size, material in (
+        ("housing", 0.12, (width + 0.12, depth + 0.12, 0.18), dark),
+        ("lens", 0.02, (width, depth, 0.02), glow),
+    ):
+        part = UsdGeom.Cube.Define(stage, f"{path}/{name}")
+        part.CreateSizeAttr(1.0)
+        part_ops = UsdGeom.Xformable(part)
+        part_ops.AddTranslateOp().Set(Gf.Vec3d(0, 0, z))
+        part_ops.AddScaleOp().Set(Gf.Vec3f(*size))
+        UsdShade.MaterialBindingAPI.Apply(part.GetPrim()).Bind(material)
     if kind == "rect":
         light = UsdLux.RectLight.Define(stage, f"{path}/light")
         light.CreateWidthAttr(shape[0])
@@ -182,6 +190,7 @@ def add_fixture(stage, index: int, kind: str, position, kelvin, intensity, aim, 
     else:
         light = UsdLux.SphereLight.Define(stage, f"{path}/light")
         light.CreateRadiusAttr(0.18)
+        UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(0, 0, -0.2))
         shaping = UsdLux.ShapingAPI.Apply(light.GetPrim())
         shaping.CreateShapingConeAngleAttr(shape)
         shaping.CreateShapingConeSoftnessAttr(0.35)
@@ -344,8 +353,8 @@ def build_rig_lights(stage) -> None:
 
 
 def build_floodlights(stage) -> None:
-    for index, (kind, position, kelvin, intensity, aim, shape) in enumerate(SEA_FLOODS):
-        add_fixture(stage, 320 + index, kind, position, kelvin, intensity, aim, shape)
+    for index, (position, kelvin, intensity) in enumerate(SEA_FLOODS):
+        add_lamp(stage, None, 320 + index, position, kelvin_rgb(kelvin), 1.0, intensity, 0.0)
     b = SceneBuilder(stage)
     steel = b.plain("lamp_pole", (0.3, 0.32, 0.33), 0.5, 0.6)
     for x, y, top in POLES:
