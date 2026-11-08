@@ -65,3 +65,11 @@ def test_atlas_cells_do_not_overlap_and_uvs_stay_inside():
         for u, v in ((0, 0), (1, 1)):
             a, b = g.atlas_uv(name, u, v)
             assert 0 < a < 1 and 0 < b < 1
+
+
+def test_layer_only_overs_world():
+    from pxr import Sdf
+
+    layer = Sdf.Layer.FindOrOpen(str(g.LAYER))
+    assert layer.GetPrimAtPath("/World").specifier == Sdf.SpecifierOver
+    assert layer.GetPrimAtPath(g.ROOT).specifier == Sdf.SpecifierDef

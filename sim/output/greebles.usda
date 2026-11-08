@@ -4,7 +4,7 @@
     upAxis = "Z"
 )
 
-def "World"
+over "World"
 {
     def Xform "Greebles"
     {

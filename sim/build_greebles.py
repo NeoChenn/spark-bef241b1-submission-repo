@@ -657,8 +657,9 @@ def build(path=g.LAYER) -> dict:
     topside_racks(top_live, top_off)
     counts = {"zone_instances": kit.write(), "tray_instances": trays.write(), "topside_instances": top_live.write(),
               "topside_offline": top_off.write()}
-    stage.GetRootLayer().Save()
     counts["prims"] = sum(1 for _ in Usd.PrimRange(stage.GetPrimAtPath(g.ROOT)))
+    stage.GetRootLayer().GetPrimAtPath("/World").specifier = Sdf.SpecifierOver
+    stage.GetRootLayer().Save()
     print(f"GREEBLES_WRITTEN {path} {counts}")
     return counts
 
