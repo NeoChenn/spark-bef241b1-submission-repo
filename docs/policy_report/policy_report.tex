@@ -73,10 +73,15 @@ GB10 edge (ONNX); \nm &
 35\,km eval: vel.\ error 0.064\,m/s, yaw 0.062\,rad/s, 1.94 falls/km (worst: deck 2.6). Patrol 65\,m route to the pipe:
 16/16 reach in 67.8\,s, final lateral error 4.4\,cm \\
 \addlinespace[1pt]
-\textbf{4 Can pick-up} &
-\textit{design}: gripper variant \fn{go2\_ur3\_lift\_grip.urdf} (UR3 gripper tip + tote on trunk) &
-arm + grip &
-\textcolor{note}{\textit{training in progress (branch pick-cans)}} & GB10 edge & policy \textcolor{note}{\textit{TBD}}; grasp-point VLM (Gemini Robotics-ER, 30 synthetic scenes): 97\% on target, \$0.06 for 35 calls \\
+\textbf{4 Can pick-up} \newline \fn{Rig-PickCan-}\newline\fn{Go2UR3Lift-v0} &
+57-D: arm $q,\dot q$, lift, tip pose/vel, detected can pose, grasp point + tote rel.\ to tip, can size/vel, seal \&
+suction flags, tool force, last action; + depth cylinder fit (centre, axis, radius, upright/lying, conf.) &
+5-D @30\,Hz: tip $\Delta xyz$ (1.2\,cm), suction on/off, lift $\Delta$; suction wand + tote on trunk &
+scripted picker on the fitted grasp $\to$ demos $\to$ tiny diffusion policy (1--3\,M params, action chunks) by BC,
+optional PPO residual \textcolor{note}{\textit{(in progress)}}. DR: 8 can sizes, 0.1--0.5\,kg, 65\% lying &
+GB10 edge &
+Isaac, scripted picker on the cylinder fit: 87.5\% (n=256); learned policy \textcolor{note}{\textit{TBD}}. VLM grasp
+point (Gemini Robotics-ER, 30 scenes): 97\% on target \\
 \addlinespace[1pt]
 \textbf{5 Rust repair orchestrator} \newline \fn{policy/}\newline\fn{orchestrator.py} &
 detector confidence, rust fraction, contact force, person distance, lens quality, gust force, rain &
@@ -117,7 +122,7 @@ SensorSnapshot: robot states, force, gas \%LEL/ppm, acoustic, plume kg/h, verifi
 advisory actions + rationale; never approves &
 prompted LLM (\texttt{gemini-4-argon}) every 30\,s; edge rules always win ($F{>}40$\,N, $\geq$50\% LEL evacuate, person
 $<$3\,m); envelope refusals; cut-link $\to$ edge only &
-cloud; $\approx$10--12\,s/call, $\approx$\$0.008--0.02/call (est.), cap \$5/day &
+cloud; 8.5\,s median/call (measured), $\approx$\$0.003/call in the scrub bench; cap \$5/day &
 40 shifts, sim-verified plans (replay planner; live Gemini run cut for time): 0 unsafe, bad-plan leak isolation 437 $\to$ 406\,s \\
 \addlinespace[1pt]
 \textbf{10 Perception} \newline \fn{detection/} &
@@ -125,7 +130,7 @@ RGB 224$\times$224 crop &
 rust prob.\ + patch map &
 MobileNetV4-small + LoRA r16 on real + sim crops &
 GB10 TRT FP16 0.35\,ms p50 &
-Real test (881): F1 0.977, AUROC 0.998; held-out sim renders 13/13 \\
+Real test (881): F1 0.977, AUROC 0.998; held-out sim renders 13/13. Argon as detector: F1 0.80, 9.5\,s/image \\
 \bottomrule
 \end{tabularx}
 
@@ -142,7 +147,7 @@ Real test (881): F1 0.977, AUROC 0.998; held-out sim renders 13/13 \\
 1 Scrub PPO v2     & $\circ$ & & $\bullet$ & $\bullet$ & & & & & & \\
 2 Storm v3         & $\circ$ & & $\bullet$ & $\bullet$ & & & & & $\circ$ & \\
 3 Walking          & & $\bullet$ & & $\bullet$ & & & & & $\bullet$ & \\
-4 Can pick-up      & \multicolumn{10}{l}{\textit{in progress}}\\
+4 Can pick-up      & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & & & & & & \\
 5 Repair orch.     & $\bullet$ & & $\bullet$ & & & & & & $\bullet$ & $\circ$ \\
 6 Gas bot / leak   & $\bullet$ & & & & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & \\
 7 Navigation       & & $\circ$ & & & $\circ$ & & & & $\bullet$ & $\bullet$ \\
@@ -153,22 +158,26 @@ Real test (881): F1 0.977, AUROC 0.998; held-out sim renders 13/13 \\
 \end{tabular}}
 
 \vspace{3pt}
-\hd{Scrub control: before RL vs after RL vs Gemini 4 Argon.} Same task and scenarios; success = $\leq$5\% rust left
-inside the 15\,s episode.\par\vspace{1pt}
-{\scriptsize\setlength{\tabcolsep}{2.2pt}
-\noindent\begin{tabular}{@{}llcccccc@{}}
+\hd{Scrub control: before RL vs after RL vs Gemini 4 Argon.} Success = $\leq$5\% rust left in the 15\,s episode;
+``in 7.45\,s'' = within PPO's mean clean time.\par\vspace{1pt}
+{\scriptsize\setlength{\tabcolsep}{1.6pt}
+\noindent\begin{tabular}{@{}llccccccc@{}}
 \toprule
-& controller & succ.\ Isaac & succ.\ CPU & clean s & $>$40\,N & decision & \$/ep \\
+& & Isaac & \multicolumn{4}{c}{CPU mock, same 30 seeded scenarios} & & \\
+\cmidrule(lr){3-3}\cmidrule(lr){4-7}
+& controller & succ. & succ. & in 7.45\,s & removed & clean s & decision & \$/ep \\
 \midrule
-before RL & random     & 0.0\%  & 0.0\%  & ---   & 68.4\% & 0.021\,ms & 0 \\
-          & greedy script & 32.0\% & 32.0\% & 10.96 & 46.5\% & 0.008\,ms & 0 \\
-after RL  & PPO v2     & \textbf{95.3\%} & \textbf{97.0\%} & \textbf{7.05} & \textbf{1.9\%} & 0.013\,ms & 0 \\
-LLM       & Argon, unlimited & \multicolumn{4}{c}{\textcolor{note}{\textit{running (geminibench)}}} & $\approx$10--12\,s & \textit{tbd} \\
-          & Argon, real time & \multicolumn{4}{c}{\textcolor{note}{\textit{running (geminibench)}}} & $\approx$10--12\,s & \textit{tbd} \\
+pre-RL & random        & 0.0\%  & 0.0\%  & 0.0\% & 30.5\% & ---   & 0.045\,ms & 0 \\
+          & greedy        & 32.0\% & 30.0\% & 0.0\% & 68.8\% & 12.5 & 0.081\,ms & 0 \\
+RL     & PPO v2        & \textbf{95.3\%} & \textbf{93.3\%} & \textbf{53.3\%} & \textbf{94.5\%} & \textbf{7.6} & \textbf{0.074\,ms} & 0 \\
+LLM       & Argon, paused & --- & 36.7\% & 0.0\% & 83.0\% & 11.5 & 8.5\,s & 0.081 \\
+          & Argon, real time  & --- & 0.0\%  & 0.0\% & 3.2\%  & ---  & 8.0\,s & 0.006 \\
 \bottomrule
 \end{tabular}}\par
-{\scriptsize Isaac columns: 256 ep; CPU column: 200 ep kinematic mock (its $>$40\,N rates are higher, e.g.\ PPO 19.5\%).
-Decision latency is CPU, batch 1. The policy acts every 33\,ms, so a 10\,s LLM call is $\sim$300 control steps.}
+{\scriptsize Isaac: 256 ep (PPO 1.9\% ep.\ $>$40\,N vs greedy 46.5\%, random 68.4\%). Gemini gets a JSON state summary and
+the greedy action interface. Paused sim: 28 calls and 298\,s wall per 15\,s episode ($\approx$20$\times$ slower than real
+time). Real time: the arm gets $\approx$2 decisions per episode. PPO decides $\approx$10$^5\times$ faster, free, on the
+robot. Total API spend \$2.61 (\fn{runs\_sample/bench/GEMINI\_RESULTS.md}).}
 
 \vspace{3pt}
 \hd{Where it runs.} Everything that moves the robot runs on the \textbf{NVIDIA GB10 edge box} (Grace--Blackwell, 20
@@ -199,7 +208,7 @@ opinion; cutting the link drops to edge-only.
 
 \hd{What's novel} {\scriptsize(one line each; \textcolor{note}{\textit{in progress}} = upgrade running, opt-in upgrades measured before/after in \fn{runs\_sample/novelty/})}\par
 {\scriptsize\begin{itemize}[label=--]
-\item \textbf{Scrub:} force is an RL action with a quadratic over-force cost: 76.8\% $\to$ 1.0\% episodes $>$40\,N (CBF force shield \textcolor{note}{\textit{in progress}}).
+\item \textbf{Scrub:} force is an RL action with a quadratic over-force cost: 76.8\% $\to$ 1.0\% episodes $>$40\,N; a CBF force shield (RLS stiffness) then takes calm $>$40\,N 0.8\% $\to$ 0\% and storm 11.5\% $\to$ 6.6\%.
 \item \textbf{Storm:} storm-randomised fine-tune cuts the worst-case contact force 274\,N $\to$ 69\,N at full storm.
 \item \textbf{Walking:} one gait for stowed \emph{and} deployed arm (payload $\alpha$ in obs): 1.94 falls/km (RMA adaptation \textcolor{note}{\textit{in progress}}).
 \item \textbf{Pick-up:} Gemini Robotics-ER points at the grasp on unseen objects: on target 7\% $\to$ 97\%, 3-D error 26 $\to$ 0.5\,cm.
@@ -214,7 +223,7 @@ F1 0.977 is published in \texttt{detection/RESULTS.md}, not re-measured here (th
 scores 12/13 on held-out renders). (ii) Scrub legs are fixed in training (gravity off on the base); the trunk does not
 sway except via the storm model. (iii) Walking and scrubbing are separate policies; some fleet demos move robots
 kinematically. (iv) Gas results are a CPU mock with modelled sensor lags; the plume solver is validated against a
-Gaussian plume (reported $\leq$4.5\% centreline error, 2--9\,m) but not against field data. (v) Gemini latency/cost are
-estimates until the geminibench numbers land; no Gemini action is ever executed without an edge rule and envelope check.
+Gaussian plume (reported $\leq$4.5\% centreline error, 2--9\,m) but not against field data. (v) Gemini scrub numbers are
+CPU-mock only (n=30); no Gemini action is ever executed without an edge rule and envelope check.
 \end{multicols}
 \end{document}

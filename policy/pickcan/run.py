@@ -46,6 +46,7 @@ def main(argv):
     p.add_argument("--out", default="runs/pickup/eval_script.json")
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--max_steps", type=int, default=2000)
+    p.add_argument("--grasp", default="geom", choices=["geom", "priv"])
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -87,7 +88,7 @@ def main(argv):
             if policy is not None:
                 act = policy(obs)
             else:
-                act = picker.act(u._tip()[0], u.p_tgt, u.grasp_estimate(), u.sealed, u._robot.data.joint_pos[:, u.lift_id])
+                act = picker.act(u._tip()[0], u.p_tgt, u.geom_grasp() if args.grasp == "geom" else u.grasp_estimate(), u.sealed, u._robot.data.joint_pos[:, u.lift_id])
             obs, _, dones, _ = env.step(act)
         if args.mode == "smoke" and step % 15 == 0:
             tip = u._tip()[0][0].tolist()

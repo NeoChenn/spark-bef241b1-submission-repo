@@ -11,6 +11,7 @@ R0 = 0.033
 LYING_ASPECT = 1.4
 MAX_LEN, MAX_DIA = 0.35, 0.2
 MIN_FILL = 0.5
+MIN_HEIGHT = 0.02
 RING_PX = 4
 
 
@@ -83,6 +84,8 @@ def _one(m, y0, x0, hot, s, depth, K, T, deck_z, name):
         if len(rz):
             floor = float(np.median(world_points(ru.astype(float), rv.astype(float), rz, K, T)[:, 2]))
     height = max(top - floor, 0.0) if floor is not None else None
+    if height is not None and height < MIN_HEIGHT:
+        return None
     lying = L / max(D, 1e-6) >= LYING_ASPECT or (height is not None and height <= 1.15 * D)
     if lying:
         length, diameter = L, D
