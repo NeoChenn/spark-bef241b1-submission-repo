@@ -60,7 +60,7 @@
     const m = log.find((e) => e.kind !== "reroute");
     if (m?.hazard) S.follow = m.hazard;
     const [head, ...rest] = pretty(m?.message || "").split(" → ");
-    toast(name === "clear" || name === "set_weather" ? "ok" : "warn", title, rest.join(" → ") || head || body.note || "Sent to the sim");
+    toast(name === "clear" || name === "set_weather" ? "ok" : "warn", title, rest.join(" → ") || head || body.note || body.detail || "Sent to the sim");
     log.filter((e) => e.kind === "reroute").forEach(showEvent);
     S.dirty = true;
   }

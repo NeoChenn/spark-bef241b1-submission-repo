@@ -428,51 +428,97 @@ class Repair(Script):
 
 class Nav(Script):
     id, name, main = "nav", "Navigation", "R3"
-    steps = ("Unit 3 walking the deck loop", "Crate ahead — re-routing the other way")
+    steps = ("Unit 3 walking the deck loop", "Walkway blocked ahead — re-routing the other way")
     robots = (("R1", [-12.0, 9.4, 42.5], 0.9), ("R2", [-21.0, 4.0, 31.25], 0.9), ("R3", [9.0, -4.5, 42.5], 0.98))
     route = ("hero_bay_mouth", "gauge_06", "gauge_05", "nav_west")
     weather = DEMO_WEATHER
+    speed = 1.5
     west, center = [9.0, -6.75, 42.5], [16.5, -6.75, 42.5]
+    lens, lead, slack = {"dist": 9.0, "elev": 28.0, "focal": 24.0}, 2.5, 3.5
 
     def setup(self) -> None:
         self.run.hazard("clear", id="all")
         if "nav_west" not in self.f.rm.poi_node:
             self.f.rm.add_poi("nav_west", self.west, "top_deck", standoff=0.0)
-        self.k = 0
+        self.k, self.later, self.cam_c = 0, None, None
         self.leg = self.go()
-        self.run.cam_at = list(self.center)
+        self.shot = self.frame(np.asarray(self.robots[2][1], float), np.array([1.0, 0.0, 0.0]))
 
     def sim_events(self) -> list:
-        return [{"name": "camera", "args": {"mode": "deck", "at": list(self.center), "view": None}},
-                {"name": "select", "args": {"robot": "R3"}}, {"name": "views", "args": {"robot": "R3", "on": True, "kind": "fpv"}}]
+        return [{"name": "camera", "args": self.shot}, {"name": "select", "args": {"robot": "R3"}},
+                {"name": "views", "args": {"robot": "R3", "on": True, "kind": "fpv"}}]
 
     def go(self):
         t = self.task("inspect", self.route[self.k % len(self.route)], only="R3")
         t.duration = 1.0
         return t
 
+    def heading(self):
+        r = self.robot("R3")
+        pts = [np.asarray(r.pos, float)] + [self.f.rm.pos[lg.v] for lg in r.legs]
+        u, run = None, 0.0
+        for a, b in zip(pts, pts[1:]):
+            L = float(np.linalg.norm((b - a)[:2]))
+            if L < 1e-6:
+                continue
+            w = (b - a) / L
+            if u is not None and float(np.dot(u[:2], w[:2])) < 0.99:
+                break
+            u, run = w if u is None else u, run + L
+        return u, run
+
+    def frame(self, at, u) -> dict:
+        c = np.asarray(at, float) + (u * self.lead if u is not None else 0.0)
+        lens = dict(self.lens)
+        if u is not None:
+            n = np.array([-u[1], u[0]])
+            n = n if float(np.dot(n, c[:2] - np.asarray(self.center[:2]))) >= 0 else -n
+            out = math.degrees(math.atan2(n[1], n[0]))
+            lens["az"] = [out, out + 180.0]
+        self.cam_c = c
+        self.run.cam_at = [round(float(v), 3) for v in c[:3]]
+        return {"mode": "deck", "at": list(self.run.cam_at), "view": None, "lens": lens}
+
+    def reframe(self, force: bool = False) -> None:
+        r = self.robot("R3")
+        if not force and self.cam_c is not None and float(np.linalg.norm(r.pos[:2] - self.cam_c[:2])) < self.slack:
+            return
+        u, _ = self.heading()
+        self.m.sim_out.append({"name": "camera", "args": self.frame(r.pos, u)})
+
+    def spot(self, d: float):
+        r = self.robot("R3")
+        u, run = self.heading()
+        if u is None or r.state != "TRANSIT" or run < d + 0.3:
+            return None
+        q = np.asarray(r.pos, float) + u * d
+        if min(float(np.linalg.norm(q[:2] - self.f.rm.pos[self.f.rm.poi_node[p]][:2])) for p in self.route) < 1.8:
+            return None
+        return [round(float(v), 3) for v in q[:3]]
+
+    def drop(self, name: str, args: dict):
+        kind = "can" if name == "drop_can" else str(args.get("kind") or "crate")
+        a = {"kind": kind, **({"static": True, "size": "205L"} if kind == "barrel" else {})}
+        q = self.spot(float(args.get("ahead_m") or 3.0))
+        if q is None:
+            self.later = a
+            return None
+        self.reframe(True)
+        return {"name": "drop_obstacle", "args": {**a, "at": q}}
+
     def tick(self) -> None:
         if self.leg.status not in OPEN:
             self.k += 1
             self.leg = self.go()
+        if self.later is not None and (q := self.spot(3.0)) is not None:
+            a, self.later = self.later, None
+            self.run.hazard("drop_obstacle", at=q, **a)
+            self.reframe(True)
+        self.reframe()
         self.i = int(any(o.get("effect") == "block" for o in self.f.hz.obstacles.values()))
 
     def done(self) -> bool:
         return False
-
-    def ahead(self, d: float) -> list:
-        rm, r = self.f.rm, self.robot("R3")
-        pts, node = [r.pos] + [rm.pos[lg.v] for lg in r.legs], r.legs[-1].v if r.legs else r.node
-        for j in range(len(self.route) + 1):
-            path = rm.route(node, rm.poi_node[self.route[(self.k + j) % len(self.route)]])[1]
-            pts += [rm.pos[v] for v in path[1:]]
-            node = path[-1] if path else node
-        stops = [rm.pos[rm.poi_node[p]][:2] for p in self.route]
-        for s in np.arange(d, d + 12.0, 0.5):
-            q = walk_along(pts, float(s))
-            if min(float(np.linalg.norm(q[:2] - w)) for w in stops) > 1.8:
-                return [round(float(v), 3) for v in q[:3]]
-        return [round(float(v), 3) for v in walk_along(pts, d)[:3]]
 
 
 class Flyby(Script):
@@ -917,6 +963,8 @@ class Scenarios:
         self.reset(SCRIPTS[sid].robots)
         s = SCRIPTS[sid](self)
         self.cur = s
+        self.speed0 = getattr(self, "speed0", None) or m.fleet.speed
+        m.fleet.speed = getattr(s, "speed", None) or self.speed0
         s.setup()
         if sid == "flyby":
             m.fleet.specs = [(t.kind, t.poi, t.scenario, t.severity, t.exposure) for t in m.fleet.f.tasks.values()
@@ -1131,11 +1179,15 @@ class Scenarios:
                            "next": nxt, "main": s.main, "focus": s.focus}
         return out
 
-    def ahead(self, d: float = 3.0):
-        s = self.cur
-        if isinstance(s, Nav):
-            return s.ahead(d)
-        return {"robot": self.focus() or self.selected or "R3", "ahead_m": d}
+    def steer(self) -> bool:
+        return isinstance(self.cur, Nav)
+
+    def drop_ahead(self, name: str, args: dict):
+        if isinstance(self.cur, Nav):
+            return self.cur.drop(name, args)
+        d = float(args.get("ahead_m") or 3.0)
+        rest = {k: v for k, v in args.items() if k not in ("at", "ahead_m")}
+        return {"name": name, "args": {**rest, "at": {"robot": self.focus() or self.selected or "R3", "ahead_m": d}}}
 
     def focus(self) -> str | None:
         s = self.cur
