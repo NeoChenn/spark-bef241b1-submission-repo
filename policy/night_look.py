@@ -117,7 +117,7 @@ def _scale_input(shader, name, k, kind):
         inp.Set(Gf.Vec3f(*(c * k for c in v)) if kind == "color" else float(v) * k)
 
 
-def wet_down(stage, root, albedo=0.5, rough=0.45, deck_rough=0.3, sea_path=None):
+def wet_down(stage, root, albedo=0.5, prop_albedo=0.3, rough=0.45, deck_rough=0.3, sea_path=None):
     from pxr import Usd, UsdShade
 
     for prim in Usd.PrimRange(stage.GetPrimAtPath(root)):
@@ -126,9 +126,11 @@ def wet_down(stage, root, albedo=0.5, rough=0.45, deck_rough=0.3, sea_path=None)
         sh = UsdShade.Shader(prim)
         if sh.GetIdAttr().Get() != "UsdPreviewSurface":
             continue
-        deck = "grate" in str(prim.GetPath()) or "metal_plate" in str(prim.GetPath())
-        _scale_input(sh, "diffuseColor", albedo, "color")
-        _scale_input(sh, "roughness", deck_rough if deck else rough, "float")
+        path = str(prim.GetPath())
+        deck = "grate" in path or "metal_plate" in path
+        pipe = "green_metal_rust" in path
+        _scale_input(sh, "diffuseColor", 0.9 if pipe else albedo if "/Looks/" in path else prop_albedo, "color")
+        _scale_input(sh, "roughness", deck_rough if deck else 0.75 if pipe else rough, "float")
 
 
 def paint_robot(stage, robot_root, color="graphite"):
@@ -137,18 +139,12 @@ def paint_robot(stage, robot_root, color="graphite"):
     body = _material(stage, "/World/Looks/robot_body", ROBOT_COLORS[color], 0.42, 0.3, 0.6)
     pad = _material(stage, "/World/Looks/robot_brush", CORAL_LIN, 0.55, 0.0, 0.2, emissive=tuple(c * 0.06 for c in CORAL_LIN))
     root = stage.GetPrimAtPath(robot_root)
-    n = {"body": 0, "brush": 0, "instanced": 0}
-    for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
-        if prim.IsInstanceProxy():
-            n["instanced"] += 1
+    n = {"body": 0, "brush": 0}
+    for prim in Usd.PrimRange(root):
+        if not (prim.IsInstance() or prim.IsA(UsdGeom.Gprim)):
             continue
-        if not prim.IsA(UsdGeom.Gprim):
-            continue
-        bound = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()[0]
-        name = str(bound.GetPath()).lower() if bound else ""
-        is_pad = "brush" in name or "orange" in name
-        api = UsdShade.MaterialBindingAPI.Apply(prim)
-        api.Bind(pad if is_pad else body, UsdShade.Tokens.strongerThanDescendants)
+        is_pad = "scrubber_link" in str(prim.GetPath())
+        UsdShade.MaterialBindingAPI.Apply(prim).Bind(pad if is_pad else body, UsdShade.Tokens.strongerThanDescendants)
         n["brush" if is_pad else "body"] += 1
     return n
 
@@ -184,17 +180,17 @@ def apply(stage, deck_root, work, dome=220.0, moon=25.0, lamp_gain=1.0, robot_ro
                          emissive=tuple(v * 60 for v in rgb)) for c, rgb in SAFETY.items()}
     for k, (c, pos) in enumerate(safety_lights()):
         _lamp(stage, f"{base}/safety_{k}", pos, SAFETY[c], 0.04, 1.5e3 * lamp_gain, bulb=0.04, emissive=mats[c])
-    ship = _material(stage, "/World/Looks/night_ship", (0.02, 0.02, 0.02), 0.5, emissive=tuple(c * 30 for c in AMBER))
+    ship = _material(stage, "/World/Looks/night_ship", (0.02, 0.02, 0.02), 0.5, emissive=tuple(c * 6 for c in AMBER))
     for k, (x, y) in enumerate(((-260, -420), (-235, -425), (-210, -418), (180, -520), (-520, 120))):
         b = UsdGeom.Sphere.Define(stage, f"{base}/far_{k}")
-        b.CreateRadiusAttr(1.1)
+        b.CreateRadiusAttr(0.5)
         UsdGeom.Xformable(b).AddTranslateOp().Set(Gf.Vec3d(x, y, -19.0))
         UsdShade.MaterialBindingAPI.Apply(b.GetPrim()).Bind(ship)
 
     s = carb.settings.get_settings()
     s.set_bool("/rtx/fog/enabled", True)
     s.set_bool("/rtx/fog/fogZup/enabled", True)
-    s.set_float_array("/rtx/fog/fogColor", [0.01, 0.03, 0.04])
+    s.set_float_array("/rtx/fog/fogColor", [0.003, 0.009, 0.013])
     s.set_float("/rtx/fog/fogColorIntensity", 1.0)
     s.set_float("/rtx/fog/fogStartDist", 12.0)
     s.set_float("/rtx/fog/fogEndDist", 900.0)
