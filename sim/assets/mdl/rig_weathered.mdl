@@ -1,0 +1,330 @@
+mdl 1.7;
+
+import ::anno::*;
+import ::df::*;
+import ::math::*;
+import ::state::*;
+import ::tex::*;
+
+struct surface_sample {
+    float3 albedo;
+    float rough;
+    float metal;
+    float3 normal;
+    float coat;
+    float coat_rough;
+    float opacity;
+};
+
+float3 world_position() {
+    return state::transform_point(state::coordinate_internal, state::coordinate_world, state::position());
+}
+
+float3 world_normal() {
+    return math::normalize(state::transform_normal(state::coordinate_internal, state::coordinate_world, state::normal()));
+}
+
+float3 to_internal(float3 n) {
+    return math::normalize(state::transform_normal(state::coordinate_world, state::coordinate_internal, n));
+}
+
+float3 fetch3(texture_2d t, float2 uv) {
+    return tex::lookup_float3(t, uv, tex::wrap_repeat, tex::wrap_repeat);
+}
+
+float4 fetch4(texture_2d t, float2 uv) {
+    return tex::lookup_float4(t, uv, tex::wrap_repeat, tex::wrap_repeat);
+}
+
+float3 axis_weights(float3 n, bool blend) {
+    float3 a = math::abs(n);
+    if (!blend) {
+        if (a.x >= a.y && a.x >= a.z)
+            return float3(1.0, 0.0, 0.0);
+        if (a.y >= a.z)
+            return float3(0.0, 1.0, 0.0);
+        return float3(0.0, 0.0, 1.0);
+    }
+    float3 w = a * a * a * a * a * a;
+    w = w / (w.x + w.y + w.z);
+    w = math::max(w - float3(0.02), float3(0.0));
+    return w / (w.x + w.y + w.z);
+}
+
+float2 uv_x(float3 q) { return float2(q.y + 0.37, q.z + 0.11); }
+float2 uv_y(float3 q) { return float2(q.x + 0.71, q.z + 0.53); }
+float2 uv_z(float3 q) { return float2(q.x, q.y); }
+
+float3 tri3(texture_2d t, float3 p, float3 w, float scale) {
+    float3 q = p / scale;
+    float3 c = float3(0.0);
+    if (w.x > 0.0)
+        c += w.x * fetch3(t, uv_x(q));
+    if (w.y > 0.0)
+        c += w.y * fetch3(t, uv_y(q));
+    if (w.z > 0.0)
+        c += w.z * fetch3(t, uv_z(q));
+    return c;
+}
+
+float4 tri4(texture_2d t, float3 p, float3 w, float scale) {
+    float3 q = p / scale;
+    float4 c = float4(0.0);
+    if (w.x > 0.0)
+        c += w.x * fetch4(t, uv_x(q));
+    if (w.y > 0.0)
+        c += w.y * fetch4(t, uv_y(q));
+    if (w.z > 0.0)
+        c += w.z * fetch4(t, uv_z(q));
+    return c;
+}
+
+float3 unpack(float3 c, float strength) {
+    float3 t = c * 2.0 - 1.0;
+    return float3(t.x * strength, t.y * strength, t.z);
+}
+
+float3 tri_normal(texture_2d t, float3 p, float3 w, float scale, float strength, float3 n) {
+    float3 q = p / scale;
+    float3 r = float3(0.0);
+    if (w.x > 0.0) {
+        float3 tn = unpack(fetch3(t, uv_x(q)), strength);
+        r += w.x * float3(math::abs(tn.z) * n.x, tn.x + n.y, tn.y + n.z);
+    }
+    if (w.y > 0.0) {
+        float3 tn = unpack(fetch3(t, uv_y(q)), strength);
+        r += w.y * float3(tn.x + n.x, math::abs(tn.z) * n.y, tn.y + n.z);
+    }
+    if (w.z > 0.0) {
+        float3 tn = unpack(fetch3(t, uv_z(q)), strength);
+        r += w.z * float3(tn.x + n.x, tn.y + n.y, math::abs(tn.z) * n.z);
+    }
+    return math::normalize(r);
+}
+
+float streak_mask(texture_2d t, float3 p, float3 n, float width, float height) {
+    float3 a = math::abs(n);
+    float vertical = 1.0 - math::smoothstep(0.55, 0.85, a.z);
+    if (vertical <= 0.0)
+        return 0.0;
+    float h = a.x > a.y ? p.y : p.x;
+    return vertical * fetch3(t, float2(h / width, p.z / height)).x;
+}
+
+float luminance(float3 c) {
+    return 0.2126 * c.x + 0.7152 * c.y + 0.0722 * c.z;
+}
+
+float saturation(float3 c) {
+    return math::max(c.x, math::max(c.y, c.z)) - math::min(c.x, math::min(c.y, c.z));
+}
+
+float smooth(float a, float b, float x) {
+    return math::smoothstep(a, b, x);
+}
+
+surface_sample weathered(
+    texture_2d paint_diff, texture_2d paint_rough, texture_2d paint_normal,
+    texture_2d rust_diff, texture_2d rust_rough, texture_2d rust_normal,
+    texture_2d masks, texture_2d streaks, texture_2d opacity_tex,
+    float3 paint_color, bool tint_paint, float paint_reference, float paint_scale, float paint_rough_scale,
+    float chip_amount, float rust_amount, float3 rust_tint, float rust_scale,
+    float metallic, float normal_strength, float detail_strength, float detail_scale,
+    float macro_scale, float grime_amount, float3 streak_color, float streak_amount, float streak_width, float streak_height,
+    float salt_amount, float3 salt_color, float porosity, float wetness, float puddles, float puddle_scale,
+    bool triplanar, bool use_opacity, float opacity_scale)
+{
+    float3 p = world_position();
+    float3 n = world_normal();
+    float3 w = axis_weights(n, triplanar);
+    float3 wd = axis_weights(n, false);
+
+    float4 m = tri4(masks, p, wd, macro_scale);
+    float macro = m.x;
+    float grime = m.z;
+    float salt = m.w;
+
+    float3 paint_tex = tri3(paint_diff, p, w, paint_scale);
+    float signal = math::saturate(luminance(paint_tex) - 0.9 * saturation(paint_tex));
+    signal = math::lerp(1.0, signal, chip_amount);
+    float streak = streak_mask(streaks, p, n, streak_width, streak_height);
+    float spread = macro * 0.65 + grime * 0.25 + streak * streak_amount * 0.35;
+    float patch = rust_amount > 0.0 ? smooth(1.0 - rust_amount, 1.0 - rust_amount + 0.12, spread) : 0.0;
+    float paint = smooth(0.25, 0.37, signal) * (1.0 - patch);
+
+    float3 paint_albedo = tint_paint ? paint_color * math::min(luminance(paint_tex) / paint_reference, 1.25) : paint_tex * paint_color;
+    float3 rust_albedo = tri3(rust_diff, p, w, rust_scale) * rust_tint;
+    float3 albedo = math::lerp(rust_albedo, paint_albedo, paint);
+
+    albedo *= 1.0 - grime_amount * grime * (0.4 + 0.6 * macro);
+    albedo = math::lerp(albedo, streak_color, math::saturate(streak * streak_amount));
+    albedo = math::lerp(albedo, salt_color, math::saturate(salt * salt_amount * (0.5 + macro)));
+
+    float pr = tri3(paint_rough, p, w, paint_scale).x * paint_rough_scale;
+    float rr = tri3(rust_rough, p, w, rust_scale).x;
+    float rough = math::saturate(math::lerp(rr, pr, paint));
+    rough = math::lerp(rough, math::min(rough + 0.25, 1.0), math::saturate(salt * salt_amount));
+
+    float3 np = tri_normal(paint_normal, p, w, paint_scale, normal_strength, n);
+    float3 nr = tri_normal(rust_normal, p, w, rust_scale, normal_strength, n);
+    float3 nb = math::normalize(math::lerp(nr, np, paint));
+    float3 nd = tri_normal(rust_normal, p, wd, detail_scale, detail_strength, nb);
+
+    float up = smooth(0.82, 0.96, n.z);
+    float wet = math::saturate(wetness * math::lerp(0.55 + 0.45 * macro, 1.0, up));
+    float edge = 1.0 - 0.45 * math::saturate(puddles);
+    float pool = fetch4(masks, uv_z(p / puddle_scale)).y;
+    float puddle = up * smooth(edge, edge + 0.06, pool) * (puddles > 0.0 ? 1.0 : 0.0);
+    float soak = math::lerp(1.0, porosity, paint);
+    albedo *= 1.0 - 0.5 * wet * soak;
+    albedo *= 1.0 - 0.35 * puddle;
+    rough = math::lerp(rough, rough * 0.3 + 0.05, wet);
+    float3 shading = math::normalize(math::lerp(nd, n, math::saturate(puddle + 0.5 * wet * up)));
+
+    float opacity = use_opacity ? tri3(opacity_tex, p, wd, opacity_scale).x : 1.0;
+
+    return surface_sample(
+        math::saturate(albedo),
+        rough,
+        metallic * paint * (1.0 - 0.6 * wet),
+        to_internal(shading),
+        math::saturate(math::max(wet * 0.55, puddle)),
+        math::lerp(0.12, 0.015, puddle),
+        opacity);
+}
+
+export material rig_weathered(
+    uniform texture_2d paint_diff = texture_2d() [[ anno::in_group("Paint") ]],
+    uniform texture_2d paint_rough = texture_2d() [[ anno::in_group("Paint") ]],
+    uniform texture_2d paint_normal = texture_2d() [[ anno::in_group("Paint") ]],
+    color paint_color = color(0.6) [[ anno::in_group("Paint") ]],
+    uniform bool tint_paint = true [[ anno::in_group("Paint") ]],
+    float paint_reference = 0.72 [[ anno::in_group("Paint") ]],
+    float paint_scale = 2.0 [[ anno::in_group("Paint") ]],
+    float paint_rough_scale = 1.0 [[ anno::in_group("Paint") ]],
+    float chip_amount = 1.0 [[ anno::in_group("Paint") ]],
+    float metallic = 0.0 [[ anno::in_group("Paint") ]],
+    uniform texture_2d rust_diff = texture_2d() [[ anno::in_group("Rust") ]],
+    uniform texture_2d rust_rough = texture_2d() [[ anno::in_group("Rust") ]],
+    uniform texture_2d rust_normal = texture_2d() [[ anno::in_group("Rust") ]],
+    float rust_amount = 0.2 [[ anno::in_group("Rust") ]],
+    color rust_tint = color(1.0) [[ anno::in_group("Rust") ]],
+    float rust_scale = 1.5 [[ anno::in_group("Rust") ]],
+    float normal_strength = 1.0 [[ anno::in_group("Detail") ]],
+    float detail_strength = 0.35 [[ anno::in_group("Detail") ]],
+    float detail_scale = 0.31 [[ anno::in_group("Detail") ]],
+    uniform texture_2d masks = texture_2d() [[ anno::in_group("Weathering") ]],
+    float macro_scale = 23.0 [[ anno::in_group("Weathering") ]],
+    float grime_amount = 0.35 [[ anno::in_group("Weathering") ]],
+    uniform texture_2d streaks = texture_2d() [[ anno::in_group("Weathering") ]],
+    color streak_color = color(0.16, 0.08, 0.04) [[ anno::in_group("Weathering") ]],
+    float streak_amount = 0.5 [[ anno::in_group("Weathering") ]],
+    float streak_width = 3.0 [[ anno::in_group("Weathering") ]],
+    float streak_height = 5.0 [[ anno::in_group("Weathering") ]],
+    float salt_amount = 0.15 [[ anno::in_group("Weathering") ]],
+    color salt_color = color(0.62, 0.62, 0.58) [[ anno::in_group("Weathering") ]],
+    float porosity = 0.35 [[ anno::in_group("Weather") ]],
+    float wetness = 0.0 [[ anno::in_group("Weather"), anno::hard_range(0.0, 1.0) ]],
+    float puddles = 0.0 [[ anno::in_group("Weather"), anno::hard_range(0.0, 1.0) ]],
+    float puddle_scale = 9.0 [[ anno::in_group("Weather") ]],
+    uniform bool triplanar = true [[ anno::in_group("Quality") ]],
+    uniform bool use_opacity = false [[ anno::in_group("Opacity") ]],
+    uniform texture_2d opacity_tex = texture_2d() [[ anno::in_group("Opacity") ]],
+    float opacity_scale = 1.0 [[ anno::in_group("Opacity") ]]
+)
+= let {
+    surface_sample s = weathered(
+        paint_diff, paint_rough, paint_normal, rust_diff, rust_rough, rust_normal, masks, streaks, opacity_tex,
+        float3(paint_color), tint_paint, paint_reference, paint_scale, paint_rough_scale,
+        chip_amount, rust_amount, float3(rust_tint), rust_scale,
+        metallic, normal_strength, detail_strength, detail_scale,
+        macro_scale, grime_amount, float3(streak_color), streak_amount, streak_width, streak_height,
+        salt_amount, float3(salt_color), porosity, wetness, puddles, puddle_scale,
+        triplanar, use_opacity, opacity_scale);
+    float a = s.rough * s.rough;
+    bsdf dielectric = df::fresnel_layer(
+        ior: 1.5,
+        layer: df::microfacet_ggx_smith_bsdf(roughness_u: a, roughness_v: a, tint: color(1.0), mode: df::scatter_reflect),
+        base: df::diffuse_reflection_bsdf(tint: color(s.albedo)));
+    bsdf metal = df::microfacet_ggx_smith_bsdf(roughness_u: a, roughness_v: a, tint: color(s.albedo), mode: df::scatter_reflect);
+    bsdf base = df::normalized_mix(
+        components: df::bsdf_component[](
+            df::bsdf_component(weight: 1.0 - s.metal, component: dielectric),
+            df::bsdf_component(weight: s.metal, component: metal)));
+    float ca = s.coat_rough * s.coat_rough;
+    bsdf coated = df::fresnel_layer(
+        ior: 1.33,
+        weight: s.coat,
+        layer: df::microfacet_ggx_smith_bsdf(roughness_u: ca, roughness_v: ca, tint: color(1.0), mode: df::scatter_reflect),
+        base: base,
+        normal: state::normal());
+} in material(
+    surface: material_surface(scattering: coated),
+    geometry: material_geometry(normal: s.normal, cutout_opacity: s.opacity)
+);
+
+export material rig_brushed(
+    color base_color = color(0.55, 0.56, 0.57),
+    float roughness_along = 0.18,
+    float roughness_across = 0.42,
+    float3 brush_axis = float3(1.0, 0.0, 0.0),
+    uniform texture_2d smear = texture_2d(),
+    float smear_scale = 1.2,
+    uniform texture_2d masks = texture_2d(),
+    float macro_scale = 9.0,
+    float grime_amount = 0.3,
+    float wetness = 0.0
+)
+= let {
+    float3 p = world_position();
+    float3 n = world_normal();
+    float3 wd = axis_weights(n, false);
+    float g = tri4(masks, p, wd, macro_scale).z;
+    float sm = tri3(smear, p, wd, smear_scale).x;
+    float3 albedo = float3(base_color) * (1.0 - grime_amount * g) * (1.0 - 0.25 * wetness);
+    float ra = math::lerp(roughness_along, roughness_along * 0.4, wetness) * (0.7 + 0.6 * sm);
+    float rc = math::lerp(roughness_across, roughness_across * 0.5, wetness) * (0.7 + 0.6 * sm);
+    float3 t = brush_axis - n * math::dot(brush_axis, n);
+    float3 tangent = math::length(t) > 1e-4 ? to_internal(t) : state::texture_tangent_u(0);
+    bsdf aniso = df::microfacet_ggx_smith_bsdf(
+        roughness_u: ra * ra, roughness_v: rc * rc, tint: color(albedo), tangent_u: tangent, mode: df::scatter_reflect);
+    bsdf coated = df::fresnel_layer(
+        ior: 1.33, weight: wetness * 0.5,
+        layer: df::microfacet_ggx_smith_bsdf(roughness_u: 0.004, roughness_v: 0.004, tint: color(1.0), mode: df::scatter_reflect),
+        base: aniso, normal: state::normal());
+} in material(surface: material_surface(scattering: coated));
+
+export material rig_decal(
+    uniform texture_2d mask = texture_2d(),
+    uniform texture_2d color_tex = texture_2d(),
+    uniform bool use_color_tex = false,
+    color tint = color(0.2, 0.1, 0.05),
+    float strength = 1.0,
+    float roughness = 0.6,
+    float wet_response = 1.0,
+    float wetness = 0.0,
+    float oil = 0.0,
+    float film_thickness = 380.0
+)
+= let {
+    float2 uv = float2(state::texture_coordinate(0).x, state::texture_coordinate(0).y);
+    float alpha = math::saturate(fetch3(mask, uv).x * strength);
+    float3 base_c = use_color_tex ? fetch3(color_tex, uv) * float3(tint) : float3(tint);
+    float wet = math::saturate(wetness * wet_response);
+    float3 albedo = base_c * (1.0 - 0.45 * wet);
+    float r = math::lerp(roughness, roughness * 0.3 + 0.03, math::max(wet, oil));
+    float a = r * r;
+    bsdf film = df::thin_film(
+        thickness: film_thickness,
+        ior: color(1.47),
+        base: df::microfacet_ggx_smith_bsdf(roughness_u: a, roughness_v: a, tint: color(1.0), mode: df::scatter_reflect));
+    bsdf spec = df::microfacet_ggx_smith_bsdf(roughness_u: a, roughness_v: a, tint: color(1.0), mode: df::scatter_reflect);
+    bsdf top = df::normalized_mix(
+        components: df::bsdf_component[](
+            df::bsdf_component(weight: oil, component: film),
+            df::bsdf_component(weight: 1.0 - oil, component: spec)));
+    bsdf layered = df::fresnel_layer(ior: 1.45, layer: top, base: df::diffuse_reflection_bsdf(tint: color(albedo)));
+} in material(
+    surface: material_surface(scattering: layered),
+    geometry: material_geometry(cutout_opacity: alpha)
+);
