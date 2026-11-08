@@ -39,6 +39,8 @@ parser.add_argument("--glare", action="store_true", help="add glare on the nomin
 parser.add_argument("--stream", default="", help="host:port of the web viewer's sim socket, e.g. 127.0.0.1:9000")
 parser.add_argument("--no-gemini", action="store_true",
                     help="skip the Gemini second opinion even if GEMINI_API_KEY is set")
+parser.add_argument("--control", choices=["off", "auto", "live", "replay"], default="auto",
+                    help="fleet control centre: gemini-4-argon when a key is set (auto/live), else offline replay")
 args = parser.parse_args()
 
 from isaacsim import SimulationApp
@@ -223,7 +225,12 @@ def main() -> None:
                                            scrub_redetect_every=40), advisor=advisor)
     state["orch"] = orch
     if sender is not None:
-        state["feed"] = HudFeed(orch)
+        control = None
+        if args.control != "off":
+            from policy.control.centre import from_env
+            control = from_env(args.control, OUT / "control_calls.jsonl")
+            print(f"CONTROL CENTRE {control.backend.name if control.backend else 'edge only'}", flush=True)
+        state["feed"] = HudFeed(orch, control=control)
     if args.glare:
         bridge.set_glare(True)
         original = bridge.request_view
