@@ -90,6 +90,9 @@ class ControlCentre:
         final, vetoed = arbitrate(edge, self.plan.actions if self.plan else [], snap)
         return self._header(snap, edge, final, vetoed, now)
 
+    def nudge(self, key: str) -> None:
+        self.unserved.add(key)
+
     def cut_link(self, on: bool) -> None:
         self.link_cut = bool(on)
         self.pending = None

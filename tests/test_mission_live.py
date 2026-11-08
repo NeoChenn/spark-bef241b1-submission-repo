@@ -231,3 +231,41 @@ def test_weld_job_runs_and_streams_its_policy_view():
     v = next(iter(seen.values()))
     assert {"jpg", "w", "h", "caption", "seq"} <= set(v)
     assert any(j["kind"] == "weld_repair" for j in m.header()["orchestrator"]["jobs"])
+
+
+@pytest.mark.parametrize("name,args,lead", [
+    ("battery_fault", {"robot": "R1"}, "Unit 1 · Battery fault"),
+    ("person_at", {"robot": "R2"}, "Unit 2 · Paused"),
+    ("set_weather", {"level": "storm"}, "Weather · storm"),
+    ("drop_obstacle", {"kind": "crate", "at": "R1"}, "Walkway blocked"),
+    ("gas_leak", {"on": True}, "Gas leak at F2"),
+])
+def test_judge_events_flash_a_caption_log_a_decision_and_nudge_argon(m, name, args, lead):
+    m.header()
+    m.event(name, args)
+    h = m.header()
+    assert h["caption"]["lead"] == lead and h["caption"]["text"].startswith(lead)
+    assert h["events"]
+    assert any(k.startswith(f"event:{name}") for k in m.control.unserved)
+
+
+class PlanBackend:
+    name, live, available = "fake-argon", True, True
+
+    def call(self, prompt, snap):
+        from policy.control.backend import Reply
+        text = ('{"situation": "Unit 1 is docking after a battery fault; Unit 3 covers rust.", "anomalies": [], '
+                '"actions": [{"kind": "dispatch", "robot": "R3", "target": "rust:rust_mid_east", "confidence": 0.8, '
+                '"rationale": "nearest free unit"}]}')
+        return Reply(text=text, latency_ms=900.0, tokens_in=1000, tokens_out=80, tokens_thought=0, key="k")
+
+
+def test_argon_plan_change_reaches_the_caption_and_the_log():
+    m = mission(lambda port: ControlCentre(PlanBackend(), log_path=None, sync=True))
+    run(m, 1)
+    m.header()
+    c = m.control_tick(100.0)
+    assert c["mode"] == "CLOUD", c.get("error")
+    h = m.header()
+    assert h["caption"]["lead"] == "Argon" and "battery fault" in h["caption"]["rest"]
+    assert any(e["from"] == "Argon" for e in h["events"])
