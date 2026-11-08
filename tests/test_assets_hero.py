@@ -49,8 +49,15 @@ def test_unreachable_remote_props_are_skipped_fast(monkeypatch):
     import time
 
     monkeypatch.setattr(ah, "PROBE", "http://127.0.0.1:9/missing.usd")
+    monkeypatch.setenv("RIG_QUALITY", "offline")
     start = time.monotonic()
     assert ah.remote_ok(timeout=1.0) is False
     assert time.monotonic() - start < 2.0
     monkeypatch.setenv("RIG_ASSETS_REMOTE", "0")
+    assert ah.remote_ok() is False
+
+
+def test_live_quality_skips_remote_props_by_default(monkeypatch):
+    monkeypatch.setenv("RIG_QUALITY", "live")
+    monkeypatch.delenv("RIG_ASSETS_REMOTE", raising=False)
     assert ah.remote_ok() is False

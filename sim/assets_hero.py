@@ -82,7 +82,8 @@ def wall_pose(x: float, y: float, face: str) -> tuple:
 def remote_ok(timeout: float = 2.0) -> bool:
     import urllib.request
 
-    if os.environ.get("RIG_ASSETS_REMOTE", "1") == "0":
+    default = "1" if os.environ.get("RIG_QUALITY", "live") == "offline" else "0"
+    if os.environ.get("RIG_ASSETS_REMOTE", default) == "0":
         return False
     try:
         urllib.request.urlopen(urllib.request.Request(PROBE, method="HEAD"), timeout=timeout)
