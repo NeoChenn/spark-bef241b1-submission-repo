@@ -58,7 +58,7 @@ def run_stuck(link, until=16.0, value=15.0):
 def stuck_replay(tmp_path):
     return replay(tmp_path,
                   rec("G-F6:UNVERIFIED", [("hold", SCRUBBER, "F6"), ("go_check", FIXER, "F6")]),
-                  rec("G-F6:PIPE_SENSOR_FAULT", [("log_sensor_fault", "", "G-F6")], verdict=PIPE_SENSOR_FAULT),
+                  rec("G-F6:PIPE_SENSOR_FAULT", [("log_sensor_fault", "supv", "G-F6")], verdict=PIPE_SENSOR_FAULT),
                   rec("zone:clear", [("resume_rust", SCRUBBER, "")], verdict="OK"))
 
 
@@ -84,7 +84,7 @@ def test_stuck_sensor_files_one_ticket_to_the_human_inbox_and_dispatches_no_repa
         assert "only a human approves" in tk["envelope"]["note"]
         assert ("approval_requested", "gemini") in events
     assert seen[1.0] == "green" and seen[5.0] == "red" and seen[15.5] == "grey"
-    assert [k for t, k, _, _ in cmds if t >= 12.0] == []
+    assert [k for t, k, _, _ in cmds if t >= 13.0] == []
 
 
 def test_stuck_sensor_combines_with_the_stuck_health_verdict(tmp_path):
@@ -134,7 +134,7 @@ def test_cut_link_mid_leak_edge_makes_the_same_dispatch_within_one_tick(tmp_path
     beat = cut_link(link, at=1.0, until=5.0)
     assert beat.tick(0.0) is None and banner(link) == ""
     hold = leak_tick(link, 0.0, beat, d2, 0.14)
-    assert kinds(hold) == [(HOLD, SCRUBBER, "G-F5")] and link.pending is not None
+    assert kinds(hold) == [(HOLD, SCRUBBER, "F5")] and link.pending is not None
     ev = beat.tick(1.0)
     assert ev["event"] == "link_cut" and ev["banner"] == BANNER_OFFLINE == "CLOUD OFFLINE — edge rules only"
     assert ev["dropped"] == ["G-F5:UNVERIFIED"] and banner(link) == BANNER_OFFLINE
@@ -158,4 +158,4 @@ def test_cut_link_with_a_new_alarm_goes_edge_on_the_same_tick():
     beat = cut_link(link, at=0.0)
     beat.tick(0.0)
     cmds = leak_tick(link, 0.0, beat, d2, 0.14)
-    assert kinds(cmds) == [(HOLD, SCRUBBER, "G-F5"), (GO_CHECK, FIXER, "F5")] and link.calls == []
+    assert kinds(cmds) == [(HOLD, SCRUBBER, "F5"), (GO_CHECK, FIXER, "F5")] and link.calls == []

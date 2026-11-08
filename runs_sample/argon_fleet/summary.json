@@ -1,0 +1,54 @@
+{
+ "model": "gemini-4-argon",
+ "thinking": "low",
+ "calls": 18,
+ "correct": 18,
+ "latency_ms": {
+  "p50": 7893.2,
+  "p90": 13225.2,
+  "min": 4622.2,
+  "max": 17205.5
+ },
+ "tokens_in_mean": 891,
+ "tokens_out_mean": 70,
+ "cost_usd_per_call": 0.002477,
+ "cost_usd_total": 0.04459,
+ "by_scenario": {
+  "leak_start": [
+   [
+    "hold",
+    "unit1",
+    "G-F2"
+   ]
+  ],
+  "unverified": [
+   [
+    "go_check",
+    "unit2",
+    "F2"
+   ]
+  ],
+  "confirmed": [
+   [
+    "fix_leak",
+    "unit2",
+    "F2"
+   ]
+  ],
+  "fixed": [
+   [
+    "resume_rust",
+    "unit1",
+    ""
+   ]
+  ],
+  "stuck_sensor": [
+   [
+    "log_sensor_fault",
+    "supv",
+    "G-F1"
+   ]
+  ],
+  "all_clear": []
+ }
+}

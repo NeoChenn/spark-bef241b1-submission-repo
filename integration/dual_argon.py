@@ -5,7 +5,7 @@ import math
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Callable, Optional
@@ -16,6 +16,11 @@ CLEAR_LEL = 5.0
 ALARM_LEL = 10.0
 STOP_LEL = 20.0
 NEAR_M = 2.0
+NEAR_EXIT_M = 2.5
+CLOSE_M = 1.0
+CLOSE_CONFIRM_S = 1.0
+ATTRIBUTE_M = 4.0
+FAULT_CONFIRM_S = 3.0
 SPARK_RADIUS_M = 6.0
 
 SCRUBBER = "unit1"
@@ -29,11 +34,12 @@ UNVERIFIED = "UNVERIFIED"
 OK = "OK"
 FINDINGS = (LEAK_CONFIRMED, PIPE_SENSOR_FAULT, LEAK_UNSEEN_BY_FIXED, UNVERIFIED, OK)
 
-GO_CHECK, FIX_LEAK, RETREAT, RESUME_RUST, LOG_SENSOR_FAULT, HOLD = (
-    "go_check", "fix_leak", "retreat", "resume_rust", "log_sensor_fault", "hold")
-COMMANDS = (GO_CHECK, FIX_LEAK, RETREAT, RESUME_RUST, LOG_SENSOR_FAULT, HOLD)
+GO_CHECK, FIX_LEAK, RETREAT, RESUME_RUST, LOG_SENSOR_FAULT, HOLD, ESCALATE = (
+    "go_check", "fix_leak", "retreat", "resume_rust", "log_sensor_fault", "hold", "escalate")
+COMMANDS = (GO_CHECK, FIX_LEAK, RETREAT, RESUME_RUST, LOG_SENSOR_FAULT, HOLD, ESCALATE)
 ROUTE = {GO_CHECK: FIXER, FIX_LEAK: FIXER, HOLD: SCRUBBER, RETREAT: SCRUBBER, RESUME_RUST: SCRUBBER,
-         LOG_SENSOR_FAULT: SUPERVISOR}
+         LOG_SENSOR_FAULT: SUPERVISOR, ESCALATE: SUPERVISOR}
+FLANGE_TARGET = (GO_CHECK, FIX_LEAK, HOLD, RETREAT)
 NEEDS_TARGET = (GO_CHECK, FIX_LEAK, LOG_SENSOR_FAULT)
 
 
@@ -87,9 +93,10 @@ class Finding:
 
 
 def fuse(fixed: FixedDetector, robot_lel: Optional[float], robot_dist: Optional[float],
-         near_m: float = NEAR_M, robot: str = "") -> Finding:
+         near_m: float = NEAR_M, robot: str = "", was_near: bool = False) -> Finding:
     f = fixed.last
-    near = robot_dist is not None and robot_dist <= near_m and robot_lel is not None
+    reach = NEAR_EXIT_M if was_near else near_m
+    near = robot_dist is not None and robot_dist <= reach and robot_lel is not None
     who = robot or "robot"
     where = "--" if robot_dist is None else f"{robot_dist:.1f} m"
     rl = "--" if robot_lel is None else f"{robot_lel:.1f}"
@@ -103,16 +110,19 @@ def fuse(fixed: FixedDetector, robot_lel: Optional[float], robot_dist: Optional[
                                          f"{who} reads {rl}%LEL at {where}")
         else:
             kind, why = PIPE_SENSOR_FAULT, f"{fixed.id} {f:.1f}%LEL but {who} reads {rl}%LEL at {where}"
-    elif robot_lel is not None and robot_lel >= ALARM_LEL:
+    elif near and robot_lel >= ALARM_LEL:
         kind, why = LEAK_UNSEEN_BY_FIXED, f"{who} {rl}%LEL at {where}, {fixed.id} only {f:.1f}%LEL"
+    elif robot_lel is not None and robot_lel >= ALARM_LEL and robot_dist is not None and robot_dist <= ATTRIBUTE_M:
+        kind, why = UNVERIFIED, f"{who} {rl}%LEL at {where} from {fixed.id} ({f:.1f}%LEL): source not located"
     else:
         kind, why = OK, f"{fixed.id} {f:.1f}%LEL, {who} {rl}%LEL at {where}"
-    hazard = f >= STOP_LEL or (robot_lel is not None and robot_lel >= STOP_LEL)
+    attributed = robot_dist is not None and robot_dist <= ATTRIBUTE_M
+    hazard = f >= STOP_LEL or (attributed and robot_lel is not None and robot_lel >= STOP_LEL)
     return Finding(kind, fixed.id, fixed.flange, f, None if robot_lel is None else round(robot_lel, 2),
                    None if robot_dist is None else round(robot_dist, 2), why, robot, hazard)
 
 
-def fuse_fleet(fixed: FixedDetector, sniffers: dict, near_m: float = NEAR_M) -> Finding:
+def fuse_fleet(fixed: FixedDetector, sniffers: dict, near_m: float = NEAR_M, memory: Optional[dict] = None) -> Finding:
     best = None
     for rid, (lel, pos) in sniffers.items():
         if pos is None:
@@ -122,7 +132,11 @@ def fuse_fleet(fixed: FixedDetector, sniffers: dict, near_m: float = NEAR_M) -> 
             best = (rid, lel, d)
     if best is None:
         return fuse(fixed, None, None, near_m)
-    return fuse(fixed, best[1], best[2], near_m, robot=best[0])
+    key = (fixed.id, best[0])
+    was = bool(memory.get(key)) if memory is not None else False
+    if memory is not None:
+        memory[key] = best[2] <= (NEAR_EXIT_M if was else near_m)
+    return fuse(fixed, best[1], best[2], near_m, robot=best[0], was_near=was)
 
 
 @dataclass
@@ -215,7 +229,7 @@ SCHEMA = {
 
 
 def build_prompt(fd: Optional[Finding], robots: dict, detectors: list[FixedDetector], t: float,
-                 event: str = "") -> str:
+                 event: str = "", findings=None, faulted=()) -> str:
     snap = {"t_s": round(t, 1), "event": event, "finding": fd.to_dict() if fd else None, "robots": robots,
             "fixed_detectors": [{"id": d.id, "flange": d.flange, "pos": [round(float(v), 2) for v in d.pos],
                                  "lel": d.last, "led": led(d.last, d.fault)} for d in detectors],
@@ -335,7 +349,9 @@ class Request:
 
 class ArgonLink:
     def __init__(self, mode: str, timeline, caller=None, edge_timeout_s: float = 25.0, today=date.today,
-                 spark_radius_m: float = SPARK_RADIUS_M):
+                 spark_radius_m: float = SPARK_RADIUS_M, fault_confirm_s: float = FAULT_CONFIRM_S):
+        self.fault_confirm_s = fault_confirm_s
+        self.fault_since: dict[str, float] = {}
         self.mode, self.timeline, self.caller = mode, timeline, caller
         self.edge_timeout_s, self.today, self.spark_radius_m = edge_timeout_s, today, spark_radius_m
         self.link_cut = mode == "edge"
@@ -384,6 +400,18 @@ class ArgonLink:
         for fd in findings:
             self.findings[fd.sensor] = fd
             cracked = fd.flange in crack if isinstance(crack, (set, frozenset, list, tuple)) else bool(crack)
+            if fd.sensor in self.faulted and fd.kind == UNVERIFIED and not (fd.hazard or cracked):
+                fd = replace(fd, kind=PIPE_SENSOR_FAULT, reason=f"known fault (ticketed): {fd.reason}")
+            if fd.kind == PIPE_SENSOR_FAULT and fd.sensor not in self.faulted:
+                t0 = self.fault_since.setdefault(fd.sensor, t)
+                close = fd.robot_dist is not None and fd.robot_dist <= CLOSE_M and t - t0 >= CLOSE_CONFIRM_S
+                if t - t0 < self.fault_confirm_s and not close:
+                    continue
+            else:
+                self.fault_since.pop(fd.sensor, None)
+            if fd.kind in (LEAK_CONFIRMED, LEAK_UNSEEN_BY_FIXED) and fd.sensor in self.faulted:
+                self.faulted.discard(fd.sensor)
+                self.timeline.log("fault_cleared", t, sensor=fd.sensor, by=fd.kind)
             state = (fd.kind, fd.hazard or cracked)
             if self.state.get(fd.sensor) == state:
                 continue
@@ -396,11 +424,13 @@ class ArgonLink:
             key = f"{fd.sensor}:{fd.kind}" + (":HAZARD" if state[1] else "")
             if state[1]:
                 out += self._issue(t, edge_rule(fd, crack=cracked))
-                self._ask(t, key, fd, build_prompt(fd, robots, detectors, t), [], advisory=True)
+                self._ask(t, key, fd, self._prompt(fd, robots, detectors, t), [], advisory=True)
                 continue
             if fd.kind == OK:
                 continue
-            self._ask(t, key, fd, build_prompt(fd, robots, detectors, t), edge_rule(fd))
+            self._ask(t, key, fd, self._prompt(fd, robots, detectors, t), edge_rule(fd))
+        for d in detectors:
+            d.fault = d.id in self.faulted
         out += self._collect(t, ids, wait)
         hot = [] if scrubber_pos is None else spark_hot(scrubber_pos, detectors, self.faulted, self.spark_radius_m)
         self.spark = hot
@@ -410,11 +440,15 @@ class ArgonLink:
         quiet = all(v in (OK, PIPE_SENSOR_FAULT) for v in self.verdict.values())
         if self.held and not hot and quiet and not self.clear_asked:
             self.clear_asked = True
-            self._ask(t, "zone:clear", None, build_prompt(None, robots, detectors, t, event="zone clear: every "
+            self._ask(t, "zone:clear", None, self._prompt(None, robots, detectors, t, event="zone clear: every "
                                                           "detector near unit1 green, no open leak"),
                       [command(RESUME_RUST, "", "edge", "zone clear: detectors near unit1 green, no open leak")])
         out += self._pump(t, ids, wait)
         return out
+
+    def _prompt(self, fd, robots, detectors, t, event: str = "") -> str:
+        return build_prompt(fd, robots, detectors, t, event=event, findings=list(self.findings.values()),
+                            faulted=set(self.faulted))
 
     def _ask(self, t, key, fd, text, fallback, advisory: bool = False) -> None:
         if not self.cloud:
@@ -508,6 +542,8 @@ class ArgonLink:
         out = []
         for c in cmds:
             c.t = round(t, 2)
+            if c.kind in FLANGE_TARGET and re.fullmatch(r"G-F\d+", c.target or ""):
+                c.target = c.target[2:]
             if c.kind == HOLD:
                 if self.held:
                     continue
@@ -524,7 +560,6 @@ class ArgonLink:
             elif c.kind == LOG_SENSOR_FAULT:
                 if any(tk["sensor"] == c.target for tk in self.tickets):
                     continue
-                self.faulted.add(c.target)
                 tk = {"id": f"MT-{len(self.tickets) + 1:03d}", "sensor": c.target, "t": c.t, "source": c.source,
                       "reason": c.reason}
                 self.tickets.append(tk)

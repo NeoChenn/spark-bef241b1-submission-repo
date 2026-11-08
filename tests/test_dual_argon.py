@@ -99,7 +99,7 @@ def test_sensor_fault_raises_one_ticket_and_no_repair():
     link = ArgonLink("edge", Timeline(None))
     d = det(0.0, stuck=18.0, did="G-F1", flange="F1", pos=(-9.0, 0, 1))
     out = []
-    for t, pos in ((0, (-20.0, 0.0)), (1, (-9.2, 0.4)), (2, (-9.2, 0.4))):
+    for t, pos in ((0, (-20.0, 0.0)), (1, (-9.2, 0.4)), (2, (-9.2, 0.4)), (4.5, (-9.2, 0.4))):
         out += link.tick(t, [fuse_fleet(d, {FIXER: (0.8, pos)})], {}, [d], ids_for([d]), wait=True)
         link.wait_idle()
     assert [c.kind for c in out] == [HOLD, GO_CHECK, LOG_SENSOR_FAULT, RESUME_RUST]
@@ -140,8 +140,8 @@ def test_stuck_head_above_stop_is_real_gas_not_a_fault():
     assert kinds(edge_rule(far)) == [(HOLD, SCRUBBER, "F2"), (GO_CHECK, FIXER, "F2")]
 
 
-def test_robot_high_beyond_near_is_unseen_by_fixed():
-    assert fuse(det(0.01), 15.0, 3.0, robot=SCRUBBER).kind == LEAK_UNSEEN_BY_FIXED
+def test_robot_high_beyond_near_needs_a_check():
+    assert fuse(det(0.01), 15.0, 3.0, robot=SCRUBBER).kind == UNVERIFIED
 
 
 def test_hazard_acts_at_once_while_the_link_is_up():
@@ -191,3 +191,77 @@ def test_stale_reply_is_not_executed():
     d.read(lambda p: 0.01)
     out = link.tick(4.0, [fuse(d, 2.0, 4.0)], {}, [d], ids_for([d]))
     assert GO_CHECK not in [c.kind for c in out]
+
+
+def test_far_robot_reading_does_not_ticket_an_unrelated_head():
+    g6 = det(0.02, did="G-F6", flange="F6", pos=(10.0, 0.0, 1.0))
+    fd = fuse_fleet(g6, {FIXER: (12.9, (0.0, 0.0))})
+    assert (fd.kind, fd.hazard) == (OK, False) and edge_rule(fd)[0].kind == RESUME_RUST
+    mid = fuse(det(0.02), 12.9, 3.0, robot=FIXER)
+    assert mid.kind == UNVERIFIED and LOG_SENSOR_FAULT not in [c.kind for c in edge_rule(mid)]
+    assert fuse(det(0.02), 12.9, 1.5, robot=FIXER).kind == LEAK_UNSEEN_BY_FIXED
+    assert not fuse(det(0.02), 25.0, 9.0, robot=FIXER).hazard
+
+
+def test_fault_verdict_needs_a_dwell_before_ticketing():
+    link = ArgonLink("edge", Timeline(None))
+    d = det(0.12)
+    for t in (0.0, 1.0, 2.0):
+        assert link.tick(t, [fuse(d, 1.0, 1.5, robot=FIXER)], {}, [d], ids_for([d])) == []
+    out = link.tick(3.5, [fuse(d, 1.0, 1.5, robot=FIXER)], {}, [d], ids_for([d]))
+    assert [c.kind for c in out] == [LOG_SENSOR_FAULT]
+
+
+def test_one_low_tick_on_approach_to_a_real_leak_files_nothing_and_never_resumes():
+    link = ArgonLink("edge", Timeline(None))
+    g2 = det(0.116, pos=(4.4, 0.0, 1.0))
+    u1, ids, mem, out = (0.0, 0.0), ids_for([g2]), {}, []
+    seq = [(20.0, 3.5, 2.0), (21.0, 2.5, 3.9), (21.2, 1.96, 4.85), (21.4, 1.6, 6.2), (22.0, 1.2, 9.0)]
+    for t, dist, lel in seq:
+        fd = fuse_fleet(g2, {SCRUBBER: (1.0, u1), FIXER: (lel, (4.4 + dist, 0.0))}, memory=mem)
+        out += link.tick(t, [fd], {}, [g2], ids, scrubber_pos=u1)
+    ks = [c.kind for c in out]
+    assert LOG_SENSOR_FAULT not in ks and RESUME_RUST not in ks and FIX_LEAK in ks
+    assert "G-F2" not in link.faulted and link.held and link.tickets == []
+
+
+def test_no_resume_while_an_unconfirmed_head_near_unit1_is_in_alarm():
+    link = ArgonLink("edge", Timeline(None))
+    g2 = det(0.116, pos=(4.4, 0.0, 1.0))
+    link.held = True
+    out = []
+    for t in (0.0, 1.0, 2.0):
+        out += link.tick(t, [fuse(g2, 4.0, 1.9, robot=FIXER)], {}, [g2], ids_for([g2]), scrubber_pos=(0.0, 0.0))
+    assert RESUME_RUST not in [c.kind for c in out] and spark_hot((0.0, 0.0), [g2], link.faulted) == ["G-F2"]
+
+
+def test_later_leak_verdict_clears_a_confirmed_fault():
+    link = ArgonLink("edge", Timeline(None), fault_confirm_s=0.0)
+    d = det(0.12)
+    link.tick(0.0, [fuse(d, 1.0, 1.0, robot=FIXER)], {}, [d], ids_for([d]))
+    assert "G-F2" in link.faulted and d.fault
+    link.tick(1.0, [fuse(d, 9.0, 1.0, robot=FIXER)], {}, [d], ids_for([d]))
+    assert "G-F2" not in link.faulted and not d.fault and led(d.last, d.fault) == "red"
+
+
+def test_near_hysteresis_stops_flapping():
+    d, mem = det(0.12), {}
+    kinds_seen = [fuse_fleet(d, {FIXER: (9.0, (x, 0.0))}, memory=mem).kind for x in (1.9, 2.3, 2.1, 2.4, 2.6)]
+    assert kinds_seen == [LEAK_CONFIRMED] * 4 + [UNVERIFIED]
+
+
+def test_escalate_routes_to_supervisor_and_detector_targets_normalise():
+    from integration.dual_argon import ESCALATE, ROUTE, command
+    assert ROUTE[ESCALATE] == "supv"
+    link = ArgonLink("edge", Timeline(None))
+    out = link._issue(0.0, [command(HOLD, "G-F5", "argon", "x"), command(ESCALATE, "F5", "argon", "y")])
+    assert kinds(out) == [(HOLD, SCRUBBER, "F5"), (ESCALATE, "supv", "F5")]
+
+
+def test_a_ticketed_head_is_not_redispatched_when_the_robot_walks_away():
+    link = ArgonLink("edge", Timeline(None), fault_confirm_s=0.0)
+    d = det(0.0, stuck=15.0, did="G-F1", flange="F1", pos=(0.0, 0.0, 1.0))
+    out = []
+    for t, x in ((0.0, 9.0), (1.0, 1.0), (2.0, 1.0), (3.0, 9.0), (4.0, 12.0)):
+        out += link.tick(t, [fuse_fleet(d, {FIXER: (0.8, (x, 0.0))})], {}, [d], ids_for([d]), scrubber_pos=(30.0, 0.0))
+    assert [c.kind for c in out].count(GO_CHECK) == 1 and len(link.tickets) == 1

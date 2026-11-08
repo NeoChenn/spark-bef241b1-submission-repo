@@ -4,34 +4,31 @@ import argparse
 import importlib
 import json
 import math
+import threading
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
 
-from integration.dual_argon import (ALARM_LEL, CLEAR_LEL, FIX_LEAK, FIXER, GO_CHECK, HOLD, LOG_SENSOR_FAULT,
-                                    PIPE_SENSOR_FAULT, RESUME_RUST, RETREAT, SCRUBBER, ArgonLink, FixedDetector,
-                                    LiveCaller, ReplayCaller, Timeline, fuse_fleet, ids_for, led)
+from integration.dual_argon import (FIX_LEAK, FIXER, GO_CHECK, HOLD, LEAK_UNSEEN_BY_FIXED, NEAR_M, OK,
+                                    PIPE_SENSOR_FAULT, RESUME_RUST, SCRUBBER, SPARK_RADIUS_M, ArgonLink, Finding, LiveCaller,
+                                    ReplayCaller, Timeline, fuse_fleet, ids_for, led)
+from integration.fleet_beats import banner, cut_link, stuck_sensor
+from integration.fleet_scenario import SNIFF_Z, Scenario
+from policy.fleet_units.fixer import Fixer, FixerConfig
+from policy.fleet_units.scrubber import build_scrubber
+from policy.leak.world import LeakWorld
 from rig.captions import caption, robot_entry
 
-ZONE = np.array([18.75, -5.75, 42.5])
-LIDAR_RANGE, BEAMS = 4.0, 72
-V_MAX, V_MIN, W_MAX = 1.0, -0.3, 1.5
 DT = 0.1
+DECK_Z = 42.5
+LIDAR_RANGE, BEAMS = 4.0, 72
+V_MIN, W_MAX = -0.3, 1.5
+U1_SPAWN = np.array([18.26, -5.25])
+LEAK, STUCK = "F5", "G-F6"
 NAMES = {SCRUBBER: "Unit 1 · Scrubber", FIXER: "Unit 2 · Fixer"}
-
-
-def W(x, y) -> np.ndarray:
-    return ZONE[:2] + np.array([x, y], float)
-
-
-LAYOUT = {
-    "rust": W(0.0, -0.9), "backoff": W(-1.6, -1.4), "dock": W(12.0, -2.4), "walk_y": -1.3,
-    "flanges": {"F1": W(8.0, 0.0), "F2": W(4.0, 0.0)},
-    "detectors": {"G-F1": ("F1", W(8.3, 0.15)), "G-F2": ("F2", W(4.3, 0.15))},
-    "boxes": [(W(-4.0, 0.25), W(16.0, 0.75))],
-    "posts": [(W(2.0, -0.2), 0.12), (W(6.0, -0.2), 0.12), (W(10.0, -0.2), 0.12)],
-}
+TONE_STATE = {"SNIFF": "LEAK_APPROACH", "INSPECT": "LEAK_INSPECT", "VERIFY": "LEAK_VERIFY", "RETURN": "TO_DOCK",
+              "RETREAT": "GAS_RETREAT", "ESCALATE": "ESCALATE_TO_HUMAN"}
 
 
 def _mod(name: str):
@@ -45,342 +42,358 @@ def wrap(a: float) -> float:
     return (a + math.pi) % (2 * math.pi) - math.pi
 
 
+def unit(v) -> np.ndarray:
+    v = np.asarray(v, float)
+    n = float(np.linalg.norm(v))
+    return v / n if n > 1e-9 else v
+
+
+def fixer_dock(scn: Scenario) -> np.ndarray:
+    paths = _mod("integration.fleet_paths")
+    dock = getattr(paths, "DOCK", None) if paths else None
+    if isinstance(dock, dict) and FIXER in dock:
+        return np.asarray(dock[FIXER], float)[:2]
+    g = scn.flanges[LEAK]
+    return g.center[:2] + 3.0 * unit(g.normal[:2])
+
+
 class DeckMap:
-    def __init__(self, boxes=(), posts=()):
-        self.boxes = [(np.asarray(a, float), np.asarray(b, float)) for a, b in boxes]
-        self.circles = [(np.asarray(c, float), float(r)) for c, r in posts]
+    def __init__(self, posts=()):
+        self.circles = [(np.asarray(c, float)[:2], float(r)) for c, r in posts]
         self.objects: dict[str, tuple] = {}
 
     def drop(self, oid: str, xy, r: float = 0.25) -> None:
-        self.objects[oid] = (np.asarray(xy, float), float(r))
+        self.objects[oid] = (np.asarray(xy, float)[:2], float(r))
 
-    def scan(self, pose, others=(), n: int = BEAMS, rng: float = LIDAR_RANGE):
+    def scan(self, pose, others=()):
         x, y, yaw = pose
-        ang = np.linspace(-math.pi, math.pi, n, endpoint=False)
+        ang = np.linspace(-math.pi, math.pi, BEAMS, endpoint=False)
         d = np.stack([np.cos(ang + yaw), np.sin(ang + yaw)], 1)
         o = np.array([x, y])
-        out = np.full(n, rng)
-        circles = self.circles + list(self.objects.values()) + [(np.asarray(p, float)[:2], 0.3) for p in others]
-        for c, r in circles:
+        out = np.full(BEAMS, LIDAR_RANGE)
+        for c, r in self.circles + list(self.objects.values()) + [(np.asarray(p, float)[:2], 0.3) for p in others]:
             oc = o - c
             b = d @ oc
             disc = b * b - (oc @ oc - r * r)
-            ok = disc >= 0
-            t = -b - np.sqrt(np.where(ok, disc, 0.0))
-            hit = ok & (t > 0)
-            out = np.where(hit, np.minimum(out, t), out)
-        for lo, hi in self.boxes:
-            with np.errstate(divide="ignore", invalid="ignore"):
-                t1, t2 = (lo - o) / d, (hi - o) / d
-            tmin = np.nanmax(np.minimum(t1, t2), 1)
-            tmax = np.nanmin(np.maximum(t1, t2), 1)
-            hit = (tmax >= np.maximum(tmin, 0)) & (tmin > 0)
-            out = np.where(hit, np.minimum(out, tmin), out)
+            t = -b - np.sqrt(np.where(disc >= 0, disc, 0.0))
+            out = np.where((disc >= 0) & (t > 0), np.minimum(out, t), out)
         return out, ang
 
 
-def _pursuit(path, pose, ranges, angles):
+def _pursuit(path, pose, ranges, angles, vmax):
     x, y, yaw = pose
-    d = np.linalg.norm(path - np.array([x, y]), axis=1)
-    i = int(d.argmin())
-    j = min(i + 8, len(path) - 1)
-    rel = path[j] - np.array([x, y])
+    i = int(np.linalg.norm(path - np.array([x, y]), axis=1).argmin())
+    rel = path[min(i + 8, len(path) - 1)] - np.array([x, y])
     lx = math.cos(yaw) * rel[0] + math.sin(yaw) * rel[1]
     ly = -math.sin(yaw) * rel[0] + math.cos(yaw) * rel[1]
     curv = 2 * ly / max(lx * lx + ly * ly, 1e-3)
     cone = np.abs(angles) < 0.5
     ahead = float(ranges[cone].min()) if cone.any() else LIDAR_RANGE
-    v = max(0.8 * float(np.clip((ahead - 0.35) / 1.0, 0, 1)), 0.1)
-    if lx < 0:
-        v = 0.1
+    v = max(vmax * float(np.clip((ahead - 0.35) / 1.0, 0, 1)), 0.1)
     return v, float(np.clip(curv * v, -W_MAX, W_MAX))
 
 
 class Nav:
-    def __init__(self, unit: str, pose, deck: DeckMap, speed: float = 0.8):
-        self.unit, self.deck, self.speed = unit, deck, speed
-        self.pose = np.array([*pose], float)
+    def __init__(self, unit_id: str, xy, yaw: float, deck: DeckMap, speed: float = 0.8, others=lambda: ()):
+        self.unit, self.deck, self.speed, self.others = unit_id, deck, speed, others
+        self.pose = np.array([*np.asarray(xy, float)[:2], yaw], float)
         self.v = self.w = 0.0
         self.path: Optional[np.ndarray] = None
+        self.goal_yaw: Optional[float] = None
         self.state = "IDLE"
         self.lidar_min = LIDAR_RANGE
-        self.ctl = None
         self.drive = getattr(_mod("integration.fleet_nav"), "drive", None)
-        ctl = _mod("patrol.controller")
-        self.Controller = getattr(ctl, "PatrolController", None)
+        self.Controller = getattr(_mod("patrol.controller"), "PatrolController", None)
+        self.ctl = None
         self.reported: set = set()
         self.recover_until = -1.0
+        self.reports: list[dict] = []
+        self.t = 0.0
 
     @property
     def xy(self) -> np.ndarray:
-        return self.pose[:2]
+        return self.pose[:2].copy()
 
-    def go(self, waypoints) -> None:
-        pts = [self.xy.copy()] + [np.asarray(p, float) for p in waypoints]
+    @property
+    def yaw(self) -> float:
+        return float(self.pose[2])
+
+    @property
+    def backend(self) -> str:
+        return "fleet_nav.drive" if self.drive else ("patrol.PatrolController" if self.Controller else "pure_pursuit")
+
+    def go(self, goal_xy, yaw: Optional[float] = None, via=()) -> None:
+        pts = [self.xy] + [np.asarray(p, float)[:2] for p in via] + [np.asarray(goal_xy, float)[:2]]
         seg = []
         for a, b in zip(pts[:-1], pts[1:]):
             n = max(int(np.linalg.norm(b - a) / 0.1), 1)
             seg += [a + (b - a) * k / n for k in range(n)]
         seg.append(pts[-1])
-        self.path = np.array(seg)
-        self.state = "DRIVE"
-        self.ctl = self.Controller("pure_pursuit", self.path) if self.Controller else None
+        self.path, self.goal_yaw = np.array(seg), yaw
+        if self.state != "PUSH_RECOVER":
+            self.state = "DRIVE"
+        self.ctl = self.Controller("pure_pursuit", self.path) if self.Controller and len(self.path) > 2 else None
 
     def push(self, t: float, dxy=(0.0, 0.35), dyaw: float = 0.5) -> None:
         self.pose[:2] += np.asarray(dxy, float)
         self.pose[2] = wrap(self.pose[2] + dyaw)
         self.state, self.recover_until = "PUSH_RECOVER", t + 1.5
 
-    def step(self, t: float, dt: float, others=()) -> Optional[dict]:
-        ranges, angles = self.deck.scan(self.pose, others)
+    def step(self, dt: float) -> bool:
+        self.t += dt
+        ranges, angles = self.deck.scan(self.pose, self.others())
         self.lidar_min = round(float(ranges.min()), 3)
-        report = None
-        if self.path is None or self.state in ("IDLE", "ARRIVED", "STOP_OBJECT"):
+        if self.path is None:
             self.v = self.w = 0.0
-            return None
+            if self.state not in ("STOP_OBJECT",):
+                self.state = "IDLE"
+            return True
+        if self.state == "STOP_OBJECT":
+            self.v = self.w = 0.0
+            return False
         goal = self.path[-1]
-        if np.linalg.norm(goal - self.xy) < 0.15:
-            self.path, self.state, self.v, self.w = None, "ARRIVED", 0.0, 0.0
-            return None
+        gap = float(np.linalg.norm(goal - self.xy))
+        if gap < 0.12:
+            self.pose[:2] = goal
+            if self.goal_yaw is not None:
+                self.pose[2] = self.goal_yaw
+            self.path, self.v, self.w, self.state = None, 0.0, 0.0, "ARRIVED"
+            return True
         for oid, (c, r) in self.deck.objects.items():
             rel = c - self.xy
             dist = float(np.linalg.norm(rel)) - r
-            bearing = wrap(math.atan2(rel[1], rel[0]) - self.pose[2])
-            if dist < 0.9 and abs(bearing) < 0.6 and oid not in self.reported:
+            if oid not in self.reported and dist < 1.0 and abs(wrap(math.atan2(rel[1], rel[0]) - self.yaw)) < 0.6:
                 self.reported.add(oid)
                 self.state, self.v, self.w = "STOP_OBJECT", 0.0, 0.0
-                return {"object": oid, "xy": [round(float(c[0]), 2), round(float(c[1]), 2)],
-                        "dist_m": round(dist, 2)}
-        if self.drive is not None:
-            vx, wz = self.drive(self.unit, (ranges, angles), tuple(self.pose), self.v, self.w, self.path)[:2]
-        elif self.ctl is not None:
-            vx, wz, _ = self.ctl.step(ranges, angles, tuple(self.pose), self.v, self.w)
+                self.reports.append({"object": oid, "xy": [round(float(v), 2) for v in c], "dist_m": round(dist, 2),
+                                     "robot": self.unit})
+                return False
+        if gap < 1.5:
+            self._hop(goal, dt)
         else:
-            vx, wz = _pursuit(self.path, self.pose, ranges, angles)
-        err = wrap(math.atan2(*(self.path[min(int(np.linalg.norm(self.path - self.xy, axis=1).argmin()) + 5,
-                                               len(self.path) - 1)] - self.xy)[::-1]) - self.pose[2])
-        if abs(err) > 1.2:
-            vx, wz = 0.0, float(np.clip(2.0 * err, -W_MAX, W_MAX))
-        vx = float(np.clip(vx, V_MIN, self.speed))
-        wz = float(np.clip(wz, -W_MAX, W_MAX))
+            if self.drive is not None:
+                vx, wz = self.drive(self.unit, (ranges, angles), tuple(self.pose), self.v, self.w, self.path)[:2]
+            elif self.ctl is not None:
+                vx, wz, _ = self.ctl.step(ranges, angles, tuple(self.pose), self.v, self.w)
+            else:
+                vx, wz = _pursuit(self.path, self.pose, ranges, angles, self.speed)
+            i = int(np.linalg.norm(self.path - self.xy, axis=1).argmin())
+            look = self.path[min(i + 5, len(self.path) - 1)] - self.xy
+            err = wrap(math.atan2(look[1], look[0]) - self.yaw)
+            if abs(err) > 1.0:
+                vx, wz = 0.0, float(np.clip(2.5 * err, -W_MAX, W_MAX))
+            self._apply(float(np.clip(vx, V_MIN, self.speed)), float(np.clip(wz, -W_MAX, W_MAX)), dt)
+        if self.state == "PUSH_RECOVER" and self.t >= self.recover_until:
+            self.state = "DRIVE"
+        return False
+
+    def _hop(self, goal, dt: float) -> None:
+        d = goal - self.xy
+        n = float(np.linalg.norm(d))
+        step = min(n, self.speed * dt)
+        yaw = math.atan2(d[1], d[0])
+        self.w = float(np.clip(wrap(yaw - self.yaw) / dt, -W_MAX, W_MAX))
+        self.pose[2] = wrap(self.yaw + self.w * dt)
+        self.pose[:2] += d / max(n, 1e-9) * step
+        self.v = step / dt
+
+    def _apply(self, vx: float, wz: float, dt: float) -> None:
         self.v, self.w = vx, wz
         self.pose[2] = wrap(self.pose[2] + wz * dt)
         self.pose[:2] += vx * dt * np.array([math.cos(self.pose[2]), math.sin(self.pose[2])])
-        if self.state == "PUSH_RECOVER" and t >= self.recover_until:
-            self.state = "DRIVE"
-        return report
 
-    def clear_stop(self) -> None:
-        if self.state == "STOP_OBJECT":
-            self.state = "DRIVE"
+    def detour(self, xy, side: float = 0.9) -> None:
+        if self.path is None:
+            return
+        goal, yaw = self.path[-1], self.goal_yaw
+        c = np.asarray(xy, float)[:2]
+        h = unit(goal - self.xy)
+        n = np.array([-h[1], h[0]]) * side
+        self.state = "DRIVE"
+        self.go(goal, yaw, via=[c - 0.8 * h + n, c + 0.8 * h + n])
 
     def status(self) -> dict:
         return {"vx": round(self.v, 3), "wz": round(self.w, 3), "lidar_min": self.lidar_min, "state": self.state}
 
 
-class Scenario:
-    def __init__(self, loose_at: float = 8.0, fault: bool = True, drop_at: Optional[float] = None,
-                 push_at: Optional[float] = None):
-        self.loose_at, self.fault, self.drop_at, self.push_at = loose_at, fault, drop_at, push_at
-        self.level = {"F1": 0.0, "F2": 0.0}
-        self.target = {"F1": 0.0, "F2": 0.0}
-        self.fixed: set = set()
-        self.deck = DeckMap(LAYOUT["boxes"], LAYOUT["posts"])
-        self.detectors = [FixedDetector(d, f, (float(p[0]), float(p[1]), float(ZONE[2]) + 1.2))
-                          for d, (f, p) in LAYOUT["detectors"].items()]
-        self.stuck_at: Optional[float] = None
-        self.events: list[dict] = []
-
-    def gas_at(self, p) -> float:
-        p = np.asarray(p, float)[:2]
-        g = 0.02
-        for f, c in LAYOUT["flanges"].items():
-            g += 0.4 * self.level[f] * math.exp(-float(np.linalg.norm(p - c)) / 1.5)
-        return g
-
-    def retorque(self, flange: str) -> None:
-        self.fixed.add(flange)
-        self.target[flange] = 0.0
-
-    def step(self, t: float, dt: float, units: dict) -> list[dict]:
-        ev = []
-        if t >= self.loose_at and "F2" not in self.fixed:
-            self.target["F2"] = min(0.3, 0.3 * (t - self.loose_at) / 5.0)
-            if not any(e["name"] == "bolt_loose" for e in self.events):
-                ev.append({"name": "bolt_loose", "flange": "F2", "bolt": 3})
-        for f in self.level:
-            tau = 2.0 if f in self.fixed else 0.6
-            self.level[f] += (1 - math.exp(-dt / tau)) * (self.target[f] - self.level[f])
-        fx = units[FIXER]
-        g1 = next(d for d in self.detectors if d.id == "G-F1")
-        if (self.fault and self.stuck_at is None and "F2" in self.fixed and fx.state == "TO_DOCK"
-                and g1.dist(fx.nav.xy) < 1.8):
-            self.stuck_at = g1.stuck_at = 14.0
-            ev.append({"name": "sensor_stuck", "sensor": "G-F1", "lel": 14.0})
-        if self.drop_at is not None and t >= self.drop_at and "box" not in self.deck.objects:
-            ahead = fx.nav.xy + np.array([-1.4, 0.0])
-            self.deck.drop("box", (ahead[0], LAYOUT["walk_y"] + ZONE[1]))
-            ev.append({"name": "object_dropped", "object": "box",
-                       "xy": [round(float(v), 2) for v in self.deck.objects["box"][0]]})
-        if self.push_at is not None and t >= self.push_at and not any(e["name"] == "push" for e in self.events):
-            fx.nav.push(t)
-            ev.append({"name": "push", "robot": FIXER})
-        for d in self.detectors:
-            d.read(self.gas_at)
-        self.events += ev
-        return ev
-
-
-class Scrubber:
-    def __init__(self, deck: DeckMap):
-        self.nav = Nav(SCRUBBER, (*LAYOUT["rust"], math.pi / 2), deck, speed=0.6)
-        self.state, self.rust, self.force = "DETECT", 0.62, 0.0
-        self.until = 1.0
-        self.paused = False
-        self.why = ""
-        self.rng = np.random.default_rng(1)
-
-    def hold(self, t: float, why: str) -> None:
-        if self.state in ("DONE",) or self.paused:
-            return
-        self.paused, self.resume_state, self.why = True, self.state, why
-        self.state = "HOLD"
-        self.nav.go([LAYOUT["backoff"]])
-
-    def resume(self, t: float) -> None:
-        if not self.paused:
-            return
-        self.paused = False
-        self.state = "RESUME"
-        self.nav.go([LAYOUT["rust"]])
-
-    def retreat(self, t: float) -> None:
-        self.hold(t, "retreat")
-
-    def step(self, t: float, dt: float, gas: float, others=()) -> None:
-        self.nav.step(t, dt, others)
-        s = self.state
-        self.force = 0.0
-        if s == "HOLD":
-            return
-        if s == "RESUME":
-            if self.nav.state == "ARRIVED":
-                self.nav.pose[2] = math.pi / 2
-                self.state = self.resume_state if self.resume_state in ("SPRAY", "SOAK", "SCRUB") else "SCRUB"
-            return
-        if s == "SCRUB":
-            self.force = round(24.0 + 3.0 * float(self.rng.standard_normal()), 2)
-            self.rust = max(0.0, self.rust - 0.04 * dt)
-            if self.rust <= 0.03:
-                self.state, self.until = "VERIFY", t + 1.5
-            return
-        if t < self.until:
-            return
-        nxt = {"DETECT": ("SPRAY", 1.5), "SPRAY": ("SOAK", 2.5), "SOAK": ("SCRUB", 0.0), "VERIFY": ("PAINT", 4.0),
-               "PAINT": ("VERIFY_PAINT", 1.0), "VERIFY_PAINT": ("DONE", 0.0)}.get(s)
-        if nxt:
-            self.state, self.until = nxt[0], t + nxt[1]
-
-    def evidence(self, gas: float) -> dict:
-        return {"force": self.force, "force_limit": 40.0, "rust_fraction": round(self.rust, 4), "gas": gas,
-                "job": "rust", "soak_left": max(0.0, self.until - 0.0) if self.state == "SOAK" else None}
-
-
-class Fixer:
-    def __init__(self, deck: DeckMap, scenario: Scenario):
-        self.nav = Nav(FIXER, (*LAYOUT["dock"], math.pi), deck, speed=0.9)
-        self.scn = scenario
-        self.state, self.flange, self.fix_ok = "DOCKED", None, False
+class Lockstep:
+    def __init__(self, scrubber):
+        self.s, self.o = scrubber, scrubber.orch
+        self.inner = self.o._interrupt
+        self.o._interrupt = self._hook
+        self.cv = threading.Condition()
         self.until = 0.0
-        self.bolt = None
+        self.parked = False
+        self.th: Optional[threading.Thread] = None
 
-    def _standoff(self, flange: str) -> np.ndarray:
-        return LAYOUT["flanges"][flange] + np.array([0.0, -0.85])
+    def _hook(self):
+        with self.cv:
+            while self.o.t >= self.until - 1e-9:
+                self.parked = True
+                self.cv.notify_all()
+                self.cv.wait()
+        return self.inner()
 
-    def dispatch(self, t: float, flange: str) -> None:
-        if self.state not in ("DOCKED", "TO_DOCK"):
-            return
-        self.flange, self.state = flange, "TRANSIT"
-        y = LAYOUT["walk_y"] + ZONE[1]
-        so = self._standoff(flange)
-        self.nav.go([np.array([self.nav.xy[0] - 0.8, y]), np.array([so[0] + 3.0, y])])
+    def _run(self):
+        try:
+            self.s.step()
+        finally:
+            with self.cv:
+                self.cv.notify_all()
 
-    def fix(self, t: float, flange: str) -> None:
-        if self.flange is None:
-            self.dispatch(t, flange)
-        self.fix_ok = True
-
-    def retreat(self, t: float) -> None:
-        self.state = "GAS_RETREAT"
-        self.nav.go([LAYOUT["dock"]])
-
-    def reroute(self, xy) -> None:
-        if self.nav.path is None:
-            return
-        goal = self.nav.path[-1]
-        c = np.asarray(xy, float)
-        self.nav.go([np.array([c[0] + 0.7, c[1] - 0.8]), np.array([c[0] - 0.7, c[1] - 0.8]), goal])
-
-    def step(self, t: float, dt: float, others=()) -> Optional[dict]:
-        rep = self.nav.step(t, dt, others)
-        s = self.state
-        if s == "TRANSIT" and self.nav.state == "ARRIVED":
-            so = self._standoff(self.flange)
-            k = np.arange(1, 7)
-            cast = [so + np.array([3.0 * (1 - i / 6), 0.35 * (-1) ** i]) for i in k]
-            self.state = "LEAK_APPROACH"
-            self.nav.go(cast + [so])
-        elif s == "LEAK_APPROACH" and self.nav.state == "ARRIVED":
-            self.nav.pose[2] = math.pi / 2
-            self.state, self.bolt = "LEAK_INSPECT", 3
-        elif s == "LEAK_INSPECT" and self.fix_ok:
-            self.state, self.until = "RETORQUE", t + 3.0
-        elif s == "RETORQUE" and t >= self.until:
-            self.scn.retorque(self.flange)
-            self.state, self.until = "LEAK_VERIFY", t + 2.0
-        elif s == "LEAK_VERIFY" and t >= self.until:
-            d = next(d for d in self.scn.detectors if d.flange == self.flange)
-            if 100 * self.scn.gas_at(self.nav.xy) < CLEAR_LEL and led(d.last) == "green":
-                self.state = "TO_DOCK"
-                y = LAYOUT["walk_y"] + ZONE[1]
-                self.nav.go([np.array([self.nav.xy[0] + 0.8, y]), np.array([LAYOUT["dock"][0] - 0.8, y]),
-                             LAYOUT["dock"]])
-        elif s in ("TO_DOCK", "GAS_RETREAT") and self.nav.state == "ARRIVED":
-            self.state, self.flange, self.fix_ok, self.bolt = "DOCKED", None, False, None
-        return rep
-
-    def evidence(self, gas: float) -> dict:
-        return {"gas": gas, "gas_stop": 0.20, "flange": self.flange, "bolt": self.bolt, "job": "gas"}
+    def advance(self, t: float) -> None:
+        with self.cv:
+            self.until, self.parked = t, False
+            self.cv.notify_all()
+            if self.th is None or not self.th.is_alive():
+                if self.s.done or self.o.t > t - 1e-9:
+                    return
+                self.th = threading.Thread(target=self._run, daemon=True)
+                self.th.start()
+            while self.th.is_alive() and not self.parked:
+                self.cv.wait(0.5)
 
 
-CAPTIONS = {
-    "HOLD": ("Holding — hot work stopped", " spark rule, rust job paused"),
-    "RESUME": ("Resuming", " the rust job — zone clear"),
-    "STOP_OBJECT": ("Stopped", " — object on the walkway, reported to Argon"),
-    "PUSH_RECOVER": ("Recovering", " from a push"),
-    "DOCKED": ("Docked", " — waiting for a job"),
-}
+class Unit1:
+    def __init__(self, scn: Scenario, deck: DeckMap, soak_s: float = 3.0, others=lambda: ()):
+        self.s, parts = build_scrubber()
+        self.bridge = parts["bridge"]
+        self.s.orch.cfg.soak_s = soak_s
+        self.work = np.asarray(self.bridge.work_pos, float)[:2].copy()
+        ey = unit(scn.flanges[LEAK].center[:2] - U1_SPAWN)
+        self.M = np.stack([np.array([ey[1], -ey[0]]), ey], 1)
+        self.face = math.atan2(ey[1], ey[0])
+        deck.circles.append((U1_SPAWN + 0.75 * ey, 0.2))
+        self.nav = Nav(SCRUBBER, U1_SPAWN, self.face, deck, speed=0.6, others=others)
+        self.lock = Lockstep(self.s)
+        self.target = U1_SPAWN.copy()
+
+    @property
+    def hot_xy(self) -> np.ndarray:
+        b = self.s.work_base if self.s.held and self.s.work_base is not None else self.s.pos
+        return U1_SPAWN if b is None else U1_SPAWN + self.M @ (np.asarray(b, float)[:2] - self.work)
+
+    def world(self) -> np.ndarray:
+        p = self.s.pos
+        return U1_SPAWN if p is None else U1_SPAWN + self.M @ (np.asarray(p, float)[:2] - self.work)
+
+    def step(self, t: float, gas_frac: float) -> None:
+        self.bridge.gas_override = gas_frac
+        self.lock.advance(t)
+        tgt = self.world()
+        if float(np.linalg.norm(tgt - self.target)) > 0.05:
+            self.target = tgt
+            self.nav.go(tgt, self.face)
+        self.nav.step(DT)
+
+    @property
+    def state(self) -> str:
+        return self.s.state
+
+    def entry(self, lel: float) -> dict:
+        h = self.s.hud()
+        st = "HOLD" if self.s.held else self.state
+        ev = {"force": h["force_n"], "force_limit": 40.0, "rust_fraction": h["rust_fraction"], "gas": lel / 100.0,
+              "soak_left": h["soak_left_s"], "job": "rust"}
+        return {"state": st, "caption": self.s.caption, "held": self.s.held, "paused_state": h["paused_state"],
+                "force_n": h["force_n"], "rust": h["rust_fraction"], "ev": ev}
 
 
-def _caption(state: str, nav_state: str, ev: dict) -> dict:
-    key = nav_state if nav_state in ("STOP_OBJECT", "PUSH_RECOVER") else state
-    if key in CAPTIONS:
-        lead, rest = CAPTIONS[key]
-        return {"state": state, "lead": lead, "rest": rest, "text": lead + rest,
-                "tone": "warn" if key != "DOCKED" else "ok"}
-    return caption(state, ev)
+class Unit2:
+    def __init__(self, scn: Scenario, deck: DeckMap, clock, others=lambda: (), sniff_s: float = 3.0):
+        self.scn, self.clock = scn, clock
+        self.lw = LeakWorld([scn.flanges[f] for f in scn.flanges])
+        self.dock = fixer_dock(scn)
+        g = scn.flanges[LEAK]
+        self.nav = Nav(FIXER, self.dock, math.atan2(*(g.center[:2] - self.dock)[::-1]), deck, speed=1.0,
+                       others=others)
+        self.walker = NavWalker(self.nav)
+        self.f = Fixer(self.lw, self.dock, scn.detectors, walker=self.walker, gas_at=self.gas, tighten=self.tighten,
+                       config=FixerConfig(sniff_s=sniff_s))
+        self.fixed_at: Optional[float] = None
+        self.loose = False
+
+    def gas(self, p) -> float:
+        p = np.asarray(p, float)
+        return self.scn.gas_frac((p[0], p[1], SNIFF_Z if len(p) < 3 else p[2]), self.clock())
+
+    def tighten(self, fid: str, bolt: int):
+        before = self.lw.tighten(fid, bolt)
+        if fid == self.scn.leak_flange and self.fixed_at is None:
+            self.fixed_at = self.clock()
+            fix = getattr(self.scn, "fix", None)
+            if fix is not None:
+                fix(self.fixed_at)
+            else:
+                self.scn.t_fixed = self.fixed_at
+        return before
+
+    def step(self, t: float) -> None:
+        if not self.loose and t >= self.scn.t_leak:
+            self.loose = True
+            self.lw.loosen(self.scn.leak_flange, self.scn.bolt, self.scn.loosen_rad)
+            self.lw.settle()
+        self.f.step(DT)
+
+    @property
+    def state(self) -> str:
+        return self.f.state
+
+    def entry(self, lel: float) -> dict:
+        ev = self.f.evidence
+        return {"state": self.f.state, "caption": self.f.caption, "job": self.f.job, "target": self.f.target,
+                "bolt": ev.get("bolt"), "seek_mode": ev.get("seek_mode"), "diagnosis": ev.get("diagnosis"),
+                "force_n": round(12.0 * float(getattr(self.f.arm, "progress", 0.0)), 2)
+                if self.f.torquing else 0.0,
+                "ev": {"gas": lel / 100.0, "gas_stop": 0.20, "flange": self.f.target, "bolt": ev.get("bolt"),
+                       "job": "gas"}}
+
+
+class NavWalker:
+    def __init__(self, nav: Nav):
+        self.nav = nav
+        self.goal = nav.xy
+        self.start = nav.xy
+        self.arrived = True
+
+    @property
+    def xy(self) -> np.ndarray:
+        return self.nav.xy
+
+    @property
+    def yaw(self) -> float:
+        return self.nav.yaw
+
+    @property
+    def progress(self) -> float:
+        total = float(np.linalg.norm(self.goal - self.start))
+        return 1.0 if total < 1e-6 else float(np.clip(1 - np.linalg.norm(self.goal - self.xy) / total, 0, 1))
+
+    def go(self, goal_xy, yaw: Optional[float] = None) -> None:
+        self.goal, self.start = np.asarray(goal_xy, float)[:2].copy(), self.nav.xy
+        self.arrived = False
+        self.nav.go(self.goal, yaw)
+
+    def step(self, dt: float) -> bool:
+        if dt <= 0.0:
+            return self.arrived
+        if self.arrived:
+            self.nav.step(dt)
+            return True
+        self.arrived = self.nav.step(dt)
+        return self.arrived
 
 
 class FleetDemo:
     def __init__(self, control: str = "edge", out: Optional[Path] = None, cut_link_at: Optional[float] = None,
-                 replay_from: Optional[str] = None, fault: bool = True, drop_at: Optional[float] = None,
-                 push_at: Optional[float] = None, log_hz: float = 5.0, max_t: float = 120.0):
-        out = Path(out) if out else None
-        self.timeline = Timeline(out / "timeline.jsonl" if out else None)
-        self.hud_path = out / "hud.jsonl" if out else None
+                 replay_from: Optional[str] = None, stuck_at=None,
+                 drop_at: Optional[float] = None, push_at: Optional[float] = None, log_hz: float = 5.0,
+                 max_t: float = 150.0, t_leak: float = 6.0):
+        self.out = Path(out) if out else None
+        self.timeline = Timeline(self.out / "timeline.jsonl" if self.out else None)
+        self.hud_path = self.out / "hud.jsonl" if self.out else None
         if self.hud_path:
             self.hud_path.write_text("")
-        self.out = out
         caller = None
         if control == "live":
             caller = LiveCaller()
@@ -391,111 +404,148 @@ class FleetDemo:
         self.control = control
         self.link = ArgonLink(control, self.timeline, caller)
         self.wait = control in ("live", "replay")
-        self.cut_link_at, self.log_every, self.max_t = cut_link_at, max(1, round(1.0 / (log_hz * DT))), max_t
-        self.scn = Scenario(fault=fault, drop_at=drop_at, push_at=push_at)
-        self.units = {SCRUBBER: Scrubber(self.scn.deck), FIXER: Fixer(self.scn.deck, self.scn)}
+        self.cut = cut_link(self.link, cut_link_at) if cut_link_at is not None else None
+        self.every = max(1, round(1.0 / (log_hz * DT)))
+        self.max_t, self.drop_at, self.push_at = max_t, drop_at, push_at
+        self.t, self.k, self.seen = 0.0, 0, 0
+        self.scn = Scenario(t_leak=t_leak, t_stuck=None, decay_tau_s=2.5)
+        self.deck = DeckMap([(d.pos, 0.08) for d in self.scn.detectors])
+        self.u1 = Unit1(self.scn, self.deck, others=lambda: [self.u2.nav.xy])
+        self.u2 = Unit2(self.scn, self.deck, lambda: self.t, others=lambda: [self.u1.nav.xy])
+        self.units = {SCRUBBER: self.u1, FIXER: self.u2}
+        self.stuck_enabled = stuck_at is not False
+        self.stuck_auto = stuck_at is None
+        self.stuck = stuck_sensor(self.scn, math.inf if stuck_at in (None, False) else stuck_at, STUCK, 14.0)
+        self.backlog: list = []
+        self.battery = {SCRUBBER: 0.86, FIXER: 0.97}
         self.ids = ids_for(self.scn.detectors)
-        self.fleet = _fleet_adapter()
-        self.t = 0.0
-        self.k = 0
-        self.seen = 0
-        self.findings: list[dict] = []
+        self.events_seen: set = set()
+        self.last_states: dict = {}
+        self.dropped = self.pushed = False
 
     def lel(self, rid: str) -> float:
-        return round(100.0 * self.scn.gas_at(self.units[rid].nav.xy), 2)
+        return self.scn.sniff(self.units[rid].nav.xy, self.t)
+
+    def sniffers(self) -> dict:
+        return {rid: (self.lel(rid), u.nav.xy) for rid, u in self.units.items()}
+
+    def far(self, target: str) -> float:
+        d = next((d for d in self.scn.detectors if target in (d.id, d.flange)), None)
+        r = 0.0 if d is None else d.dist(self.u1.hot_xy)
+        return r if r > SPARK_RADIUS_M else 0.0
+
+    def drain(self) -> None:
+        for rid, u in self.units.items():
+            moving = abs(u.nav.v) > 0.02 or abs(u.nav.w) > 0.02
+            work = u.state in ("SCRUB", "SPRAY", "PAINT", "RETORQUE", "SNIFF", "INSPECT", "VERIFY")
+            rate = 0.0012 if moving else 0.0009 if work else 0.0002
+            if u.state == "DOCKED":
+                rate = -0.0005
+            self.battery[rid] = float(np.clip(self.battery[rid] - rate * DT, 0.0, 1.0))
+
+    def findings(self, t: float) -> list:
+        sn = self.sniffers()
+        fds = self.stuck.findings(t, self.scn.detectors, sn) if self.stuck_enabled else \
+            [fuse_fleet(d, sn) for d in self.scn.detectors]
+        out = []
+        for fd in fds:
+            if fd.kind == LEAK_UNSEEN_BY_FIXED and (fd.robot_dist or 0.0) > NEAR_M:
+                fd = Finding(OK, fd.sensor, fd.flange, fd.fixed_lel, fd.robot_lel, fd.robot_dist,
+                             f"{fd.robot} {fd.robot_lel:.1f}%LEL at {fd.robot_dist:.1f} m is not at {fd.sensor}",
+                             fd.robot, fd.hazard)
+            out.append(fd)
+        return out
 
     def robots(self) -> dict:
         out = {}
         for rid, u in self.units.items():
             x, y, yaw = u.nav.pose
-            out[rid] = {"state": u.state, "pose": [round(float(x), 3), round(float(y), 3), float(ZONE[2]),
-                                                   round(float(yaw), 3)],
-                        "lel": self.lel(rid), "nav": u.nav.status()}
-            if rid == SCRUBBER:
-                out[rid].update(force_n=u.force, rust=round(u.rust, 4), paused=u.paused)
-            else:
-                out[rid].update(flange=u.flange, bolt=u.bolt, force_n=8.0 if u.state == "RETORQUE" else 0.0)
+            e = u.entry(self.lel(rid))
+            e.pop("ev")
+            out[rid] = {**e, "pose": [round(float(x), 3), round(float(y), 3), DECK_Z, round(float(yaw), 3)],
+                        "lel": self.lel(rid), "nav": u.nav.status(), "battery": round(self.battery[rid], 4)}
         return out
 
-    def apply(self, cmds) -> None:
-        u1, u2 = self.units[SCRUBBER], self.units[FIXER]
-        for c in cmds:
-            if c.kind == HOLD:
-                u1.hold(self.t, c.reason)
-                self._fleet("hold", SCRUBBER, why=c.reason)
-            elif c.kind == RESUME_RUST:
-                u1.resume(self.t)
-                self._fleet("resume", SCRUBBER, why=c.reason)
-            elif c.kind == GO_CHECK:
-                u2.dispatch(self.t, c.target)
-                self._fleet("assign", FIXER, kind="flange_leak_check", target=c.target, why=c.reason)
-            elif c.kind == FIX_LEAK:
-                u2.fix(self.t, c.target)
-            elif c.kind == RETREAT:
-                self.units.get(c.robot, u1).retreat(self.t)
-            elif c.kind == LOG_SENSOR_FAULT:
-                self._fleet("ticket", None, sensor=c.target, why=c.reason)
+    def _script_events(self) -> None:
+        for e in self.scn.at(self.t):
+            if e.name not in self.events_seen and e.t < 1e8:
+                self.events_seen.add(e.name)
+                self.timeline.log("scenario", self.t, **e.to_dict())
 
-    def _fleet(self, op: str, rid, **kw) -> None:
-        if self.fleet is None:
-            return
-        try:
-            a, ids = self.fleet
-            if op == "hold":
-                r = a.hold(ids[rid], kw["why"])
-            elif op == "resume":
-                r = a.resume(ids[rid], kw["why"])
-            elif op == "assign":
-                f = LAYOUT["flanges"][kw["target"]]
-                r = a.assign(kw["kind"], kw["target"], (float(f[0]), float(f[1]), float(ZONE[2])), why=kw["why"],
-                             robot=ids[rid])
-            else:
-                f = next(d.pos for d in self.scn.detectors if d.id == kw["sensor"])
-                r = a.ticket(kw["sensor"], kw["why"], f)
-            a.c.tick(DT)
-            self.timeline.log("fleet", self.t, op=op, robot=rid, ok=bool(r.get("ok")),
-                              job=r.get("job_id"), refused=r.get("refused"))
-        except Exception as e:
-            self.timeline.log("fleet", self.t, op=op, robot=rid, ok=False, error=f"{type(e).__name__}: {e}")
+    def _disturb(self) -> None:
+        nav = self.u2.nav
+        if self.drop_at is not None and not self.dropped and self.t >= self.drop_at and nav.path is not None \
+                and float(np.linalg.norm(nav.path[-1] - nav.xy)) > 3.0:
+            self.dropped = True
+            h = unit(nav.path[min(int(np.linalg.norm(nav.path - nav.xy, axis=1).argmin()) + 18,
+                                  len(nav.path) - 1)] - nav.xy)
+            self.deck.drop("box", nav.xy + 1.6 * h)
+            self.timeline.log("scenario", self.t, name="object_dropped", object="box",
+                              xy=[round(float(v), 2) for v in self.deck.objects["box"][0]], robot=FIXER)
+        if self.push_at is not None and not self.pushed and self.t >= self.push_at and nav.path is not None:
+            self.pushed = True
+            nav.push(self.t)
+            self.timeline.log("scenario", self.t, name="push", robot=FIXER)
+        while nav.reports:
+            rep = nav.reports.pop(0)
+            self.timeline.log("object_report", self.t, **rep)
+            self.timeline.log("command", self.t, kind="reroute", robot=FIXER, target=rep["object"], source="edge",
+                              reason=f"{rep['object']} on the walkway {rep['dist_m']:.1f} m ahead: logged for the "
+                                     f"crew, detour around it", confidence=1.0, finding="OBJECT_ON_WALKWAY")
+            nav.detour(rep["xy"])
 
     def step(self) -> None:
         t = self.t
-        if self.cut_link_at is not None and t >= self.cut_link_at and not self.link.link_cut:
-            self.link.cut(True)
-            self.timeline.log("link", t, cut=True)
-        for e in self.scn.step(t, DT, self.units):
-            self.timeline.log("scenario", t, **e)
-        u1, u2 = self.units[SCRUBBER], self.units[FIXER]
-        u1.step(t, DT, self.lel(SCRUBBER) / 100.0, [u2.nav.xy])
-        rep = u2.step(t, DT, [u1.nav.xy])
-        if rep is not None:
-            self.timeline.log("object_report", t, robot=FIXER, **rep)
-            self.timeline.log("command", t, kind="reroute", robot=FIXER, target=rep["object"], source="edge",
-                              reason=f"{rep['object']} on the walkway {rep['dist_m']:.1f} m ahead: logged, "
-                                     f"detour around it", confidence=1.0, finding="OBJECT")
-            u2.reroute(rep["xy"])
-        sniff = {rid: (self.lel(rid), u.nav.xy) for rid, u in self.units.items()}
-        fds = [fuse_fleet(d, sniff) for d in self.scn.detectors]
+        if self.cut is not None:
+            self.cut.tick(t)
+        self._script_events()
+        self.scn.detector_readings(t)
+        self.u1.step(t + DT, self.scn.gas_frac((*self.u1.nav.xy, SNIFF_Z), t))
+        self.u2.step(t)
+        self.drain()
+        self._disturb()
+        fds = self.findings(t)
         robots = self.robots()
-        cmds = self.link.tick(t, fds, robots, self.scn.detectors, self.ids, scrubber_pos=u1.nav.xy, wait=self.wait)
-        self.apply(cmds)
-        if self.k % self.log_every == 0 or cmds:
+        brief = {rid: {k: r[k] for k in ("state", "lel", "pose")} | {"paused": r.get("held", False)}
+                 for rid, r in robots.items()}
+        cmds = self.link.tick(t, fds, brief, self.scn.detectors, self.ids, scrubber_pos=self.u1.hot_xy,
+                              wait=self.wait)
+        for c in cmds:
+            if c.robot == SCRUBBER and c.kind == HOLD and self.far(c.target):
+                self.timeline.log("hold_skipped", t, robot=SCRUBBER, target=c.target, source=c.source,
+                                  why=f"{c.target} is {self.far(c.target):.1f} m from hot work, outside the "
+                                      f"{SPARK_RADIUS_M:.0f} m spark radius")
+            elif c.robot == SCRUBBER:
+                self.u1.s.handle(c)
+            elif c.robot == FIXER and not self.u2.f.command(c) and c.kind == GO_CHECK:
+                self.backlog.append(c)
+        if self.backlog and self.u2.state in ("DOCKED", "RETURN") and self.u2.f.command(self.backlog[0]):
+            c = self.backlog.pop(0)
+            self.timeline.log("dispatch", t, kind=c.kind, robot=c.robot, target=c.target, queued_at=c.t)
+        if self.stuck_auto and math.isinf(self.stuck.at) and self.u2.fixed_at is not None \
+                and self.u2.state in ("RETURN", "DOCKED") and not self.u1.s.held and self.link.verdict.get(f"G-{LEAK}") == OK:
+            self.stuck.at = t + DT
+        for rec in self.stuck.sync(self.link):
+            self.timeline.log("inbox", t, **{k: v for k, v in rec.items() if k != "envelope"})
+        states = {rid: (r["state"], r["nav"]["state"]) for rid, r in robots.items()}
+        if self.k % self.every == 0 or cmds or states != self.last_states:
             self.log_tick(fds, robots)
+        self.last_states = states
         self.k += 1
         self.t = round(t + DT, 3)
 
     def done(self) -> bool:
-        return (self.units[SCRUBBER].state == "DONE" and self.units[FIXER].state == "DOCKED"
-                and "F2" in self.scn.fixed and (not self.scn.fault or bool(self.link.tickets))) or self.t >= self.max_t
+        if self.t >= self.max_t:
+            return True
+        quiet = self.u1.s.done and self.u2.state == "DOCKED" and self.u2.fixed_at is not None
+        return quiet and (not self.stuck_enabled or bool(self.link.tickets)) and self.link.pending is None \
+            and not self.link.queue
 
     def log_tick(self, fds, robots) -> None:
         dets = [{"id": d.id, "flange": d.flange, "lel": d.last, "led": led(d.last, d.id in self.link.faulted),
                  "pos": [round(float(v), 3) for v in d.pos]} for d in self.scn.detectors]
-        for rid, r in robots.items():
-            ev = self.units[rid].evidence(r["lel"] / 100.0)
-            r["caption"] = _caption(r["state"], r["nav"]["state"], ev)["text"]
         row = self.timeline.log("tick", self.t, robots=robots, detectors=dets, fusion=[f.to_dict() for f in fds],
-                                argon=self.link.header())
+                                argon=self.link.header(), banner=banner(self.link), stuck=self.stuck.hud())
         self.write_header(row)
 
     def write_header(self, row: dict) -> None:
@@ -505,36 +555,39 @@ class FleetDemo:
         self.seen = len(self.timeline.rows)
         events = []
         for r in rows:
-            if r["type"] in ("command", "ticket", "vetoed", "finding", "object_report", "scenario", "link"):
-                events.append({"t": r["t"], "from": "Argon" if r.get("source") == "argon" else
-                               ("Edge" if r["type"] in ("command", "vetoed") else r["type"].capitalize()),
-                               "to": (r.get("kind") or r.get("name") or r["type"]).upper(),
-                               "reason": r.get("reason") or r.get("why") or r.get("sensor") or r.get("object") or "",
-                               "robot": r.get("robot")})
+            if r["type"] in ("command", "ticket", "vetoed", "finding", "object_report", "scenario", "link_cut",
+                             "link_restored"):
+                src = r.get("source")
+                events.append({"t": r["t"], "from": "Argon" if src == "argon" else "Edge" if src == "edge" else
+                               r["type"].replace("_", " ").capitalize(),
+                               "to": str(r.get("kind") or r.get("name") or r["type"]).upper(),
+                               "reason": r.get("reason") or r.get("why") or r.get("banner") or r.get("sensor")
+                               or r.get("object") or "", "robot": r.get("robot")})
         ents = []
         for rid, r in row["robots"].items():
             u = self.units[rid]
-            ev = u.evidence(r["lel"] / 100.0)
+            ev = u.entry(r["lel"])["ev"]
             e = robot_entry(rid, NAMES[rid], r["state"], ev, r["pose"][:3])
-            e["caption"] = _caption(r["state"], r["nav"]["state"], ev)
-            e.update(yaw=r["pose"][3], lel=r["lel"], force_n=r.get("force_n"), rust=r.get("rust"), nav=r["nav"])
+            c = caption(TONE_STATE.get(r["state"], r["state"]), ev)
+            e["caption"] = {"state": r["state"], "lead": r["caption"], "rest": "", "text": r["caption"],
+                            "tone": c["tone"]}
+            e.update(yaw=r["pose"][3], battery=r["battery"], lel=r["lel"], force_n=r.get("force_n"), rust=r.get("rust"), nav=r["nav"])
             ents.append(e)
         sensors = [{"id": d["id"], "at": f"flange {d['flange']}", "kind": "fixed", "lel": d["lel"] / 100.0,
-                    "led": d["led"]} for d in row["detectors"]]
+                    "led": d["led"]} for d in row["detectors"] if d["flange"] in (LEAK, STUCK[2:])]
         sensors += [{"id": f"{rid}-sniffer", "at": NAMES[rid], "kind": "robot", "lel": r["lel"] / 100.0}
                     for rid, r in row["robots"].items()]
-        lead = ents[0]
         mx = max(s["lel"] for s in sensors)
-        hdr = {"t": row["t"], "state": lead["state"], "caption": lead["caption"],
+        u1 = row["robots"][SCRUBBER]
+        hdr = {"t": row["t"], "state": u1["state"], "caption": ents[0]["caption"],
                "hud": [e["caption"]["text"] for e in ents], "events": events, "robots": ents,
-               "force_n": row["robots"][SCRUBBER].get("force_n"), "force_limit": 40.0,
-               "rust_fraction": row["robots"][SCRUBBER].get("rust"),
-               "gas": {"sensors": sensors, "max": round(mx, 4), "alarm": mx * 100 >= ALARM_LEL},
-               "detectors": row["detectors"], "fusion": row["fusion"], "argon": row["argon"],
-               "source": "EDGE" if self.link.link_cut or self.control == "edge" else "CLOUD",
+               "force_n": u1.get("force_n"), "force_limit": 40.0, "rust_fraction": u1.get("rust"),
+               "gas": {"sensors": sensors, "max": round(mx, 4), "alarm": any(d["led"] == "red" for d in row["detectors"])},
+               "detectors": row["detectors"], "fusion": row["fusion"], "argon": row["argon"], "banner": row["banner"],
+               "stuck": row["stuck"], "source": "EDGE" if self.link.link_cut or self.control == "edge" else "CLOUD",
                "fleet": {"schema": "fleet_state.v1", "t": row["t"],
                          "robots": [{"id": e["id"], "name": e["name"], "state": e["state"], "job_state": e["state"],
-                                     "deck": "top_deck", "pose": {"x": e["world_pos"][0], "y": e["world_pos"][1],
+                                     "deck": "top_deck", "battery": {"soc": e["battery"]}, "pose": {"x": e["world_pos"][0], "y": e["world_pos"][1],
                                                                   "z": e["world_pos"][2], "yaw": e["yaw"]}}
                                     for e in ents],
                          "zones": [{"kind": "gas", "id": d["id"], "xyz": d["pos"], "radius": 6.0}
@@ -546,91 +599,76 @@ class FleetDemo:
         while not self.done():
             self.step()
         self.link.wait_idle()
-        self.log_tick([fuse_fleet(d, {rid: (self.lel(rid), u.nav.xy) for rid, u in self.units.items()})
-                       for d in self.scn.detectors], self.robots())
+        self.log_tick(self.findings(self.t), self.robots())
         s = {"control": self.control, "t_end": self.t, "beats": beats(self.timeline.rows),
-             "argon": self.link.summary(), "nav": "fleet_nav" if self.units[FIXER].nav.drive else
-             ("patrol.PatrolController" if self.units[FIXER].nav.Controller else "pure_pursuit")}
+             "argon": self.link.summary(), "nav": self.u2.nav.backend,
+             "inbox": list(self.stuck.inbox.filed.values()), "dock_unit2": [round(float(v), 3) for v in self.u2.dock]}
         if self.out:
             (self.out / "summary.json").write_text(json.dumps(s, indent=1, default=str))
         return s
 
 
-def _fleet_adapter():
-    fa = _mod("policy.control.fleet_adapter")
-    if fa is None:
+def _first(rows, pred, t0=None) -> Optional[float]:
+    if t0 is False:
         return None
-    try:
-        from fleet.contract import Robot, RobotKind, World
-        from fleet.coordinator import Coordinator
-        from fleet.rigplanner import RigPlanner
-
-        world = World.from_rig_meta()
-        world.state["flanges"] = {}
-        z = float(ZONE[2])
-        u1 = Robot("U1", RobotKind.QUADRUPED, {"arm", "spray", "brush", "camera", "gas_sensor"},
-                   (*map(float, LAYOUT["rust"]), z), battery=0.9)
-        u2 = Robot("U2", RobotKind.QUADRUPED, {"arm", "gripper", "gas_sensor", "camera"},
-                   (*map(float, LAYOUT["dock"]), z), battery=0.95)
-        dock = (*map(float, LAYOUT["dock"]), z)
-        c = Coordinator([u1, u2], world, {}, RigPlanner(), docks={"U1": dock, "U2": dock})
-        a = fa.FleetAdapter(c)
-        a.assign("rust_repair", "main_pipe", (*map(float, LAYOUT["rust"]), z), why="rust on the main pipe")
-        c.tick(1.0)
-        return a, {SCRUBBER: "U1", FIXER: "U2"}
-    except Exception:
-        return None
+    return next((r["t"] for r in rows if (t0 is None or r["t"] >= t0) and pred(r)), None)
 
 
-def _first(rows, pred) -> Optional[float]:
-    return next((r["t"] for r in rows if pred(r)), None)
-
-
-def _after(rows, t0, pred) -> Optional[float]:
-    if t0 is None:
-        return None
-    return next((r["t"] for r in rows if r["t"] >= t0 and pred(r)), None)
-
-
-def _tick(rid, state):
-    return lambda r: r["type"] == "tick" and r["robots"][rid]["state"] == state
+def _state(rid, *states):
+    return lambda r: r["type"] == "tick" and r["robots"][rid]["state"] in states
 
 
 def _det(sid, colour):
     return lambda r: r["type"] == "tick" and any(d["id"] == sid and d["led"] == colour for d in r["detectors"])
 
 
-def _cmd(kind, robot=None):
-    return lambda r: r["type"] == "command" and r["kind"] == kind and (robot is None or r["robot"] == robot)
+def _cmd(kind, robot=None, target=None):
+    return lambda r: (r["type"] == "command" and r["kind"] == kind and (robot is None or r["robot"] == robot)
+                      and (target is None or r["target"] == target))
 
 
-def _finding(kind, robot=None):
-    return lambda r: r["type"] == "finding" and r["kind"] == kind and (robot is None or r["robot"] == robot)
+def _finding(kind, sensor=None, robot=None):
+    return lambda r: (r["type"] == "finding" and r["kind"] == kind and (sensor is None or r["sensor"] == sensor)
+                      and (robot is None or r["robot"] == robot))
 
 
 def beats(rows: list[dict]) -> dict:
     b = {}
-    b["1_scrubbing"] = _first(rows, _tick(SCRUBBER, "SCRUB"))
-    b["2_gf2_amber"] = _first(rows, _det("G-F2", "amber"))
-    b["2_gf2_red"] = _after(rows, b["2_gf2_amber"], _det("G-F2", "red"))
-    b["3_hold_unit1"] = _first(rows, _cmd(HOLD, SCRUBBER))
-    b["3_unverified"] = _first(rows, _finding("UNVERIFIED", SCRUBBER))
-    b["3_dispatch_unit2"] = _first(rows, _cmd(GO_CHECK, FIXER))
-    b["4_unit2_walks"] = _after(rows, b["3_dispatch_unit2"], _tick(FIXER, "TRANSIT"))
-    b["4_leak_confirmed"] = _first(rows, _finding("LEAK_CONFIRMED", FIXER))
-    b["4_fix_leak"] = _first(rows, _cmd(FIX_LEAK, FIXER))
-    b["4_retorque"] = _first(rows, _tick(FIXER, "RETORQUE"))
-    b["4_gf2_green"] = _after(rows, b["4_retorque"], _det("G-F2", "green"))
-    b["5_resume_rust"] = _first(rows, _cmd(RESUME_RUST, SCRUBBER))
-    b["5_unit1_scrubs_again"] = _after(rows, b["5_resume_rust"], _tick(SCRUBBER, "SCRUB"))
-    b["5_unit1_paints"] = _after(rows, b["5_resume_rust"], _tick(SCRUBBER, "PAINT"))
-    b["5_unit1_done"] = _after(rows, b["5_resume_rust"], _tick(SCRUBBER, "DONE"))
-    b["5_unit2_to_dock"] = _after(rows, b["4_gf2_green"], _tick(FIXER, "TO_DOCK"))
-    b["5_unit2_docked"] = _after(rows, b["5_unit2_to_dock"], _tick(FIXER, "DOCKED"))
-    b["6_gf1_fault"] = _first(rows, _finding(PIPE_SENSOR_FAULT))
-    b["6_ticket"] = _first(rows, lambda r: r["type"] == "ticket")
-    b["6_object_report"] = _first(rows, lambda r: r["type"] == "object_report")
-    b["6_link_cut"] = _first(rows, lambda r: r["type"] == "link" and r.get("cut") and r["t"] >= 0)
+
+    def at(name, pred, after=None):
+        t0 = None if after is None else (b.get(after) if b.get(after) is not None else False)
+        b[name] = _first(rows, pred, t0)
+
+    g = f"G-{LEAK}"
+    at("1_unit1_scrubbing", _state(SCRUBBER, "SCRUB"))
+    at("1_unit2_docked", _state(FIXER, "DOCKED"))
+    at("2_leak_start", lambda r: r["type"] == "scenario" and r.get("name") == "leak_start")
+    at("2_gf5_amber", _det(g, "amber"), "2_leak_start")
+    at("2_gf5_red", _det(g, "red"), "2_gf5_amber")
+    at("3_spark_hold", _cmd(HOLD, SCRUBBER), "2_gf5_amber")
+    at("3_unit1_held", _state(SCRUBBER, "HOLD"), "3_spark_hold")
+    at("3_unverified", _finding("UNVERIFIED", g), "2_gf5_red")
+    at("3_dispatch_unit2", _cmd(GO_CHECK, FIXER, LEAK), "3_unverified")
+    at("4_unit2_walks", _state(FIXER, "TRANSIT"), "3_dispatch_unit2")
+    at("4_unit2_sniffs", _state(FIXER, "SNIFF"), "4_unit2_walks")
+    at("4_leak_confirmed", _finding("LEAK_CONFIRMED", g, FIXER), "4_unit2_walks")
+    at("4_fix_leak", _cmd(FIX_LEAK, FIXER, LEAK), "4_leak_confirmed")
+    at("4_retorque", _state(FIXER, "RETORQUE"), "4_fix_leak")
+    at("4_gf5_green", _det(g, "green"), "4_retorque")
+    at("5_resume_rust", _cmd(RESUME_RUST, SCRUBBER), "4_retorque")
+    at("5_unit1_scrubs_again", _state(SCRUBBER, "SCRUB"), "5_resume_rust")
+    at("5_unit1_done", _state(SCRUBBER, "DONE"), "5_resume_rust")
+    at("5_unit2_returns", _state(FIXER, "RETURN"), "4_retorque")
+    at("5_unit2_docked", _state(FIXER, "DOCKED"), "5_unit2_returns")
+    at("6_gf6_stuck", lambda r: r["type"] == "tick" and r["stuck"]["led"] != "green" and
+       any(d["id"] == STUCK and d["lel"] >= 10 for d in r["detectors"]))
+    at("6_gf6_fault", _finding(PIPE_SENSOR_FAULT, STUCK), "6_gf6_stuck")
+    at("6_ticket", lambda r: r["type"] == "ticket" and r.get("sensor") == STUCK, "6_gf6_stuck")
+    at("6_inbox", lambda r: r["type"] == "inbox" and r.get("sensor") == STUCK, "6_ticket")
+    at("6_no_repair_at_f6", lambda r: False)
+    b["6_no_repair_at_f6"] = None if any(_cmd(FIX_LEAK, None, STUCK[2:])(r) for r in rows) else b["6_ticket"]
+    at("6_object_report", lambda r: r["type"] == "object_report")
+    at("6_link_cut", lambda r: r["type"] == "link_cut")
     return b
 
 
@@ -641,19 +679,21 @@ def main(argv=None):
     ap.add_argument("--cut-link-at", type=float, default=None)
     ap.add_argument("--replay-from", default="runs/fleet_demo/live_timeline.jsonl")
     ap.add_argument("--out", default="runs/fleet_demo")
-    ap.add_argument("--no-fault", action="store_true")
+    ap.add_argument("--stuck-at", type=float, default=None, help="default: when Unit 2 heads home after the fix")
+    ap.add_argument("--no-stuck", action="store_true")
     ap.add_argument("--drop-object-at", type=float, default=None)
     ap.add_argument("--push-at", type=float, default=None)
     ap.add_argument("--log-hz", type=float, default=5.0)
     a = ap.parse_args(argv)
     out = Path(a.out) / a.control
     out.mkdir(parents=True, exist_ok=True)
-    demo = FleetDemo(a.control, out, a.cut_link_at, a.replay_from, not a.no_fault, a.drop_object_at, a.push_at,
-                     a.log_hz)
+    demo = FleetDemo(a.control, out, a.cut_link_at, a.replay_from, False if a.no_stuck else a.stuck_at,
+                     a.drop_object_at, a.push_at, a.log_hz)
     s = demo.run()
     if a.control == "live":
         (Path(a.out) / "live_timeline.jsonl").write_text((out / "timeline.jsonl").read_text())
-    print(json.dumps({k: s[k] for k in ("control", "t_end", "beats", "nav")}, indent=1))
+        (Path(a.out) / "live_hud.jsonl").write_text((out / "hud.jsonl").read_text())
+    print(json.dumps({k: s[k] for k in ("control", "t_end", "beats", "nav", "dock_unit2")}, indent=1))
     ar = s["argon"]
     print(f"argon {ar['model']}: {ar['calls']} calls, latency {ar['latency_ms']}, cost ${ar['cost_usd']}")
     print("\n".join(ar["commands"]))
