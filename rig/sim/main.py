@@ -97,8 +97,11 @@ def load_cinematic(app, ctx, preset: str, args=None):
     height = cinematic.PRESETS[preset]["wave_height"]
     view = merged_camera(args, scene_path) if merged else None
 
+    remote = args is not None and getattr(args, "render_mode", "local") == "remote"
+
     def update(t: float) -> None:
-        cinematic.animate_ocean(stage, rest, distance, t, height)
+        if not remote:
+            cinematic.animate_ocean(stage, rest, distance, t, height)
         cinematic.animate_effects(stage, t)
         if view is None:
             cinematic.set_camera(stage, path, t % cinematic.SEQUENCE_SECONDS)
