@@ -70,6 +70,12 @@ class SourceEstimator:
         p = np.exp(self.logp)
         return p / p.sum()
 
+    def ellipse_area(self) -> float:
+        p = self.posterior()
+        d = self.cells - p @ self.cells
+        cov = (d * p[:, None]).T @ d
+        return float(4 * math.pi * math.sqrt(max(np.linalg.det(cov), 0.0)))
+
     def estimate(self) -> tuple[np.ndarray, float, np.ndarray]:
         p = self.posterior()
         mean = p @ self.cells
