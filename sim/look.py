@@ -13,6 +13,8 @@ VIEWS = {
     "waterline": {"ev": 0.8, "fstop": 0.0},
     "flare": {"ev": 0.3, "fstop": 0.0},
 }
+ATMOS_EV = {"wide": -0.6, "waterline": -0.3, "flare": -0.3}
+ATMOS_EV_KEYS = ((8.0, 0.0), (60.0, -0.3), (250.0, -0.6))
 LENS_SCALE = 100.0
 BASE_ISO = 100.0
 KELVIN = {2000.0: 2100.0, 4000.0: 4500.0, 6000.0: 7000.0}
@@ -25,6 +27,8 @@ WORK_LIGHT = {"offset": (0.3, 1.0, 1.3), "kelvin": 6500.0, "intensity": 8.0e7, "
               "softness": 0.7}
 TONEMAP = {
     "/rtx/post/tonemap/op": 6,
+    "/rtx/raytracing/fractionalCutoutOpacity": True,
+    "/rtx/pathtracing/fractionalCutoutOpacity": True,
     "/rtx/post/histogram/enabled": False,
 }
 def bloom(scale: float) -> dict:
@@ -67,8 +71,11 @@ def exposure(ev: float) -> dict:
     return {"/rtx/post/tonemap/filmIso": BASE_ISO * 2.0 ** ev}
 
 
-def view_look(view: str | None, distance: float) -> dict:
-    return VIEWS.get(view) or {"ev": ev_at(distance), "fstop": 0.0}
+def view_look(view: str | None, distance: float, atmos: bool = False) -> dict:
+    base = dict(VIEWS.get(view) or {"ev": ev_at(distance), "fstop": 0.0})
+    if atmos:
+        base["ev"] += ATMOS_EV.get(view, 0.0) if view in VIEWS else ev_at(distance, ATMOS_EV_KEYS)
+    return base
 
 
 def rtx_settings(tier: str, ev: float = 0.0) -> dict:

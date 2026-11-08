@@ -21,7 +21,7 @@ TIERS = {
                 "subframes": 16, "spp": 2},
 }
 MEDIA = {
-    "night": {"vis": 240.0, "albedo": (0.6, 0.57, 0.53), "transmit": (0.5, 0.58, 0.62), "height": 52.0, "g": 0.55},
+    "night": {"vis": 600.0, "albedo": (0.35, 0.33, 0.31), "transmit": (0.5, 0.58, 0.62), "height": 52.0, "g": 0.8},
     "storm": {"vis": 170.0, "albedo": (0.82, 0.86, 0.9), "transmit": (0.5, 0.55, 0.6), "height": 70.0, "g": 0.35},
     "golden": {"vis": 420.0, "albedo": (0.95, 0.82, 0.66), "transmit": (0.62, 0.55, 0.48), "height": 60.0, "g": 0.6},
 }
