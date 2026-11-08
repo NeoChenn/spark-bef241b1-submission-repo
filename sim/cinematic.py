@@ -75,6 +75,20 @@ PRESETS = {
         "windows": 0.15,
         "sea_color": (0.01, 0.03, 0.04),
     },
+    "dusk": {
+        "sky": ASSETS / "third_party" / "hdris" / "belfast_sunset_puresky.hdr",
+        "dome": 300.0,
+        "sky_rotation": 333.0,
+        "sun": 1200.0,
+        "sun_rotation": (85.0, 0.0, 205.0),
+        "sun_color": (1.0, 0.52, 0.22),
+        "fog_color": (0.8, 0.45, 0.22),
+        "fog_height": 0.004,
+        "wave_height": 1.0,
+        "lights": 0.5,
+        "windows": 0.8,
+        "sea_color": (0.012, 0.024, 0.03),
+    },
 }
 
 

@@ -13,7 +13,7 @@ VIEWS = {
     "waterline": {"ev": 0.8, "fstop": 0.0},
     "flare": {"ev": 0.3, "fstop": 0.0},
 }
-PRESET_EV = {"storm": -0.7, "golden": 0.3}
+PRESET_EV = {"storm": -0.7, "golden": 0.3, "dusk": 0.0}
 ATMOS_EV = {"wide": -0.6, "waterline": -0.3, "flare": -0.3}
 ATMOS_EV_KEYS = ((8.0, 0.0), (60.0, -0.3), (250.0, -0.6))
 LENS_SCALE = 100.0
