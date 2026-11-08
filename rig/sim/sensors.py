@@ -15,7 +15,7 @@ from rig.views.schedule import Schedule
 ROBOTS = "/World/Obstacles/Robots"
 MOUNTS = {"rust": ((0.35, 0.0, 1.05), (2.0, 0.0, 0.55)), "gas": ((0.3, 0.0, 0.95), (6.0, 0.0, 0.4)),
           "inspection": ((0.32, 0.0, 0.45), (6.0, 0.0, -0.5))}
-LIGHT = 15000.0
+LIGHT = 5000.0
 PATIENCE = 12
 MERGED_META = Path(__file__).resolve().parents[2] / "sim" / "output" / "rig_merged_meta.json"
 
@@ -101,29 +101,12 @@ class SensorRig:
             self.params = None
             print(f"rig sim: camera_params unavailable {exc!r}", flush=True)
         self.texture = getattr(self.rp, "hydra_texture", None)
+        print(f"rig sim: sensor texture pausable={hasattr(self.texture, 'set_updates_enabled')}", flush=True)
         self.rp_prim = self.stage.GetPrimAtPath(getattr(self.rp, "path", ""))
         if self.mode and self.rp_prim.IsValid():
             with self._session():
                 self.rp_prim.CreateAttribute("omni:rtx:rendermode", Sdf.ValueTypeNames.Token).Set(self.mode)
         print(f"rig sim: sensor render product {getattr(self.rp, 'path', None)} valid={self.rp_prim.IsValid()} mode={self.mode}", flush=True)
-
-    def _drop(self) -> None:
-        if self.rp is None:
-            return
-        for ann in (self.rgb, self.depth, self.params):
-            if ann is None:
-                continue
-            try:
-                ann.detach()
-            except Exception as exc:
-                print(f"rig sim: views detach {exc!r}", flush=True)
-        destroy = getattr(self.rp, "destroy", None)
-        if destroy is not None:
-            destroy()
-        elif self.texture is not None and hasattr(self.texture, "set_updates_enabled"):
-            self.texture.set_updates_enabled(False)
-        self.rp = self.rp_prim = self.texture = None
-        print(f"rig sim: sensor render product dropped destroy={destroy is not None}", flush=True)
 
     def _session(self):
         from pxr import Usd
@@ -160,10 +143,8 @@ class SensorRig:
         if ev.get("name") == "views":
             self.on = bool(a.get("on", True))
             self.pending = None
-            if not self.on:
-                self._drop()
-            elif self.cams and self.rp is None:
-                self._product(next(iter(self.cams.values()))["path"])
+            if self.texture is not None and hasattr(self.texture, "set_updates_enabled"):
+                self.texture.set_updates_enabled(self.on)
             print(f"rig sim: views {'on' if self.on else 'off'}", flush=True)
             return True
         if ev.get("name") != "force":
