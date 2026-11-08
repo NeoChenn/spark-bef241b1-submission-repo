@@ -238,6 +238,7 @@
     { id: "bead", t: "Weld bead", k: "4", d: "The brush hits a weld bead at 65 N. The arm backs off and retries softer.", ev: () => ({ name: "force_spike", args: {} }) },
     { id: "worker", t: "Worker walks up", k: "5", tog: 1, d: "A person steps within 3 m. Everything pauses until they leave.", ev: (on) => ({ name: "person_at", args: { distance: on ? 2.4 : null } }) },
     { id: "leak", t: "Gas leak", k: "6", tog: 1, d: "Flange B2 starts leaking. The detectors climb, the plume grows and Control centre ranks a response.", ev: (on) => ({ name: "gas_leak", args: { on } }) },
+    { id: "can", t: "Drop a can", k: "7", d: "A can lands on R1's walkway. The nearest robot with a gripper is dispatched to pick it up.", ev: () => ({ name: "drop_can", args: { at: "R1" } }) },
   ];
   const CMDS = [];
   const cmd = (o) => (CMDS.push(o), o);
@@ -471,6 +472,7 @@
     if (a.id === "mist") { S.mist = a.on; judge(a.on ? "HOLD" : "VERIFY", a.on ? "perception lost (lens mist) -> hold position" : "camera view restored"); }
     if (a.id === "bead") { S.spike = 64.8; S.force = 64.8; push("force", 64.8); S.peak = Math.max(S.peak, 64.8); setTimeout(() => (S.spike = 0), 400); judge("BACK_OFF", "contact force 65 N > 40 N limit -> retract"); }
     if (a.id === "worker") judge(a.on ? "PAUSE_PERSON" : "SCRUB", a.on ? "person at 2.4 m < 3.0 m -> pause" : "person clear -> resume");
+    if (a.id === "can") addLog({ t: S.t, to: "PICK_CAN", reason: "can on R1's walkway -> nearest gripper robot picks it up" });
   }
   let side = 0;
   function shot(n) {
@@ -524,7 +526,7 @@
     if (k === "/") { e.preventDefault(); openPal(); return; }
     if (e.key === "?") { e.preventDefault(); openPal("keys"); return; }
     if (e.code === "Space") { e.preventDefault(); begin(); return; }
-    if (e.shiftKey && /^Digit[1-6]$/.test(e.code)) { fire(EVENTS[+e.code[5] - 1]); return; }
+    if (e.shiftKey && /^Digit[1-7]$/.test(e.code)) { fire(EVENTS[+e.code[5] - 1]); return; }
     if (!e.shiftKey) CMDS.find((c) => c.key === k)?.run();
   });
   let last = now(), frames = 0, fpsT = now();

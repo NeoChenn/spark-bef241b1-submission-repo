@@ -1,0 +1,18 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/fuel_gate_valve/fuel_gate_valve.usdc@
+    )
+    {
+        double3 xformOp:translate = (-0, 0.2472415715456009, -0.00005396000051405281)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}
+

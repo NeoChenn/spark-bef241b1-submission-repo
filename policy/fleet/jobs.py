@@ -3,7 +3,7 @@ from __future__ import annotations
 import bisect
 from dataclasses import dataclass, field
 
-SETUP_S = {"rust": 20.0, "gas": 15.0, "crack": 15.0, "leak_check": 15.0, "inspect": 10.0}
+SETUP_S = {"rust": 20.0, "gas": 15.0, "crack": 15.0, "leak_check": 15.0, "inspect": 10.0, "weld": 20.0, "pick_can": 3.0}
 FLANGE_KINDS = {"gas", "crack", "leak_check"}
 LEAK_SCENARIO = {"clean": "none", "loose": "loose", "crack": "crack", "big": "big"}
 
@@ -42,7 +42,18 @@ def _segments(records) -> list[tuple[float, str, str]]:
     return out
 
 
+def pick_trace(scenario: str) -> JobTrace:
+    from fleet.jobs.pick_can import simulate
+    r = simulate({"seed": scenario})
+    return JobTrace("pick_can", scenario, float(r["time_s"]), r["outcome"], [tuple(p) for p in r["phases"]])
+
+
 def run_orchestrator(kind: str, scenario: str) -> JobTrace:
+    if kind == "weld":
+        from policy.weld.job import weld_trace
+        return weld_trace(scenario)
+    if kind == "pick_can":
+        return pick_trace(scenario)
     from policy.leak.mock import build_rig
     from policy.orchestrator import S
     if kind in FLANGE_KINDS:

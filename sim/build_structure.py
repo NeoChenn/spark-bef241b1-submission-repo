@@ -76,6 +76,7 @@ def make_looks(stage) -> dict:
     looks["ship_window"] = emissive(stage, "ship_window", (3.2, 2.3, 1.3))
     looks["bridge_glass"] = emissive(stage, "bridge_glass", (0.25, 0.4, 0.45))
     looks["nav_red"] = emissive(stage, "nav_red", (40.0, 1.0, 0.6))
+    looks["sign_green"] = emissive(stage, "sign_green", (0.3, 6.0, 1.2))
     looks["nav_green"] = emissive(stage, "nav_green", (0.8, 36.0, 4.0))
     looks["nav_white"] = emissive(stage, "nav_white", (40.0, 40.0, 36.0))
     return looks
@@ -1137,6 +1138,103 @@ def build_laydown(stage, looks, kit, okit):
 
 
 
+PIPE_LOOKS = ("pipe_grey", "pipe_green", "pipe_yellow", "pipe_red", "galv", "pipe_grey")
+RUNS = (
+    ((1.0, -36.95), (24.2, -36.95), 20.0, 1),
+    ((24.8, -36.0), (24.8, 24.2), 20.0, 1),
+    ((0.8, -36.95), (25.0, -36.95), 31.25, -1),
+    ((37.2, -17.0), (37.2, 23.8), 31.25, -1),
+)
+MONITORS = ((24.3, -37.0, 20.0), (0.9, -36.9, 20.0), (24.6, -36.9, 31.25), (37.0, 24.4, 31.25))
+SHOWERS = ((12.5, -36.6, 20.0, 0.0), (24.4, 6.0, 20.0, 90.0), (37.0, 2.0, 31.25, 90.0), (13.0, -36.6, 31.25, 0.0))
+SIGNS = ((6.4, -37.6, 22.3, 0.0), (13.0, -37.6, 22.3, 0.0), (24.9, 9.0, 22.5, 90.0), (2.4, -37.6, 33.6, 0.0),
+         (37.55, -4.6, 33.6, 90.0), (37.55, 12.0, 33.6, 90.0), (24.9, -20.0, 22.5, 90.0), (20.0, -37.6, 33.6, 0.0))
+
+
+def service_run(kit, okit, p0, p1, z0, inward, seed):
+    rng = np.random.default_rng(seed)
+    st = sg.stations_along(p0, p1, 3.0)
+    u, n = np.append(st["dir"], 0.0), np.append(st["normal"] * inward, 0.0)
+    q = zquat(st["angle"])
+    lanes = [(-0.18, 1.55, 0.11), (0.05, 1.55, 0.07), (0.25, 1.55, 0.09), (-0.15, 2.35, 0.06),
+             (0.08, 2.35, 0.12), (0.3, 2.35, 0.05)]
+    a, b = np.append(st["points"][0], z0), np.append(st["points"][-1], z0)
+    for k, (off, h, r) in enumerate(lanes):
+        look = PIPE_LOOKS[k % len(PIPE_LOOKS)]
+        kit.tube(look, a + n * off + (0, 0, h + r), b + n * off + (0, 0, h + r), r)
+    for i, p in enumerate(st["points"]):
+        base = np.append(p, z0)
+        kit.member("proc_grey", "ibeam", base, base + (0, 0, 2.5), (0.12, 0.12))
+        for h in (1.55, 2.35):
+            kit.member("proc_grey", "box", base - n * 0.3 + (0, 0, h - 0.04), base + n * 0.45 + (0, 0, h - 0.04), (0.06, 0.08))
+        if i % 2 == 0 and i < len(st["points"]) - 1:
+            jb = base + u * 1.5 - n * 0.32 + (0, 0, 1.0)
+            kit.add("proc_grey", "box", jb, q, (0.45, 0.18, 0.55))
+            okit.add("black", "box", jb - n * 0.1 + (0, 0, -0.2), q, (0.3, 0.04, 0.05))
+            kit.tube("galv", jb + (0, 0, 0.27), base + u * 1.5 - n * 0.32 + (0, 0, 2.62), 0.025)
+    for k, dz in enumerate((2.65, 2.72, 2.79)):
+        kit.tube("galv", a - n * 0.32 + (0, 0, dz), b - n * 0.32 + (0, 0, dz), 0.025)
+    kit.member("galv", "box", a + n * 0.1 + (0, 0, 2.9), b + n * 0.1 + (0, 0, 2.9), (0.5, 0.02))
+    for side in (-0.15, 0.35):
+        kit.member("galv", "box", a + n * side + (0, 0, 2.95), b + n * side + (0, 0, 2.95), (0.02, 0.1))
+    for k, dy in enumerate((-0.05, 0.08, 0.2)):
+        kit.tube("cable", a + n * dy + (0, 0, 2.96), b + n * dy + (0, 0, 2.96), 0.035)
+    for t in np.arange(1.2, st["length"] - 0.5, 2.2):
+        k = int(rng.integers(len(lanes)))
+        off, h, r = lanes[k]
+        c = a + u * t + n * off + (0, 0, h + r)
+        okit.add("valve_body", "box", c, q, (r * 3.2, r * 2.6, r * 2.6))
+        okit.tube("proc_grey", c, c + (0, 0, r + 0.25), 0.02)
+        okit.add("valve_red" if k % 2 else "crane_yellow", "wheel", c + (0, 0, r + 0.27), scale=(1.0, 1.0, 1.0))
+        if rng.uniform() > 0.5:
+            g = c + u * 0.35 + (0, 0, r + 0.12)
+            okit.tube("galv", c + u * 0.35, g, 0.012)
+            okit.add("mark_white", "cyl", g + (0, 0, 0.06), (0.7071, 0.0, -0.7071, 0.0), (0.04, 0.12, 0.12))
+
+
+def fire_monitor(kit, x, y, z):
+    kit.tube("fire_red", (x, y, z), (x, y, z + 1.3), 0.08)
+    kit.add("fire_red", "box", (x, y, z + 1.4), scale=(0.25, 0.25, 0.2))
+    kit.tube("fire_red", (x, y, z + 1.45), (x + 0.45, y, z + 1.7), 0.06)
+    kit.tube("black", (x + 0.45, y, z + 1.7), (x + 0.7, y, z + 1.85), 0.07)
+    kit.add("crane_yellow", "box", (x - 0.2, y, z + 1.35), scale=(0.08, 0.3, 0.08))
+    kit.tube("fire_red", (x, y, z + 0.35), (x, y + 0.5, z + 0.35), 0.06)
+
+
+def safety_shower(kit, okit, x, y, z, angle):
+    q = zquat(angle)
+    u = np.array((math.cos(math.radians(angle)), math.sin(math.radians(angle)), 0.0))
+    base = np.array((x, y, z))
+    kit.tube("proc_green", base, base + (0, 0, 2.4), 0.05)
+    kit.tube("proc_green", base + (0, 0, 2.4), base + (0, 0, 2.4) + u * 0.55, 0.04)
+    kit.tube("galv", base + (0, 0, 2.3) + u * 0.55, base + (0, 0, 2.4) + u * 0.55, 0.16)
+    kit.tube("proc_green", base + (0, 0, 1.1), base + (0, 0, 1.1) + u * 0.35, 0.03)
+    kit.add("galv", "box", base + (0, 0, 1.15) + u * 0.4, q, (0.3, 0.3, 0.05))
+    kit.add("sign_green", "box", base + (0, 0, 2.0) - u * 0.05, q, (0.04, 0.35, 0.35))
+
+
+def stair_lamps(stage, kit):
+    for n, (origin, z0, z1, axis) in enumerate(STAIRS):
+        st = tf.stair_tower(origin, z0, z1, axis=axis)
+        for k, (centre, size) in enumerate(st["landings"]):
+            c = np.array(centre) + (0, 0, 2.3)
+            kit.add("steel", "box", c + (0, 0, 0.1), scale=(0.35, 0.2, 0.12))
+            kit.add("lamp", "box", c, scale=(0.3, 0.16, 0.04))
+            add_light(stage, light_path("stair", 10 * n + k, False), c - (0, 0, 0.3), 30000.0, 4000, 85.0)
+
+
+def build_complexity(stage, looks, kit, okit):
+    for n, (p0, p1, z0, inward) in enumerate(RUNS):
+        service_run(kit, okit, p0, p1, z0, inward, 40 + n)
+    for x, y, z in MONITORS:
+        fire_monitor(kit, x, y, z)
+    for x, y, z, a in SHOWERS:
+        safety_shower(kit, okit, x, y, z, a)
+    for x, y, z, a in SIGNS:
+        kit.add("sign_green", "box", (x, y, z), zquat(a), (0.6, 0.04, 0.3))
+    stair_lamps(stage, kit)
+
+
 def build_process(stage, looks, kit, okit):
     dropped = trim_stl(stage)
     build_tank(stage, looks, kit, okit)
@@ -1150,6 +1248,7 @@ def build_process(stage, looks, kit, okit):
     dropped += hide_topside_utilities(stage)
     build_gensets(stage, looks, kit, okit)
     build_laydown(stage, looks, kit, okit)
+    build_complexity(stage, looks, kit, okit)
     return dropped
 
 
@@ -1194,7 +1293,7 @@ def build() -> Path:
     for group in ("", "/Looks", "/Columns", "/Underside", "/Lights", "/Inst", "/Offline", "/Offline/Drips", "/Offline/Lights", "/Helideck", "/Lifeboats", "/Ship", "/Process", "/Offline/Inst"):
         UsdGeom.Scope.Define(stage, f"{s.ROOT}{group}")
     looks = make_looks(stage)
-    for name in ("galv", "black", "pipe_grey", "pipe_green", "pipe_yellow", "pipe_red"):
+    for name in ("galv", "black", "pipe_grey", "pipe_green", "pipe_yellow", "pipe_red", "valve_red"):
         looks[name] = UsdShade.Material(stage.OverridePrim(f"/World/Looks/topside_{name}"))
     looks["cable"] = looks["black"]
     legs = read_legs()
@@ -1202,7 +1301,8 @@ def build() -> Path:
     kit.meshes.update(stiff=sg.ring_mesh(leg_radius(legs) - 0.05, leg_radius(legs) + 0.38, 0.32, SIDES),
                       seam=sg.ring_mesh(leg_radius(legs) - 0.02, leg_radius(legs) + 0.03, 0.05, SIDES),
                       wedge=wedge_mesh(), hoop=hoop_mesh(), shroud=sg.ring_mesh(0.95, 1.02, 1.6, 32),
-                      dome=sphere_cap(0.16), tank_ring=sg.ring_mesh(3.98, 4.12, 0.14, 48))
+                      dome=sphere_cap(0.16), tank_ring=sg.ring_mesh(3.98, 4.12, 0.14, 48),
+                      wheel=sg.ring_mesh(0.11, 0.14, 0.025, 16))
     build_columns(stage, looks, kit, legs)
     landing_leg = max(legs, key=lambda l: l["top"][0] - l["top"][1])
     build_landing(stage, looks, kit, landing_leg)

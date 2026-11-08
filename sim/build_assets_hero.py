@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import math
+import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -93,7 +95,47 @@ def wall_item(stage, parent, index, asset, x, y, face, height):
     place(stage, parent, f"{asset}_{index:02d}", asset, pos, rot, 1.0, centre_z=True)
 
 
+PROTOS = ah.LAYER.parent / "hero_protos"
+
+
+def proto(asset: str) -> str:
+    path = PROTOS / f"{asset}.usda"
+    if not path.exists():
+        file = sorted((ASSETS / "models" / asset).glob("*.usdc"))[0]
+        _, lo, hi = source(asset)
+        stage = Usd.Stage.CreateNew(str(path))
+        UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
+        UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+        root = UsdGeom.Xform.Define(stage, "/proto")
+        stage.SetDefaultPrim(root.GetPrim())
+        geo = UsdGeom.Xform.Define(stage, "/proto/geo")
+        geo.GetPrim().GetReferences().AddReference(os.path.relpath(file, PROTOS))
+        geo.AddTranslateOp().Set(Gf.Vec3d(-(lo[0] + hi[0]) / 2, -(lo[1] + hi[1]) / 2, -lo[2]))
+        local = {f.stem: f for f in (ASSETS / "models" / asset).rglob("*.*")}
+        for prim in Usd.PrimRange(geo.GetPrim()):
+            for attr in prim.GetAttributes():
+                if attr.GetTypeName() != Sdf.ValueTypeNames.Asset:
+                    continue
+                value = attr.Get()
+                if value and value.path.startswith("/") and Path(value.path).stem in local:
+                    attr.Set(Sdf.AssetPath(os.path.relpath(local[Path(value.path).stem], PROTOS)))
+        stage.GetRootLayer().Save()
+    return f"./{PROTOS.name}/{asset}.usda"
+
+
+def instance(stage, parent: str, name: str, asset: str, pos, rot: float, scale: float):
+    holder = UsdGeom.Xform.Define(stage, f"{parent}/{name}")
+    holder.AddTranslateOp().Set(Gf.Vec3d(*pos))
+    holder.AddRotateZOp().Set(float(rot))
+    holder.AddScaleOp().Set(Gf.Vec3f(scale))
+    model = stage.DefinePrim(f"{holder.GetPath()}/model", "Xform")
+    model.GetReferences().AddReference(proto(asset))
+    model.SetInstanceable(True)
+
+
 def build() -> Path:
+    shutil.rmtree(PROTOS, ignore_errors=True)
+    PROTOS.mkdir(parents=True)
     if ah.LAYER.exists():
         ah.LAYER.unlink()
     stage = Usd.Stage.CreateNew(str(ah.LAYER))
@@ -114,11 +156,17 @@ def build() -> Path:
         wall_item(stage, f"{ah.ROOT}/Wall", index, asset, x, y, face, height)
     for index, (asset, x, y, rot, height) in enumerate(ah.HUNG):
         place(stage, f"{ah.ROOT}/Hung", f"{asset}_{index:02d}", asset, (x, y, ah.DECK + height), rot, 1.0, centre_z=True)
+    UsdGeom.Scope.Define(stage, f"{ah.ROOT}/Dense")
+    for index, (asset, x, y, rot, lift) in enumerate(ah.DENSE):
+        instance(stage, f"{ah.ROOT}/Dense", f"{asset}_{index:02d}", asset, (x, y, ah.DECK + lift), rot,
+                 ah.DENSE_SCALE.get(asset, 1.0))
+    for index, (asset, x, y, rot, lift) in enumerate(ah.DENSE_OFFLINE):
+        place(stage, f"{ah.ROOT}/Dense", f"{asset}_{index:02d}", asset, (x, y, ah.DECK + lift), rot, 1.0)
     for path in ah.HIDE:
         stage.OverridePrim(path).SetActive(False)
     stage.GetRootLayer().GetPrimAtPath("/World").specifier = Sdf.SpecifierOver
     stage.GetRootLayer().Save()
-    print(f"ASSETS_HERO_WRITTEN {ah.LAYER} items={len(ah.PLACE) + len(ah.WALL) + len(ah.HUNG) + len(ah.REPAIR_BG)} hidden={len(ah.HIDE)}")
+    print(f"ASSETS_HERO_WRITTEN {ah.LAYER} items={len(ah.PLACE) + len(ah.WALL) + len(ah.HUNG) + len(ah.REPAIR_BG) + len(ah.DENSE) + len(ah.DENSE_OFFLINE)} hidden={len(ah.HIDE)}")
     return ah.LAYER
 
 

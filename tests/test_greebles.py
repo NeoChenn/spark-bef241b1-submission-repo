@@ -111,3 +111,38 @@ def test_cables_cross_walkways_only_at_protectors():
         for x, y, _ in pts:
             if g.route_distance(x, y) < 0.3:
                 assert min(math.dist((x, y), c) for c, _ in g.PROTECTORS) < 0.6
+
+
+def test_puddles_stay_on_deck_and_out_of_work_zone():
+    items = g.puddle_layout()
+    assert len(items) > 20
+    for x, y, size, rot, shape in items:
+        assert abs(x) <= g.DECK_LIMIT[0] and abs(y) <= g.DECK_LIMIT[1]
+        assert not g.in_work_zone(x, y, 0.3)
+        assert 0.4 < size < 1.6 and shape in range(4)
+
+
+def test_puddle_layout_is_deterministic():
+    assert g.puddle_layout() == g.puddle_layout()
+
+
+def test_mirror_point_reflects_through_the_deck():
+    p = g.mirror_point((0.0, 0.0, 2.0), (4.0, 0.0, 2.0))
+    assert p == (2.0, 0.0)
+    assert g.mirror_point((0.0, 0.0, 3.0), (4.0, 0.0, 1.0)) == (3.0, 0.0)
+    assert g.mirror_point((0.0, 0.0, -1.0), (4.0, 0.0, 1.0)) is None
+
+
+def test_reflection_sheets_stay_on_deck_out_of_work_zone():
+    sheets = g.reflection_sheets(eyes=[(3.0, 7.2, 2.6), (6.5, 9.0, 4.5)])
+    assert sheets
+    for x, y, r in sheets:
+        assert abs(x) <= g.DECK_LIMIT[0] and abs(y) <= g.DECK_LIMIT[1]
+        assert not g.in_work_zone(x, y, 0.4)
+        assert 0.5 <= r <= 1.1
+
+
+def test_hero_path_eyes_are_close_to_the_zone():
+    eyes = g.hero_eyes()
+    assert len(eyes) >= 8
+    assert all(math.dist(e[:2], (0.0, 0.0)) < 30.0 for e in eyes)

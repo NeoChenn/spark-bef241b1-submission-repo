@@ -102,3 +102,57 @@ def test_preset_exposure_offsets():
     night = look.view_look("wide", 250.0, True)["ev"]
     assert look.view_look("wide", 250.0, True, "storm")["ev"] == pytest.approx(night + look.PRESET_EV["storm"])
     assert look.view_look("wide", 250.0, True, "golden")["ev"] > night
+
+
+def test_dusk_grade_warmer_highlights():
+    img = np.full((8, 8, 3), 200, np.uint8)
+    night, dusk = look.grade(img, "live", 0.0), look.grade(img, "live", 0.0, "dusk")
+    assert int(dusk[4, 4, 0]) - int(dusk[4, 4, 2]) > int(night[4, 4, 0]) - int(night[4, 4, 2])
+
+
+def test_dusk_exposure_darkens_far_hazy_views_and_lifts_close_ones():
+    assert look.view_look("wide", 250.0, True, "dusk")["ev"] < look.view_look("wide", 250.0, True)["ev"]
+    assert look.view_look("repair", 1.9, True, "dusk")["ev"] > look.view_look("repair", 1.9, True)["ev"]
+
+
+def test_sun_direction_points_at_sky_source():
+    d = look.sun_direction((85.0, 0.0, 205.0))
+    assert np.linalg.norm(d) == pytest.approx(1.0)
+    assert 0.05 < d[2] < 0.12
+    az = np.degrees(np.arctan2(d[1], d[0])) % 360
+    assert az == pytest.approx(115.0, abs=1.0)
+    assert look.sun_direction((0.0, 0.0, 0.0))[2] == pytest.approx(1.0)
+
+
+def test_bloom_threshold_raised():
+    b = look.bloom(0.1)
+    assert b["/rtx/post/lensFlares/cutoffPoint"] == [look.BLOOM_CUTOFF] * 3
+
+
+def _cam(eye, target, w=320, h=180):
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from rig.camera import look_at
+
+    return look_at(eye, target, 24.0, 20.955, w, h)
+
+
+def test_inscatter_glows_toward_sun_and_with_distance():
+    img = np.full((180, 320, 3), 20, np.uint8)
+    sun = look.sun_direction((85.0, 0.0, 205.0))
+    eye = (0.0, 0.0, 10.0)
+    toward = _cam(eye, np.add(eye, np.multiply(sun, 100.0)))
+    away = _cam(eye, np.subtract(eye, np.multiply(sun, 100.0)))
+    far = np.full((180, 320), 800.0, np.float32)
+    near = np.full((180, 320), 3.0, np.float32)
+    a = look.inscatter(img, far, toward, "dusk", sun)
+    b = look.inscatter(img, far, away, "dusk", sun)
+    c = look.inscatter(img, near, toward, "dusk", sun)
+    assert a.shape == img.shape and a.dtype == np.uint8
+    assert a.mean() > b.mean() > img.mean()
+    assert c.mean() < a.mean()
+    assert a[..., 0].mean() > a[..., 2].mean()
+    assert look.inscatter(img, far, toward, "night", sun) is img
+    assert look.inscatter(img, None, toward, "dusk", sun) is img

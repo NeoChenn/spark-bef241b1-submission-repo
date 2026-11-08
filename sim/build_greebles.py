@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, Vt
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -870,6 +870,201 @@ def grit(kit, root, grit_look):
                     (rng.uniform(0.015, 0.04), rng.uniform(0.01, 0.025), 0.003))
 
 
+QUARTERS = (((0, 0.5), (0.5, 1)), ((0.5, 0.5), (1, 1)), ((0, 0), (0.5, 0.5)), ((0.5, 0), (1, 0.5)))
+
+
+def puddles(root):
+    mask = g.TEXTURES / "puddles_mask.png"
+    damp = decal_look("damp_patch", None, mask, roughness=0.22, tint=(0.03, 0.03, 0.03), strength=0.75)
+    water = pr.puddle_material(S(), f"{LOOKS}/puddle_water", rel(pr.PUDDLE_MDL))
+    for k, (x, y, size, rot, shape) in enumerate(g.puddle_layout()):
+        a = math.radians(rot)
+        u, v = (math.cos(a), math.sin(a), 0), (-math.sin(a), math.cos(a), 0)
+        write_mesh(f"{root}/damp_{k:02d}", quad_mesh((x, y, 0.0028 + 0.00002 * k), u, v, size * 0.8, size * 0.8,
+                                                     QUARTERS[(shape + 1) % 4]), damp)
+        pr.make_puddle(S(), f"{root}/water_{k:02d}", (x, y, 0.0), size * 0.42, seed=k, material=water)
+    for k, (x, y, r) in enumerate(g.reflection_sheets()):
+        write_mesh(f"{root}/sheet_damp_{k:02d}", quad_mesh((x, y, 0.0026 + 0.00002 * k), (1, 0, 0), (0, 1, 0), r * 1.6, r * 1.6,
+                                                           QUARTERS[k % 4]), damp)
+        pr.make_puddle(S(), f"{root}/sheet_{k:02d}", (x, y, 0.0005), r, seed=100 + k, material=water)
+        for j in range(2):
+            a = 2.4 * j + 0.9 * k
+            pr.make_puddle(S(), f"{root}/sheet_{k:02d}_{j}", (x + 0.75 * r * math.cos(a), y + 0.75 * r * math.sin(a), 0.001 * (j + 1)),
+                           r * 0.55, seed=200 + 7 * k + j, material=water)
+
+
+PRACTICAL_EMIT = {"led": (14.0, 16.0, 20.0), "sodium": (20.0, 8.5, 1.4), "red": (24.0, 0.7, 0.3), "green": (0.6, 18.0, 2.4)}
+PRACTICAL_LIGHT = {"led": ((0.78, 0.86, 1.0), 45000.0), "sodium": ((1.0, 0.55, 0.16), 40000.0)}
+
+
+def unlit_emissive(name, color):
+    material = UsdShade.Material.Define(S(), f"{LOOKS}/{name}")
+    shader = UsdShade.Shader.Define(S(), f"{LOOKS}/{name}/surface")
+    shader.CreateIdAttr("UsdPreviewSurface")
+    shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.05, 0.05, 0.05))
+    shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
+    material.CreateSurfaceOutput().ConnectToSource(shader.CreateOutput("surface", Sdf.ValueTypeNames.Token))
+    return str(material.GetPath())
+
+
+def practicals(kit, root):
+    looks = {k: unlit_emissive(f"practical_{k}", c) for k, c in PRACTICAL_EMIT.items()}
+    sign = emissive_look("practical_sign", g.TEXTURES / "muster.jpg", g.TEXTURES / "muster.jpg", 3.0)
+    for n, (kind, (x, y, z), face) in enumerate(g.PRACTICALS):
+        nx, ny = g.facing(face)
+        if kind == "led":
+            kit.seg(MAT["galv"], "cyl", (x - nx * 0.06, y - ny * 0.06, 0.0), (x - nx * 0.06, y - ny * 0.06, z + 0.15), 0.06)
+            kit.box(MAT["galv"], (x - nx * 0.06, y - ny * 0.06, 0.01), (0.25, 0.25, 0.02))
+            kit.box(MAT["grey"], (x, y, z), (0.07 if nx else 0.7, 0.07 if ny else 0.7, 0.09))
+            kit.box(looks["led"], (x + nx * 0.036, y + ny * 0.036, z - 0.01), (0.01 if nx else 0.64, 0.01 if ny else 0.64, 0.05))
+        elif kind == "sodium":
+            kit.box(MAT["black"], (x, y, z + 0.12), (0.12 if nx else 0.3, 0.12 if ny else 0.3, 0.08))
+            kit.add(looks["sodium"], "sphere", (x + nx * 0.08, y + ny * 0.08, z), IDENT, (0.11, 0.11, 0.09))
+            kit.add(MAT["galv"], "torus", (x + nx * 0.08, y + ny * 0.08, z), X_TO_Z, (0.12, 0.12, 0.12))
+        elif kind in ("red", "green"):
+            if z < 0.8:
+                kit.seg(MAT["yellow"], "cyl", (x, y, 0.0), (x, y, z - 0.05), 0.07)
+            kit.seg(MAT["black"], "cyl", (x, y, z - 0.06), (x, y, z - 0.02), 0.09)
+            kit.add(looks[kind], "sphere", (x, y, z + 0.02), IDENT, (0.045, 0.045, 0.06))
+        else:
+            kit.seg(MAT["galv"], "cyl", (x, y - 0.05, 0.0), (x, y - 0.05, z + 0.2), 0.06)
+            kit.box(MAT["grey"], (x, y - 0.02, z), (0.56, 0.06, 0.4))
+            write_mesh(f"{root}/sign_face_{n}", quad_mesh((x, y + 0.012, z), (-1, 0, 0), (0, 0, 1), 0.26, 0.18), sign)
+        if n in g.PRACTICAL_LIGHTS:
+            color, intensity = PRACTICAL_LIGHT[kind]
+            light = UsdLux.SphereLight.Define(S(), f"{root}/light_{n}")
+            light.CreateRadiusAttr(0.06)
+            light.CreateIntensityAttr(intensity)
+            light.CreateColorAttr(Gf.Vec3f(*color))
+            light.AddTranslateOp().Set(Gf.Vec3d(x + nx * 0.12, y + ny * 0.12, z))
+
+
+def framing(kit):
+    x, y, h = g.FRAMING_POLE
+    kit.seg(MAT["black"], "cyl", (x, y, 0.0), (x, y, h), 0.3)
+    for z in (0.9, 2.6):
+        kit.seg(MAT["black"], "cyl", (x, y, z - 0.03), (x, y, z + 0.03), 0.44)
+    kit.box(MAT["black"], (x, y, 0.015), (0.5, 0.5, 0.03))
+
+
+
+def drip_streaks(root):
+    looks = [decal_look(f"drip_{tex}", None, ASSETS / "decals" / tex / "opacity.jpg", roughness=0.35,
+                        tint=(0.16, 0.07, 0.03), strength=0.9) for tex in ("Leaking008", "Leaking009", "Leaking001")]
+    for k, ((x, y), h, t) in enumerate(g.STREAK_SUPPORTS):
+        write_mesh(f"{root}/drip_{k:02d}", quad_mesh((x, y + 0.006, h / 2), (-1, 0, 0), (0, 0, 1), 0.065, h / 2), looks[t])
+
+
+def drums(kit):
+    looks = {"blue": f"{LOOKS}/drum_blue", "red": f"{LOOKS}/drum_red", "grey": MAT["grey"], "rust": MAT["steel_rust"],
+             "tipped": MAT["steel_rust"]}
+    for x, y, kind in g.DRUMS:
+        look = looks[kind]
+        if kind == "tipped":
+            kit.seg(look, "cyl", (x - 0.44, y, 0.29), (x + 0.44, y, 0.29), 0.58)
+            for dx in (-0.15, 0.15):
+                kit.add(look, "torus", (x + dx, y, 0.29), IDENT, (0.3, 0.3, 0.3))
+            continue
+        kit.seg(look, "cyl", (x, y, 0.0), (x, y, 0.88), 0.58)
+        for z in (0.29, 0.59, 0.87):
+            kit.add(look, "torus", (x, y, z), X_TO_Z, (0.295, 0.295, 0.295))
+        kit.seg(MAT["galv"], "cyl", (x + 0.15, y + 0.05, 0.88), (x + 0.15, y + 0.05, 0.9), 0.06)
+    x, y = 2.95, 3.9
+    kit.seg(MAT["galv"], "cyl", (x, y, 0.0), (x, y, 1.5), 0.05)
+    write_mesh(f"{g.ZONE_ROOT}/Dress/drum_sign", atlased(quad_mesh((x, y + 0.03, 1.32), (-1, 0, 0), (0, 0, 1), 0.15, 0.15),
+                                                     "hazard_flammable"), atlas_look())
+
+
+def crates(kit, wood, wood_dark):
+    for x, y, rot, kind, stack in g.CRATES:
+        q = zrot(rot)
+        for level in range(stack):
+            z = 0.25 + level * 0.5
+            jitter = 0.04 * level
+            if kind == "wood":
+                kit.add(wood, "box", (x + jitter, y, z), q, (0.8, 0.6, 0.5))
+                for dz in (-0.18, 0.0, 0.18):
+                    kit.add(wood_dark, "box", (x + jitter, y, z + dz), q, (0.82, 0.62, 0.05))
+            else:
+                kit.add(f"{LOOKS}/crate_blue" if level % 2 == 0 else f"{LOOKS}/crate_yellow", "box", (x + jitter, y, z - 0.08), q,
+                        (0.6, 0.4, 0.32))
+                kit.add(MAT["black"], "box", (x + jitter, y, z + 0.0), q, (0.62, 0.3, 0.05))
+
+
+def pallets(kit, wood):
+    for x, y, rot, count in g.PALLETS:
+        q = zrot(rot)
+        a = math.radians(rot)
+        ux, uy = math.cos(a), math.sin(a)
+        for level in range(count):
+            z0 = level * 0.145
+            for dy in (-0.45, 0.0, 0.45):
+                kit.add(wood, "box", (x - uy * dy, y + ux * dy, z0 + 0.05), q, (1.2, 0.1, 0.1))
+            for dx in np.linspace(-0.54, 0.54, 7):
+                kit.add(wood, "box", (x + ux * dx, y + uy * dx, z0 + 0.122), q, (0.11, 1.0, 0.022))
+
+
+def tarped(kit, root, tarp, wood):
+    for n, (x, y, rot) in enumerate(g.TARPED):
+        boxes = [((x - 0.55, y - 0.4), (x + 0.05, y + 0.4), 1.0), ((x + 0.07, y - 0.35), (x + 0.6, y + 0.35), 0.7)]
+        for (bx0, by0), (bx1, by1), top in boxes:
+            kit.box(wood, ((bx0 + bx1) / 2, (by0 + by1) / 2, top / 2), (bx1 - bx0, by1 - by0, top))
+        res = 30
+        xs, ys, zs = dg.drape(boxes, (x - 0.85, y - 0.65, x + 0.85, y + 0.65), 0.0, res, seed=9 + n, fall=0.28)
+        pts = np.stack([xs, ys, zs], -1).reshape(-1, 3)
+        i, j = np.meshgrid(np.arange(res - 1), np.arange(res - 1), indexing="ij")
+        a = i * res + j
+        quads = np.stack([a, a + res, a + res + 1, a + 1], -1).reshape(-1)
+        write_mesh(f"{root}/tarp_{n}", mesh_data(pts, np.full(len(quads) // 4, 4), quads, np.stack([xs, ys], -1).reshape(-1, 2)), tarp,
+                   double=True)
+        for k, dx in enumerate((-0.3, 0.35)):
+            strap = np.array([(x + dx, y - 0.65, 0.01), (x + dx, y - 0.4, 0.9), (x + dx, y + 0.4, 0.9), (x + dx, y + 0.65, 0.01)])
+            write_mesh(f"{root}/tarp_strap_{n}_{k}", tube_part(dg.spline(strap, 6), 0.008, 5), f"{LOOKS}/cable_orange")
+
+
+def wet_signs(kit, root):
+    look = decal_look("wet_sign", g.TEXTURES / "wet_sign.jpg", g.TEXTURES / "solid_mask.png", roughness=0.4)
+    for k, (x, y, rot) in enumerate(g.WET_SIGNS):
+        a = math.radians(rot)
+        fwd = np.array((math.cos(a), math.sin(a), 0.0))
+        side = np.array((-math.sin(a), math.cos(a), 0.0))
+        for s_ in (-1, 1):
+            tilt = math.radians(12)
+            normal = fwd * s_ * math.cos(tilt) + np.array((0, 0, math.sin(tilt)))
+            up = np.cross(normal, side * s_)
+            up = up / np.linalg.norm(up)
+            if up[2] < 0:
+                up = -up
+            c = np.array((x, y, 0.0)) + fwd * s_ * 0.09 + up * 0.31
+            write_mesh(f"{root}/wet_sign_{k}_{s_ + 1}", quad_mesh(tuple(c), tuple(-side * s_), tuple(up), 0.15, 0.3), look)
+            write_mesh(f"{root}/wet_sign_back_{k}_{s_ + 1}", quad_mesh(tuple(c - normal * 0.006), tuple(side * s_), tuple(up), 0.15, 0.3),
+                       MAT["yellow"])
+
+
+def dress(kit):
+    root = f"{g.ZONE_ROOT}/Dress"
+    UsdGeom.Scope.Define(S(), root)
+    paint_look("drum_blue", (0.05, 0.14, 0.38), chip=0.5, rust=0.25, scale=0.5)
+    paint_look("drum_red", (0.45, 0.06, 0.04), chip=0.5, rust=0.25, scale=0.5)
+    paint_look("crate_blue", (0.05, 0.16, 0.42), chip=0.0, grime_amount=0.6, scale=0.5)
+    paint_look("crate_yellow", (0.7, 0.5, 0.05), chip=0.0, grime_amount=0.6, scale=0.5)
+    wood = str(paint_look("crate_wood", (0.4, 0.29, 0.16), chip=0.0, grime_amount=0.7, scale=0.4).GetPath())
+    wood_dark = str(paint_look("crate_wood_dark", (0.25, 0.17, 0.09), chip=0.0, grime_amount=0.8, scale=0.4).GetPath())
+    tarp = paint_look("tarp_blue", (0.03, 0.1, 0.24), chip=0.0, grime_amount=0.6, scale=1.2)
+    puddles(root)
+    drip_streaks(root)
+    drums(kit)
+    crates(kit, wood, wood_dark)
+    pallets(kit, wood)
+    tarped(kit, root, tarp, wood)
+    wet_signs(kit, root)
+    practicals(kit, root)
+    framing(kit)
+    x, y = g.GAS_RACK
+    write_mesh(f"{root}/rack_sign", atlased(quad_mesh((x, y + 0.21, 1.25), (-1, 0, 0), (0, 0, 1), 0.13, 0.17), "no_smoking"),
+               atlas_look())
+
+
 def clutter(kit):
     root = f"{g.ZONE_ROOT}/Clutter"
     UsdGeom.Scope.Define(S(), root)
@@ -957,6 +1152,7 @@ def build(path=g.LAYER) -> dict:
     drains(kit)
     debris(kit)
     clutter(kit)
+    dress(kit)
     UsdGeom.Xform.Define(stage, g.OFFLINE)
     offzone = UsdGeom.Xform.Define(stage, f"{g.OFFLINE}/Zone")
     offzone.AddTranslateOp().Set(Gf.Vec3d(*g.ZONE_T))

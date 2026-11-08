@@ -8,9 +8,14 @@ COPY rig ./rig
 COPY policy/__init__.py policy/gemini_verifier.py ./policy/
 COPY policy/fleet ./policy/fleet
 COPY policy/control ./policy/control
+COPY policy/weld ./policy/weld
+COPY fleet/__init__.py fleet/contract.py ./fleet/
+COPY fleet/jobs/__init__.py fleet/jobs/pick_can.py ./fleet/jobs/
+COPY policy/gasbot/__init__.py policy/gasbot/locate.py policy/gasbot/plume.py policy/gasbot/sensors.py ./policy/gasbot/
 COPY sim/output/full_rig_meta.json sim/output/leak_flanges_meta.json ./sim/output/
 COPY runs_sample/fleet/fleet_state.json runs_sample/fleet/fleet_map.json ./runs_sample/fleet/
 COPY runs_sample/bench/*.json ./runs_sample/bench/
 COPY runs_sample/hud ./runs_sample/hud
+COPY runs_sample/loop/replay.jsonl runs_sample/loop/summary.json ./runs_sample/loop/
 RUN uv sync --frozen --no-dev
 CMD ["/app/.venv/bin/uvicorn", "rig.web.server:app", "--host", "127.0.0.1", "--port", "8080"]

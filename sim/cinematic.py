@@ -9,6 +9,7 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 import assets_hero
 import facade
 import flare_fx
+import weather
 import greebles
 import look
 import ocean
@@ -74,6 +75,21 @@ PRESETS = {
         "lights": 0.0,
         "windows": 0.15,
         "sea_color": (0.01, 0.03, 0.04),
+    },
+    "dusk": {
+        "sky": ASSETS / "hdris" / "belfast_sunset_puresky.hdr",
+        "dome": 180.0,
+        "sky_rotation": 333.0,
+        "sun": 1200.0,
+        "sun_rotation": (85.0, 0.0, 205.0),
+        "sun_color": (1.0, 0.52, 0.22),
+        "fog_color": (0.8, 0.45, 0.22),
+        "fog_height": 0.004,
+        "wave_height": 1.0,
+        "lights": 0.7,
+        "windows": 0.8,
+        "sea_color": (0.012, 0.024, 0.03),
+        "sun_disc": 1.0,
     },
 }
 
@@ -454,11 +470,67 @@ def _relight(prim, f: dict) -> None:
         shaping.CreateShapingFocusAttr().Set(f["focus"])
     lens = prim.GetChild("lens")
     if lens:
-        glow = emissive_material(prim.GetStage(), f"fixture_glow_{int(f['kelvin'])}", tuple(c * 40 for c in color))
+        glow = emissive_material(prim.GetStage(), f"fixture_glow_{int(f['kelvin'])}", tuple(c * 18 for c in color))
         UsdShade.MaterialBindingAPI.Apply(lens).Bind(glow)
 
 
+BEACON_GAIN = 0.35
+FILL = {"center": (18.75, -5.75, 46.3), "size": (9.0, 6.0), "kelvin": 4200.0, "intensity": 220.0}
+
+
+def tame_beacons(stage) -> None:
+    red = UsdShade.Shader.Get(stage, "/World/Looks/lamp_red/surface")
+    if red:
+        red.GetInput("emissiveColor").Set(Gf.Vec3f(9.0, 0.3, 0.14))
+    for index, _, _, intensity, _ in RED_BEACONS:
+        light = stage.GetPrimAtPath(f"/World/Cinematic/Lamps/lamp_{index:03d}/light")
+        if light:
+            light.GetAttribute("inputs:intensity").Set(intensity * BEACON_GAIN)
+            base = light.GetAttribute("spark:baseIntensity")
+            if base.IsValid():
+                base.Set(intensity * BEACON_GAIN)
+
+
+def add_fill(stage) -> None:
+    path = "/World/Cinematic/Lamps/zone_fill"
+    if stage.GetPrimAtPath(path):
+        return
+    light = UsdLux.RectLight.Define(stage, path)
+    light.CreateWidthAttr(FILL["size"][0])
+    light.CreateHeightAttr(FILL["size"][1])
+    light.CreateIntensityAttr(FILL["intensity"])
+    light.CreateColorAttr(Gf.Vec3f(*kelvin_rgb(FILL["kelvin"])))
+    light.GetPrim().CreateAttribute("primvars:doNotCastShadows", Sdf.ValueTypeNames.Bool).Set(False)
+    UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(*FILL["center"]))
+
+
+def place_sun_disc(stage, preset: dict) -> None:
+    path = "/World/Cinematic/SunDisc"
+    gain = preset.get("sun_disc", 0.0)
+    prim = stage.GetPrimAtPath(path)
+    if not prim and gain <= 0:
+        return
+    if not prim:
+        disc = UsdGeom.Sphere.Define(stage, path)
+        disc.CreateRadiusAttr(look.SUN_DISC["radius"])
+        disc.AddTranslateOp()
+        for flag in ("doNotCastShadows", "invisibleToSecondaryRays"):
+            disc.GetPrim().CreateAttribute(f"primvars:{flag}", Sdf.ValueTypeNames.Bool).Set(True)
+        UsdShade.MaterialBindingAPI.Apply(disc.GetPrim()).Bind(emissive_material(stage, "sun_disc", (0.0, 0.0, 0.0)))
+        prim = disc.GetPrim()
+    d = np.asarray(look.sun_direction(preset["sun_rotation"])) * look.SUN_DISC["distance"]
+    prim.GetAttribute("xformOp:translate").Set(Gf.Vec3d(*(d + np.array(WIDE_CENTER))))
+    UsdShade.Shader.Get(stage, "/World/Looks/sun_disc/surface").GetInput("emissiveColor").Set(
+        Gf.Vec3f(*(c * look.SUN_DISC["gain"] * gain for c in look.SUN_DISC["color"])))
+    UsdGeom.Imageable(prim).GetVisibilityAttr().Set("inherited" if gain > 0 else "invisible")
+
+
+WIDE_CENTER = (4.0, -6.0, 30.0)
+
+
 def relight(stage) -> None:
+    tame_beacons(stage)
+    add_fill(stage)
     lamps = "/World/Cinematic/Lamps"
     for index, (kind, _, kelvin, intensity, _, shape) in enumerate(AREA_LIGHTS):
         _relight(stage.GetPrimAtPath(f"{lamps}/area_{500 + index:03d}"),
@@ -529,20 +601,28 @@ def add_deck_floods(stage, gain: float = 1.0) -> None:
         _relight(stage.GetPrimAtPath(path), look.fixture("spot", kelvin, intensity * gain, cone))
 
 
+CURRENT = {"time": "night"}
+
+
 def apply_preset(stage, name: str) -> None:
-    preset = PRESETS[name]
     assets_hero.attach(stage)
-    facade.apply(stage, preset["windows"])
     photoreal.apply(stage, name)
     greebles.apply(stage)
     structure.apply(stage, name)
     hero_mat.apply(stage, name)
-    ocean_fx.apply(stage, name, preset["wave_height"])
     flare_fx.attach(stage)
     relight(stage)
     add_deck_floods(stage)
     add_zone_spot(stage)
     add_work_light(stage)
+    set_time(stage, name)
+
+
+def set_time(stage, name: str, atm=None) -> None:
+    preset = PRESETS[name]
+    CURRENT["time"] = name
+    facade.apply(stage, preset["windows"])
+    ocean_fx.apply(stage, name, preset["wave_height"])
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))
     dome.GetIntensityAttr().Set(preset["dome"])
@@ -555,6 +635,7 @@ def apply_preset(stage, name: str) -> None:
     sun.GetColorAttr().Set(Gf.Vec3f(*preset["sun_color"]))
     sun_prim.GetAttribute("xformOp:rotateXYZ").Set(Gf.Vec3f(*preset["sun_rotation"]))
 
+    place_sun_disc(stage, preset)
     sea = UsdShade.Shader.Get(stage, "/World/Looks/cinematic_sea/surface")
     sea.GetInput("diffuseColor").Set(Gf.Vec3f(*preset["sea_color"]))
     window = UsdShade.Shader.Get(stage, "/World/Looks/window_glass/surface")
@@ -578,6 +659,9 @@ def apply_preset(stage, name: str) -> None:
             settings.set_bool(path, value)
         else:
             settings.set_float(path, value)
+    if atm is not None:
+        atm.preset = name
+        atm.set_weather(atm.w)
 
 
 CAMERA_KEYS = (
@@ -624,7 +708,7 @@ def animate_effects(stage, time: float) -> None:
         wave = math.sin(time * (7.0 + index * 1.7) + index * 2.1) * 0.5 + math.sin(time * 13.0 + index) * 0.5
         stretch = 2.2 + 0.32 * wave
         prim.GetAttribute("xformOp:scale").Set(Gf.Vec3f(1.0 + 0.12 * wave, 1.0 + 0.12 * wave, stretch))
-    flare_fx.update(stage, time)
+    flare_fx.update(stage, time, weather.flare_wind(flare_fx.WIND))
     pulse = 0.55 + 0.45 * max(math.sin(time * 2.2), 0.0)
     strobe = 1.0 if (time % 1.6) < 0.12 else 0.02
     for index, level in [(b[0], pulse) for b in RED_BEACONS] + [(i, strobe) for i, _ in STROBES]:

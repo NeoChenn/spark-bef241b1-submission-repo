@@ -1,0 +1,18 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/fuel_cable_spool/fuel_cable_spool.usdc@
+    )
+    {
+        double3 xformOp:translate = (-0, 0.29999998211860657, 0.49240389466285706)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+    }
+}
+

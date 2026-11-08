@@ -1,0 +1,67 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/hand_truck/hand_truck_1k.usdc@
+    )
+    {
+        double3 xformOp:translate = (1.4901161193847656e-8, 0.2506285607814789, 0.00004776567220687866)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        over "_materials"
+        {
+            over "hand_truck"
+            {
+                over "Image_Texture"
+                {
+                    asset inputs:file = @../../assets/third_party/models/hand_truck/textures/hand_truck_diff_1k.jpg@
+                }
+
+                over "Image_Texture_001"
+                {
+                    asset inputs:file = @../../assets/third_party/models/hand_truck/textures/hand_truck_metal_1k.exr@
+                }
+
+                over "Image_Texture_002"
+                {
+                    asset inputs:file = @../../assets/third_party/models/hand_truck/textures/hand_truck_rough_1k.exr@
+                }
+
+                over "Image_Texture_003"
+                {
+                    asset inputs:file = @../../assets/third_party/models/hand_truck/textures/hand_truck_nor_gl_1k.exr@
+                }
+
+                over "NodeGraphs"
+                {
+                    over "bnode__Image_Texture_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/hand_truck/textures/hand_truck_diff_1k.jpg@
+                    }
+
+                    over "bnode__Image_Texture_001_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/hand_truck/textures/hand_truck_metal_1k.exr@
+                    }
+
+                    over "bnode__Image_Texture_002_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/hand_truck/textures/hand_truck_rough_1k.exr@
+                    }
+
+                    over "bnode__Image_Texture_003_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/hand_truck/textures/hand_truck_nor_gl_1k.exr@
+                    }
+                }
+            }
+        }
+    }
+}
+
