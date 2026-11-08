@@ -1393,10 +1393,15 @@ def main(argv=None):
             from integration import scrub_motion as smo
 
             w_ = smo.windows_from_timeline(scn.rows)
-            p_ = scn.pose("unit1", w_.get("spray", w_.get("deploy", 0.0)))
-            sjob = smo.ScrubJob(patch=smo.first_rust_grid(scn.rows), scrub_pose=(p_[0], p_[1], 0.0))
-            sjob.plan(t_deploy=w_["deploy"], t_spray=w_["spray"], t_soak=w_["soak"], t_scrub=w_["scrub"],
-                      t_verify=w_["verify"], t_paint=w_["paint"], t_done=w_["stow"])
+            if hasattr(smo, "film_job"):
+                sjob = smo.film_job(str(resolve(tl)))
+            else:
+                p_ = scn.pose("unit1", w_.get("spray", w_.get("deploy", 0.0)))
+                sjob = smo.ScrubJob(patch=smo.first_rust_grid(scn.rows), scrub_pose=(p_[0], p_[1], 0.0))
+                sjob.plan(t_deploy=w_["deploy"], t_spray=w_["spray"], t_soak=w_["soak"], t_scrub=w_["scrub"],
+                          t_verify=w_["verify"], t_paint=w_["paint"], t_done=w_["stow"])
+            if sjob.plan_ is None:
+                sjob.plan()
             if brush is not None:
                 from policy.brush_squish import BrushPad
 
@@ -1405,7 +1410,7 @@ def main(argv=None):
         except Exception as exc:
             print(f"[fleet] scrub motion unavailable: {exc}", flush=True)
             sjob = None
-    hold1 = 0.0
+    hold1, last_base1, turn1 = 0.0, None, 0.0
     motion = None
     if args.film and tools["unit2"] == "socket_tip":
         try:
@@ -1476,16 +1481,19 @@ def main(argv=None):
         s1 = None
         if sjob is not None and sjob.plan_.t[0] <= t <= sjob.plan_.t[-1]:
             s1 = sjob.at(t)
+            last_base1 = np.array(s1["base"], float)
             still1 = abs(units["unit1"].v) < 0.05 and abs(units["unit1"].w) < 0.15
-            hold1 = min(1.0, hold1 + 2.0 * dt) if still1 else max(0.0, hold1 - 2.0 * dt)
+            hold1 = min(1.0, hold1 + dt) if still1 else max(0.0, hold1 - dt)
         else:
             hold1 = max(0.0, hold1 - 2.0 * dt)
+        if 0 < hold1 < 1:
+            turn1 += 0.35 * dt
         for rid, u in units.items():
             model = models[rid]
             moving = abs(u.v) > 0.05 or abs(u.w) > 0.15
             bx, by, byaw = u.x, u.y, u.yaw
-            if rid == "unit1" and s1 is not None and hold1 > 0:
-                sb = s1["base"]
+            if rid == "unit1" and last_base1 is not None and hold1 > 0:
+                sb = last_base1
                 s3 = hold1 * hold1 * (3 - 2 * hold1)
                 syaw_ = math.atan2(sb[1, 0], sb[0, 0])
                 bx, by = bx + s3 * (sb[0, 3] - bx), by + s3 * (sb[1, 3] - by)
@@ -1509,7 +1517,8 @@ def main(argv=None):
             shown[rid] = (bx, by, byaw, bz)
             target_q = dict(q[rid])
             if trot_q is not None:
-                legs = trot_q(u.dist, abs(u.v) + 0.25 * abs(u.w) if moving else 0.0)
+                legs = trot_q(u.dist + (turn1 if rid == "unit1" else 0.0),
+                              (abs(u.v) + 0.25 * abs(u.w) if abs(u.v) + abs(u.w) > 0.05 else 0.3) if moving else 0.0)
                 target_q.update({j: v for j, v in legs.items() if "thigh" in j or "calf" in j})
             else:
                 target_q.update(gait(STANDING, u.dist / 0.18 * math.pi, 1.0 if moving else 0.0))
