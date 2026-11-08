@@ -50,7 +50,7 @@ def test_gas_scenario_runs_every_beat_and_handles_every_disturbance():
     out = m.event("scenario", {"id": "gas"})
     assert out == {"scenario": "gas", "selected": "R2"}
     h = m.header()
-    assert h["selected"] == "R2" and h["camera_mode"] == {"mode": "wide", "robot": None}
+    assert h["selected"] == "R2" and h["camera_mode"] == {"mode": "deck", "robot": None, "view": None}
     assert m.take_sim() == [{"name": "set_weather", "args": {"level": "rain", "time": "dusk", "rain": 0.8, "fog": 0.6,
                                                               "wind_dir": 240.0}}]
     seen = {"seeker": set(), "valve_by": set(), "frozen": False}
@@ -144,9 +144,15 @@ def test_header_shapes_and_select():
     assert all(set(d) == {"id", "name", "fired"} for d in s["disturbances"])
     assert all(isinstance(v["highlight"], list) for v in h["sensors"].values())
     assert m.event("select", {"robot": "unit-3"}) == {"selected": "R3"}
-    assert m.header()["camera_mode"] == {"mode": "chase", "robot": "R3"}
+    assert m.header()["camera_mode"]["mode"] == "deck"
     assert m.event("select", {"robot": None}) == {"selected": None}
-    assert m.header()["camera_mode"]["mode"] == "wide"
+    assert m.header()["camera_mode"]["mode"] == "deck"
+    assert set(m.header()["cam_views"]) >= {"rust", "weld"}
+    out = m.event("camera", {"mode": "zoom", "view": "rust"})
+    assert out["camera"] == {"mode": "zoom", "robot": None, "view": "rust"}
+    assert m.take_sim()[-1] == {"name": "camera", "args": {"mode": "zoom", "at": m.scen.targets()["rust"], "view": "rust"}}
+    with pytest.raises(ValueError):
+        m.event("camera", {"mode": "zoom", "view": "flange"})
     with pytest.raises(ValueError):
         m.event("select", {"robot": "R9"})
     m.event("scenario", {"id": "flyby"})

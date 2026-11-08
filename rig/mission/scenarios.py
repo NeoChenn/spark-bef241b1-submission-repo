@@ -444,7 +444,7 @@ class Scenarios:
         self.alerts: list[dict] = []
         self.seq = 0
         self.selected: str | None = None
-        self.camera = {"mode": "flyby", "robot": None}
+        self.camera = {"mode": "flyby", "robot": None, "view": None}
         self.mine: set = set()
         self.asked: set = set()
         self.last_i = None
@@ -480,7 +480,7 @@ class Scenarios:
         self.hazard("set_weather", **WEATHER)
         m.sim_out.append({"name": "set_weather", "args": dict(WEATHER)})
         self.selected = s.main or None
-        self.camera = {"mode": "flyby" if sid == "flyby" else "wide", "robot": None}
+        self.camera = {"mode": "flyby" if sid == "flyby" else "deck", "robot": None, "view": None}
         self.last_i = None
         self.alerts = []
         m.note("Operator", "SCENARIO", f"{s.name} started")
@@ -556,15 +556,58 @@ class Scenarios:
     def select(self, rid) -> dict:
         if rid in (None, "", "null"):
             self.selected = None
-            self.camera = {"mode": "wide" if self.cur is None or self.cur.id != "flyby" else "flyby", "robot": None}
             return {"selected": None}
         from rig.mission.live import robot_id
         out = robot_id(rid, self.m.ids())
         if out is None:
             raise ValueError(f"unknown robot {rid!r}; expected one of {self.m.ids()}")
         self.selected = out
-        self.camera = {"mode": "chase", "robot": out}
         return {"selected": out}
+
+    def pos(self, poi):
+        f = self.m.fleet.f
+        n = f.rm.poi_node.get(poi)
+        return None if n is None else [float(v) for v in f.rm.pos[n][:3]]
+
+    def targets(self) -> dict:
+        s, f = self.cur, self.m.fleet.f
+        out = {}
+        obs = [o for o in f.hz.obstacles.values() if o.get("xyz")]
+        if obs:
+            out["obstacle"] = list(obs[-1]["xyz"])
+        cans = [o for o in obs if o.get("kind") == "can" or o.get("task")]
+        if s is None or s.id == "flyby":
+            return out
+        if s.id == "gas":
+            fl = self.m.valves.get(s.flange, s.valve_xyz)
+            out["flange"], out["weld"] = list(fl), list(s.seam[1])
+            out["deck"] = [(a + b) / 2 for a, b in zip(fl, s.seam[1])]
+        elif s.id == "patrol":
+            r = s.robot("R3")
+            out["deck"] = list(cans[-1]["xyz"]) if cans else [11.0, -6.0, 42.5]
+            if cans:
+                out["can"] = list(cans[-1]["xyz"])
+            elif r is not None:
+                out["can"] = [float(v) for v in r.pos[:3]]
+        elif s.id == "repair":
+            rust = (self.pos(s.poi) or [18.75, -5.75, 42.5])[:2] + [43.1]
+            out["rust"], out["weld"], out["deck"] = rust, list(s.seam[1]), rust
+        return out
+
+    def set_camera(self, args: dict) -> dict:
+        mode, view = args.get("mode"), args.get("view")
+        if mode in ("flyby", "rig"):
+            self.camera = {"mode": mode, "robot": None, "view": None}
+            return {"camera": self.camera}
+        tg = self.targets()
+        key = "deck" if mode == "deck" else "obstacle" if mode == "obstacle" else view
+        at = tg.get(key)
+        if at is None:
+            raise ValueError(f"no {key or mode} view here; have {sorted(tg)}")
+        cam = "zoom" if mode == "zoom" else mode
+        self.camera = {"mode": cam, "robot": None, "view": key if cam == "zoom" else None}
+        self.m.sim_out.append({"name": "camera", "args": {"mode": cam, "at": at, "view": self.camera["view"]}})
+        return {"camera": self.camera, "views": [k for k in ("rust", "can", "flange", "weld") if k in tg]}
 
     def tick(self) -> None:
         s = self.cur
@@ -610,7 +653,7 @@ class Scenarios:
 
     def header(self) -> dict:
         s = self.cur
-        out = {"selected": self.selected, "camera_mode": dict(self.camera), "alerts": list(self.alerts)}
+        out = {"selected": self.selected, "camera_mode": dict(self.camera), "cam_views": [k for k in ("rust", "can", "flange", "weld", "obstacle") if k in self.targets()], "alerts": list(self.alerts)}
         if s is None or s.id == "flyby":
             out["scenario"] = None
             return out

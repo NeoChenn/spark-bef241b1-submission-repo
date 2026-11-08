@@ -17,7 +17,7 @@ from rig.mission.jobs import MissionPort
 from rig.mission.obsviews import ObsViews
 from rig.mission.scenarios import Scenarios, gust_force, highlight, shielded
 
-SCEN_EVENTS = ("scenario", "disturb", "select")
+SCEN_EVENTS = ("scenario", "disturb", "select", "camera")
 FLEET_EVENTS = ("drop_obstacle", "drop_can", "close_walkway", "close_stairs", "clear", "set_weather", "weld_job")
 ROLE = {"pick_can": "pick-up", "weld": "weld", "rust": "rust", "gas": "gas", "leak_check": "leak check", "inspect": "inspection", "crack": "crack"}
 RUST = ("DETECT", "SPRAY", "SOAK", "SCRUB", "VERIFY", "PAINT", "APPROACH", "BACK_OFF", "GRIND", "WELD", "INSPECT_WELD")
@@ -266,7 +266,8 @@ class MissionLive:
         with self.lock:
             if name in SCEN_EVENTS:
                 out = self.scen.start(str(args.get("id") or "")) if name == "scenario" else \
-                    self.scen.disturb() if name == "disturb" else self.scen.select(args.get("robot"))
+                    self.scen.disturb() if name == "disturb" else self.scen.set_camera(args) if name == "camera" else \
+                    self.scen.select(args.get("robot"))
                 self._fleet_events()
                 return out
             out = self._event(name, args)

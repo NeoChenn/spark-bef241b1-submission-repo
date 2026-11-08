@@ -123,6 +123,11 @@
     post("select", { robot: rid });
   }
   function wide() { S.mc = true; S.g = false; setSel(null); }
+  const ZN = { rust: "Rust", can: "Can", flange: "Flange F3", weld: "Weld seam", obstacle: "Obstacle" };
+  const cm = () => (S.h.camera_mode && typeof S.h.camera_mode === "object" ? S.h.camera_mode : {});
+  function cam(mode, view) { S.mc = true; post("camera", view ? { mode, view } : { mode }); }
+  function rigDeck() { cam(cm().mode === "deck" ? "rig" : "deck"); }
+  function zoom() { const v = (S.h.cam_views || []).filter((k) => k !== "obstacle"); if (!v.length) { toast("No close-up here", "Start a scenario first"); return; } const i = v.indexOf(cm().view); cam("zoom", v[(i + 1) % v.length]); }
   function pick(n) { const rid = "R" + n; if (ids().length && !ids().includes(rid)) { toast(`No ${rid} on the rig`, "Robots reporting: " + ids().join(", ")); return; } setSel(rid); }
   function closeCard() { if (onDemand(S.card) && S.sel) post("views", { robot: S.sel, on: false }); S.card = null; }
   function toggleCard(k) {
@@ -319,7 +324,9 @@
   function rows() {
     const s = scen(), sid = s?.id || (S.h.scenario?.id ?? "flyby"), rid = selected(), R = [];
     SCEN.forEach(([id, label, sub, key]) => R.push({ g: "Scenarios", id: "scen." + id, label, sub, key, on: sid === id, run: () => startScenario(id) }));
-    R.push({ g: "Views", id: "view.0", label: "Mission Control", sub: "Wide view, fleet and inbox", key: "0", on: mode() === "mc", run: wide });
+    R.push({ g: "Views", id: "view.rig", label: "Rig", sub: "Wide exterior camera", key: "0", on: cm().mode === "rig" || cm().mode === "flyby", run: () => cam("rig") });
+    R.push({ g: "Views", id: "view.deck", label: "Deck", sub: "Fixed camera over the work area", key: "0", on: cm().mode === "deck", run: () => cam("deck") });
+    (S.h.cam_views || []).forEach((k) => R.push({ g: "Views", id: "view.z." + k, label: k === "obstacle" ? "Obstacle" : "Zoom: " + ZN[k], sub: k === "obstacle" ? "Latest drop on the walkway" : "Close fixed camera", key: k === "obstacle" ? "" : "Z", on: cm().view === k || (k === "obstacle" && cm().mode === "obstacle"), run: () => (k === "obstacle" ? cam("obstacle") : cam("zoom", k)) }));
     ["R1", "R2", "R3"].forEach((r, n) => R.push({ g: "Views", id: "view." + r, label: `${UNITS[r][0]} · ${r}`, sub: (ids().includes(r) ? task(r) : UNITS[r][1]), key: String(n + 1), on: rid === r, run: () => pick(n + 1) }));
     Object.entries(CARDS).forEach(([k, [, title]]) => R.push({ g: "Views", id: "card." + k, label: title, sub: rid ? `${rid}, right card` : "Select a robot first", key: k.toUpperCase(), on: S.card === k && !!rid, run: () => toggleCard(k) }));
     R.push({ g: "Views", id: "strip", label: "Sensor strip", sub: "Readings along the bottom", key: "S", on: S.strip, run: () => (S.strip = !S.strip) });
@@ -371,7 +378,7 @@
   list.addEventListener("click", (e) => { const li = e.target.closest("li[data-i]"); if (li) runRow(items[+li.dataset.i]); });
   addEventListener("pointerdown", (e) => { if (S.spot && !spot.contains(e.target)) closeSpot(); });
 
-  const HELP = [["⌘K", "Spotlight"], ["0", "Mission Control"], ["1 2 3", "Select a robot"], ["F", "Head camera"], ["B", "Detection boxes"], ["L", "Lidar"], ["D", "Depth"], ["S", "Sensor strip"],
+  const HELP = [["⌘K", "Spotlight"], ["0", "Rig ↔ Deck camera"], ["Z", "Next close-up"], ["1 2 3", "Select a robot"], ["F", "Head camera"], ["B", "Detection boxes"], ["L", "Lidar"], ["D", "Depth"], ["S", "Sensor strip"],
     ["G", "Gemini panel"], ["I", "Next disturbance"], ["⇧1 ⇧2 ⇧3", "Start a scenario"], ["esc", "Back to fly-by"], ["M", "Mute"], ["?", "This card"]];
   function help() {
     const el = $("help");
@@ -405,7 +412,7 @@
     qrLib.then(() => new QRCode(box, { text: PAD, width: 180, height: 180, colorDark: "#1d1a18", colorLight: "#F5F4EE", correctLevel: QRCode.CorrectLevel.M }));
   }
 
-  const KEYS = { 0: wide, 1: () => pick(1), 2: () => pick(2), 3: () => pick(3), f: () => toggleCard("f"), b: () => toggleCard("b"), l: () => toggleCard("l"), d: () => toggleCard("d"),
+  const KEYS = { 0: rigDeck, z: zoom, 1: () => pick(1), 2: () => pick(2), 3: () => pick(3), f: () => toggleCard("f"), b: () => toggleCard("b"), l: () => toggleCard("l"), d: () => toggleCard("d"),
     s: () => (S.strip = !S.strip), g: () => (S.g = !S.g), i: disturb, m: mute };
   addEventListener("keydown", (e) => {
     const k = e.key.toLowerCase();
