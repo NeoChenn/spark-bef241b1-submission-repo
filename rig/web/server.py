@@ -421,6 +421,8 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
                 raise HTTPException(400, str(e))
             fleet_changed()
         pending.append(ev)
+        if mission is not None and hasattr(mission, "take_sim"):
+            pending.extend(mission.take_sim())
         queued = len(pending)
         flush()
         if current["writer"] is not None:

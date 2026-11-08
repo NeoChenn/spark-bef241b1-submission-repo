@@ -21,6 +21,7 @@ from policy.fleet.tasks import KIND_BASE, NEEDS, OPEN, URGENT, Task, priority
 GAS_ZONE_M = 8.0
 HOT_WORK_M = 15.0
 HOT_WORK = {"weld"}
+GAS_EXEMPT = ("gas", "valve")
 JOB_EVENTS = ("weld_job",)
 PERSON_RADIUS_M = 3.0
 CREW_HOLD_S = 300.0
@@ -149,7 +150,7 @@ class Fleet:
         elif ev.kind == "gas_alarm":
             fid = d["flange"]
             self._supersede(fid)
-            t = self.add_task("gas", fid, scenario=d.get("scenario", "loose"))
+            t = self.add_task("gas", fid, scenario=d.get("scenario", "loose"), only=d.get("only"))
             self.alarms[t.id] = {"flange": fid, "t": self.t, "responder": None, "response_s": None,
                                  "resolved_s": None, "outcome": None}
             self._log("gas_alarm", f"GAS ALARM at flange {fid} -> pre-empt nearest robot, clear "
@@ -212,7 +213,7 @@ class Fleet:
                           f"{ob_kind} {h['id']}")
             if kind == "drop_can":
                 msg += f", {task.id} queued for the nearest gripper robot"
-            elif ob_kind == "barrel":
+            elif ob_kind == "barrel" and not d.get("static"):
                 at = d.get("at") if d.get("at") is not None else self.robots[0].id
                 rid = at if isinstance(at, str) else at.get("robot") if isinstance(at, dict) else None
                 rob = next((r for r in self.robots if r.id == rid), None)
@@ -497,11 +498,11 @@ class Fleet:
                    for z in self._gas_zones())
 
     def _fits(self, r: Robot, t: Task) -> bool:
-        return NEEDS.get(t.kind, frozenset()) <= r.caps
+        return NEEDS.get(t.kind, frozenset()) <= r.caps and (t.only is None or t.only == r.id)
 
     def _assignable(self, t: Task) -> bool:
         return (t.status == "pending" and t.node not in self._blocked
-                and (t.kind == "gas" or not self._in_gas(t.node, self._zone_m(t.kind))))
+                and (t.kind in GAS_EXEMPT or not self._in_gas(t.node, self._zone_m(t.kind))))
 
     def _mid(self, r: Robot) -> Optional[Leg]:
         return next((lg for lg in r.legs if lg.t0 <= self.t < lg.t1), None)
@@ -657,7 +658,7 @@ class Fleet:
 
     def _suspend_gas_zone(self) -> None:
         for r in self.robots:
-            if r.task is not None and r.task.kind != "gas" and self._in_gas(r.task.node, self._zone_m(r.task.kind)):
+            if r.task is not None and r.task.kind not in GAS_EXEMPT and self._in_gas(r.task.node, self._zone_m(r.task.kind)):
                 tid, hot = r.task.id, r.task.kind in HOT_WORK
                 self._release(r)
                 why = f"hot work within {HOT_WORK_M:.0f} m of gas, arc off" if hot else "inside gas zone"

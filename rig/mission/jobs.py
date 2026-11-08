@@ -71,7 +71,7 @@ class MissionPort:
 
     def _dispatch(self, j: dict) -> bool:
         kind = FLEET_KIND.get(j["kind"])
-        if kind is None or not self._known(j["target"]):
+        if kind is None or (j.get("params") or {}).get("gate") or not self._known(j["target"]):
             return False
         with self.fleet.lock:
             t = self.fleet.f.add_task(kind, j["target"])
