@@ -12,7 +12,7 @@ from isaaclab.sensors import ContactSensor, ContactSensorCfg
 from isaaclab.utils.math import sample_uniform
 
 from policy.envs.pickcan_env_cfg import CANS, PickCanEnvCfg, can_spawn_cfg
-from policy.pickcan import core
+from policy.pickcan import core, geom
 
 DOWN = (0.0, 0.0, -1.0)
 READY_TIP = (0.1, 0.2, 0.55)
@@ -64,6 +64,8 @@ class PickCanEnv(DirectRLEnv):
         self.wrench_f, self.wrench_t = z3(), z3()
         self.break_why = torch.zeros(N, 4, device=dev)
         self.phi_prev = torch.full((N,), float("nan"), device=dev)
+        self.rays = geom.ray_grid(cfg.depth_rays, cfg.depth_fov, dev)
+        self.geom_fit = None
         self._started = False
         self._randomize_bodies()
 
@@ -259,7 +261,38 @@ class PickCanEnv(DirectRLEnv):
         yaw = torch.atan2(ax[:, 1], ax[:, 0]) + self.det_yaw_bias * near
         return p, yaw, ax[:, 2].abs() < 0.7
 
+    def sense_geometry(self):
+        c = self.cfg
+        can_p, can_R, _, _ = self._can_state()
+        lift = self._robot.data.joint_pos[:, self.lift_id]
+        eye = torch.stack([torch.full_like(lift, c.shoulder_xy[0]), torch.full_like(lift, c.shoulder_xy[1]),
+                           c.depth_cam_z + lift], -1)
+        aim = can_p + self.det_bias
+        Rc = geom.look_basis(eye, aim)
+        pts, hit = geom.raycast_can(eye, Rc, self.rays, can_p, can_R, self.can_r, self.can_h)
+        pts = pts + (pts - eye[:, None, :]) * c.depth_noise * torch.randn_like(pts[..., :1])
+        hit = hit & (torch.rand_like(pts[..., 0]) > c.depth_dropout)
+        self.geom_fit = geom.fit_cylinder(pts, hit)
+        return self.geom_fit
+
+    def geom_grasp(self):
+        f = self.geom_fit
+        return torch.where((f["conf"] > 0.1)[:, None], f["grasp"], self.grasp_estimate())
+
+    def geo_obs(self):
+        c = self.cfg
+        d = self._robot.data
+        tip_p, _, tip_v, _ = self._tip()
+        tote = torch.tensor([core.TOTE_CENTER[0], core.TOTE_CENTER[1], c.carry_z], device=self.device)
+        o = torch.cat([
+            geom.geom_obs(self.geom_fit, tip_p), tip_p * 2.0, tip_v, (self.p_tgt - tip_p) * 10.0,
+            d.joint_pos[:, [self.lift_id]] * 3.0, d.joint_pos[:, self.arm_ids],
+            self.sealed[:, None].float(), self.suction[:, None].float(), (tote - tip_p) * 3.0,
+            (self.tool_force / 40.0)[:, None], self.actions], -1)
+        return torch.nan_to_num(o).clamp(-10.0, 10.0)
+
     def _get_observations(self) -> dict:
+        self.sense_geometry()
         c = self.cfg
         d = self._robot.data
         tip_p, tip_R, tip_v, _ = self._tip()

@@ -71,7 +71,9 @@ def main(argv):
     from policy.envs.scrub_env import _add_backdrop
     from policy.night_look import grade
     from policy.pickcan import core
+    from policy.pickcan import detect as DT
     from policy.pickcan.detect import detect_cans
+    DT.S_MIN = 0.8
     from policy.pickcan.script import NAMES, ScriptedPicker
 
     CANS_ROT = CANS[args.kind:] + CANS[:args.kind]
@@ -147,13 +149,14 @@ def main(argv):
     K = intrinsics(14.0, wrist.aperture, WW, WH)
 
     def place_cams(t):
-        a = -0.75 - 0.25 * math.sin(0.3 * t)
-        eye = np.array([math.cos(a) * 2.1, math.sin(a) * 2.1, 0.95 + 0.08 * math.sin(0.25 * t)])
-        wide.look(eye + origin, np.array([-0.02, -0.18, 0.3]) + origin)
+        a = -1.05 - 0.2 * math.sin(0.3 * t)
+        eye = np.array([0.1 + math.cos(a) * 2.3, -0.2 + math.sin(a) * 2.3, 1.35 + 0.08 * math.sin(0.25 * t)])
+        wide.look(eye + origin, np.array([0.0, -0.22, 0.22]) + origin)
         tip, R = (x[0].cpu().numpy() for x in u._tip()[:2])
         out = np.array([tip[0] + 0.01, tip[1], 0.0])
         out = out / max(np.linalg.norm(out), 1e-6)
-        e = tip + np.array([0.0, 0.0, 0.24]) - 0.12 * out
+        side = np.array([-out[1], out[0], 0.0])
+        e = tip + np.array([0.0, 0.0, 0.2]) - 0.1 * out + 0.09 * side
         wrist.look(e + origin, tip + np.array([0.0, 0.0, -0.45]) + 0.22 * out + origin)
 
     for _ in range(3):
@@ -189,7 +192,7 @@ def main(argv):
         u.sim.render()
         rgb = np.asarray(cams[("wide", "rgb")].get_data())
         wr = np.asarray(cams[("wrist", "rgb")].get_data())
-        dp = np.asarray(cams[("wrist", "distance_to_image_plane")].get_data())
+        dp = np.asarray(cams[("wrist", "distance_to_image_plane")].get_data()).squeeze()
         if rgb.size == 0 or wr.size == 0:
             continue
         rgb, wr = rgb[..., :3].copy(), wr[..., :3].copy()

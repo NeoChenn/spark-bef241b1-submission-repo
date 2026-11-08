@@ -4,8 +4,8 @@ import random
 
 from fleet.contract import Finding, Job, JobResult, JobStatus, Level, Robot, RobotKind, World, register
 
-SUCCESS_P = 0.9
-TIME_S = 9.0
+SUCCESS_P = 0.875
+TIME_S = 11.3
 RETRIES = 1
 FORCE_N = 18.0
 FORCE_LIMIT_N = 40.0

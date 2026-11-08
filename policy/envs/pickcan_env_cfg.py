@@ -52,7 +52,7 @@ def can_spawn_cfg(nominal_mass: float = 0.3):
 @configclass
 class PickCanEnvCfg(DirectRLEnvCfg):
     decimation = 4
-    episode_length_s = 12.0
+    episode_length_s = 16.0
     action_space = 5
     observation_space = 57
     state_space = 0
@@ -83,8 +83,13 @@ class PickCanEnvCfg(DirectRLEnvCfg):
     det_sigma_yaw: float = 0.1
     det_jitter: float = 0.003
     det_close: float = 0.3
+    depth_cam_z: float = 0.84
+    depth_rays: int = 32
+    depth_fov: float = 0.4
+    depth_noise: float = 0.004
+    depth_dropout: float = 0.2
 
-    action_scale: float = 0.012
+    action_scale: float = 0.02
     lift_scale: float = 0.005
     lift_max: float = 0.3
     max_target_gap: float = 0.06
@@ -92,7 +97,7 @@ class PickCanEnvCfg(DirectRLEnvCfg):
     work_hi: tuple = (0.6, 0.6, 0.85)
     rot_weight: float = 0.6
     max_dq: float = 0.1
-    ik_step: float = 0.005
+    ik_step: float = 0.01
 
     seal_gap: float = 0.012
     seal_margin: float = 0.01
