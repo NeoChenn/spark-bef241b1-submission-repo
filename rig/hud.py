@@ -61,13 +61,15 @@ def evidence(orch, h: dict) -> dict:
 
 
 class HudFeed:
-    def __init__(self, orch, rid: str = "unit-1", name: str = "Unit 1 · rust", pose=None, camera=None, peers=()):
+    def __init__(self, orch, rid: str = "unit-1", name: str = "Unit 1 · rust", pose=None, camera=None, peers=(),
+                 control=None, zone: str = "A", extra=None):
         self.orch = orch
         self.rid, self.name, self.pose, self.camera, self.peers = rid, name, pose, camera, list(peers)
         self.seen = 0
         self.last_perceived = None
         self.verdict_seen = None
         self.source = "EDGE"
+        self.control, self.zone, self.extra = control, zone, extra
 
     def header(self) -> dict:
         o = self.orch
@@ -113,6 +115,10 @@ class HudFeed:
         if o.last is not None and o.last is not self.last_perceived and o.last_image is not None:
             self.last_perceived = o.last
             out["inspection"] = thumb(o.last_image, o.last.result.mask)
+        if self.control is not None:
+            from policy.control.adapters import from_header, merge
+            snap = from_header(out, self.rid, self.zone)
+            out["control"] = self.control.tick(merge(snap, self.extra() if self.extra else None))
         return out
 
     def robot(self, h: dict | None = None) -> dict:
@@ -308,6 +314,8 @@ def record_mock(path, log_path: str = "runs/repair/decisions.jsonl") -> dict:
         for key in ("rust_grid", "sprayed", "painted", "target"):
             if snaps[k][key] == snaps[k - 1][key]:
                 del snaps[k][key]
+    from policy.control.mock import attach_control
+    attach_control(snaps, Path(path).parent / "control_calls.jsonl")
     session = {"snapshots": snaps, "duration": snaps[-1]["pt"]}
     session["fleet"] = mock_fleet(snaps[-1]["pt"] + FLEET_GAP, snaps[-1]["t"] + 20.0)
     Path(path).parent.mkdir(parents=True, exist_ok=True)

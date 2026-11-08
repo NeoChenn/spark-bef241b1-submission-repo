@@ -118,3 +118,22 @@ def test_record_mock_session(tmp_path):
     assert "rust_grid" in snaps[0]
     assert any("BACK_OFF" == s["state"] for s in snaps)
     assert all(s["pt"] >= 0 for s in snaps)
+    ctl = [s["control"] for s in snaps if s.get("control")]
+    assert ctl and all(c["model"].startswith("gemini-4-argon") for c in ctl)
+    kinds = {(a["source"], a["kind"]) for c in ctl for a in c["actions"]}
+    assert {("edge", "back_off"), ("edge", "evacuate"), ("edge", "pause"), ("cloud", "dispatch")} <= kinds
+    assert any(c["banner"] and "OFFLINE" in c["banner"] for c in ctl)
+    assert any(c["vetoed"] for c in ctl)
+    assert any(a["kind"] == "probable_leak" for c in ctl for a in c["anomalies"])
+    assert snaps[-1]["control"]["key"] == "done"
+    assert (tmp_path / "control_calls.jsonl").read_text().count("\n") >= 8
+
+
+def test_header_includes_control_when_attached(orch):
+    from policy.control.backend import ReplayBackend
+    from policy.control.centre import ControlCentre
+    feed = HudFeed(orch, control=ControlCentre(ReplayBackend(), log_path=None))
+    orch.step()
+    h = feed.header()
+    assert h["control"]["mode"] == "CLOUD" and h["control"]["situation"]
+    json.dumps(h)
