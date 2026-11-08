@@ -56,6 +56,8 @@ RECIPES = {
     "topside_yellow": _paint(YELLOW, chip=0.7, rust=0.3),
     "safety_yellow": _paint(YELLOW, chip=0.7, rust=0.3),
     "walkway_line": _paint(YELLOW, chip=0.9, rust=0.1, streak_amount=0.0),
+    "zone_marking": _paint(YELLOW, chip=0.9, rust=0.05, streak_amount=0.0),
+    "lamp_pole": _paint(GREY, chip=0.6, rust=0.3),
     "derrick": _paint(WHITE, chip=0.6, rust=0.3),
     "tank": _paint(WHITE, chip=0.45, rust=0.18),
     "module_white": _paint(WHITE, chip=0.45, rust=0.15),
