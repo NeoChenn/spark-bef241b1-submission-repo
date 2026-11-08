@@ -160,11 +160,12 @@
     dock.firstElementChild.hidden = !p;
     dock.firstElementChild.style.clipPath = p ? `path("${p}")` : "";
   }
+  const prio = (p) => (typeof p.priority === "function" ? p.priority(S) : p.priority);
   const live = (p) => (typeof p.phases === "function" ? !!p.phases(S) : !!p.phases && p.phases.includes(S.state));
   function surface() {
     let want = null;
     if (dismissed && !live(P.get(dismissed))) dismissed = null;
-    if (auto && !presenter && S.started && !sheet.id) P.forEach((p) => { if (!pins.has(p.id) && p.id !== dismissed && live(p) && (!want || p.priority > want.priority)) want = p; });
+    if (auto && !presenter && S.started && !sheet.id) P.forEach((p) => { if (!pins.has(p.id) && p.id !== dismissed && live(p) && (!want || prio(p) > prio(want))) want = p; });
     const id = want ? want.id : null;
     if (id === slot || now() - slotAt < DWELL / SPEED) return;
     if (slot && !pins.has(slot)) hide(slot);
@@ -185,11 +186,14 @@
   const pal = $("palette"), inp = $("p-input"), list = $("p-list"), pv = $("p-preview");
   let palOpen = false, items = [], sel = 0, pvCmd, pvView = null, recent = store.get("recent", []);
   const GROUPS = ["Suggested now", "Top hit", "Recent", "Control centre", "Views", "Panels", "Unscripted change", "Robots", "Cameras", "Demo", "Help"];
-  const score = (c) => (c.panel ? (pins.has(c.id) ? 0 : slot === c.id ? 0.9 : live(c.panel) ? c.panel.priority / 100 : c.panel.suggest ? c.panel.suggest(S) : 0) : c.score ? c.score(S) : 0);
+  const score = (c) => (c.panel ? (pins.has(c.id) ? 0 : slot === c.id ? 0.9 : live(c.panel) ? prio(c.panel) / 100 : c.panel.suggest ? c.panel.suggest(S) : 0) : c.score ? c.score(S) : 0);
   const val = (h) => (typeof h === "function" ? h(S) : h) ?? "";
   const kbd = (k) => (k ? (k.length === 1 ? k.toUpperCase() : k) : "");
+  let asking = null;
+  const PH = inp.placeholder;
   function openPal(text = "") { palOpen = true; pal.classList.add("open"); inp.value = text; filter(); inp.focus(); }
-  function closePal() { palOpen = false; pal.classList.remove("open"); inp.blur(); setPreview(null); }
+  function closePal() { palOpen = false; asking = null; inp.placeholder = PH; pal.classList.remove("open"); inp.blur(); setPreview(null); }
+  function ask(label, placeholder, cb) { openPal(); asking = { label, cb }; inp.placeholder = placeholder; filter(); }
   function fuzzy(qq, s) {
     s = s.toLowerCase();
     let i = 0, sc = 0, prev = -2;
@@ -200,6 +204,11 @@
   const match = (qq, c) => fuzzy(qq, c.label) || (((c.keys || "") + " " + c.group).toLowerCase().split(/\s+/).some((w) => w.startsWith(qq)) && { sc: 0.5, idx: [] });
   function filter() {
     const qq = inp.value.trim().toLowerCase(), all = [...C.values()];
+    if (asking) {
+      const text = inp.value.trim(), a = asking;
+      items = [{ c: { id: "ask", group: a.label, icon: "spark", label: text ? `Send “${text}”` : "Type, then press return", desc: "Gemini turns this into jobs through the coordinator API. It cannot command motors or approve its own SUPV jobs.", run: () => text && a.cb(text) }, g: a.label }];
+      sel = 0; renderList(); return;
+    }
     if (!qq) {
       const sug = all.map((c) => [c, score(c)]).filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, 4).map((x) => x[0]);
       const rec = recent.map((id) => C.get(id)).filter((c) => c && !sug.includes(c)).slice(0, 3);
@@ -284,7 +293,7 @@
     const k = S.gasAlarm && S.gasMax ? [S.gasMax * 100, 0, "% LEL"] : S.soak ? [S.soak.left, 0, "s left"] : FORCE.has(S.state) ? [S.force, 1, "N"] : S.rust != null ? [S.rust, 1, "% rust"] : null;
     isl.classList.toggle("nokey", !k);
     if (k) { if ($("i-unit").textContent !== k[2]) { tweens.delete($("i-key")); $("i-key")._v = null; } num($("i-key"), k[0], k[1]); set($("i-unit"), k[2]); }
-    set($("i-edge"), S.linkCut ? "edge only" : "");
+    set($("i-edge"), S.linkCut || S.control?.link === "CUT" ? "edge only" : "");
   }
   const sub = $("subtitle");
   let subKey = null, layer = 0;
@@ -475,7 +484,7 @@
   isl.onclick = () => (palOpen ? closePal() : openPal());
   $("p-keep").textContent = MAC ? "⌘↵" : "Ctrl ↵";
   B.classList.toggle("presenter", presenter);
-  window.HUD = { S, panel, command, uncommand, view, on: (f) => hooks.push(f), apply, event, post, judge, banner, addLog, setState, focus, shot, openView, num, set, esc, q, fit, spark, push, icon, nice, now, json };
+  window.HUD = { S, ask, panel, command, uncommand, view, on: (f) => hooks.push(f), apply, event, post, judge, banner, addLog, setState, focus, shot, openView, num, set, esc, q, fit, spark, push, icon, nice, now, json };
   addEventListener("DOMContentLoaded", () => {
     booted = true;
     pins.forEach((id) => show(id));

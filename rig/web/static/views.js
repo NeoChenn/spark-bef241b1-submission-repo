@@ -75,12 +75,13 @@
       const x = q(el, `<div class="orch"><section><h3>Job queue</h3><div data-k="jobs"></div></section><section><h3>Approval inbox</h3><div data-k="inbox"></div></section><section><h3>Decisions</h3><ol class="log long" data-k="log"></ol></section></div>`);
       if (!x.inbox._b) { x.inbox._b = 1; x.inbox.onclick = (e) => { const b = e.target.closest("[data-job]"); if (b) decide(b.dataset.job, b.dataset.a === "1"); }; }
       const o = S.orchestrator, jobs = (o?.jobs || (S.fleet?.tasks || []).map((t) => ({ id: t.id, kind: t.kind, target: t.poi, status: t.status, robot: t.robot, priority: t.priority }))).map((j) => (decided.has(j.id) ? { ...j, status: decided.get(j.id) } : j));
-      const aps = (o?.approvals || []).filter((a) => !decided.has(a.job)), key = JSON.stringify(o) + decided.size + jobs.length;
+      const aps = (o?.approvals || []).filter((a) => !decided.has(a.job)), c = H.ctl(S), key = JSON.stringify(o) + decided.size + jobs.length + JSON.stringify(c?.agent) + JSON.stringify(c?.vetoed);
       if (x.jobs._k !== key) {
         x.jobs._k = key;
         x.jobs.innerHTML = GROUP.map(([g, re]) => { const js = jobs.filter((j) => re.test(j.status)); return js.length ? `<h4>${g} <em>${js.length}</em></h4>` + js.slice(0, 8).map((j) =>
           `<div class="job"><i class="p${Math.min(5, Math.round(j.priority || 3))}"></i><span>${esc((j.kind || "").replace(/_/g, " "))} <em>${esc(j.target || "")}</em></span><em>${j.robot ? esc(short(j.robot)) : ""}</em>${j.level ? `<kbd>${esc(j.level)}</kbd>` : ""}</div>`).join("") : ""; }).join("") || `<p class="none">No jobs yet</p>`;
         x.inbox.innerHTML = aps.map((a) => `<div class="ap"><b>${esc((a.kind || "").replace(/_/g, " "))} · ${esc(a.target || a.job)}</b><p>${esc(a.text)}</p><div><button data-job="${esc(a.job)}" data-a="1" class="yes">Approve</button><button data-job="${esc(a.job)}" data-a="0">Reject</button></div></div>`).join("") || `<p class="none">Nothing waiting for you</p>`;
+        x.inbox.innerHTML += c?.agent || c?.vetoed?.length ? `<h3 class="sub3">Planner</h3>${H.planner(c.agent, 8)}${H.vetoes(c, 3)}` : "";
       }
       if (x.log._n !== S.logN) { x.log._n = S.logN; x.log.innerHTML = H.logRows(S, 16); }
     } });
@@ -105,6 +106,10 @@
     ap.filter((a) => !decided.has(a.job)).slice(0, 6).forEach((a, n) => H.command({ id: "ap." + n, group: "Control centre", label: `Approve ${(a.kind || "").replace(/_/g, " ")} · ${a.target || a.job}`, icon: "check",
       keys: "approve approval supv inbox", desc: a.text, hint: "SUPV", score: () => 0.92, run: () => decide(a.job, true) }));
   });
+  H.command({ id: "intent", group: "Control centre", label: "Tell the planner…", icon: "spark", key: "⇧T", keys: "intent instruct operator gemini planner order",
+    desc: "Type an instruction in plain words, such as “inspect deck 2, isolate any leak, don't paint without me”. Gemini turns it into jobs; the safety envelope still applies.",
+    hint: () => (S.intent || S.control?.agent?.intent ? "Has an intent" : ""), score: () => (S.control ? 0.25 : 0),
+    run: () => setTimeout(() => H.ask("Tell the planner", "Inspect deck 2, isolate any leak, don't paint without me", (text) => H.event("intent", { text }, () => { S.intent = text; H.addLog({ t: S.t, from: "Operator", to: "INTENT", reason: text }); })), 0) });
   const T = {};
   const U = (id, label, ic, key, name, args, local, o = {}) => H.command({ id: "u." + id, group: "Unscripted change", label, icon: ic, key, keys: "unscripted inject judge change " + (o.keys || ""), desc: o.desc,
     active: o.tog ? () => !!T[id] : undefined, score: o.score, run: () => { if (o.tog) T[id] = !T[id]; if (o.pre) o.pre(); H.event(name, typeof args === "function" ? args() : args, local); } });

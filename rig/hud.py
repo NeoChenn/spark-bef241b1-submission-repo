@@ -10,9 +10,10 @@ from rig.captions import robot_entry
 
 HOOKS = ("spawn_patch", "set_glare", "occlude_camera", "force_spike", "person_at")
 EXTRA = ("camera",)
+CONTROL_EVENTS = ("cut_link", "intent")
 SCENARIO = ("set_weather", "drop_obstacle", "close_walkway", "close_stairs", "clear", "gas_leak", "control_action",
-            "cut_link", "battery_fault", "approve", "reject")
-EVENTS = HOOKS + EXTRA + SCENARIO
+            "battery_fault", "approve", "reject")
+EVENTS = HOOKS + EXTRA + CONTROL_EVENTS + SCENARIO
 WEATHER = ("calm", "wind", "rain", "fog", "storm")
 RATES = {"SOAK": 0.15, "SCRUB": 0.35}
 DWELL = 1.3
@@ -66,7 +67,7 @@ def evidence(orch, h: dict) -> dict:
 
 class HudFeed:
     def __init__(self, orch, rid: str = "unit-1", name: str = "Unit 1 · rust", pose=None, camera=None, peers=(),
-                 extras=None):
+                 control=None, zone: str = "A", extra=None, extras=None):
         self.orch = orch
         self.extras = dict(extras or {})
         self.rid, self.name, self.pose, self.camera, self.peers = rid, name, pose, camera, list(peers)
@@ -74,6 +75,7 @@ class HudFeed:
         self.last_perceived = None
         self.verdict_seen = None
         self.source = "EDGE"
+        self.control, self.zone, self.extra = control, zone, extra
 
     def header(self) -> dict:
         o = self.orch
@@ -123,6 +125,10 @@ class HudFeed:
         if o.last is not None and o.last is not self.last_perceived and o.last_image is not None:
             self.last_perceived = o.last
             out["inspection"] = thumb(o.last_image, o.last.result.mask)
+        if self.control is not None:
+            from policy.control.adapters import from_header, merge
+            snap = from_header(out, self.rid, self.zone)
+            out["control"] = self.control.tick(merge(snap, self.extra() if self.extra else None))
         return out
 
     def robot(self, h: dict | None = None) -> dict:
@@ -164,9 +170,17 @@ def check_event(event: dict) -> dict:
     return {"name": name, "args": args}
 
 
-def apply_event(bridge, event: dict) -> bool:
+def apply_event(bridge, event: dict, control=None) -> bool:
     ev = check_event(event)
     name, args = ev["name"], ev["args"]
+    if name in CONTROL_EVENTS:
+        if control is None:
+            raise ValueError("no control centre attached")
+        if name == "cut_link":
+            control.cut_link(bool(args.get("on", True)))
+        else:
+            control.intent(str(args.get("text") or ""))
+        return True
     if name in SCENARIO and not hasattr(bridge, name):
         if hasattr(bridge, "scenario"):
             bridge.scenario(name, **args)
@@ -176,7 +190,7 @@ def apply_event(bridge, event: dict) -> bool:
         theta, z = bridge.ee_theta_z()
         args.setdefault("theta", float(theta) + PATCH_OFFSET[0])
         args.setdefault("z", float(z) + PATCH_OFFSET[1])
-    getattr(bridge, name)(**args)
+    getattr(bridge, "set_shot" if name == "camera" else name)(**args)
     return True
 
 
@@ -286,16 +300,21 @@ def mock_gas(g: float) -> dict:
 def mock_control(gas: dict) -> dict:
     g = gas["max"]
     if gas["alarm"]:
-        summary = (f"Gas at {100 * g:.0f} % LEL near flange F2, wind from the south-west. Unit 2 is on the leak; "
-                   "Unit 1 keeps scrubbing outside the 8 m zone.")
-        acts = [("retorque_f2", "Re-torque flange F2 bolts", "unit-2", 0.92),
-                ("hold_unit1", "Pause Unit 1 until gas clears", "unit-1", 0.71),
-                ("call_human", "Call the deck supervisor", None, 0.38)]
+        situation = [f"Gas at {100 * g:.0f} % LEL near flange F2, wind from the south-west.",
+                     "Unit 2 is on the leak; Unit 1 keeps scrubbing outside the 8 m zone."]
+        acts = [("retorque_f2", "Re-torque flange F2 bolts", "unit-2", 0.92, "Loose bolt 3 is the likely source."),
+                ("hold_unit1", "Pause Unit 1 until gas clears", "unit-1", 0.71, "It is downwind if the plume grows."),
+                ("call_human", "Call the deck supervisor", None, 0.38, "Only if the gas passes 20 % LEL.")]
+        key = "fleet_gas"
     else:
-        summary = "All units nominal. No gas above background; Unit 3 charging."
-        acts = [("continue", "Continue the current plan", None, 0.9), ("survey", "Queue a survey of deck 2", "unit-3", 0.46)]
-    return {"model": "gemini-4-argon (scripted)", "summary": summary,
-            "actions": [{"id": i, "label": l, "robot": r, "confidence": c} for i, l, r, c in acts]}
+        situation = ["All units nominal. No gas above background; Unit 3 charging."]
+        acts = [("continue", "Continue the current plan", None, 0.9, "Nothing has changed."),
+                ("survey", "Queue a survey of deck 2", "unit-3", 0.46, "Unit 3 is idle once charged.")]
+        key = "fleet_nominal"
+    return {"mode": "CLOUD", "model": "gemini-4-argon (scripted)", "replay": True, "banner": None, "key": key,
+            "situation": situation, "anomalies": [], "vetoed": [], "link": "UP",
+            "actions": [{"id": i, "label": l, "robot": r, "confidence": c, "rationale": why, "source": "cloud",
+                         "kind": i, "rank": n + 1} for n, (i, l, r, c, why) in enumerate(acts)]}
 
 
 def mock_sensors(robots: list[dict], evs: dict, t: float) -> dict:
@@ -417,6 +436,8 @@ def record_mock(path, log_path: str = "runs/repair/decisions.jsonl") -> dict:
         for key in ("rust_grid", "sprayed", "painted", "target"):
             if snaps[k][key] == snaps[k - 1][key]:
                 del snaps[k][key]
+    from policy.control.mock import attach_control
+    attach_control(snaps, Path(path).parent / "control_calls.jsonl")
     session = {"snapshots": snaps, "duration": snaps[-1]["pt"]}
     session["fleet"] = mock_fleet(snaps[-1]["pt"] + FLEET_GAP, snaps[-1]["t"] + 20.0)
     Path(path).parent.mkdir(parents=True, exist_ok=True)

@@ -118,13 +118,50 @@ def test_record_mock_session(tmp_path):
     assert "rust_grid" in snaps[0]
     assert any("BACK_OFF" == s["state"] for s in snaps)
     assert all(s["pt"] >= 0 for s in snaps)
+    ctl = [s["control"] for s in snaps if s.get("control")]
+    assert ctl and all(c["model"].startswith("gemini-4-argon") for c in ctl)
+    kinds = {(a["source"], a["kind"]) for c in ctl for a in c["actions"]}
+    assert {("edge", "back_off"), ("edge", "evacuate"), ("edge", "pause"), ("cloud", "dispatch")} <= kinds
+    assert any(c["banner"] and "OFFLINE" in c["banner"] for c in ctl)
+    assert any(c["vetoed"] for c in ctl)
+    assert any(a["kind"] == "probable_leak" for c in ctl for a in c["anomalies"])
+    assert snaps[-1]["control"]["key"] == "done"
+    assert (tmp_path / "control_calls.jsonl").read_text().count("\n") >= 8
+    agent = snaps[-1]["control"]["agent"]
+    assert agent["intent"].startswith("Inspect deck 2") and agent["reserved"] == ["paint"]
+    assert any(not c["ok"] and "own SUPV" in c["refused"] for c in agent["calls"])
+    lines = [json.loads(x) for x in (tmp_path / "agent_calls.jsonl").read_text().splitlines()]
+    assert len(lines) == 3 and {"reprioritise", "queue_job"} <= {n for x in lines for n in x["decision"]}
+
+
+def test_apply_event_routes_control_events():
+    seen = []
+    ctl = type("C", (), {"cut_link": lambda self, on: seen.append(("cut", on)),
+                         "intent": lambda self, text: seen.append(("intent", text))})()
+    apply_event(FakeBridge(), {"name": "cut_link", "args": {"on": True}}, ctl)
+    apply_event(FakeBridge(), {"name": "intent", "args": {"text": "inspect deck 2"}}, ctl)
+    assert seen == [("cut", True), ("intent", "inspect deck 2")]
+    with pytest.raises(ValueError):
+        apply_event(FakeBridge(), {"name": "cut_link", "args": {"on": True}})
+
+
+def test_header_includes_control_when_attached(orch):
+    from policy.control.backend import ReplayBackend
+    from policy.control.centre import ControlCentre
+    feed = HudFeed(orch, control=ControlCentre(ReplayBackend(), log_path=None))
+    orch.step()
+    h = feed.header()
+    assert h["control"]["mode"] == "CLOUD" and h["control"]["situation"]
+    json.dumps(h)
 
 
 def test_scenario_events_whitelisted():
     from rig.hud import EVENTS, SCENARIO
+    from rig.hud import CONTROL_EVENTS
     assert {"set_weather", "drop_obstacle", "close_walkway", "close_stairs", "clear", "gas_leak",
-            "control_action", "cut_link", "battery_fault", "approve", "reject"} <= set(SCENARIO)
-    assert set(HOOKS) | {"camera"} | set(SCENARIO) == set(EVENTS)
+            "control_action", "battery_fault", "approve", "reject"} <= set(SCENARIO)
+    assert {"cut_link", "intent"} <= set(CONTROL_EVENTS)
+    assert set(HOOKS) | {"camera"} | set(SCENARIO) | set(CONTROL_EVENTS) == set(EVENTS)
 
 
 def test_scenario_event_dispatched_to_bridge_hook():

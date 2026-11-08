@@ -114,29 +114,49 @@
       const wd = S.gas?.wind;
       set(x.cap, S.pip?.caption || (wd ? `Wind from ${wd.dir_deg}° at ${wd.speed_ms} m/s` : "No wind data"));
     } });
-  const acted = new Set();
+  const acted = new Set(), sent = (x) => (x ? x[0] + x.slice(1).toLowerCase() : "");
+  const ctl = (S) => {
+    const c = S.control, cut = S.linkCut || c?.link === "CUT", ag = c?.agent || S.intent ? { ...(c?.agent || {}), intent: S.intent || c?.agent?.intent } : null;
+    return !c ? null : { ...c, agent: ag && (cut ? { ...ag, link: "CUT" } : ag), ...(cut ? { mode: "EDGE", banner: "Gemini link cut — edge only", link: "CUT" } : {}) };
+  };
+  H.ctl = ctl;
+  window.hudControl = () => ctl(H.S);
   function act(a) {
     H.event("control_action", { id: a.id, robot: a.robot }, () => { acted.add(a.id); H.addLog({ t: H.S.t, from: "Control centre", to: "ACTION", reason: a.label }); });
   }
   H.on((h) => {
     if (!h.control) return;
+    if (h.control.banner && h.control.banner !== H._cb) H.banner("warn", sent(h.control.banner), "Robots keep their last plan on the edge", "link");
+    H._cb = h.control.banner;
     const key = (h.control.actions || []).map((a) => a.id).join();
     if (key === H._ck) return;
     H._ck = key;
     [...Array(9).keys()].forEach((n) => H.uncommand("cc." + n));
-    (h.control.actions || []).forEach((a, n) => H.command({ id: "cc." + n, group: "Control centre", label: a.label, icon: "target", keys: "action plan argon " + (a.robot || ""),
-      desc: `Ranked ${n + 1} by Gemini 4 Argon. ${h.control.summary || ""}`, hint: `${a.robot ? rname({ id: a.robot }).split(" ·")[0] + " · " : ""}${Math.round(a.confidence * 100)}`,
-      score: () => (n === 0 && H.S.gasAlarm ? 0.95 : 0), active: () => acted.has(a.id), run: () => act(a) }));
+    (h.control.actions || []).slice(0, 5).forEach((a, n) => H.command({ id: "cc." + n, group: "Control centre", label: a.label, icon: a.source === "edge" ? "warn" : "target", keys: "action plan argon " + (a.robot || ""),
+      desc: `${a.source === "edge" ? "Edge safety rule" : "Ranked " + (a.rank || n + 1) + " by Gemini 4 Argon"}. ${a.rationale || ""}`, hint: `${a.source === "edge" ? "Edge" : "Argon"} · ${a.source === "edge" ? "hard" : Math.round(a.confidence * 100)}`,
+      score: () => (n === 0 && (H.S.gasAlarm || h.control.banner) ? 0.95 : 0), active: () => acted.has(a.id), run: () => act(a) }));
   });
-  H.panel({ id: "control", title: "Control centre", meta: "Gemini 4 Argon", icon: "target", key: "a", priority: 90, keys: "situation report gemini argon actions plan",
-    phases: (S) => (S.gasAlarm && S.control && now() - S.gasAt >= 6 / S.speed) || S.state === "ESCALATE_TO_HUMAN",
-    desc: "A situation report with ranked actions. Each action is also a palette command.", hint: (S) => (S.linkCut ? "Link cut" : S.control ? (S.gasAlarm ? "New plan" : "On track") : ""),
+  const hot = (S) => {
+    const c = S.control, an = c?.anomalies || [];
+    if (!c && S.state !== "ESCALATE_TO_HUMAN") return 0;
+    if (S.gasAlarm && now() - S.gasAt < 6 / S.speed) return 0;
+    return S.gasAlarm || S.linkCut || c?.banner || S.state === "ESCALATE_TO_HUMAN" || an.some((a) => a.severity === "critical") ? 90 : an.some((a) => /warn/.test(a.severity)) ? 50 : 0;
+  };
+  const ccRow = (a, n) => `<li data-n="${n}" class="${acted.has(a.id) ? "done" : ""}"><span class="tnum">${a.rank || n + 1}</span><span>${esc(a.label)}<small>${a.source === "edge" ? "Edge rule" : "Argon"}${a.rationale ? " · " + esc(a.rationale) : ""}</small></span><b class="tnum">${a.source === "edge" ? "hard" : Math.round((a.confidence || 0) * 100)}</b></li>`;
+  H.planner = (ag, n) => (ag && (ag.intent || ag.calls?.length) ? `<div class="cc-agent">${ag.intent ? `<p class="intent">“${esc(ag.intent)}”</p>` : ""}${(ag.calls || []).slice(-n).reverse().map((x) =>
+    `<p class="call ${x.ok ? "" : "no"}"><b>${x.ok ? "✓" : "✗"}</b>${esc(x.label)}<small>${esc(x.ok ? x.why : "refused: " + x.refused)}</small></p>`).join("")}</div>` : "");
+  H.vetoes = (c, n) => (c?.vetoed || []).slice(0, n).map((v) => `<p class="veto"><b>Edge veto</b> <s>${esc(v.label)}</s><small>${esc(v.why)}</small></p>`).join("");
+  H.panel({ id: "control", title: "Control centre", meta: "Gemini 4 Argon", icon: "target", key: "a", priority: hot, phases: (S) => hot(S) > 0, keys: "situation report gemini argon actions plan edge link",
+    desc: "Gemini 4 Argon's situation report and ranked actions, the edge rules that override it, and the planner's last calls. Each action is also a palette command.",
+    hint: (S) => { const c = ctl(S); return !c ? "" : c.link === "CUT" ? "Edge only" : c.banner ? sent(c.banner) : c.key ? sent(c.key.replace(/[_+]/g, " ")) : "On track"; },
     render(el, S) {
-      const c = S.control, key = JSON.stringify(c) + acted.size + !!S.linkCut;
+      const c = ctl(S), key = JSON.stringify(c) + acted.size;
       if (el._k === key) return;
       el._k = key;
-      el.innerHTML = !c ? `<p class="none">Waiting for a situation report</p>` : `${S.linkCut ? `<p class="edge">Link cut · robots keep their last plan</p>` : ""}<p class="cc-sum">${esc(c.summary)}</p><ol class="cc-acts">${(c.actions || []).map((a, n) =>
-        `<li data-n="${n}" class="${acted.has(a.id) ? "done" : ""}"><span class="tnum">${n + 1}</span><span>${esc(a.label)}${a.robot ? `<em> · ${esc(rname({ id: a.robot }).split(" ·")[0])}</em>` : ""}</span><b class="tnum">${Math.round(a.confidence * 100)}</b></li>`).join("")}</ol>`;
+      el.innerHTML = !c ? `<p class="none">Waiting for a situation report</p>` : `<div class="cc-meta"><span class="badge ${c.mode === "CLOUD" ? "cloud" : ""}">${c.mode === "CLOUD" ? "Cloud" : "Edge"}</span>${c.latency_ms != null ? `<span class="tnum">${(c.latency_ms / 1000).toFixed(1)} s</span>` : ""}${c.cost_today_usd != null ? `<span class="tnum">$${c.cost_today_usd.toFixed(3)} today · ${c.calls_today || 0} calls</span>` : ""}</div>`
+        + (c.banner ? `<p class="edge">${esc(sent(c.banner))}</p>` : "")
+        + `<div class="cc-sum">${(c.situation?.length ? c.situation : [c.summary || "Edge safety rules only; no cloud plan yet."]).slice(0, 3).map((l) => `<p>${esc(l)}</p>`).join("")}</div>`
+        + `<ol class="cc-acts">${(c.actions || []).slice(0, 3).map(ccRow).join("")}</ol>` + H.vetoes(c, 1) + H.planner(c.agent, 1);
       el.onclick = (e) => { const li = e.target.closest("[data-n]"); if (li) act(c.actions[+li.dataset.n]); };
     } });
   function bounds(m, rs) {

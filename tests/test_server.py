@@ -200,6 +200,11 @@ def test_post_event_rejects_unknown(client):
     assert client.post("/api/event", json={"name": "shutdown"}).status_code == 400
 
 
+def test_post_event_accepts_control_events(client):
+    assert client.post("/api/event", json={"name": "cut_link", "args": {"on": True}}).status_code == 200
+    assert client.post("/api/event", json={"name": "intent", "args": {"text": "inspect deck 2"}}).status_code == 200
+
+
 def test_event_queued_until_sim_connects(client):
     r = client.post("/api/event", json={"name": "force_spike"})
     assert r.json()["queued"] == 1
