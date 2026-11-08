@@ -28,7 +28,7 @@ REFERENCE_WIDTH_PX = 1280.0
 FX = {
     "night": {"chop": 1.0, "slope_gain": 2.5, "coverage": 0.035, "foam_amount": 1.0, "leg_foam": 1.0, "roughness": 0.015,
               "deep_color": (0.0015, 0.007, 0.010), "crest_color": (0.006, 0.03, 0.032),
-              "aerated_color": (0.03, 0.09, 0.085), "foam_color": (0.8, 0.84, 0.84)},
+              "aerated_color": (0.03, 0.09, 0.085), "foam_color": (0.9, 0.93, 0.93)},
     "storm": {"chop": 1.45, "slope_gain": 3.0, "coverage": 0.09, "foam_amount": 1.25, "leg_foam": 1.35, "roughness": 0.03,
               "deep_color": (0.004, 0.012, 0.014), "crest_color": (0.012, 0.045, 0.045),
               "aerated_color": (0.05, 0.12, 0.11), "foam_color": (0.7, 0.74, 0.75)},
