@@ -7,11 +7,17 @@ def rust_score(rgb) -> np.ndarray:
     rr = np.maximum(r, 1.0)
     hue = (r - g) / rr
     sat = (r - b) / rr
-    return np.clip((hue - 0.22) / 0.15, 0.0, 1.0) * (hue < 0.8) * (sat > 0.4) * (r > 40) * (g > b)
+    return np.clip((hue - 0.35) / 0.15, 0.0, 1.0) * (hue < 0.85) * (sat > 0.5) * (r > 40) * (g > b)
+
+
+def grey_world(rgb) -> np.ndarray:
+    p = np.asarray(rgb, np.float32)[..., :3]
+    m = p.reshape(-1, 3).mean(0) + 1.0
+    return np.clip(p * (m.mean() / m) * (110.0 / max(m.mean(), 1.0)), 0, 255)
 
 
 def rust_heat(rgb, cell: int = 16) -> np.ndarray:
-    s = rust_score(rgb)
+    s = rust_score(grey_world(rgb))
     h, w = s.shape[0] // cell, s.shape[1] // cell
     frac = s[: h * cell, : w * cell].reshape(h, cell, w, cell).mean((1, 3))
     return 1.0 / (1.0 + np.exp(-(frac - 0.3) * 12.0))

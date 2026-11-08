@@ -9,7 +9,7 @@ from rig.views.schedule import Schedule
 
 def frame():
     rgb = np.full((48, 64, 3), 90, np.uint8)
-    rgb[16:32, 24:40] = (150, 70, 35)
+    rgb[16:32, 16:32] = (150, 70, 35)
     depth = np.full((48, 64), 6.0, np.float32)
     depth[:10] = np.inf
     return rgb, depth, look_at((0.0, 0.0, 20.7), (10.0, 0.0, 20.0), focal=10.0, w=64, h=48)
