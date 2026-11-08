@@ -287,6 +287,9 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             if mission is not None:
                 await asyncio.to_thread(mission.advance, now - last)
                 hub.publish_mission(await asyncio.to_thread(mission.header))
+                if hasattr(mission, "take_sim"):
+                    pending.extend(mission.take_sim())
+                    flush()
             else:
                 await asyncio.to_thread(fleet.advance, now - last)
             last = now
@@ -410,14 +413,17 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             ev = check_event(body)
         except ValueError as e:
             raise HTTPException(400, str(e))
+        scen = getattr(mission, "scen", None)
+        if scen is not None and ev["name"] in ("drop_obstacle", "drop_can") and (ev["args"].get("at") == "ahead" or scen.steer()):
+            with mission.lock:
+                ev = scen.drop_ahead(ev["name"], ev["args"])
+            if ev is None:
+                return {"queued": 0, "delivered": True, "detail": "drops in front of Unit 3 as soon as it is mid-walkway"}
         if ev["name"] == "drop_can" and ev["args"].get("at") == "view":
             scen = getattr(mission, "scen", None)
             ev["args"] = {k: v for k, v in ev["args"].items() if k != "at"}
             if scen is not None:
                 ev["args"]["at"] = scen.view_at()
-        if ev["name"] == "drop_obstacle" and ev["args"].get("at") == "ahead" and getattr(mission, "scen", None) is not None:
-            with mission.lock:
-                ev["args"]["at"] = mission.scen.ahead(float(ev["args"].pop("ahead_m", 3.0)))
         out = {}
         if mission is not None:
             try:
