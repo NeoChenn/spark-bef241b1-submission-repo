@@ -90,18 +90,20 @@ class TimedTorque:
 
 
 class RetorqueArm:
-    def __init__(self, skill=None, deck_z: Optional[float] = None, torque_angle: Optional[float] = None):
+    def __init__(self, skill=None, deck_z: Optional[float] = None, config=None, speed: float = 0.8):
+        from integration import retorque_motion as rm
         from policy.skills import retorque as rt
-        self.rt = rt
+        self.rm, self.rt = rm, rt
         self.skill = skill or rt.RetorqueSkill()
         self.deck_z = rt.DECK_Z if deck_z is None else deck_z
-        self.torque_angle = torque_angle
-        self.traj = None
+        self.config = config
+        self.speed = speed
+        self.motion = None
         self.t = 0.0
-        self.t_torqued = 0.0
         self.torqued = False
         self.error: Optional[str] = None
         self.started: list[tuple[str, int]] = []
+        self.q_now = dict(rm.STOW)
         self._sniff: dict = {}
 
     def base(self, flange) -> np.ndarray:
@@ -115,37 +117,46 @@ class RetorqueArm:
         self.started.append((flange.id, bolt))
         self.t, self.torqued, self.error = 0.0, False, None
         try:
-            self.traj = self.skill.plan(flange, bolt, self.base(flange), torque_angle=self.torque_angle)
-            self.t_torqued = self.traj.phase_span("torque")[1]
+            self.motion = self.rm.RetorqueMotion(flange, bolt, self.base(flange), config=self.config, skill=self.skill,
+                                                 start_q=self.q_now)
         except self.rt.Unreachable as e:
-            self.traj, self.error = None, str(e)
+            self.motion, self.error = None, str(e)
 
     def step(self, dt: float) -> str:
-        if self.traj is None:
+        if self.motion is None:
             return "failed"
         self.t += dt
-        self.torqued = self.t >= self.t_torqued
-        return "running" if self.t < self.traj.duration else "done"
+        self.torqued = self.t >= self.motion.t_torque_done
+        self.q_now = self.motion.at(self.t)
+        return "running" if self.t < self.motion.duration else "done"
+
+    def follow(self, goal: Optional[dict], dt: float) -> None:
+        goal = goal or self.rm.STOW
+        lim = self.speed * dt
+        for k, v in goal.items():
+            if k in self.q_now and k != self.rm.SOCKET_JOINT:
+                self.q_now[k] += float(np.clip(v - self.q_now[k], -lim, lim))
 
     @property
     def progress(self) -> float:
-        return 0.0 if self.traj is None else min(1.0, self.t / self.traj.duration)
+        return 0.0 if self.motion is None else min(1.0, self.t / self.motion.duration)
 
     @property
     def phase(self) -> Optional[str]:
-        if self.traj is None:
-            return None
-        i = min(int(np.searchsorted(self.traj.t, self.t)), len(self.traj.phase) - 1)
-        return self.traj.phase[i]
+        return None if self.motion is None else self.motion.phase(self.t)
 
     @property
-    def q(self) -> Optional[dict]:
-        return None if self.traj is None else self.traj.at(min(self.t, self.traj.duration))
+    def q(self) -> dict:
+        return dict(self.q_now)
+
+    def gas_scale(self, t_local: float) -> float:
+        return 1.0 if self.motion is None else self.motion.gas_scale(t_local)
 
     def sniff_q(self, flange) -> Optional[dict]:
         if flange.id not in self._sniff:
             try:
-                self._sniff[flange.id] = self.skill.verify_pose(flange, self.base(flange)).q
+                m = self.rm.RetorqueMotion(flange, 0, self.base(flange), config=self.config, skill=self.skill)
+                self._sniff[flange.id] = dict(zip(self.rm.JOINTS, map(float, m.pre_q)))
             except self.rt.Unreachable:
                 self._sniff[flange.id] = None
         return self._sniff[flange.id]
@@ -378,6 +389,8 @@ class Fixer:
             self._retreat(f"sniffer {self.onboard_lel:.0f} %LEL >= stop {self.cfg.stop_lel:.0f}")
         getattr(self, "_s_" + self.state.lower())(dt)
         self._walk_events()
+        if self.torquing is None and hasattr(self.arm, "follow"):
+            self.arm.follow(self._arm_goal(), dt)
 
     def _walk_events(self) -> None:
         evs = getattr(self.walker, "events", None)
@@ -605,13 +618,18 @@ class Fixer:
     def arm_phase(self) -> Optional[str]:
         return getattr(self.arm, "phase", None) if self.torquing is not None else None
 
-    @property
-    def arm_q(self) -> Optional[dict]:
-        if self.torquing is not None:
-            return getattr(self.arm, "q", None)
+    def _arm_goal(self) -> Optional[dict]:
         if self.target is not None and self.state in (SNIFF, INSPECT, VERIFY) and hasattr(self.arm, "sniff_q"):
             return self.arm.sniff_q(self.flanges[self.target])
         return None
+
+    @property
+    def arm_q(self) -> Optional[dict]:
+        if hasattr(self.arm, "follow"):
+            return self.arm.q
+        if self.torquing is not None:
+            return getattr(self.arm, "q", None)
+        return self._arm_goal()
 
     def status(self) -> dict:
         return {"state": self.state, "job": self.job, "target": self.target, "pos": self.evidence["xy"],
