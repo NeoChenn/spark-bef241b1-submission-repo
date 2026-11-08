@@ -124,3 +124,49 @@ def test_window_classifier_path_is_still_available():
     loc = LeakLocalizer(fake_crack_classifier)
     r = loc.read(render_flange(cam(), state(np.zeros(8), crack=0.3)), cam(), G)
     assert r.n_windows > 0 and r.crack_prob >= 0.5
+
+
+# ------------------------------------------------------------- trained crack model (same process as the rust model)
+def _shipped():
+    pytest.importorskip("onnxruntime")
+    from detection.leak import CRACK_CKPT
+    if not (CRACK_CKPT / "model.onnx").exists():
+        pytest.skip("crack checkpoint not present")
+    return LeakLocalizer.from_checkpoint(CRACK_CKPT)
+
+
+def test_robot_uses_the_trained_crack_model_by_default():
+    loc = _shipped()
+    assert LeakLocalizer.default().classifier is not None
+    assert loc.stride == 8 and loc.min_coverage == 0.6
+
+
+def test_trained_crack_model_never_misses_silently_and_never_false_alarms():
+    """Same sweep as the classical check: Isaac camera, 1.0-1.25 m, crack severity, dust and glare."""
+    loc = _shipped()
+    rng = np.random.default_rng(11)
+    flagged = 0
+    for sev in (0.0, 0.05, 0.3):
+        for dust in (0.0, 0.2, 0.4):
+            for glare in (False, True):
+                s = state(np.zeros(8), crack=sev)
+                for b in rng.choice(8, 2, replace=False):
+                    s.angles[b] = rng.uniform(-0.2, 0.2)
+                cam = isaac_cam(int(rng.integers(0, 3)), float(rng.uniform(1.0, 1.25)), rng)
+                r = loc.read(render_flange(cam, s, dust=dust, glare=glare, crack_seed=int(rng.integers(0, 9999))),
+                             cam, G)
+                hit = r.crack_prob >= loc.threshold
+                if sev > 0:
+                    assert hit or r.crack_unsure, (sev, dust, glare)
+                    flagged += hit
+                else:
+                    assert not hit, (dust, glare)
+    assert flagged >= 6
+
+
+def test_trained_crack_model_flags_a_crack_in_the_mock_camera_too():
+    loc = _shipped()
+    cracked = loc.read(render_flange(cam(), state(np.zeros(8), crack=0.3)), cam(), G)
+    clean = loc.read(render_flange(cam(), state(np.zeros(8))), cam(), G)
+    assert cracked.crack_prob >= loc.threshold
+    assert clean.crack_prob < loc.threshold and not clean.crack_unsure

@@ -1,0 +1,62 @@
+{
+  "model_name": "mobilenetv4_conv_small",
+  "input_size": [
+    3,
+    224,
+    224
+  ],
+  "mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "std": [
+    0.229,
+    0.224,
+    0.225
+  ],
+  "head": "classifier",
+  "lora": true,
+  "lora_targets": 28,
+  "lora_cfg": {
+    "r": 16,
+    "alpha": 32,
+    "dropout": 0.1
+  },
+  "trainable_params": 264449,
+  "total_params": 2733666,
+  "run_name": "mnv4s_lora",
+  "full_ft": false,
+  "lr": 0.001,
+  "epochs_run": 10,
+  "best_epoch": 5,
+  "pos_weight": 1.0,
+  "resize": "direct resize to 224x224, RGB, /255, then (x-mean)/std",
+  "layout": "NCHW float32",
+  "output": "single logit; p_crack = sigmoid(logit / temperature)",
+  "threshold": 0.9999980752054796,
+  "threshold_logit": 13.058446884155273,
+  "temperature": 0.9922312178068388,
+  "unsure_band": [
+    0.35,
+    0.65
+  ],
+  "decision": "crack if p_crack >= threshold; if unsure_band[0] <= p_crack <= unsure_band[1] take another view",
+  "train_sec": 624.3199923038483,
+  "data_dir": "data/leak_v1",
+  "latency": {
+    "params_M": 2.494305,
+    "gmacs": 0.18870272,
+    "ort_cpu_b1_1thr_ms": 2.7052925000816685,
+    "ort_cpu_b1_1thr_p90_ms": 2.9103368999130907,
+    "ort_cpu_b1_4thr_ms": 1.1975484999311448,
+    "ort_cpu_b1_4thr_p90_ms": 1.3093462999222538
+  },
+  "task": "crack",
+  "classes": {
+    "clean": 0,
+    "crack": 1
+  },
+  "window_stride": 8,
+  "window_min_coverage": 0.6
+}

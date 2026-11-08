@@ -6,6 +6,7 @@ from typing import Optional
 
 import numpy as np
 
+from policy.deck.job import DECK_ALERTS, DECK_STATES, DeckJob, DeckSweepMixin
 from policy.leak.diagnose import LeakEvidence, LeakKind, diagnose
 from policy.orchestrator import TERMINAL, Orchestrator, S
 from policy.orchestrator import overlay_text as rust_overlay
@@ -57,11 +58,13 @@ ALERTS = {
 }
 
 
-class RigOrchestrator(Orchestrator):
+class RigOrchestrator(DeckSweepMixin, Orchestrator):
     def __init__(self, bridge, perception, localizer, world, arm, scrub_policy, config=None, spray=None, paint=None,
-                 leak: Optional[LeakJob] = None):
+                 leak: Optional[LeakJob] = None, deck: Optional[DeckJob] = None):
         super().__init__(bridge, perception, localizer, world, arm, scrub_policy, config, spray, paint)
         self.leak = leak
+        self.deck = deck
+        self._deck_reset()
         self.lcfg = leak.config if leak else LeakConfig()
         self.resolved: set[str] = set()
         self.alerts: list[dict] = []
@@ -99,7 +102,7 @@ class RigOrchestrator(Orchestrator):
             self.bridge.retreat(self.lcfg.retreat_m)
 
     def _alert(self, kind: str, **fmt) -> dict:
-        sev, ack, msg, rec = ALERTS[kind]
+        sev, ack, msg, rec = {**ALERTS, **DECK_ALERTS}[kind]
         fmt.setdefault("fid", self.flange_id or "-")
         fmt.setdefault("bolts", self.repaired)
         fmt.setdefault("why", "")
@@ -133,6 +136,10 @@ class RigOrchestrator(Orchestrator):
             if pre is not None:
                 self._record(*pre)
                 return
+        pre = self._camera_person_preempt()       # the robot's own camera, next to the bridge's ground truth
+        if pre is not None:
+            self._record(*pre)
+            return
         super().step()
 
     def _interrupt(self):
@@ -162,6 +169,7 @@ class RigOrchestrator(Orchestrator):
         if hasattr(self.bridge, "return_to_work"):
             self.bridge.return_to_work()
         verb = "resume " if nxt != S.DETECT else ""
+        nxt = self._deck_next(nxt)
         return nxt, f"{why} -> {verb}{nxt.value}", self._evidence(**extra)
 
     def _escalate(self, reason: str, kind: str = "needs_human", retreat: bool = True, **fmt):
@@ -173,6 +181,8 @@ class RigOrchestrator(Orchestrator):
         nxt, reason, ev = super()._s_patrol()
         if self.leak is not None and nxt == S.DETECT:
             return S.GAS_CHECK, reason.replace("-> inspect", "-> gas check first"), ev
+        if nxt == S.DETECT and self._deck_next(nxt) != nxt:
+            return S.DEBRIS_CHECK, reason.replace("-> inspect", "-> deck check first"), ev
         return nxt, reason, ev
 
     def _s_gas_check(self):
