@@ -22,7 +22,7 @@ SHADER = f"{MATERIAL}/Shader"
 OCEAN = "/World/Cinematic/ocean"
 UV_TILE_M = 26.0
 WIND_DIR_DEG = 18.0
-CAMERAS = ("/World/Judge/Cam", "/World/Cinematic/Cameras/stream")
+CAMERAS = ("/World/Judge/Cam", "/RigRender/Camera", "/World/Cinematic/Cameras/stream")
 REFERENCE_WIDTH_PX = 1280.0
 
 FX = {
@@ -32,6 +32,9 @@ FX = {
     "storm": {"foam_glow": 60.0, "chop": 1.45, "slope_gain": 3.0, "coverage": 0.09, "foam_amount": 1.25, "leg_foam": 1.35, "roughness": 0.03,
               "deep_color": (0.004, 0.012, 0.014), "crest_color": (0.012, 0.045, 0.045),
               "aerated_color": (0.05, 0.12, 0.11), "foam_color": (0.7, 0.74, 0.75)},
+    "dusk": {"foam_glow": 0.0, "chop": 0.9, "slope_gain": 2.2, "coverage": 0.02, "foam_amount": 0.9, "leg_foam": 0.9, "roughness": 0.015,
+             "deep_color": (0.004, 0.014, 0.02), "crest_color": (0.02, 0.05, 0.05),
+             "aerated_color": (0.08, 0.12, 0.11), "foam_color": (0.85, 0.75, 0.65)},
     "golden": {"foam_glow": 0.0, "chop": 0.85, "slope_gain": 2.0, "coverage": 0.015, "foam_amount": 0.9, "leg_foam": 0.9, "roughness": 0.015,
                "deep_color": (0.005, 0.02, 0.03), "crest_color": (0.02, 0.07, 0.07),
                "aerated_color": (0.06, 0.16, 0.15), "foam_color": (0.8, 0.8, 0.78)},
@@ -190,7 +193,7 @@ def animate(stage, time: float) -> None:
             if moved(_state.get("last_eye"), eye, 1.0):
                 _state["cam"].Set(Gf.Vec3f(*eye))
                 _state["last_eye"] = eye
-            angle = (pixel_angle(cam.GetHorizontalApertureAttr().Get(), cam.GetFocalLengthAttr().Get()),)
+            angle = (pixel_angle(cam.GetHorizontalApertureAttr().Get() or 20.955, cam.GetFocalLengthAttr().Get() or 50.0),)
             if moved(_state.get("last_angle"), angle, angle[0] * 0.02):
                 _state["angle"].Set(angle[0])
                 _state["last_angle"] = angle

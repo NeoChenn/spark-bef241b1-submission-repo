@@ -13,7 +13,9 @@ services:
       SIM_PORT: "9000"
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       CONTROL_CAP_USD: ${CONTROL_CAP_USD:-5}
-      RIG_CONTROL_INTERVAL: ${RIG_CONTROL_INTERVAL:-30}
+      RIG_CONTROL_INTERVAL: ${RIG_CONTROL_INTERVAL:-10}
+      RIG_MISSION: ${RIG_MISSION:-1}
+      RIG_FLEET_SPEED: ${RIG_FLEET_SPEED:-4}
       SIM_HOST_LAN: ${SIM_HOST_LAN:-}
       INGEST_TOKEN: ${INGEST_TOKEN:-}
     volumes:
@@ -39,10 +41,13 @@ services:
       RIG_ATMOS: ${RIG_ATMOS:-}
       RIG_WEATHER: ${RIG_WEATHER:-}
       RENDER_MODE: ${RENDER_MODE:-local}
+      RIG_VIEWS: ${RIG_VIEWS:-0}
+      RIG_VIEWS_RATE: ${RIG_VIEWS_RATE:-2}
+      RIG_VIEWS_MODE: ${RIG_VIEWS_MODE:-RaytracedLighting}
     command:
       - /rig/rig/sim/main.py
       - --sim=127.0.0.1:9000
-      - --cinematic=${RIG_CINEMATIC:-night}
+      - --cinematic=${RIG_CINEMATIC:-dusk}
       - --renderer=RealTimePathTracing
       - --width=1280
       - --height=720
