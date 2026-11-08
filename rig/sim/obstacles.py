@@ -22,7 +22,6 @@ CORAL = (1.1, 0.27, 0.11)
 GHOST = (0.32, 0.35, 0.4)
 CLOSED = (1.4, 0.05, 0.03)
 ROBOT_GLOW = [(0.6, 2.2, 9.0), (0.8, 7.0, 2.0), (9.0, 6.0, 0.8), (7.0, 1.2, 6.0)]
-GLOW_SCALE = 0.3
 BEACON_W = 15000.0
 ROBOT_USD = OUTPUT / "robot" / "go2_ur3_lift" / "go2_ur3_lift.usda"
 ROBOT_Z = 0.45
@@ -176,13 +175,6 @@ class ObstacleScene:
                 vs = body.GetPrim().GetVariantSets()
                 if vs.HasVariantSet("Physics"):
                     vs.GetVariantSet("Physics").SetVariantSelection("none")
-            glow, _ = _emissive(self.stage, f"obst_robot_{rid}", ROBOT_GLOW[k % len(ROBOT_GLOW)], GLOW_SCALE)
-            ring = UsdGeom.Cylinder.Define(self.stage, f"{root}/halo")
-            ring.CreateAxisAttr("Z")
-            ring.CreateRadiusAttr(max(0.75, 6 * self.radius))
-            ring.CreateHeightAttr(0.02)
-            UsdGeom.Xformable(ring).AddTranslateOp().Set(Gf.Vec3d(0, 0, -ROBOT_Z + 0.03))
-            _bind(ring.GetPrim(), glow)
             light = UsdLux.SphereLight.Define(self.stage, f"{root}/beacon")
             light.CreateRadiusAttr(0.15)
             light.CreateIntensityAttr(BEACON_W)
@@ -196,7 +188,6 @@ class ObstacleScene:
                 j.set(LEGS + ARM, [STAND[n] for n in LEGS] + [PARK[n] for n in ARM])
                 self.robots[rid].update(joints=j, walker=Walker(self.gait, (p["x"], p["y"], p["z"], p.get("yaw", 0.0)), self.now),
                                         arm=TaskMotion(self.clips), q=Quantiser(), qy=Quantiser(0.05))
-                ring.GetPrim().GetAttribute("xformOp:translate").Set(Gf.Vec3d(0, 0, -self.gait.zmean + 0.03))
         rb = self.robots[rid]
         rb["r"] = r
         if "walker" in rb:
