@@ -97,7 +97,7 @@ class Inbox:
 
 
 class StuckSensor:
-    def __init__(self, scenario, at: float, sensor: str = "G-F1", value: float = STUCK_LEL,
+    def __init__(self, scenario, at: float, sensor: str = "G-F6", value: float = STUCK_LEL,
                  inbox: Optional[Inbox] = None, health=None):
         self.det = detector(scenario, sensor)
         self.at, self.sensor, self.value = float(at), sensor, float(value)
@@ -190,7 +190,7 @@ def banner(link) -> str:
     return BANNER_OFFLINE if link.link_cut else ""
 
 
-def stuck_sensor(scenario, at: float, sensor: str = "G-F1", value: float = STUCK_LEL, **kw) -> StuckSensor:
+def stuck_sensor(scenario, at: float, sensor: str = "G-F6", value: float = STUCK_LEL, **kw) -> StuckSensor:
     return StuckSensor(scenario, at, sensor, value, **kw)
 
 
