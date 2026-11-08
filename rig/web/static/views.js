@@ -2,7 +2,7 @@
   const H = HUD, { S, q, set, esc, spark, now } = H;
   const short = (id) => H.rname({ id }).split(" ·")[0];
   const fleetBots = () => (S.robots.length ? S.robots : (S.fleet?.robots || []).map((r) => ({ ...r, name: H.rname(r) })));
-  const bot = () => fleetBots().find((r) => r.id === S.focus) || fleetBots()[0];
+  const bot = () => { const l = H.lead?.(S); return fleetBots().find((r) => r.id === (S.focus || l?.id)) || fleetBots()[0]; };
   const chips = (cur) => fleetBots().map((r) => `<button data-id="${esc(r.id)}" class="${r.id === cur ? "on" : ""}">${esc(r.name || H.rname(r))}</button>`).join("");
   const onFocus = (el) => { if (!el._f) { el._f = 1; el.addEventListener("click", (e) => { const b = e.target.closest("[data-id]"); if (b) H.focus(b.dataset.id); }); } };
   const last = (k) => S.series[k]?.at(-1)?.[1];
@@ -21,13 +21,14 @@
       if (now() - (el._t || 0) > 0.066) { el._t = now(); x.c._hits = H.drawRig(x.c, S, { big: true, deck: S.deck }); }
       const d = `${DECKS.map(([k, l]) => `<button data-d="${k}" class="${(S.deck || "auto") === k ? "on" : ""}">${l}</button>`).join("")}`;
       if (x.decks._h !== d) { x.decks._h = d; x.decks.innerHTML = d; }
-      const rows = (S.fleet?.robots || []).map((r) => `<div class="mrow ${r.id === S.focus ? "on" : ""}" data-id="${esc(r.id)}"><i style="background:${H.COL[H.tone(r.job_state || r.state)]}"></i><b>${esc(H.rname(r))}</b><span>${esc(H.nice(r.job_state || r.state))}${r.task ? " · " + esc(r.task) : ""}</span><em class="tnum">${r.battery?.soc == null ? "" : Math.round(r.battery.soc * 100) + " %"}</em></div>`).join("")
+      const rows = (S.fleet?.robots || []).map((r) => `<div class="mrow ${r.id === S.focus ? "on" : ""}" data-id="${esc(r.id)}"><i style="background:${H.COL[H.tone(r.job_state || r.state)]}"></i><b>${esc(H.rname(r))}</b><span>${esc(H.nice(r.job_state || r.state))}${r.task ? " · " + esc(String(r.task).split(":").pop().replace(/_/g, " ")) : ""}</span><em class="tnum">${r.battery?.soc == null ? "" : Math.round(r.battery.soc * 100) + " %"}</em></div>`).join("")
         + `<div class="legend col"><span><i class="lg r"></i>robot · heading</span><span><i class="lg t"></i>drone</span><span><i class="lg g"></i>gas plume</span><span><i class="lg p"></i>person · 3 m</span><span><i class="lg d"></i>dock</span><span><i class="lg n"></i>no-fly zone</span></div>`;
       if (x.side._h !== rows) { x.side._h = rows; x.side.innerHTML = (S.fleet ? "" : `<p class="none">No fleet snapshot yet</p>`) + rows; }
     } });
-  const KIND = { fpv: ["Camera", "cam"], rgb: ["Camera", "cam"], policy: ["Detector boxes", "target"], det: ["Detector boxes", "target"], ogi: ["OGI gas", "wind"], gas: ["OGI gas", "wind"], bev: ["Lidar BEV", "map"], lidar: ["Lidar BEV", "map"], depth: ["Depth", "layers"], thermal: ["Thermal", "sun"] };
+  const KIND = { fpv: ["Camera", "cam"], rgb: ["Camera", "cam"], policy: ["Policy input", "target"], det: ["Detector boxes", "target"], ogi: ["OGI gas", "wind"], gas: ["OGI gas", "wind"], bev: ["Lidar BEV", "map"], lidar: ["Lidar BEV", "map"], depth: ["Depth", "layers"], thermal: ["Thermal", "sun"] };
   const ORDER = Object.keys(KIND);
-  const kname = (k) => KIND[k]?.[0] || String(k).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+  const ROLE = { rust: "Rust localizer", gas: "OGI gas", inspection: "Depth", weld: "Weld seam" };
+  const kname = (k, id) => (k === "policy" && ROLE[S.views?.[id]?.info?.role]) || KIND[k]?.[0] || String(k).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
   H.on((h) => {
     if (!h.views || typeof h.views !== "object") return;
     const v = (S.views ||= {});
@@ -54,13 +55,13 @@
       if (!x.kinds._b) { x.kinds._b = 1; x.kinds.onclick = (ev) => { const b = ev.target.closest("[data-kind]"); if (b) S.kind = b.dataset.kind; }; }
       const c = chips(id);
       if (x.who._h !== c) { x.who._h = c; x.who.innerHTML = c; }
-      const kc = ks.length > 1 ? ks.map((kk) => `<button data-kind="${esc(kk)}" class="${kk === k ? "on" : ""}">${esc(kname(kk))}</button>`).join("") : "";
+      const kc = ks.length > 1 ? ks.map((kk) => `<button data-kind="${esc(kk)}" class="${kk === k ? "on" : ""}">${esc(kname(kk, id))}</button>`).join("") : "";
       if (x.kinds._h !== kc) { x.kinds._h = kc; x.kinds.innerHTML = kc; }
       const src = e ? srcOf(id, k, e) : f ? "data:image/jpeg;base64," + f.jpg : null;
       if (src && x.img._s !== src) { x.img._s = src; x.img.src = src; }
       x.img.hidden = !src;
       set(x.none, src ? "" : `No camera feed from ${r ? r.name || H.rname(r) : "any robot"} yet`);
-      set(x.cap, e ? [kname(k), e.caption].filter(Boolean).join(" · ") : f ? "Inspection camera" : "");
+      set(x.cap, e ? [kname(k, id), e.caption].filter(Boolean).join(" · ") : f ? "Inspection camera" : "");
       const g = S.gemini, gk = f && g && f === S.inspection ? S.gkey : "", bk = e ? k + (e.seq ?? "") + JSON.stringify(e.boxes || "") : gk;
       if (x.pts._k !== bk) {
         x.pts._k = bk; const iw = (e || f)?.w || 1, ih = (e || f)?.h || 1;
@@ -72,10 +73,13 @@
       const kv = [["Phase", r?.caption?.text || H.nice(r?.state) || "—"], ["Rust mask", f && f === S.inspection ? "outlined in red" : "—"], ["Gauge", f?.gauge ?? "—"],
         ["Gas", gas == null ? "—" : (gas * 100).toFixed(1) + " % LEL"], ["Brush force", last(id + ".force_n") != null ? last(id + ".force_n").toFixed(1) + " N" : lead ? S.force.toFixed(1) + " N" : "—"], ["Detector", lead && S.conf != null ? S.conf.toFixed(2) : "—"],
         ["Gemini", lead && g ? `${String(g.verdict || "").replace("_", " ")} · ${(g.confidence || 0).toFixed(2)}` : "—"]].filter(([kk, v]) => v !== "—" || ["Phase", "Gas"].includes(kk));
-      const th = ks.length > 1 ? `<div class="fp-th">${ks.filter((kk) => kk !== k).map((kk) => `<button data-kind="${esc(kk)}"><img src="${srcOf(id, kk)}" alt=""><span>${esc(kname(kk))}</span></button>`).join("")}</div>` : "";
+      const th = ks.length > 1 ? `<div class="fp-th">${ks.filter((kk) => kk !== k).map((kk) => `<button data-kind="${esc(kk)}"><img src="${srcOf(id, kk)}" alt=""><span>${esc(kname(kk, id))}</span></button>`).join("")}</div>` : "";
       const side = kv.map(([kk, v]) => `<div class="kv"><span>${kk}</span><b>${esc(v)}</b></div>`).join("") + th;
       if (x.side._h !== side) { x.side._h = side; x.side.innerHTML = side; if (!x.side._b) { x.side._b = 1; x.side.addEventListener("click", (ev) => { const b = ev.target.closest("[data-kind]"); if (b) S.kind = b.dataset.kind; }); } }
     } });
+  H.command({ id: "views.toggle", group: "Views", label: "Sensor views on the robots", icon: "eye", keys: "perspective policy views sensor cameras render toggle",
+    desc: "Turns the low-res sensor head cameras in the sim on or off. They feed First person, Sensors and the Policy view inset.", active: () => S.viewsOn !== false && !!S.vkinds,
+    run: () => { S.viewsOn = S.viewsOn === false; H.event("views", { on: S.viewsOn }); } });
   H.panel({ id: "persp", title: "Policy view", icon: "eye", key: "j", keys: "perspective inset policy sees camera detector ogi lidar bev pip",
     desc: "A small inset of what the focused robot's policy sees. ⇧F opens it full size.", suggest: (S) => (S.vkinds ? 0.3 : 0), hint: () => (S.vkinds ? kname(kindsOf(bot()?.id)[0] || "") : ""),
     render(el) {
@@ -83,7 +87,7 @@
       const x = q(el, `<div class="pip on"><img data-k="img" alt=""><span class="fp-cap" data-k="cap"></span><span class="pip-none" data-k="none"></span></div>`);
       if (src && x.img._s !== src) { x.img._s = src; x.img.src = src; }
       x.img.hidden = !src;
-      set(x.cap, src ? `${r.name || H.rname(r)} · ${kname(k)}` : ""); set(x.none, src ? "" : "No policy views from the sim yet");
+      set(x.cap, src ? `${r.name || H.rname(r)} · ${kname(k, id)}` : ""); set(x.none, src ? "" : "No policy views from the sim yet");
     } });
   const MET = [["gas_lel", "Gas", "% LEL", 100, 1, { min: 0, max: 30, color: "#F85149", refs: [[10, "rgba(227,179,65,.5)"]] }],
     ["thermal_c", "Thermal", "°C", 1, 1, { min: 0, max: 80, color: "rgba(255,255,255,.75)" }],
@@ -100,7 +104,7 @@
       el._t = now();
       if (x.pvs) {
         onFocus(x.pvs.parentNode);
-        const rows = ids.filter((id) => kindsOf(id).length).map((id) => `<div class="pv-row"><b>${esc(short(id))}</b>${kindsOf(id).map((k) => `<figure><img src="${srcOf(id, k)}" alt=""><figcaption>${esc(kname(k))}${entry(id, k)?.caption ? ` · ${esc(entry(id, k).caption)}` : ""}</figcaption></figure>`).join("")}</div>`).join("");
+        const rows = ids.filter((id) => kindsOf(id).length).map((id) => `<div class="pv-row"><b>${esc(short(id))}</b>${kindsOf(id).map((k) => `<figure><img src="${srcOf(id, k)}" alt=""><figcaption>${esc(kname(k, id))}${entry(id, k)?.caption ? ` · ${esc(entry(id, k).caption)}` : ""}</figcaption></figure>`).join("")}</div>`).join("");
         const html = rows ? `<h3>What each policy sees</h3>${rows}` : "";
         if (x.pvs._h !== html) { x.pvs._h = html; x.pvs.innerHTML = html; }
       }

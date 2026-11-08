@@ -304,6 +304,7 @@
   let subKey = null, layer = 0;
   function caption() {
     if (!S.started) return SIM ? { lead: "Offshore rig autonomy", rest: " · press Space to begin", tone: "act" } : { lead: "Connecting", rest: " to the rig…", tone: "act" };
+    if (!SIM && S.caption?.lead) return S.caption;
     if (S.robots.length > 1) {
       const rank = (r) => (RANK[r.caption?.tone] || 0) + (S.gasAlarm && /GAS|LEAK|RETORQUE/.test(r.state) ? 2.5 : 0) - (/DOCK|CHARG/.test(r.state) ? 1.5 : 0);
       const r = S.robots.reduce((a, b) => (rank(b) > rank(a) ? b : a));
@@ -336,7 +337,7 @@
     if (!on) return;
     const cam = S.camera, el0 = SIM ? S.shotEl : $("view"), r = el0 ? el0.getBoundingClientRect() : { left: 0, top: 0, width: innerWidth, height: innerHeight };
     const k = Math.max(r.width / cam.w, r.height / cam.h), ox = r.left + (r.width - cam.w * k) / 2, oy = r.top + (r.height - cam.h * k) / 2, M = 30;
-    const keep = new Set(), lo = DOCK.left._p ? DOCK.left.getBoundingClientRect().right + 8 : 8, hi = DOCK.right._p ? DOCK.right.getBoundingClientRect().left - 8 : innerWidth - 8;
+    const keep = new Set(), placed = [], lo = DOCK.left._p ? DOCK.left.getBoundingClientRect().right + 8 : 8, hi = DOCK.right._p ? DOCK.right.getBoundingClientRect().left - 8 : innerWidth - 8;
     S.robots.forEach((rb) => {
       if (!Array.isArray(rb.world_pos) || rb.world_pos.length < 3) return;
       keep.add(rb.id);
@@ -344,12 +345,19 @@
       if (!el) { el = document.createElement("div"); el.dataset.id = rb.id; el.innerHTML = `<div class="lc"><b><i></i><span></span></b><small></small></div>`; LBL.appendChild(el); }
       const [u, v, z] = project(cam, rb.world_pos);
       let x = ox + u * k, y = oy + v * k, mode = z <= 0.1 ? "behind" : rb.occluded ? "occ" : "";
-      if (!mode && (x < M || x > innerWidth - M || y < M + 60 || y > innerHeight - M)) { x = Math.min(innerWidth - M, Math.max(M, x)); y = Math.min(innerHeight - M, Math.max(M + 60, y)); mode = "edge"; }
+      if (!mode && (x < M || x > innerWidth - M || y < M + 90 || y > innerHeight - M)) mode = "behind";
       el.className = `lbl ${rb.caption?.tone || ""} ${mode} ${S.ping === rb.id ? "ping" : ""} ${S.focus === rb.id ? "focus" : ""}`;
       el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
       set(el.querySelector("span"), rb.name || rb.id); set(el.querySelector("small"), rb.caption?.text);
-      const cw = el.firstChild.offsetWidth, dx = Math.min(Math.max(x - cw / 2, lo), hi - cw) - (x - cw / 2);
+      const cw = el.firstChild.offsetWidth, ch = el.firstChild.offsetHeight, dx = Math.min(Math.max(x - cw / 2, lo), hi - cw) - (x - cw / 2);
       el.firstChild.style.marginLeft = dx.toFixed(0) + "px";
+      if (mode) return;
+      let lift = 0;
+      const l0 = x - cw / 2 + dx;
+      for (let i = 0; i < placed.length; i++) { const p = placed[i]; if (l0 < p[0] + p[2] + 4 && p[0] < l0 + cw + 4 && Math.abs(y - lift - p[1]) < ch + 4) { lift = y - p[1] + ch + 6; i = -1; } }
+      placed.push([l0, y - lift, cw]);
+      el.firstChild.style.transform = lift ? `translate(-50%,${-lift}px)` : "";
+      el.classList.toggle("lifted", lift > 0);
     });
     [...LBL.children].forEach((el) => keep.has(el.dataset.id) || el.remove());
   }

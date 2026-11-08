@@ -127,8 +127,10 @@
       set(x.cap, S.pip?.caption || (wd ? `Wind from ${wd.dir_deg}° at ${wd.speed_ms} m/s` : "No wind data"));
     } });
   const acted = new Set(), sent = (x) => (x ? x[0] + x.slice(1).toLowerCase() : "");
+  const realBanner = (c) => (c?.banner && (c.mode !== "CLOUD" || (c.link && c.link !== "UP") || c.online === false) ? c.banner : null);
+  H.realBanner = realBanner;
   const ctl = (S) => {
-    const c = S.control, cut = S.linkCut || c?.link === "CUT", ag = c?.agent || S.intent ? { ...(c?.agent || {}), intent: S.intent || c?.agent?.intent } : null;
+    const c = S.control && { ...S.control, banner: realBanner(S.control) }, cut = S.linkCut || c?.link === "CUT", ag = c?.agent || S.intent ? { ...(c?.agent || {}), intent: S.intent || c?.agent?.intent } : null;
     return !c ? null : { ...c, agent: ag && (cut ? { ...ag, link: "CUT" } : ag), ...(cut ? { mode: "EDGE", banner: "Gemini link cut — edge only", link: "CUT" } : {}) };
   };
   H.ctl = ctl;
@@ -138,20 +140,21 @@
   }
   H.on((h) => {
     if (!h.control) return;
-    if (h.control.banner && h.control.banner !== H._cb) H.banner("warn", sent(h.control.banner), "Robots keep their last plan on the edge", "link");
-    H._cb = h.control.banner;
+    const bn = realBanner(h.control);
+    if (bn && bn !== H._cb) H.banner("warn", sent(bn), "Robots keep their last plan on the edge", "link");
+    H._cb = bn;
     const key = (h.control.actions || []).filter(Boolean).map((a) => a.id).join();
     if (key === H._ck) return;
     H._ck = key;
     [...Array(9).keys()].forEach((n) => H.uncommand("cc." + n));
     (h.control.actions || []).filter(Boolean).slice(0, 5).forEach((a, n) => H.command({ id: "cc." + n, group: "Control centre", label: a.label, icon: a.source === "edge" ? "warn" : "target", keys: "action plan argon " + (a.robot || ""),
       desc: `${a.source === "edge" ? "Edge safety rule" : "Ranked " + (a.rank || n + 1) + " by Gemini 4 Argon"}. ${a.rationale || ""}`, hint: `${a.source === "edge" ? "Edge" : "Argon"} · ${a.source === "edge" ? "hard" : Math.round((a.confidence || 0) * 100)}`,
-      score: () => (n === 0 && (H.S.gasAlarm || h.control.banner) ? 0.95 : 0), active: () => acted.has(a.id), run: () => act(a) }));
+      score: () => (n === 0 && (H.S.gasAlarm || realBanner(h.control)) ? 0.95 : 0), active: () => acted.has(a.id), run: () => act(a) }));
   });
   const waiting = (S) => (S.orchestrator?.approvals || []).filter((a) => a && !H.decided?.has(a.job));
   H.waiting = waiting;
   const hot = (S) => {
-    const c = S.control, an = c?.anomalies || [];
+    const c = S.control && { ...S.control, banner: realBanner(S.control) }, an = Array.isArray(c?.anomalies) ? c.anomalies : [];
     if (waiting(S).length && !(S.gasAlarm && now() - S.gasAt < 6 / S.speed)) return 95;
     if (!c && S.state !== "ESCALATE_TO_HUMAN") return 0;
     const sk = JSON.stringify([c?.situation, (c?.actions || []).map((a) => a?.label)]).replace(/\d+(\.\d+)?/g, "#");
@@ -160,8 +163,8 @@
     return S.gasAlarm || S.linkCut || c?.banner || S.state === "ESCALATE_TO_HUMAN" || an.some((a) => a?.severity === "critical") ? 90 : an.some((a) => /warn/.test(a?.severity)) ? 50 : c && S.started && now() - H._skAt < 14 / S.speed ? 20 : 0;
   };
   const ccRow = (a, n) => !a ? "" : `<li data-n="${n}" class="${acted.has(a.id) ? "done" : ""}"><span class="tnum">${a.rank || n + 1}</span><span>${esc(a.label)}<small>${a.source === "edge" ? "Edge rule" : "Argon"}${a.rationale ? " · " + esc(a.rationale) : ""}</small></span><b class="tnum">${a.source === "edge" ? "hard" : Math.round((a.confidence || 0) * 100)}</b></li>`;
-  H.planner = (ag, n) => (ag && (ag.intent || ag.calls?.length) ? `<div class="cc-agent">${ag.intent ? `<p class="intent">“${esc(ag.intent)}”</p>` : ""}${(ag.calls || []).slice(-n).reverse().map((x) =>
-    `<p class="call ${x.ok ? "" : "no"}"><b>${x.ok ? "✓" : "✗"}</b>${esc(x.label)}<small>${esc(x.ok ? x.why : "refused: " + x.refused)}</small></p>`).join("")}</div>` : "");
+  H.planner = (ag, n) => (ag && (ag.intent || ag.text || ag.calls?.length) ? `<div class="cc-agent">${ag.intent ? `<p class="intent">“${esc(ag.intent)}”</p>` : ""}${ag.text ? `<p class="ag-text">${esc(String(ag.text).slice(0, 160))}</p>` : ""}${(Array.isArray(ag.calls) ? ag.calls : []).filter(Boolean).slice(-n).reverse().map((x) =>
+    `<p class="call ${x.ok === false ? "no" : ""}"><b>${x.ok === false ? "✗" : "✓"}</b>${esc(x.label || x.name || "call")}<small>${esc(x.ok === false ? "refused: " + (x.refused || x.note || x.why || "") : x.why || x.note || "")}</small></p>`).join("")}</div>` : "");
   H.vetoes = (c, n) => (c?.vetoed || []).slice(0, n).map((v) => `<p class="veto"><b>Edge veto</b> <s>${esc(v.label)}</s><small>${esc(v.why)}</small></p>`).join("");
   H.panel({ id: "control", title: "Control centre", meta: "Gemini 4 Argon", icon: "target", key: "a", priority: hot, phases: (S) => hot(S) > 0, keys: "situation report gemini argon actions plan edge link",
     desc: "Gemini 4 Argon's situation report and ranked actions, the edge rules that override it, and the planner's last calls. Each action is also a palette command.",
@@ -244,7 +247,7 @@
   H.lead = (S) => {
     const bs = H.bots(S);
     if (!bs.length) return null;
-    const f = bs.find((r) => r.id === S.focus);
+    const f = bs.find((r) => r.id === S.focus) || bs.find((r) => r.id === S.caption?.robot);
     if (f) return f;
     const rank = (r) => (RT[r.caption?.tone] || RT[tone(r.job_state || r.state)] || 0) + (S.gasAlarm && /GAS|LEAK|RETORQUE/.test(r.state || "") ? 2.5 : 0) - (/DOCK|CHARG/.test(r.state || "") ? 1.5 : 0);
     return bs.reduce((a, b) => (rank(b) > rank(a) ? b : a));
