@@ -1,23 +1,3 @@
-"""Headless video recording.
-
-STATUS: crashes on Modal L40S. The RTX Hydra engine segfaults under gVisor (see infra/README.md).
-Physics and PPO work there; cameras don't. Use this where RTX works, or log rollouts and replay them.
-
-1. record_video: headless Isaac Sim renders a camera to an mp4 on the
-   rust-ckpt volume (/ckpt/videos/<name>.mp4) and the local entrypoint downloads it.
-
-       MODAL_PROFILE=jacobyuan99 .venv/bin/modal run infra/stream.py                       # demo: Go2 on ground
-       MODAL_PROFILE=jacobyuan99 .venv/bin/modal run infra/stream.py --usd-path /assets/rig.usd --seconds 10 \
-           --eye 6,6,4 --target 0,0,1
-
-   For a *trained policy* video use Isaac Lab's built-in recorder instead (gym RecordVideo):
-       python $ISAACLAB/scripts/reinforcement_learning/rsl_rl/play.py --task <T> --headless \
-           --enable_cameras --video --video_length 600 --checkpoint <ckpt.pt>
-   (writes <log_dir>/videos/play/*.mp4).
-
-Live viewing is handled by the sim team (rig/sim/sender.py: RGB annotator -> JPEG over TCP ->
-   websocket page); WebRTC is not used (Modal tunnels are TCP-only, WebRTC media needs UDP 47998).
-"""
 import os
 import subprocess
 import sys
@@ -26,8 +6,8 @@ import time
 import modal
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from infra.common import ASSET_DIR, ASSET_VOL, CKPT_DIR, CKPT_VOL  # noqa: E402
-from infra.isaac_image import ISAAC_GPU, ISAACLAB_PY, isaac_image, run_isaac  # noqa: E402
+from infra.common import ASSET_DIR, ASSET_VOL, CKPT_DIR, CKPT_VOL
+from infra.isaac_image import ISAAC_GPU, ISAACLAB_PY, isaac_image, run_isaac
 
 app = modal.App("rig-isaac-record")
 VIDEO_DIR = f"{CKPT_DIR}/videos"
@@ -50,7 +30,6 @@ import isaaclab.sim as sim_utils
 from isaaclab.sensors import Camera, CameraCfg
 
 if cfg["usd_path"]:
-    # open the teammate's stage first; SimulationContext then attaches to it (adds physicsScene if missing)
     import omni.usd
     omni.usd.get_context().open_stage(cfg["usd_path"])
     for _ in range(20):
@@ -116,7 +95,6 @@ os._exit(0)  # simulation_app.close() hangs on Modal
 def record_video(usd_path: str | None = None, seconds: float = 10.0, name: str = "demo",
                  eye=(3.0, 3.0, 2.0), target=(0.0, 0.0, 0.3), width: int = 1280, height: int = 720,
                  fps: int = 30, focal_length: float = 18.0, warmup_frames: int = 30, kit_args: str = "") -> bytes:
-    """Render `seconds` of the stage at usd_path (None = demo Go2 scene) to /ckpt/videos/<name>.mp4."""
     import json
     os.makedirs(VIDEO_DIR, exist_ok=True)
     out = f"{VIDEO_DIR}/{name}.mp4"

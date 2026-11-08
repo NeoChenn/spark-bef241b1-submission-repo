@@ -1,5 +1,3 @@
-"""Look presets for sim/environment.py: sky, sun, sea state, water colour and renderer settings."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -32,7 +30,6 @@ BASE_RENDER = {
 }
 
 def hdri_azimuth(u: float) -> float:
-    """World azimuth (deg, from +X towards +Y) of lat-long column u on an unrotated RTX dome in a Z-up stage."""
     return (360.0 * (1.0 - u)) % 360.0
 
 

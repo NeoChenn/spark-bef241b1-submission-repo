@@ -99,3 +99,37 @@ def test_reconnects_after_server_restart():
             srv2.close()
     finally:
         sender.stop()
+
+
+def test_dropped_frame_events_carry_over():
+    sender = FrameSender("127.0.0.1", 1)
+    sender.send({**header(0), "events": [{"to": "A"}]}, b"x")
+    sender.send({**header(1), "events": [{"to": "B"}]}, b"y")
+    sender.send(header(2), b"z")
+    h, payload = sender._take()
+    assert payload == b"z" and h["seq"] == 2
+    assert [e["to"] for e in h["events"]] == ["A", "B"]
+
+
+def test_dropped_frame_plume_image_carries_over():
+    sender = FrameSender("127.0.0.1", 1)
+    sender.send({**header(0), "plume": {"jpg": "AAA", "stats": {"t": 1}}}, b"x")
+    sender.send({**header(1), "plume": {"stats": {"t": 2}}}, b"y")
+    sender.send(header(2), b"z")
+    h, _ = sender._take()
+    assert h["plume"] == {"jpg": "AAA", "stats": {"t": 2}}
+
+
+def test_receives_events_from_server():
+    from rig.frames import encode
+    srv = Listener()
+    sender = FrameSender("127.0.0.1", srv.port).start()
+    try:
+        assert sender.connected.wait(2)
+        assert wait_until(lambda: srv.conn is not None, 2)
+        srv.conn.sendall(encode({"type": "event", "name": "set_glare", "args": {"on": True}}))
+        assert wait_until(lambda: not sender.inbox.empty(), 2)
+        assert sender.inbox.get() == {"name": "set_glare", "args": {"on": True}}
+    finally:
+        sender.stop()
+        srv.close()

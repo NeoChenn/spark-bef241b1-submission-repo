@@ -1,22 +1,3 @@
-"""RigOrchestrator: the team's Orchestrator (policy/orchestrator.py) with the gas-leak job added.
-
-One robot, one patrol, two jobs. With ``leak=None`` it behaves exactly like the rust-only Orchestrator.
-
-    PATROL -> GAS_CHECK --(gas normal)--> DETECT (rust, unchanged)
-                 |
-                 +--(gas above clear)--> LEAK_APPROACH -> LEAK_INSPECT -+-> loose bolt  -> RETORQUE -> LEAK_VERIFY -> resume
-                                            ^                           +-> unsure      -> LEAK_SECOND_VIEW (x2) -> escalate
-                                            +---------------------------+-> crack/burst -> back off, ESCALATE_TO_HUMAN (critical)
-                                                                        +-> unexplained -> back off, ESCALATE_TO_HUMAN
-    Checked before every step (and every scrub step), from ANY state, ahead of the person check:
-        gas >= stop limit, or a failed gas sensor  -> GAS_RETREAT -> ESCALATE_TO_HUMAN (critical)
-        gas above clear during rust work           -> pause it, GAS_CHECK, then resume where it left off
-
-No human approval before tightening (team decision). Tightening needs a confident "loose bolt" diagnosis,
-gas below the stop limit (checked at the start of the step) and the bolt read confidently.
-Every transition is a DecisionRecord like the rust job; leak evidence adds "gas", "flange",
-"leak_diagnosis", "leak_reading" and, where a supervisor must hear about it, "alert".
-"""
 from __future__ import annotations
 
 import math
@@ -37,16 +18,16 @@ LEAK_STATES = {S.GAS_CHECK, S.LEAK_APPROACH, S.LEAK_INSPECT, S.LEAK_SECOND_VIEW,
 
 @dataclass
 class LeakConfig:
-    gas_clear: float = 0.05          # fraction of LEL: at or below this counts as normal
-    gas_stop: float = 0.20           # at or above this: stop everything and retreat
-    tolerance_rad: float = 0.06      # stripe turned more than this = loose
-    suspect_rad: float = 0.03        # second pass when gas lingers after the confident repairs
+    gas_clear: float = 0.05
+    gas_stop: float = 0.20
+    tolerance_rad: float = 0.06
+    suspect_rad: float = 0.03
     max_suspects: int = 2
-    min_conf: float = 0.7            # stripe readings below this are not acted on
+    min_conf: float = 0.7
     crack_threshold: float = 0.5
     reads_per_view: int = 3
     max_leak_views: int = 2
-    read_dt: float = 1.0             # s of sim time per camera read
+    read_dt: float = 1.0
     verify_reads: int = 4
     max_settle_reads: int = 8
     retry_limit: int = 1
@@ -56,7 +37,7 @@ class LeakConfig:
 
 @dataclass
 class LeakJob:
-    localizer: object                # detection.leak.LeakLocalizer
+    localizer: object
     config: LeakConfig = field(default_factory=LeakConfig)
 
 
@@ -68,6 +49,10 @@ ALERTS = {
                        "Treat as loss of containment: keep people clear and follow site procedure before any repair."),
     "gas_limit": ("critical", True, "Gas {gas} at the robot; it stopped work and retreated.",
                   "Keep clear and send a gas-testing crew."),
+    "gas_alarm": ("warning", False, "Gas {gas} at unit 2 ({where}); locating the source.",
+                  "Keep hot work stopped in the area until the source is found."),
+    "source_lost": ("warning", True, "Gas detected but unit 2 could not localise the source within {why}.",
+                    "Send a gas-testing crew with a portable detector."),
     "needs_human": ("warning", True, "Robot stopped at {fid} and needs a human: {why}.",
                     "Send a person, or re-inspect when conditions allow."),
 }
@@ -88,7 +73,6 @@ class RigOrchestrator(DeckSweepMixin, Orchestrator):
         self.flange_id: Optional[str] = None
         self._start_flange(None)
 
-    # ------------------------------------------------------------- utilities
     def _start_flange(self, fid: Optional[str]) -> None:
         self.flange_id = fid
         n = self.bridge.flange(fid).n_bolts if fid is not None else 8
@@ -144,7 +128,6 @@ class RigOrchestrator(DeckSweepMixin, Orchestrator):
     def _occluded(self, img) -> bool:
         return img is None or float(np.asarray(img, np.float32).std()) < self.cfg.occluded_std
 
-    # ---------------------------------------------------------- pre-emption
     def step(self):
         if self.state in TERMINAL:
             return
@@ -160,7 +143,6 @@ class RigOrchestrator(DeckSweepMixin, Orchestrator):
         super().step()
 
     def _interrupt(self):
-        """Called by the team's scrub loop every scrub step."""
         if self.leak is None:
             return None
         return self._gas_preempt()
@@ -195,7 +177,6 @@ class RigOrchestrator(DeckSweepMixin, Orchestrator):
             self._retreat()
         return S.ESCALATE_TO_HUMAN, reason, self._evidence(alert=self._alert(kind, **fmt))
 
-    # ---------------------------------------------------------------- states
     def _s_patrol(self):
         nxt, reason, ev = super()._s_patrol()
         if self.leak is not None and nxt == S.DETECT:
@@ -352,7 +333,6 @@ class RigOrchestrator(DeckSweepMixin, Orchestrator):
         return (S.ESCALATE_TO_HUMAN, f"retreated {self.lcfg.retreat_m:.0f} m; gas: {gas} -> critical alert",
                 self._evidence(alert=self._alert("gas_limit", gas=gas)))
 
-    # ------------------------------------------------------------------- HUD
     def overlay_text(self) -> list[str]:
         lines = rust_overlay(self)
         if self.leak is None:

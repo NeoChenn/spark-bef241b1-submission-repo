@@ -1,5 +1,3 @@
-"""Pure-Python decisions for import_model.py: units, up axis, deck level, walkable meshes, texture paths."""
-
 from __future__ import annotations
 
 import math
@@ -33,12 +31,10 @@ def converter_for(path: str) -> str:
 
 
 def unitless(path: str) -> bool:
-    """Formats whose files carry no unit, so converter metadata is a guess."""
     return Path(path).suffix.lower() in {".stl", ".obj", ".ply"}
 
 
 def guess_scale(extent: float, meters_per_unit: float, units: str = "auto", trust_metadata: bool = True) -> float:
-    """Metres per source unit, given the model's largest bounding-box extent in source units."""
     if units != "auto":
         return UNITS[units]
     if trust_metadata and SANE_EXTENT_M[0] <= extent * meters_per_unit <= SANE_EXTENT_M[1]:
@@ -50,7 +46,6 @@ def guess_scale(extent: float, meters_per_unit: float, units: str = "auto", trus
 
 
 def guess_up_axis(meta_up: str, flat_area: dict[str, float], forced: str = "auto", ratio: float = 2.0) -> str:
-    """Up axis from metadata, overridden when far more surface area faces along another axis."""
     if forced != "auto":
         return forced
     dominant = max(flat_area, key=flat_area.get)
@@ -60,7 +55,6 @@ def guess_up_axis(meta_up: str, flat_area: dict[str, float], forced: str = "auto
 
 
 def deck_level(samples: list[tuple[float, float]], bin_size: float = 0.5, skip_bottom: float = 0.05) -> float | None:
-    """Height of the band with the most upward-facing area, ignoring sea or seabed planes at the very bottom."""
     if not samples:
         return None
     zs = [z for z, _ in samples]
@@ -82,7 +76,6 @@ def is_walkable(name: str, up_fraction: float, min_up_area: float = 4.0, up_area
 
 
 def preview_cameras(lo: list[float], hi: list[float]) -> dict[str, dict]:
-    """A wide three-quarter shot of the whole model and an eye-level shot from just off a deck corner (deck at z = 0)."""
     centre = [(a + b) / 2.0 for a, b in zip(lo, hi)]
     size = [b - a for a, b in zip(lo, hi)]
     distance = 2.2 * math.dist(lo, hi)
@@ -101,7 +94,6 @@ def preview_cameras(lo: list[float], hi: list[float]) -> dict[str, dict]:
 
 
 class TextureMap:
-    """Copies textures next to the output USD and hands back relative paths."""
 
     def __init__(self, out_dir: Path, search_dirs: list[Path], subdir: str = "textures"):
         self.dest = Path(out_dir) / subdir

@@ -91,3 +91,40 @@ cfg.base_height = 0.32                     # root z
   reachability mask is a shoulder-distance proxy, not full IK with orientation.
 * Training visuals are off; the pipe visual in play mode sits at the nominal pose (play pins DR to it).
 * Legs are fixed (fixed base, gravity off): the trunk does not sway under arm reaction forces.
+
+## Scrub v2 (`--robot lift_v2`, `ScrubLiftV2EnvCfg`)
+
+F* capped at 38 N (`force_set_max`; apply the same cap when deploying `policy.onnx`), over-force penalty
+`1.0 * (F-40)/10 + 4.0 * ((F-30)/10)^2`, abrasion coef 0.5-1.5, 1-4 patches, pipe yaw +-0.1745 rad.
+Fine-tuned from `scrub_lift_watson/model_149` in three stages (v2a 150 it, v2b 200 it, v2c 150 it, final weights).
+Rig-geometry eval (1026 ep, `--meta --force_patch`): 97.6 % success, 6.8 s clean, mean ep-max force 29.9 N,
+p95 35.7 N, 1.0 % of episodes > 40 N (v1: 49.9 N / 70.1 N / 76.8 %).
+
+## Storm (`policy/storm.py`, `--storm L`, v3 = `--robot lift_v3`)
+
+Disturbances at storm level L (0-1):
+
+* gusts on the UR3 links (`permanent_wrench_composer`): raised-cosine gusts of 10-30 N x L on a 0-4 N mean wind,
+  1.5-4 s long, about one every 4 s;
+* deck sway and heave of the pipe relative to the trunk: 2-5 cm x L at 0.1-0.3 Hz, plus 0.6 mm/N of trunk sway from
+  the gust;
+* wet pipe: abrasion x (1 - 0.35 L).
+
+The obs/action layout is unchanged, so v3 is a drop-in `policy.onnx`. v3 is v2 fine-tuned for 150 iterations with
+L ~ U(0, 1). Rig-geometry eval (`--meta --force_patch`, about 1024 episodes each):
+
+| policy | storm | success | clean s | mean ep-max F | p95 | > 40 N | max F |
+|---|---|---|---|---|---|---|---|
+| v2 | 0 | 100 % | 5.9 | 29.8 N | 35.3 N | 0.5 % | 42 N |
+| v2 | 0.5 | 100 % | 6.5 | 30.8 N | 37.0 N | 1.8 % | 50 N |
+| v2 | 1.0 | 100 % | 7.8 | 34.2 N | 44.4 N | 12.0 % | 274 N |
+| v3 | 0 | 100 % | 6.1 | 29.7 N | 35.6 N | 0.9 % | 46 N |
+| v3 | 1.0 | 100 % | 7.8 | 32.6 N | 43.4 N | 9.0 % | 69 N |
+
+* **Ablation** (v2, L=1, 512 episodes): gusts alone put 6.6 % of episodes over 40 N (max 61 N); deck motion alone
+  puts 2.3 % over (max 56 N). Only the two together produce the > 100 N outliers, and v3 removes those outliers.
+* **Capping F\* at 30 N** does not help (10.5 % over 40 N), because the over-force comes from the disturbance, not
+  from the setpoint.
+* **Gust gate** (`--gust_gate 12 6`): this is the orchestrator's rule, which retracts above 12 N and resumes below
+  6 N. With v2 it halves the > 40 N rate (6.6 %). Inside a fixed 15 s episode it costs success (48 %), but in the
+  real loop the robot simply waits out the gust.

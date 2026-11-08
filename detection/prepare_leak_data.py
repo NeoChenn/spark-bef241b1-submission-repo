@@ -1,17 +1,3 @@
-"""Build the crack / clean dataset for the leak detector (same layout and process as detection/prepare_data.py).
-
-Layout written:  <out>/{train,val,test}/{crack,clean}/*.jpg     (label 1 = crack)
-  * real_*   photos from Hugging Face ``mohammadnajeeb/concrete_crack_images`` (CC BY 4.0; 227 px concrete patches,
-             "Positive" = crack). Concrete is NOT steel: these teach "thin dark crack line", not what a cracked
-             flange looks like. Split at random 70/15/15 (the source gives no grouping, so near-duplicates can leak
-             across splits; treat real-photo test scores as optimistic).
-  * synth_*  crops of flange faces rendered by policy/leak/render.py through the 640x360 wrist camera at the
-             Isaac viewing distance (1.1 m), with random view, dust, glare and loose bolts. Positives are face windows
-             that the crack line actually crosses; negatives come from renders with no crack. File names start with
-             ``synth_`` so detection/train.py reports real vs synthetic separately (as for rust_v2).
-
-    python -m detection.prepare_leak_data --zip <path>/data/test.zip --out data/leak_v1
-"""
 from __future__ import annotations
 
 import argparse
@@ -30,7 +16,7 @@ from policy.leak.render import crack_path, render_flange
 from policy.leak.world import LeakWorld
 
 SPLITS = (("train", 0.70), ("val", 0.15), ("test", 0.15))
-CROP = 32          # matches LeakLocalizer(patch=32)
+CROP = 32
 
 
 def _split_of(i: int, n: int) -> str:
@@ -89,7 +75,7 @@ def synthetic_images(out: Path, n_per_class: int, rng) -> dict:
         s.crack = float(rng.uniform(0.15, 0.8)) if want == "crack" else 0.0
         cam = _camera(geom, int(rng.integers(0, 3)), float(rng.uniform(1.0, 1.25)), rng)
         dust = float(rng.choice([0.0, 0.0, rng.uniform(0.0, 0.3)]))
-        seed = int(rng.integers(0, 10_000))                       # a different crack shape every render
+        seed = int(rng.integers(0, 10_000))
         img = render_flange(cam, s, dust=dust, glare=bool(rng.random() < 0.15), crack_seed=seed)
         face = loc.face_mask(cam, geom, img.shape[:2])
         crack = _crack_mask(cam, geom, s.crack, seed) if s.crack > 0 else np.zeros(img.shape[:2], bool)
@@ -98,7 +84,6 @@ def synthetic_images(out: Path, n_per_class: int, rng) -> dict:
                  for y in range(0, H - CROP + 1, 8) for x in range(0, W - CROP + 1, 8)}
         cand = [c for c, v in cover.items() if v >= 0.9]
         if want == "clean" and rng.random() < 0.5:
-            # hard negatives: windows that include bore, rim, bolt or stripe edges, so "edge" does not mean "crack"
             cand = [c for c, v in cover.items() if 0.3 <= v < 0.9]
         rng.shuffle(cand)
         taken = 0

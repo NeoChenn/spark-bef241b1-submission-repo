@@ -1,10 +1,3 @@
-"""Convert formats Isaac's asset converter cannot read (.blend, .dae, .3ds, .x3d, .abc) to GLB with Blender.
-
-    docker run --rm -v "$PWD":/work -w /work rig-import-blender:latest --python sim/tools/blender_to_glb.py -- in.blend out.glb
-
-Called by scripts/import_model.sh; textures are packed into the GLB.
-"""
-
 import sys
 from pathlib import Path
 

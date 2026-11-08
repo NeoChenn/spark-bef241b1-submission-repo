@@ -1,4 +1,3 @@
-"""Isaac-side pieces of the leak job, tested on CPU with plain USD (usd-core). Nothing here runs Isaac Sim."""
 import json
 import math
 from pathlib import Path
@@ -7,10 +6,10 @@ import numpy as np
 import pytest
 
 pxr = pytest.importorskip("pxr")
-from pxr import Gf, Usd, UsdGeom  # noqa: E402
+from pxr import Gf, Usd, UsdGeom
 
-from integration.leak_bridge import LeakBridgeMixin, apply_leak_state, bolt_waypoint, load_flanges  # noqa: E402
-from policy.leak.world import LeakWorld  # noqa: E402
+from integration.leak_bridge import LeakBridgeMixin, apply_leak_state, bolt_waypoint, load_flanges
+from policy.leak.world import LeakWorld
 
 ROOT = Path(__file__).resolve().parents[1]
 META = ROOT / "sim" / "output" / "full_rig_meta.json"
@@ -83,7 +82,6 @@ def test_root_layer_puts_the_flanges_over_the_rig(built):
     assert layer.subLayerPaths[0] == "leak_flanges.usda"
 
 
-# ---------------------------------------------------------------- bridge mixin, with a fake robot
 class FakeArm:
     def __init__(self):
         self.calls = []
@@ -143,8 +141,6 @@ def test_approach_stops_early_if_gas_reaches_the_stop_limit_on_the_way(built):
     world.gas_spike(g.id)
     world.settle()
     assert not h.approach_flange(g.id)
-    # It notices on the step that crosses into the stop zone (~1.2 m out for a burst), so it never ends up
-    # closer than the viewing pose, and the job never starts inspecting.
     assert np.linalg.norm(h.pos - g.center) >= h.approach_distance - 0.06
 
 

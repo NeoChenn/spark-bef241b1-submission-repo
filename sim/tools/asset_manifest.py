@@ -1,5 +1,3 @@
-"""Pure manifest logic for sim/assets/manifest.json: parsing, URLs and file naming."""
-
 from __future__ import annotations
 
 import re

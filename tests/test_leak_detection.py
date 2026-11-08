@@ -42,7 +42,7 @@ def test_dirty_lens_lowers_confidence_below_the_action_threshold():
     clean = loc.read(render_flange(cam(), state(), dust=0.0), cam(), G)
     dusty = loc.read(render_flange(cam(), state(), dust=0.4), cam(), G)
     assert min(b.conf for b in clean.bolts) >= 0.9
-    assert max(b.conf for b in dusty.bolts) < 0.7          # robot will not act on these
+    assert max(b.conf for b in dusty.bolts) < 0.7
 
 
 def test_crack_is_found_and_a_clean_flange_is_not_flagged():
@@ -55,7 +55,7 @@ def test_crack_is_found_and_a_clean_flange_is_not_flagged():
 
 def test_face_mask_excludes_bore_and_bolts():
     m = LeakLocalizer().face_mask(cam(), G, (H, W))
-    assert not m[H // 2, W // 2]                            # pipe bore in the middle
+    assert not m[H // 2, W // 2]
     assert 0.05 < m.mean() < 0.6
 
 
@@ -68,12 +68,11 @@ def test_fake_crack_classifier_scores_dark_lines():
 
 
 def test_from_checkpoint_uses_the_same_layout_as_the_rust_detector(tmp_path):
-    """model.onnx + meta.json, loaded like RustLocalizer.from_checkpoint."""
     torch = pytest.importorskip("torch")
     pytest.importorskip("onnxruntime")
 
     class Tiny(torch.nn.Module):
-        def forward(self, x):                               # dark pixels -> higher "crack" logit
+        def forward(self, x):
             return (0.5 - x.mean(dim=(1, 2, 3))).unsqueeze(1) * 4.0
 
     torch.onnx.export(Tiny(), torch.zeros(1, 3, 32, 32), str(tmp_path / "model.onnx"), input_names=["x"],
@@ -86,16 +85,13 @@ def test_from_checkpoint_uses_the_same_layout_as_the_rust_detector(tmp_path):
     assert r.n_windows > 0 and 0.0 <= r.crack_prob <= 1.0
 
 
-# ------------------------------------------------------------- classical crack check at the Isaac camera setup
 def isaac_cam(view, distance, rng):
     from detection.prepare_leak_data import _camera
     return _camera(G, view, distance, rng)
 
 
 def test_classical_crack_check_never_misses_silently_and_never_false_alarms():
-    """At 640x360 / 1.0-1.25 m, over crack severity, dust and glare: a crack is either flagged or reported unsure
-    (never 'no crack'), and a clean flange is never flagged."""
-    loc = LeakLocalizer()                       # classical: no ML
+    loc = LeakLocalizer()
     rng = np.random.default_rng(11)
     flagged = 0
     for sev in (0.0, 0.05, 0.3):
@@ -113,7 +109,7 @@ def test_classical_crack_check_never_misses_silently_and_never_false_alarms():
                     flagged += hit
                 else:
                     assert not hit, (dust, glare)
-    assert flagged >= 6                         # and on a clean lens it really finds them
+    assert flagged >= 6
 
 
 def test_a_dirty_view_cannot_say_no_crack():

@@ -1,9 +1,3 @@
-"""Boustrophedon coverage over a binary mask on the pipe grid.
-
-Grid convention = RustState: (n_z, n_theta), rows = z (axial), cols = theta
-(periodic). Lanes run along the pipe axis (z) at fixed theta; consecutive lanes
-alternate direction and step in theta by ``lane_width`` columns (wrapping).
-"""
 from __future__ import annotations
 
 import numpy as np
@@ -12,7 +6,6 @@ from policy.interfaces import PipeGeometry, Waypoint
 
 
 def dilate(mask: np.ndarray, k: int) -> np.ndarray:
-    """Square dilation by k cells; wraps in theta (cols), clips in z (rows)."""
     m = np.asarray(mask, bool)
     if k <= 0:
         return m.copy()
@@ -30,13 +23,6 @@ def dilate(mask: np.ndarray, k: int) -> np.ndarray:
 
 
 def boustrophedon_cells(mask: np.ndarray, lane_width: int = 1) -> list[tuple[int, int]]:
-    """Ordered (row=z, col=theta) cells visiting every lane that intersects ``mask``.
-
-    Each lane is ``lane_width`` theta-columns wide; the tool covers the whole lane
-    width, so one waypoint at the lane-centre column covers every column of the
-    lane. Starts after the largest empty theta gap so a patch straddling
-    theta = 0 is swept contiguously.
-    """
     m = np.asarray(mask, bool)
     nT = m.shape[1]
     cols_occ = m.any(axis=0)
@@ -86,7 +72,6 @@ def covered_by(cells, lane_width: int, shape, z_half: int = 0) -> np.ndarray:
 
 def coverage_path(mask: np.ndarray, pipe: PipeGeometry, margin: int = 1, lane_width: int = 1,
                   standoff: float = 0.0, flow_rate: float = 0.0):
-    """Mask -> (waypoints, target mask after margin dilation)."""
     target = dilate(mask, margin)
     cells = boustrophedon_cells(target, lane_width)
     wps = []

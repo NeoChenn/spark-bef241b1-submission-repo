@@ -1,17 +1,3 @@
-"""Build the offshore rig deck scene and render preview images.
-
-    C:\\isaacsim\\python.bat sim\\build_rig_deck.py --seed 7
-    ./python.sh sim/build_rig_deck.py --seed 7        (Linux and Docker)
-
-Outputs, all in sim/output/:
-    rig_deck.usda         the scene; open it in Isaac Sim with File > Open
-    rig_deck_meta.json    damage location, work zone and camera data for other teams
-    preview_*.png         rendered views
-
-The scene uses metres with Z up, and the deck surface is at z = 0. Run
-sim/tools/fetch_assets.py first. Changing --seed moves the pipe damage.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -29,28 +15,26 @@ parser.add_argument("--width", type=int, default=1280)
 parser.add_argument("--height", type=int, default=720)
 args = parser.parse_args()
 
-from isaacsim import SimulationApp  # noqa: E402
+from isaacsim import SimulationApp
 
 simulation_app = SimulationApp({"headless": True, "width": args.width, "height": args.height})
 
-from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics  # noqa: E402
+from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
-from scene_builder import ASSETS, OUTPUT, SceneBuilder, rel  # noqa: E402
+from scene_builder import ASSETS, OUTPUT, SceneBuilder, rel
 
 SCENE_PATH = OUTPUT / "rig_deck.usda"
 
-DECK_X = 8.0  # half length
-DECK_Y = 5.0  # half width
+DECK_X = 8.0
+DECK_Y = 5.0
 MAIN_PIPE_Z = 1.1
 MAIN_PIPE_RADIUS = 0.15
-# Kept free of props so robots can reach both sides of the main pipe.
 WORK_ZONE = {"x": [-2.5, 2.5], "y": [-2.2, 2.2]}
 
 
 def damage_patch(builder, rng, material):
-    """Irregular corrosion patch wrapped around the top half of the main pipe."""
     center_x = rng.uniform(-1.4, 1.4)
-    center_angle = math.radians(rng.uniform(35, 145))  # measured from +Y toward +Z
+    center_angle = math.radians(rng.uniform(35, 145))
     base = rng.uniform(0.13, 0.2)
     lobes = [(rng.randint(2, 7), rng.uniform(0.08, 0.28), rng.uniform(0, math.tau)) for _ in range(4)]
     surface = MAIN_PIPE_RADIUS + 0.003
@@ -114,7 +98,6 @@ def build_structure(b):
         for y in (-3.5, 3.5):
             b.tube("/World/Deck", "leg", (x, y, -0.5), (x, y, -30), 0.8, paint, tile=3.0)
 
-    # Overhead frame, which carries the upper pipe rack.
     for x in (-7, 0, 7):
         for y in (-4.4, 4.4):
             if (x, y) == (0, -4.4):
@@ -124,7 +107,6 @@ def build_structure(b):
     for y in (-4.4, 4.4):
         b.box("/World/Structure", "long_beam", (0, y, 4.1), (14.25, 0.25, 0.3), paint, tile=2.0)
 
-    # Handrail around the deck, with a gap at the stairs.
     def rail(start, end):
         for height in (0.6, 1.1):
             b.tube(
@@ -154,7 +136,6 @@ def build_pipes(b, rng):
     grey = b.plain("pipe_grey", (0.33, 0.35, 0.36), 0.55, 0.6)
     orange = b.plain("pipe_orange", (0.75, 0.3, 0.06), 0.5, 0.2)
 
-    # The repair target: a large line through the middle of the work zone.
     b.tube("/World/Pipes", "main_pipe", (-7.6, 0, MAIN_PIPE_Z), (7.6, 0, MAIN_PIPE_Z), MAIN_PIPE_RADIUS,
            painted, tile=1.2, segments=64, collide="none")
     for x in (-7.6, -3.0, 3.0, 7.6):
@@ -163,11 +144,9 @@ def build_pipes(b, rng):
         height = MAIN_PIPE_Z - MAIN_PIPE_RADIUS
         b.box("/World/Pipes", "support", (x, 0, height / 2), (0.14, 0.5, height), steel)
         b.box("/World/Pipes", "support_base", (x, 0, 0.02), (0.4, 0.7, 0.04), steel)
-    # Scaled from the 10 cm kit so its bore lines up with the 30 cm main line.
     b.asset("/World/Pipes", "modular_pipes", (-5.0, 0, MAIN_PIPE_Z), rotate_y=90,
             part="pipe_valve_large_metal", scale=3.0, on_deck=False)
 
-    # Neighbouring lines, which add clutter around the work zone.
     for y, z, radius, material, tile in (
         (-3.0, 0.7, 0.1, grey, 1.0),
         (-3.5, 0.7, 0.07, orange, 1.0),
@@ -183,7 +162,6 @@ def build_pipes(b, rng):
         b.asset("/World/Pipes", "modular_pipes", (x, y, 0.75), rotate_y=90,
                 part="pipe_valve_small_1_metal", scale=2.0, on_deck=False)
 
-    # Overhead rack hung from the frame.
     for y, z, radius in ((-1.6, 3.6, 0.09), (-1.2, 3.6, 0.06), (1.3, 3.65, 0.1), (1.8, 3.65, 0.06)):
         b.tube("/World/Pipes", "overhead", (-7.5, y, z), (7.5, y, z), radius, grey if y < 0 else plate,
                collide="none")
@@ -192,7 +170,6 @@ def build_pipes(b, rng):
         for y in (-2.2, 2.2):
             b.box("/World/Pipes", "rack_hanger", (x, y, 3.8), (0.06, 0.06, 0.55), steel)
 
-    # A vertical riser made from the Poly Haven pipe kit, joining the overhead rack.
     for z in (1.2, 2.4):
         b.asset("/World/Pipes", "modular_pipes", (6.9, -2.2, z), part="pipe_140cm_metal", scale=1.0, on_deck=False)
     b.asset("/World/Pipes", "modular_industrial_pipes_01", (-6.8, 3.0, 0.0), rotate_z=180)
@@ -218,7 +195,6 @@ def build_props(b):
     ):
         b.asset(parent, asset, position, rotate_z=rotate)
 
-    # Stairs leading up off the deck, through the handrail gap.
     b.asset(parent, "modular_fire_escape", (4.2, 5.75, 0), rotate_z=0, part="modular_fire_escape_stairs")
 
     for x in (-3.5, 3.5):
@@ -255,7 +231,6 @@ def add_camera(stage, name, eye, target, focal=24.0):
 
 
 def add_robots(stage):
-    """Reference NVIDIA's Ridgeback Franka to check scale and GPU load."""
     from isaacsim.storage.native import get_assets_root_path
 
     root = get_assets_root_path()

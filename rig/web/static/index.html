@@ -4,27 +4,44 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Rig Camera</title>
-  <style>
-    :root { --bg: #0b0d10; --fg: #d8dee6; --dim: #7d8794; --live: #3fb950; --warn: #d29922; }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.4 ui-monospace, Menlo, monospace; }
-    header { display: flex; gap: 16px; align-items: baseline; padding: 10px 16px; flex-wrap: wrap; }
-    h1 { font-size: 15px; margin: 0; font-weight: 600; }
-    #status { color: var(--warn); }
-    #status.live { color: var(--live); }
-    .stat { color: var(--dim); }
-    main { padding: 0 16px 16px; }
-    canvas { display: block; width: 100%; max-width: 1280px; aspect-ratio: 16 / 9; height: auto; margin: 0 auto; background: #000; }
-  </style>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="/static/hud.css">
 </head>
 <body>
-  <header>
-    <h1>rig / camera</h1>
-    <span id="status">connecting…</span>
-    <span class="stat">fps <span id="fps">–</span></span>
-    <span class="stat">frame age <span id="age">–</span></span>
-  </header>
-  <main><canvas id="view" width="640" height="360"></canvas></main>
+  <div id="stage">
+    <div id="backdrop"><div class="shot" id="shotA"></div><div class="shot" id="shotB"></div></div>
+    <canvas id="view" width="640" height="360"></canvas>
+    <div id="flash"></div>
+  </div>
+  <div id="labels"></div>
+
+  <div id="island" class="glass hl" role="button" aria-label="Status, opens the command palette">
+    <div class="cmp"><span class="dot"></span><b id="i-state">Ready</b><span class="tnum" id="i-time">0.0</span><span class="u">s</span><span class="sep"></span><span class="tnum" id="i-key"></span><span class="u" id="i-unit"></span><span class="edge" id="i-edge"></span></div>
+    <div class="ban"><span class="b-icon" id="b-icon"></span><div><b id="b-title"></b><p id="b-sub"></p></div></div>
+  </div>
+  <div id="subtitle"><span class="sub"></span><span class="sub"></span></div>
+
+  <div class="dock" id="dock-left"><div class="dglass"></div></div>
+  <div class="dock" id="dock-right"><div class="dglass"></div></div>
+  <div class="dock" id="dock-bottom"><div class="dglass"></div></div>
+  <div id="sheet" class="glass hl" role="dialog" aria-label="View"></div>
+
+  <div id="palette" class="glass hl" role="dialog" aria-label="Command palette">
+    <label class="p-search">
+      <svg viewBox="0 0 24 24"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M20 20l-3.6-3.6"/></svg>
+      <input id="p-input" placeholder="Search panels, views, cameras, changes" autocomplete="off" spellcheck="false" role="combobox" aria-controls="p-list">
+    </label>
+    <div class="p-body"><ul id="p-list" role="listbox"></ul><div id="p-preview"></div></div>
+    <div class="p-foot">
+      <span><span class="dot"></span><span id="status">connecting…</span><span class="sep">·</span><span id="fps">–</span> fps<span class="sep">·</span><span id="age"></span></span>
+      <span class="p-keys"><kbd>↑↓</kbd><kbd>↵</kbd>run<kbd id="p-keep">⌘↵</kbd>run, keep open<kbd>esc</kbd></span>
+    </div>
+  </div>
+
   <script src="/static/viewer.js"></script>
+  <script src="/static/core.js"></script>
+  <script src="/static/panels.js"></script>
+  <script src="/static/views.js"></script>
+  <script src="/static/fleetlive.js"></script>
 </body>
 </html>

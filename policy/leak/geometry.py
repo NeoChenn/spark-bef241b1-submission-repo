@@ -1,10 +1,3 @@
-"""Flange geometry shared by the scene builder, the mock renderer and the leak perception.
-
-A bolted pipe flange seen face-on: 8 bolt heads on a bolt circle around the pipe bore. Each bolt carries a
-red torque stripe painted across its head and on across the flange face. When a bolt turns, the head part of
-the stripe rotates with it and the flange part does not, so the angle between them is the misalignment the
-camera reads. Units: metres, world frame Z up (same as rig meta files).
-"""
 from __future__ import annotations
 
 import math
@@ -16,9 +9,9 @@ import numpy as np
 @dataclass
 class FlangeGeometry:
     id: str
-    center: np.ndarray            # (3,) centre of the flange face
-    normal: np.ndarray            # (3,) unit, out of the face toward the side the robot views from
-    ref: np.ndarray               # (3,) unit, in the face plane: direction of bolt 0
+    center: np.ndarray
+    normal: np.ndarray
+    ref: np.ndarray
     pipe_radius: float = 0.08
     bolt_circle: float = 0.13
     head_radius: float = 0.016
@@ -42,16 +35,13 @@ class FlangeGeometry:
         return 2 * math.pi * k / self.n_bolts
 
     def radial(self, k: int, extra: float = 0.0) -> np.ndarray:
-        """Unit in-plane direction of bolt k's stripe, turned by ``extra`` radians about the normal."""
         a = self.bolt_phi(k) + extra
         return math.cos(a) * self.ref + math.sin(a) * self.binormal
 
     def bolt_center(self, k: int) -> np.ndarray:
-        """Centre of bolt k's head (raised off the face)."""
         return self.center + self.bolt_circle * self.radial(k) + self.head_height * self.normal
 
     def view_poses(self, distance: float = 0.85, side: float = 0.3) -> list[tuple[np.ndarray, np.ndarray]]:
-        """Camera (eye, target) pairs: nominal face-on view, then two views turned +/- ``side`` rad."""
         poses = [(self.center + distance * self.normal, self.center.copy())]
         for s in (side, -side):
             d = math.cos(s) * self.normal + math.sin(s) * self.binormal
@@ -72,8 +62,6 @@ class FlangeGeometry:
 
 
 def project(camera, points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """World points (..., 3) -> pixel (u, v) (..., 2) and camera depth (...). OpenCV camera convention,
-    the same as policy.interfaces.CameraModel (x right, y down, z forward)."""
     K = np.asarray(camera.K, np.float64)
     T = np.asarray(camera.T_world_cam, np.float64)
     pc = (np.asarray(points, np.float64) - T[:3, 3]) @ T[:3, :3]
@@ -85,13 +73,10 @@ def project(camera, points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def look_at(eye, target, up=(0, 0, 1)) -> np.ndarray:
-    """4x4 camera pose (OpenCV optical frame: x right, y down, z forward) looking from eye to target, upright
-    (world up appears at the top of the image). Note: policy.demo_mock.look_at uses cross(z, -up), which rolls the
-    image 180 degrees; harmless for a round pipe, but it would show the flange upside down."""
     eye, target, up = (np.asarray(v, float) for v in (eye, target, up))
     zc = target - eye
     zc /= np.linalg.norm(zc)
-    if abs(zc.dot(up / np.linalg.norm(up))) > 0.99:   # looking straight up or down: pick another up
+    if abs(zc.dot(up / np.linalg.norm(up))) > 0.99:
         up = np.array([0.0, 1.0, 0.0])
     xc = np.cross(zc, up)
     xc /= np.linalg.norm(xc)

@@ -1,13 +1,3 @@
-"""Import a 3D model (glTF/GLB, FBX, OBJ, STL, PLY, USD/USDZ, STEP/IGES) into a clean Isaac-ready USD.
-
-    /isaac-sim/python.sh sim/tools/import_model.py model.glb --name rig
-    scripts/import_model.sh model.blend --name rig      (adds .blend/.dae/.3ds/.x3d via Blender, on watson)
-
-Writes sim/assets/rig_model/<name>/<name>.usd with textures/ beside it and report.json. The result is in metres,
-Z up, main deck at z = 0 and the topside centred on the origin. Prim /Rig is the default prim; /Rig/Model carries
-the unit, axis and origin fix. Walkable meshes get UsdPhysics collision (triangle mesh, static).
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -40,16 +30,16 @@ parser.add_argument("--licence", default="")
 parser.add_argument("--source-name", help="original file name when the input is an intermediate (Blender GLB)")
 args = parser.parse_args()
 
-from isaacsim import SimulationApp  # noqa: E402
+from isaacsim import SimulationApp
 
 simulation_app = SimulationApp({"headless": True})
 
-import numpy as np  # noqa: E402
-import omni.kit.app  # noqa: E402
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdPhysics, UsdShade  # noqa: E402
+import numpy as np
+import omni.kit.app
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdPhysics, UsdShade
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from model_fix import (  # noqa: E402
+from model_fix import (
     TextureMap,
     converter_for,
     deck_level,
@@ -139,7 +129,6 @@ def remap_targets(stage: Usd.Stage, moves: list[tuple[str, str]]) -> None:
 
 
 def triangles(mesh: UsdGeom.Mesh, xform: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """World-space triangle area vectors and centroids, plus world points."""
     points = np.asarray(mesh.GetPointsAttr().Get() or [], dtype=np.float64)
     counts = np.asarray(mesh.GetFaceVertexCountsAttr().Get() or [], dtype=np.int64)
     indices = np.asarray(mesh.GetFaceVertexIndicesAttr().Get() or [], dtype=np.int64)
@@ -221,7 +210,6 @@ def apply_fix(model: Usd.Prim, scale: float, up: str, offset: np.ndarray) -> Non
 
 
 def add_collision(meshes: list[dict], rot: np.ndarray, mode: str) -> list[str]:
-    """Static triangle-mesh colliders on walkable meshes; auto falls back to all meshes if none look walkable."""
     chosen = []
     for m in meshes:
         prim = m["prim"]

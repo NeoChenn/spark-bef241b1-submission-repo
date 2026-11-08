@@ -1,11 +1,3 @@
-"""Train the binary rust classifier (LoRA by default, --full-ft for full fine-tune).
-
-Data layout: <data_dir>/{train,val,test}/{rust,clean}/*.jpg   (label 1 = rust)
-
-Local smoke run on a synthetic dataset:
-  .venv/bin/python -m detection.train --make-dummy runs/dummy_data
-  .venv/bin/python -m detection.train --data-dir runs/dummy_data --out-dir runs/dummy --epochs 2 --no-pretrained
-"""
 from __future__ import annotations
 
 import argparse
@@ -33,7 +25,6 @@ EXTS = {".jpg", ".jpeg", ".png"}
 CACHE_SHORT_SIDE = 256
 
 
-# ----------------------------------------------------------------------------- data
 def list_split(data_dir: str | Path, split: str, limit: int | None = None):
     items = []
     for cname, y in CLASSES.items():
@@ -56,7 +47,6 @@ def _load(path) -> Image.Image:
 
 
 class RustDataset(Dataset):
-    """Decodes every image once into RAM (short side capped at 256 px) - datasets here are small."""
 
     def __init__(self, items, transform, images=None, raw=None, threads: int = 64):
         self.items, self.transform = items, transform
@@ -75,8 +65,6 @@ class RustDataset(Dataset):
 
 
 def load_pack(items: dict, pack: str | Path | None) -> dict | None:
-    """Raw JPEG bytes for every item, packed in ONE pickle (Modal volumes are ~0.2 s per small-file
-    cold read, a single big file is fast). Builds the pack on first use."""
     if not pack:
         return None
     pack = Path(pack)
@@ -102,17 +90,14 @@ def make_transforms(mean, std):
         T.RandomResizedCrop(INPUT_SIZE, scale=(0.6, 1.0)),
         T.RandomHorizontalFlip(), T.RandomVerticalFlip(),
         T.RandomRotation(15),
-        # Mild: rust is defined by colour, so keep hue shifts tiny.
         T.ColorJitter(brightness=0.25, contrast=0.25, saturation=0.15, hue=0.02),
         T.ToTensor(), norm,
     ])
-    # Eval: plain resize to 224x224 (no crop, so rust at patch edges is not cut away).
     eval_tf = T.Compose([T.Resize((INPUT_SIZE, INPUT_SIZE)), T.ToTensor(), norm])
     return train_tf, eval_tf
 
 
 def make_dummy_dataset(root: str | Path, n_per_class=(40, 12, 12), size=160, seed=0):
-    """Synthetic grey 'pipe' images; rust = orange-brown blotches."""
     rng = np.random.default_rng(seed)
     for split, n in zip(("train", "val", "test"), n_per_class):
         for cname in CLASSES:
@@ -132,7 +117,6 @@ def make_dummy_dataset(root: str | Path, n_per_class=(40, 12, 12), size=160, see
     return str(root)
 
 
-# ----------------------------------------------------------------------------- train
 @torch.no_grad()
 def predict_logits(model, loader, device, amp_dtype=None):
     model.eval()
@@ -157,13 +141,13 @@ def train(model_name: str = PRIMARY, data_dir: str = "/data/rust_v1", out_dir: s
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     amp_dtype = torch.bfloat16 if device.type == "cuda" else None
     if device.type == "cpu" and threads:
-        torch.set_num_threads(threads)  # oversubscribing hybrid/shared CPUs is ~6x slower
+        torch.set_num_threads(threads)
     t0 = time.time()
 
     model, meta = build_model(model_name, lora=not full_ft, pretrained=pretrained)
     model.to(device)
     cl = "vit" not in model_name
-    if cl:  # channels_last: ~1.5x faster CNN training on CPU, also good on GPU
+    if cl:
         model.to(memory_format=torch.channels_last)
     train_tf, eval_tf = make_transforms(meta["mean"], meta["std"])
 
@@ -191,7 +175,7 @@ def train(model_name: str = PRIMARY, data_dir: str = "/data/rust_v1", out_dir: s
     params = [p for p in model.parameters() if p.requires_grad]
     opt = torch.optim.AdamW(params, lr=lr, weight_decay=0.01 if not full_ft else 0.05)
     steps = epochs * len(dl_train)
-    warm = max(1, len(dl_train))  # 1 epoch linear warmup then cosine
+    warm = max(1, len(dl_train))
     sched = torch.optim.lr_scheduler.LambdaLR(
         opt, lambda s: (s + 1) / warm if s < warm else 0.5 * (1 + math.cos(math.pi * (s - warm) / max(1, steps - warm))))
 
@@ -231,7 +215,7 @@ def train(model_name: str = PRIMARY, data_dir: str = "/data/rust_v1", out_dir: s
     plain = to_plain(model).to(device).to(memory_format=torch.contiguous_format).eval()
     logits, labels = {}, {}
     for s, dl in dl_eval.items():
-        logits[s], labels[s] = predict_logits(plain, dl, device, None)  # fp32 eval
+        logits[s], labels[s] = predict_logits(plain, dl, device, None)
     rep = report_with_subsets(logits, labels, items)
     run_name = out.name
     print(fmt_report(rep, run_name))
@@ -261,7 +245,6 @@ def train(model_name: str = PRIMARY, data_dir: str = "/data/rust_v1", out_dir: s
 
 
 def report_with_subsets(logits: dict, labels: dict, items: dict) -> dict:
-    """full_report + real-photo vs synthetic (rust_v2 'synth_*' files) breakdown at 0.5 and the val threshold."""
     from detection.eval import metrics_at
 
     syn = {s: np.array(["/synth_" in p for p, _ in items[s]]) for s in logits}
@@ -271,6 +254,8 @@ def report_with_subsets(logits: dict, labels: dict, items: dict) -> dict:
     for s in logits:
         if syn[s].any():
             for tag, m in (("real", ~syn[s]), ("synth", syn[s])):
+                if not m.any():
+                    continue
                 rep["subsets"][f"{s}_{tag}"] = {"at_0.5": metrics_at(logits[s][m], labels[s][m], 0.0),
                                                 "at_thr": metrics_at(logits[s][m], labels[s][m], rep["threshold_logit"])}
                 mt = rep["subsets"][f"{s}_{tag}"]["at_thr"]
@@ -280,7 +265,6 @@ def report_with_subsets(logits: dict, labels: dict, items: dict) -> dict:
 
 
 def rescore(run_dir: str, data_dir: str) -> dict:
-    """Recompute report + threshold/temperature in meta/metrics from a run's saved logits.npz."""
     run = Path(run_dir)
     L = np.load(run / "logits.npz")
     splits = [s for s in ("train", "val", "test") if f"{s}_logits" in L]

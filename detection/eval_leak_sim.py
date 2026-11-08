@@ -1,15 +1,3 @@
-"""Held-out check of the crack detector on rendered flange views (like detection/eval.py sim_heldout for rust).
-
-Renders flanges the training data never used (different seeds), through the 640x360 wrist camera at the Isaac
-viewing distance, and runs the whole LeakLocalizer (face windows -> classifier -> calibration -> threshold ->
-unsure band). Reports, per detector: cracks found, cracks missed, unsure, and false alarms on clean flanges.
-
-    python -m detection.eval_leak_sim --ckpt runs/leak_detector/mnv4s_lora      # trained model
-    python -m detection.eval_leak_sim                                            # classical (default) vs window fake
-
-STILL SIMULATED: these renders are the mock's, not Isaac's. Isaac renders (lighting, materials, noise) will
-differ, so re-run this on frames from the Isaac stream before trusting the numbers.
-"""
 from __future__ import annotations
 
 import argparse

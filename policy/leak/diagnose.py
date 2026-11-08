@@ -1,13 +1,3 @@
-"""Leak diagnosis from accumulated camera readings (ported from flange_robot/diagnosis.py).
-
-Only a confidently diagnosed loose bolt is a repair the robot may attempt. Order of precedence:
-  1. crack or burst seen confidently        -> CRACK         (loss of containment: never a robot repair)
-  2. crack check unsure                      -> UNSURE        (do not touch bolts while a crack is possible)
-  3. confident loose bolt(s)                 -> LOOSE_BOLT
-  4. some bolts not readable confidently     -> UNSURE
-  5. gas elevated but nothing found          -> UNEXPLAINED
-  6. otherwise                               -> CLEAN
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -25,13 +15,12 @@ class LeakKind(str, Enum):
 
 @dataclass
 class BoltEstimate:
-    angle: float          # confidence-weighted mean, image frame
-    conf: float           # best confidence seen
+    angle: float
+    conf: float
     reads: int
 
 
 class LeakEvidence:
-    """Accumulates LeakReadings over frames and views (weights = confidence squared, like flange_robot)."""
 
     def __init__(self, n_bolts: int):
         self.n_bolts = n_bolts
@@ -57,7 +46,6 @@ class LeakEvidence:
         self.crack_unsure_reads += int(reading.crack_unsure)
 
     def reset_bolt(self, k: int) -> None:
-        """Forget a bolt's readings (after tightening it, verification must use fresh frames)."""
         self._w[k] = self._wa[k] = self._conf[k] = 0.0
         self._n[k] = 0
 
@@ -79,7 +67,7 @@ class LeakEvidence:
 class LeakDiagnosis:
     kind: LeakKind
     reason: str
-    loose: list[tuple[int, float]] = field(default_factory=list)   # (bolt, |angle|) worst first
+    loose: list[tuple[int, float]] = field(default_factory=list)
 
 
 def diagnose(ev: LeakEvidence, gas: float, cfg) -> LeakDiagnosis:

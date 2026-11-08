@@ -34,7 +34,6 @@ def test_happy_path_and_decision_log(tmp_path):
                  ("SOAK", "SCRUB"), ("VERIFY", "PAINT"), ("PAINT", "VERIFY_PAINT"), ("VERIFY_PAINT", "DONE")]:
         assert (a, b) in [(r.frm, r.to) for r in orch.records], (a, b, seq)
     assert "SECOND_VIEW" not in seq and "ESCALATE_TO_HUMAN" not in seq
-    # soak lasted >= 30 s of sim time and re-detected every 5 s
     t_spray = next(r.t for r in orch.records if r.frm == "SPRAY")
     t_scrub = next(r.t for r in orch.records if r.to == "SCRUB")
     assert t_scrub - t_spray >= 30 - 1e-6
@@ -58,7 +57,6 @@ def test_replan_on_new_patch_mid_soak():
     assert len(replans) == 1 and "RE-PLAN" in replans[0].reason
     assert replans[0].evidence["new_patches"] and 1 in replans[0].evidence["patch_ids"]
     assert len(orch.patches) == 2 and all(p.sprayed_t is not None for p in orch.patches.values())
-    # soak extended: scrub only starts 30 s after the second spray
     t2 = [r.t for r in orch.records if r.frm == "SPRAY"][1]
     assert next(r.t for r in orch.records if r.to == "SCRUB") >= t2 + 30 - 1e-6
     assert orch.state == S.DONE
@@ -136,6 +134,6 @@ def test_occlusion_holds_then_resumes_and_person_pauses():
     pairs = [(r.frm, r.to) for r in orch.records]
     k = next(i for i, p in enumerate(pairs) if p[1] == "HOLD")
     resume = next(p for p in pairs[k + 1:] if p[0] == "HOLD")
-    assert resume[1] == pairs[k][0]                     # resumes the interrupted state
+    assert resume[1] == pairs[k][0]
     assert any(p[1] == "PAUSE_PERSON" for p in pairs)
     assert orch.state == S.DONE

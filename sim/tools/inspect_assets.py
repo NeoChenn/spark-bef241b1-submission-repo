@@ -1,10 +1,3 @@
-"""Report the scale, up axis, size and parts of each downloaded model.
-
-    C:\\isaacsim\\python.bat sim\\tools\\inspect_assets.py
-
-Writes sim/output/asset_report.json. Use it when adding a model to the scene.
-"""
-
 from __future__ import annotations
 
 import json
@@ -14,7 +7,7 @@ from isaacsim import SimulationApp
 
 simulation_app = SimulationApp({"headless": True})
 
-from pxr import Usd, UsdGeom  # noqa: E402
+from pxr import Usd, UsdGeom
 
 SIM_DIR = Path(__file__).resolve().parents[1]
 MODELS_DIR = SIM_DIR / "assets" / "third_party" / "models"

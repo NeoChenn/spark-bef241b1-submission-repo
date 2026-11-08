@@ -1,9 +1,3 @@
-"""Regenerate the figures in docs/leak/ from the real code (renderer, LeakLocalizer, RigOrchestrator mock).
-
-    python docs/leak/make_figures.py          # needs matplotlib for the timeline
-
-Every number drawn here is computed by the code at the time you run it; nothing is typed in by hand.
-"""
 from __future__ import annotations
 
 import math
@@ -14,16 +8,16 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(ROOT))
 
-import numpy as np  # noqa: E402
-from PIL import Image, ImageDraw, ImageFont  # noqa: E402
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
-from detection.leak import LeakLocalizer, _project  # noqa: E402
-from policy.interfaces import CameraModel  # noqa: E402
-from policy.leak.geometry import FlangeGeometry, look_at  # noqa: E402
-from policy.leak.mock import build_rig  # noqa: E402
-from policy.leak.render import render_flange  # noqa: E402
-from policy.leak.world import LeakWorld  # noqa: E402
-from policy.orchestrator import S, draw_hud  # noqa: E402
+from detection.leak import LeakLocalizer, _project
+from policy.interfaces import CameraModel
+from policy.leak.geometry import FlangeGeometry, look_at
+from policy.leak.mock import build_rig
+from policy.leak.render import render_flange
+from policy.leak.world import LeakWorld
+from policy.orchestrator import S, draw_hud
 
 G = FlangeGeometry("F1", [0, 0, 1], [0, -1, 0], [0, 0, 1])
 LOC = LeakLocalizer.default()          # the trained crack model, as on the robot
@@ -58,7 +52,6 @@ def caption(img: Image.Image, lines: list[str], size=18) -> Image.Image:
     return out
 
 
-# ---------------------------------------------------------------- 1. stripe reading
 def fig_stripes():
     angles = np.array([0.0, 0.15, 0.0, 0.04, 0.0, 0.12, 0.0, 0.0])
     cam = isaac_cam()
@@ -93,7 +86,6 @@ def fig_stripes():
     out.save(HERE / "stripe_reading.png")
 
 
-# ---------------------------------------------------------------- 2. crack check
 def fig_crack():
     from scipy import ndimage
 
@@ -136,7 +128,6 @@ def fig_crack():
     sheet.save(HERE / "crack_check.png")
 
 
-# ---------------------------------------------------------------- 3. timeline of a leak mid-scrub
 def fig_timeline():
     import matplotlib
     matplotlib.use("Agg")
@@ -198,7 +189,6 @@ def fig_timeline():
     plt.close(fig)
 
 
-# ---------------------------------------------------------------- 4. what the video shows
 def fig_hud():
     def run_until(leak, dust, stop_state, after=None):
         orch, bridge, world, lw, perc, arm, pipe = build_rig(None, leak=leak, rust=False, dust=dust)
@@ -207,7 +197,7 @@ def fig_hud():
             orch.step()
             if orch.state == stop_state and (after is None or prev == after):
                 break
-        frame = perc.leak.observe()                     # the flange as the wrist camera sees it
+        frame = perc.leak.observe()
         return draw_hud(frame, orch.overlay_text())
 
     shots = [("Loose bolts: reading stripes", run_until("loose", 0.0, S.LEAK_INSPECT)),

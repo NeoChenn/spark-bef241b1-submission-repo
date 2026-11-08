@@ -1,5 +1,3 @@
-"""Generate the OceanWater MDL with a baked Gerstner wave set, so shading normals match the displaced mesh."""
-
 from __future__ import annotations
 
 from collections.abc import Sequence

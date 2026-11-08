@@ -1,7 +1,3 @@
-"""Model factory for the binary rust classifier: timm backbone + optional LoRA (peft).
-
-Single-logit output (logit > 0 => rust before thresholding / calibration).
-"""
 from __future__ import annotations
 
 import torch
@@ -20,17 +16,10 @@ def _create(name: str, pretrained: bool) -> nn.Module:
 
 
 def head_name(model: nn.Module) -> str:
-    """Top-level name of the classifier module (e.g. 'classifier', 'fc', 'head')."""
     return model.default_cfg.get("classifier", "head")
 
 
 def find_lora_targets(model: nn.Module, name: str) -> list[str]:
-    """Module names to wrap with LoRA.
-
-    ViT: attention qkv + proj Linear layers.
-    CNN: 1x1 pointwise Conv2d (groups == 1). If a CNN has too few of those (resnet18 has only 3
-    downsample 1x1s) we fall back to every non-stem, non-depthwise Conv2d so LoRA has capacity.
-    """
     head = head_name(model)
     if "vit" in name:
         return [n for n, m in model.named_modules()
@@ -51,7 +40,6 @@ def count_params(model: nn.Module) -> tuple[int, int]:
 
 
 def build_model(name: str = PRIMARY, lora: bool = True, pretrained: bool = True, verbose: bool = True):
-    """Return (model, meta). With lora=True the model is a peft PeftModel."""
     base = _create(name, pretrained)
     cfg = base.default_cfg
     meta = {
@@ -71,7 +59,6 @@ def build_model(name: str = PRIMARY, lora: bool = True, pretrained: bool = True,
         conf = LoraConfig(r=LORA_R, lora_alpha=LORA_ALPHA, lora_dropout=LORA_DROPOUT,
                           target_modules=targets, modules_to_save=[meta["head"]], bias="none")
         model = get_peft_model(base, conf)
-        # CNNs: let BatchNorm affine params adapt too (tiny param count, big help for domain shift).
         if "vit" not in name:
             for m in model.modules():
                 if isinstance(m, nn.BatchNorm2d):
@@ -88,7 +75,6 @@ def build_model(name: str = PRIMARY, lora: bool = True, pretrained: bool = True,
 
 
 def to_plain(model: nn.Module) -> nn.Module:
-    """Merge LoRA weights (if any) and return a plain timm module suitable for export."""
     if hasattr(model, "merge_and_unload"):
         return model.merge_and_unload()
     return model

@@ -1,10 +1,3 @@
-"""Make one labeled preview image of every texture.
-
-    C:\\isaacsim\\python.bat sim\\tools\\texture_sheet.py
-
-Writes sim/output/texture_sheet.png.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path

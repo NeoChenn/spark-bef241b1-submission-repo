@@ -1,10 +1,3 @@
-"""Train the crack classifier with the team's detection/train.py, unchanged (same model, LoRA, calibration,
-recall-first threshold, unsure band, ONNX export and meta.json). Only the positive class is renamed rust -> crack.
-
-    python -m detection.train_leak --data data/leak_v1 --out runs/leak_detector/mnv4s_lora --epochs 6
-
-The result loads with LeakLocalizer.from_checkpoint(<out>). On Modal, copy it to /ckpt/leak_detector/best.
-"""
 from __future__ import annotations
 
 import argparse
@@ -24,7 +17,7 @@ def main(argv=None):
     ap.add_argument("--workers", type=int, default=2)
     ap.add_argument("--threads", type=int, default=4)
     a = ap.parse_args(argv)
-    T.CLASSES = {"clean": 0, "crack": 1}          # list_split reads this module global
+    T.CLASSES = {"clean": 0, "crack": 1}
     res = T.train(model_name=a.model, data_dir=a.data, out_dir=a.out, epochs=a.epochs, batch_size=a.batch_size,
                   num_workers=a.workers, threads=a.threads, pretrained=True, export=True)
     meta_path = Path(a.out) / "meta.json"

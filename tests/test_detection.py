@@ -1,4 +1,3 @@
-"""CPU smoke tests for the rust classifier (no pretrained weights, tiny tensors)."""
 import numpy as np
 import pytest
 import torch
@@ -18,7 +17,6 @@ def test_lora_forward_loss_backward(name):
     loss = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([1.5]))(z, y)
     loss.backward()
     assert torch.isfinite(loss)
-    # LoRA adapters and the head receive gradients
     names = [n for n, p in model.named_parameters() if p.grad is not None]
     assert any("lora_" in n for n in names) and any("modules_to_save" in n for n in names)
 
@@ -33,7 +31,6 @@ def test_vit_lora_targets():
 
 def test_merge_and_onnx_export(tmp_path):
     model, _ = build_model("mobilenetv4_conv_small", lora=True, pretrained=False, verbose=False)
-    # make LoRA non-trivial so merge correctness is actually tested
     with torch.no_grad():
         for n, p in model.named_parameters():
             if "lora_B" in n:
@@ -44,7 +41,7 @@ def test_merge_and_onnx_export(tmp_path):
         ref = model(x)
         plain = to_plain(model).eval()
         assert torch.allclose(ref, plain(x), atol=1e-4)
-    export_onnx(plain, tmp_path / "m.onnx", size=96)  # asserts torch/ORT agreement internally
+    export_onnx(plain, tmp_path / "m.onnx", size=96)
     assert (tmp_path / "m.onnx").stat().st_size > 0
 
 
@@ -70,7 +67,7 @@ def test_domain_threshold_and_synth_helpers():
     z = (y * 2 - 1) * 2.0 + rng.normal(0, 1.5, 300)
     dom = np.arange(300) < 150
     rep = full_report({"val": z, "test": z}, {"val": y, "test": y}, val_domains=[dom, ~dom])
-    for m in (dom, ~dom):  # recall >= 0.95 must hold in each domain
+    for m in (dom, ~dom):
         assert ((z[m] >= rep["threshold_logit"]) & (y[m] == 1)).sum() / (y[m] == 1).sum() >= 0.95
     m = blob_mask(rng, 0.3)
     assert 0.2 < (m > 0.5).mean() < 0.4

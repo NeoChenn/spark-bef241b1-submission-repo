@@ -28,7 +28,7 @@ def test_loose_bolts_are_found_by_gas_fixed_by_camera_then_rust_work_continues(t
               ("LEAK_INSPECT", "RETORQUE"), ("RETORQUE", "LEAK_VERIFY"), ("LEAK_VERIFY", "DETECT"),
               ("DETECT", "APPROACH"), ("VERIFY_PAINT", "DONE")]:
         assert p in pairs(orch), (p, states(orch))
-    assert [b for _, b, _ in arm.torques] == [1, 5]                 # worst first
+    assert [b for _, b, _ in arm.torques] == [1, 5]
     assert leak.truth("F1")["max_angle"] == 0.0 and float(world.fraction_remaining()[0]) < 0.2
     assert [a["kind"] for a in orch.alerts] == ["repaired"] and orch.alerts[0]["severity"] == "info"
     lines = [json.loads(line) for line in log.read_text().splitlines()]
@@ -80,7 +80,7 @@ def test_a_leak_mid_scrub_interrupts_the_scrub_and_the_scrub_resumes_after_the_f
             scheduled = True
             bridge.events.append((bridge.t + 5.0, "bolt loosens", lambda: leak.loosen("F1", 2, 0.18)))
     assert ("SCRUB", "GAS_CHECK") in pairs(orch)
-    assert ("LEAK_VERIFY", "SCRUB") in pairs(orch)                  # back to where it left off
+    assert ("LEAK_VERIFY", "SCRUB") in pairs(orch)
     assert orch.state == S.DONE and [b for _, b, _ in arm.torques] == [2]
 
 
@@ -129,8 +129,6 @@ CASES = [("loose", 0.0), ("loose", 0.0), ("loose", 0.1), ("loose", 0.3), ("crack
 
 @pytest.mark.parametrize("seed,kind,dust", [(i, k, d) for i, (k, d) in enumerate(CASES)])
 def test_safety_invariants_across_random_leaks(seed, kind, dust):
-    """Never tighten in gas at the stop limit, never tighten a cracked flange, never end 'done' with a loose bolt.
-    Clean-lens loose-bolt cases must actually tighten, so the gas rule is exercised, not passed vacuously."""
     rng = np.random.default_rng(seed)
     orch, bridge, world, leak, perc, arm, pipe = build_rig(None, leak="none", rust=False, dust=dust)
     if kind == "loose":
@@ -157,4 +155,4 @@ def test_safety_invariants_across_random_leaks(seed, kind, dust):
     if orch.state == S.DONE:
         assert leak.truth("F1")["max_angle"] <= orch.lcfg.tolerance_rad
     if kind == "loose" and dust == 0.0:
-        assert gas_at_torque and orch.state == S.DONE        # the rule was exercised, and the fix worked
+        assert gas_at_torque and orch.state == S.DONE

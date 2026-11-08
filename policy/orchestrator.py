@@ -1,19 +1,3 @@
-"""Perception-driven repair orchestrator (explicit state machine).
-
-PATROL -> DETECT -> [SECOND_VIEW x<=2 -> ESCALATE_TO_HUMAN] -> APPROACH -> SPRAY ->
-SOAK (30 s sim, re-detect every 5 s; a NEW patch => SPRAY it, soak extended) ->
-SCRUB (ScrubPolicy; re-detect during scrub) -> VERIFY (perceived rust > 5% of
-target => SCRUB again, max 3 cycles, then ESCALATE_TO_HUMAN with evidence) ->
-PAINT -> VERIFY_PAINT -> DONE.
-
-Safety states are first class: BACK_OFF (force over limit -> retract, lower
-press, retry), HOLD (camera lost/occluded -> hold position, re-observe),
-PAUSE_PERSON (person within 3 m -> freeze until clear).
-
-Every transition is a DecisionRecord written to JSONL with the perception
-evidence behind it (detector confidence, perceived rust fraction, patch ids,
-contact force). ``overlay_text`` renders the HUD lines for the video.
-"""
 from __future__ import annotations
 
 import json
@@ -24,11 +8,12 @@ from typing import Optional
 
 import numpy as np
 
-from detection.localize import _components, project_mask_to_grid
+from detection.localize import _components, pixel_to_theta_z, project_mask_to_grid
 from policy.interfaces import DecisionRecord
 from policy.skills.coverage import dilate
 from policy.skills.paint import PaintSkill
 from policy.skills.spray import SpraySkill
+from policy.storm import lens_quality
 
 
 class S(str, Enum):
@@ -47,7 +32,6 @@ class S(str, Enum):
     BACK_OFF = "BACK_OFF"
     HOLD = "HOLD"
     PAUSE_PERSON = "PAUSE_PERSON"
-    # gas-leak job (policy/leak/job.py)
     GAS_CHECK = "GAS_CHECK"
     LEAK_APPROACH = "LEAK_APPROACH"
     LEAK_INSPECT = "LEAK_INSPECT"
@@ -55,7 +39,9 @@ class S(str, Enum):
     RETORQUE = "RETORQUE"
     LEAK_VERIFY = "LEAK_VERIFY"
     GAS_RETREAT = "GAS_RETREAT"
-    # deck sweep (policy/deck/job.py): loose debris on the deck
+    GAS_SEEK = "GAS_SEEK"
+    WIPE_LENS = "WIPE_LENS"
+    WAIT_LULL = "WAIT_LULL"
     DEBRIS_CHECK = "DEBRIS_CHECK"
     DEBRIS_SECOND_VIEW = "DEBRIS_SECOND_VIEW"
     DEBRIS_PICKUP = "DEBRIS_PICKUP"
@@ -71,22 +57,32 @@ class OrchestratorConfig:
     redetect_s: float = 5.0
     max_second_views: int = 2
     max_scrub_cycles: int = 3
-    verify_frac: float = 0.05          # perceived rust / baseline above this => scrub again
-    force_limit: float = 40.0          # N (matches RustState max_force)
+    verify_frac: float = 0.05
+    force_limit: float = 40.0
     max_backoffs: int = 3
     person_radius: float = 3.0
     hold_dt: float = 1.0
     hold_max: int = 5
-    scrub_steps: int = 120             # control steps per scrub cycle
-    scrub_dt: float = 0.1              # s per scrub step (10 Hz decisions)
+    scrub_steps: int = 120
+    scrub_dt: float = 0.1
     scrub_redetect_every: int = 30
     new_patch_min_cells: int = 3
     target_margin: int = 1
     max_paint_attempts: int = 2
-    occluded_std: float = 6.0          # image std below this => camera occluded
-    clean_min_visible: float = 0.8     # a "clean" verdict needs >= 80% of target cells in view
-    clean_max_uncertain: float = 0.05  # ... and <= 5% of target cells with conf in [0.2, thr)
+    occluded_std: float = 6.0
+    clean_min_visible: float = 0.8
+    clean_max_uncertain: float = 0.05
     max_verify_views: int = 2
+    gust_limit: float = 12.0
+    gust_resume: float = 6.0
+    rain_ok: float = 0.35
+    lens_min_q: float = 0.7
+    lens_usable_q: float = 0.5
+    storm_press: float = 0.8
+    max_wipes: int = 2
+    wipe_dt: float = 2.0
+    lull_dt: float = 1.0
+    lull_max_s: float = 60.0
     log_path: Optional[str] = "runs/decisions.jsonl"
 
 
@@ -94,7 +90,7 @@ class OrchestratorConfig:
 class TrackedPatch:
     id: int
     mask: np.ndarray
-    centroid: tuple[float, float]      # (theta, z)
+    centroid: tuple[float, float]
     conf: float
     found_t: float
     found_in: str
@@ -103,8 +99,8 @@ class TrackedPatch:
 
 @dataclass
 class Perceived:
-    result: object                     # detection.localize.LocalizeResult
-    grid: np.ndarray                   # (n_z, n_theta) bool
+    result: object
+    grid: np.ndarray
     visible: np.ndarray
     conf: np.ndarray
 
@@ -112,8 +108,13 @@ class Perceived:
 class Orchestrator:
     def __init__(self, bridge, perception, localizer, world, arm, scrub_policy,
                  config: OrchestratorConfig | None = None,
-                 spray: SpraySkill | None = None, paint: PaintSkill | None = None):
+                 spray: SpraySkill | None = None, paint: PaintSkill | None = None,
+                 advisor=None):
         self.bridge, self.perception, self.localizer = bridge, perception, localizer
+        self.advisor = advisor
+        self.advisor_last = None
+        self.advisor_vetoes = 0
+        self.last_image: Optional[np.ndarray] = None
         self.world, self.arm, self.scrub_policy = world, arm, scrub_policy
         self.cfg = config or OrchestratorConfig()
         self.spray_skill = spray or SpraySkill()
@@ -140,20 +141,29 @@ class Orchestrator:
         self.view_idx = 0
         self.verify_views = 0
         self.n_views = 3
-        self.resume: Optional[S] = None        # where HOLD / BACK_OFF return to
-        self.pause_resume: Optional[S] = None  # where PAUSE_PERSON returns to
+        self.resume: Optional[S] = None
+        self.pause_resume: Optional[S] = None
+        self.lens_ref: dict[int, float] = {}
+        self.lens_q: Optional[float] = None
+        self.lens_bad = False
+        self.lens_floor: Optional[float] = None
+        self.wipes = 0
+        self.lull_t0: Optional[float] = None
+        self.lull_needs_view = False
+        self.after_lull = False
+        self.lull_resume: Optional[S] = None
+        self.lulls_waited = 0
         self._log_f = None
         if self.cfg.log_path:
             Path(self.cfg.log_path).parent.mkdir(parents=True, exist_ok=True)
             self._log_f = open(self.cfg.log_path, "w")
 
-    # ------------------------------------------------------------- utilities
     @property
     def t(self) -> float:
         return float(self.bridge.sim_time())
 
     def _advance(self, dt: float):
-        self.world.step_soak(dt)        # orchestrator owns RustState soak clock
+        self.world.step_soak(dt)
         self.bridge.advance(dt)
 
     def _evidence(self, **extra) -> dict:
@@ -166,6 +176,10 @@ class Orchestrator:
             ev["unsure"] = bool(r.unsure)
         if ev["rust_fraction"] is not None:
             ev["rust_fraction"] = round(float(ev["rust_fraction"]), 4)
+        w = self._weather()
+        if w["level"] > 0:
+            ev["storm"] = {"level": round(w["level"], 2), "gust_n": round(w["gust_n"], 1),
+                           "rain": round(w["rain"], 2), "lens_q": None if self.lens_q is None else round(self.lens_q, 2)}
         ev.update(extra)
         return ev
 
@@ -180,12 +194,34 @@ class Orchestrator:
         if hasattr(self.bridge, "publish_overlay"):
             self.bridge.publish_overlay(self.overlay_text())
 
+    def _weather(self) -> dict:
+        w = self.bridge.weather() if hasattr(self.bridge, "weather") else None
+        return w or {"level": 0.0, "gust_n": 0.0, "rain": 0.0}
+
+    def _lens(self, img) -> float:
+        q = lens_quality(img)
+        ref = max(self.lens_ref.get(self.view_idx, 0.0), q)
+        self.lens_ref[self.view_idx] = ref
+        self.lens_q = q / max(ref, 1e-6)
+        if self.lens_q >= self.cfg.lens_min_q:
+            self.lens_floor = None
+        return self.lens_q
+
     def _perceive(self) -> Optional[Perceived]:
         img = self.perception.observe()
         if img is None or float(np.asarray(img, np.float32).std()) < self.cfg.occluded_std:
             return None
+        floor = self.lens_floor
+        if floor is not None and self.state != S.SCRUB:
+            floor = max(floor, self.cfg.lens_usable_q)
+        q = self._lens(img)
+        wet = self._weather()["level"] > 0 or self.lens_floor is not None
+        self.lens_bad = wet and q < (self.cfg.lens_min_q if floor is None else floor)
+        if self.lens_bad:
+            return None
+        self.last_image = img
         res = self.localizer.localize(img)
-        self.pipe = self.bridge.pipe()          # pipe may be moved mid-run (demo hook)
+        self.pipe = self.bridge.pipe()
         grid, vis, conf = project_mask_to_grid(res.mask, self.perception.camera(), self.pipe, res.prob_map)
         self.last = Perceived(res, grid, vis, conf)
         if self.baseline_cells:
@@ -193,16 +229,19 @@ class Orchestrator:
         return self.last
 
     def _interrupt(self) -> Optional[tuple[S, str, dict]]:
-        """Checked every scrub step. None = carry on. Subclasses return a transition to break off."""
         return None
 
     def _hold(self, reason_state: S) -> tuple[S, str, dict]:
         self.resume = reason_state
+        if self.lens_bad:
+            self.lens_bad = False
+            self.wipes = 0
+            return (S.WIPE_LENS, f"lens quality {self.lens_q:.2f} of clear view < {self.cfg.lens_min_q:.2f} "
+                    "(rain on lens) -> wipe", self._evidence())
         self.hold_count = 0
         return S.HOLD, "perception lost (no frame / occluded) -> hold position", self._evidence()
 
     def _new_patches(self, p: Perceived) -> list[TrackedPatch]:
-        """Rust components not overlapping the known (dilated) target = new patches."""
         known = dilate(self.target, 2)
         out = []
         for comp in _components(p.grid & ~known):
@@ -226,7 +265,6 @@ class Orchestrator:
         self.pending_spray |= m
         return tp
 
-    # --------------------------------------------------------------- driving
     def run(self, max_steps: int = 500) -> S:
         for _ in range(max_steps):
             if self.state in TERMINAL:
@@ -239,7 +277,6 @@ class Orchestrator:
     def step(self):
         if self.state in TERMINAL:
             return
-        # person proximity hook (pre-empts any non-terminal state)
         d = self.bridge.person_distance() if hasattr(self.bridge, "person_distance") else None
         if d is not None and d < self.cfg.person_radius and self.state != S.PAUSE_PERSON:
             self.pause_resume = self.state
@@ -250,7 +287,6 @@ class Orchestrator:
         if nxt is not None:
             self._record(nxt, reason, ev)
 
-    # ---------------------------------------------------------------- states
     def _s_patrol(self):
         poses = self.bridge.patrol_poses()
         if self.patrol_idx >= len(poses):
@@ -270,6 +306,17 @@ class Orchestrator:
             if self.second_views < self.cfg.max_second_views:
                 return (S.SECOND_VIEW, f"ambiguous: {len(r.unsure_cells)} patches with p in [0.35,0.65] "
                         f"-> take view {self.second_views + 1}", self._evidence(unsure_cells=len(r.unsure_cells)))
+            decided = self._advisor_detect(p)
+            if decided:
+                return decided
+            w = self._weather()
+            if w["rain"] > self.cfg.rain_ok and self.lulls_waited < 1:
+                self.lulls_waited += 1
+                self.second_views = 0
+                self.view_idx = 0
+                self.perception.request_view(0)
+                return self._lull(S.DETECT, True, f"still ambiguous after extra views in rain {w['rain']:.2f} "
+                                  "-> wait for a lull, wipe, re-detect")
             return (S.ESCALATE_TO_HUMAN, f"still ambiguous after {self.second_views} extra views -> ask human",
                     self._evidence(unsure_cells=len(r.unsure_cells), heatmap_max=round(r.max_conf, 3)))
         new = []
@@ -287,14 +334,12 @@ class Orchestrator:
                 self._evidence(new_patches=[_pdesc(t) for t in new]))
 
     def _clean_evidence(self, p: Perceived) -> tuple[bool, float, float]:
-        """Is a 'clean' verdict backed by confident negatives? (visible frac, uncertain frac)"""
         n = max(int(self.target.sum()), 1)
         vis = float(p.visible[self.target].sum() / n)
         unc = float(((p.conf >= 0.2) & (p.conf < p.result.threshold) & self.target).sum() / n)
         return (vis >= self.cfg.clean_min_visible and unc <= self.cfg.clean_max_uncertain), vis, unc
 
     def _weak_clean(self, p: Perceived, where: S):
-        """Looks clean but evidence is weak (glare/oblique/out of view): re-view or escalate."""
         ok, vis, unc = self._clean_evidence(p)
         if ok:
             return None
@@ -307,6 +352,59 @@ class Orchestrator:
         self.perception.request_view(self.view_idx)
         return (where, f"looks clean but weak evidence ({vis:.0%} visible, {unc:.0%} uncertain) "
                 f"-> re-verify from view {self.view_idx}", ev)
+
+    def _ask_advisor(self, question: str):
+        if self.advisor is None or self.last_image is None:
+            return None
+        verdict = self.advisor.verify(self.last_image, question)
+        self.advisor_last = verdict
+        return verdict
+
+    def _advisor_evidence(self, verdict, **extra) -> dict:
+        return self._evidence(gemini=verdict.summary() if verdict is not None else
+                              {"error": getattr(self.advisor, "last_error", None)}, **extra)
+
+    def _advisor_detect(self, p: Perceived):
+        verdict = self._ask_advisor("rust")
+        if verdict is None or not self.advisor.confident(verdict):
+            return None
+        if verdict.clean:
+            return (S.PATROL, f"Gemini second opinion: clean ({verdict.confidence:.2f}) - {verdict.reason[:60]}",
+                    self._advisor_evidence(verdict))
+        lo = self.localizer.unsure_band[0] if hasattr(self.localizer, "unsure_band") else 0.35
+        candidate = (p.conf >= lo) & p.visible
+        cells = set()
+        for x, y in verdict.points:
+            hit = pixel_to_theta_z((x, y), self.perception.camera(), self.pipe)
+            if hit is not None:
+                cells.add(tuple(int(v) for v in self.pipe.theta_z_to_cell(*hit)))
+        new = []
+        for comp in _components(candidate):
+            if len(comp) < self.cfg.new_patch_min_cells or (cells and not cells & set(comp)):
+                continue
+            m = np.zeros(self.pipe.shape, bool)
+            rows, cols = zip(*comp)
+            m[rows, cols] = True
+            new.append(self._register(m, p, "DETECT+GEMINI"))
+        if not new:
+            return None
+        self.rust_frac = 1.0
+        return (S.APPROACH, f"Gemini second opinion: rust ({verdict.confidence:.2f}) -> {len(new)} patch(es), "
+                f"{self.baseline_cells} cells", self._advisor_evidence(verdict, new_patches=[_pdesc(t) for t in new]))
+
+    def _advisor_verify(self, frac: float):
+        if self.advisor_vetoes >= 2:
+            return None
+        verdict = self._ask_advisor("clean")
+        if verdict is None or not self.advisor.confident(verdict) or not verdict.rust:
+            return None
+        self.advisor_vetoes += 1
+        ev = self._advisor_evidence(verdict)
+        if self.scrub_cycles >= self.cfg.max_scrub_cycles:
+            return (S.ESCALATE_TO_HUMAN, f"Gemini sees rust left ({verdict.confidence:.2f}) after "
+                    f"{self.scrub_cycles} cycles - {verdict.reason[:50]}", ev)
+        return (S.SCRUB, f"Gemini veto: detector says {frac:.1%} but rust still visible "
+                f"({verdict.confidence:.2f}) -> scrub again", ev)
 
     def _s_second_view(self):
         self.second_views += 1
@@ -324,7 +422,22 @@ class Orchestrator:
         return S.SPRAY, f"in reach of target centroid (theta={th_c:.2f}, z={z.mean():.2f})", \
             self._evidence()
 
+    def _gust_gate(self, here: S, what: str):
+        w = self._weather()
+        if w["gust_n"] > self.cfg.gust_limit:
+            return self._lull(here, False, f"gust {w['gust_n']:.0f} N > {self.cfg.gust_limit:.0f} N: {what} "
+                              "-> wait for lull")
+        return None
+
+    def _lull(self, resume: S, needs_view: bool, reason: str):
+        self.lull_resume, self.lull_needs_view = resume, needs_view
+        self.lull_t0 = self.t
+        return S.WAIT_LULL, reason, self._evidence()
+
     def _s_spray(self):
+        gate = self._gust_gate(S.SPRAY, "spray would drift")
+        if gate:
+            return gate
         plan = self.spray_skill.plan(self.pending_spray, self.pipe)
         sprayed = self.spray_skill.execute(plan, self.arm, self.world)
         ids = [pid for pid, tp in self.patches.items() if tp.sprayed_t is None and (tp.mask & plan.target).any()]
@@ -361,10 +474,14 @@ class Orchestrator:
             return self._hold(S.SCRUB)
         while self.scrub_steps_left > 0:
             hit = self._interrupt()
-            if hit is not None:                 # e.g. gas alarm (leak job); cycle restarts afterwards
+            if hit is not None:
                 self.scrub_steps_left = 0
                 self.scrub_cycles -= 1
                 return hit
+            gate = self._gust_gate(S.SCRUB, "retract brush")
+            if gate:
+                self.arm.back_off(0.03)
+                return gate
             f = float(self.arm.current_force())
             if f > cfg.force_limit:
                 self.resume = S.SCRUB
@@ -377,7 +494,8 @@ class Orchestrator:
             if hasattr(self.bridge, "scrub_obs"):
                 obs.update(self.bridge.scrub_obs() or {})
             a = np.asarray(self.scrub_policy.step(obs), float).copy()
-            a[2] = float(np.clip(a[2], 0, 1)) * self.press_scale
+            storm = self._weather()["level"] >= 0.5
+            a[2] = float(np.clip(a[2], 0, 1)) * self.press_scale * (self.cfg.storm_press if storm else 1.0)
             self.arm.apply_ee_delta(a)
             self._advance(cfg.scrub_dt)
             self.scrub_steps_left -= 1
@@ -388,7 +506,7 @@ class Orchestrator:
                 new = self._new_patches(p)
                 if new:
                     self.scrub_steps_left = 0
-                    self.scrub_cycles -= 1   # interrupted cycle does not count as a failure
+                    self.scrub_cycles -= 1
                     return (S.SPRAY, "RE-PLAN: new rust " + ", ".join(_pdesc(t) for t in new) +
                             " appeared mid-scrub -> pause scrub, spray + soak it first",
                             self._evidence(new_patches=[_pdesc(t) for t in new]))
@@ -407,6 +525,9 @@ class Orchestrator:
             weak = self._weak_clean(p, S.VERIFY)
             if weak:
                 return weak
+            veto = self._advisor_verify(frac)
+            if veto:
+                return veto
             self.verify_views = 0
             return S.PAINT, f"verified clean: {frac:.1%} rust left <= {self.cfg.verify_frac:.0%}", self._evidence()
         if self.scrub_cycles >= self.cfg.max_scrub_cycles:
@@ -418,6 +539,9 @@ class Orchestrator:
             f"(cycle {self.scrub_cycles + 1}/{self.cfg.max_scrub_cycles})", self._evidence()
 
     def _s_paint(self):
+        gate = self._gust_gate(S.PAINT, "paint would drift")
+        if gate:
+            return gate
         self.paint_attempts += 1
         info = self.paint_skill.execute(self.target, self.pipe, self.arm, self.world)
         return (S.VERIFY_PAINT, f"painted {info['target_cells']} cells in {info['passes']} pass(es), "
@@ -440,7 +564,6 @@ class Orchestrator:
         return S.ESCALATE_TO_HUMAN, f"paint coverage {cov:.1%} after {self.paint_attempts} attempts", \
             self._evidence(paint_coverage=round(cov, 4))
 
-    # safety states
     def _s_back_off(self):
         self.backoffs += 1
         self.arm.back_off(0.05)
@@ -462,6 +585,44 @@ class Orchestrator:
             return S.ESCALATE_TO_HUMAN, f"perception lost for {self.hold_count} s -> escalate", self._evidence()
         return None, "", {}
 
+    def _s_wipe_lens(self):
+        cfg = self.cfg
+        self.wipes += 1
+        if hasattr(self.bridge, "wipe_lens"):
+            self.bridge.wipe_lens()
+        self._advance(cfg.wipe_dt)
+        img = self.perception.observe()
+        q = self._lens(img) if img is not None else 0.0
+        nxt = self.resume or S.DETECT
+        if q >= cfg.lens_min_q:
+            self.wipes, self.lens_floor = 0, None
+            return nxt, f"lens wiped ({q:.2f} of clear view) -> resume {nxt.value}", self._evidence()
+        if nxt == S.SCRUB or q >= cfg.lens_usable_q and (self.wipes >= cfg.max_wipes or self.after_lull):
+            self.wipes, self.lens_floor, self.after_lull = 0, 0.85 * q, False
+            return nxt, f"lens wiped, {q:.2f} of clear view (rain haze) -> resume {nxt.value}, " \
+                "detector confidence decides", self._evidence()
+        if self.wipes >= cfg.max_wipes:
+            return self._lull(nxt, True, f"lens still {q:.2f} after {self.wipes} wipes: rain, not dirt "
+                              "-> wait for lull")
+        return S.WIPE_LENS, f"lens {q:.2f} after wipe {self.wipes} -> wipe again", self._evidence()
+
+    def _s_wait_lull(self):
+        cfg = self.cfg
+        self._advance(cfg.lull_dt)
+        w = self._weather()
+        waited = self.t - (self.lull_t0 if self.lull_t0 is not None else self.t)
+        nxt = self.lull_resume or S.DETECT
+        if w["gust_n"] <= cfg.gust_resume and (not self.lull_needs_view or w["rain"] <= cfg.rain_ok):
+            if self.lull_needs_view:
+                self.resume, self.wipes, self.after_lull = nxt, 0, True
+                return S.WIPE_LENS, f"lull after {waited:.0f} s (rain {w['rain']:.2f}, gust {w['gust_n']:.0f} N) " \
+                    "-> wipe lens, then resume", self._evidence()
+            return nxt, f"lull after {waited:.0f} s (gust {w['gust_n']:.0f} N) -> resume {nxt.value}", self._evidence()
+        if waited >= cfg.lull_max_s:
+            return S.ESCALATE_TO_HUMAN, f"storm not easing after {waited:.0f} s (gust {w['gust_n']:.0f} N, " \
+                f"rain {w['rain']:.2f}) -> stop work, escalate", self._evidence()
+        return None, "", {}
+
     def _s_pause_person(self):
         self.bridge.advance(1.0)
         d = self.bridge.person_distance()
@@ -470,7 +631,6 @@ class Orchestrator:
             return nxt, f"person clear ({'none' if d is None else f'{d:.1f} m'}) -> resume {nxt.value}", self._evidence()
         return None, "", {}
 
-    # ------------------------------------------------------------------- HUD
     def overlay_text(self) -> list[str]:
         return overlay_text(self)
 
@@ -490,6 +650,13 @@ def overlay_text(orch: "Orchestrator") -> list[str]:
              f"rust left: {rust}   det conf: {'--' if conf is None else f'{conf:.2f}'}",
              f"patches: {', '.join(f'#{k}' for k in orch.patches) or '-'}   force: {orch.arm.current_force():.0f} N",
              f"why: {orch.last_reason[:70]}"]
+    w = orch._weather()
+    if w["level"] > 0:
+        lq = "--" if orch.lens_q is None else f"{orch.lens_q:.2f}"
+        lines.append(f"storm {w['level']:.1f}: gust {w['gust_n']:.0f} N  rain {w['rain']:.2f}  lens {lq}")
+    v = getattr(orch, "advisor_last", None)
+    if v is not None:
+        lines.append(f"gemini: {v.verdict} {v.confidence:.2f} ({v.latency_ms:.0f} ms) {v.reason[:48]}")
     return lines
 
 
@@ -508,14 +675,12 @@ def _json_default(o):
 
 
 def draw_hud(rgb: np.ndarray, lines: list[str], state: str = "") -> np.ndarray:
-    """Burn HUD lines into an RGB uint8 frame (PIL). For rig/sim/main.py: call right
-    before JPEG encoding, or send ``lines`` in the frame header as ``"hud"``."""
     from PIL import Image, ImageDraw
     im = Image.fromarray(np.ascontiguousarray(rgb[..., :3]))
     d = ImageDraw.Draw(im, "RGBA")
     h = 14 * len(lines) + 10
     d.rectangle([0, 0, min(im.width, 560), h], fill=(0, 0, 0, 150))
-    alert = any(k in (lines[0] if lines else "") for k in ("ESCALATE", "BACK_OFF", "HOLD", "PAUSE", "GAS_RETREAT"))
+    alert = any(k in (lines[0] if lines else "") for k in ("ESCALATE", "BACK_OFF", "HOLD", "PAUSE", "GAS_RETREAT", "WAIT_LULL", "WIPE_LENS"))
     for k, line in enumerate(lines):
         col = (255, 90, 60) if (alert and k == 0) else ((120, 255, 140) if k == 0 else (235, 235, 235))
         d.text((6, 5 + 14 * k), line, fill=col)

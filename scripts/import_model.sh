@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Import a 3D model into sim/assets/rig_model/<name>/ using the Isaac container (and Blender for .blend/.dae/.3ds/.x3d).
-#   scripts/import_model.sh path/inside/repo/model.glb --name rig [import_model.py options]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 input="$1"; shift

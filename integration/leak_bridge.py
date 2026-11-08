@@ -1,14 +1,3 @@
-"""What the Isaac Sim bridge needs for the gas-leak job (see integration/INTERFACE.md, "Gas-leak job").
-
-The team's Isaac bridge (the class implementing SimBridge + Perception + ArmController inside rig/sim) does
-not exist yet. This module is the leak half of it, written so the sim team can mix it in:
-
-    class RigIsaacBridge(LeakBridgeMixin, <their SimBridge implementation>):
-        ...  # provide robot_position(), move_base_to(), set_camera_pose(), advance()
-
-Everything here is plain USD + numpy, so it is tested on CPU with usd-core (tests/test_leak_isaac.py).
-Nothing here has been run inside Isaac Sim.
-"""
 from __future__ import annotations
 
 import json
@@ -25,7 +14,6 @@ from policy.leak.world import LeakWorld
 
 
 def load_flanges(meta_path: str) -> tuple[list[FlangeGeometry], dict]:
-    """Flange geometry and prim paths from sim/output/leak_flanges_meta.json."""
     meta = json.loads(Path(meta_path).read_text())
     geoms = [FlangeGeometry.from_meta(f) for f in meta["flanges"]]
     prims = {f["id"]: f for f in meta["flanges"]}
@@ -39,7 +27,6 @@ def load_leak_world(meta_path: str) -> tuple[LeakWorld, dict]:
 
 
 def apply_leak_state(stage: Usd.Stage, world: LeakWorld, prims: dict) -> None:
-    """Push LeakWorld truth into the scene: turn loose bolts, show cracks. Call after any change, or each frame."""
     for fid, s in world.flanges.items():
         info = prims[fid]
         for k, path in enumerate(info["bolt_prims"]):
@@ -56,7 +43,6 @@ def apply_leak_state(stage: Usd.Stage, world: LeakWorld, prims: dict) -> None:
 
 
 def bolt_waypoint(geom: FlangeGeometry, k: int, standoff: float = 0.0) -> Waypoint:
-    """Tool target on bolt k's head: socket axis along -normal (pushing onto the head)."""
     p = geom.bolt_center(k) + standoff * geom.normal
     return Waypoint(position=p, approach=-geom.normal, theta=geom.bolt_phi(k), z=0.0, cell=(k, 0), standoff=standoff)
 
@@ -75,7 +61,6 @@ class LeakBridgeMixin:
     gas_override: Optional[float] = None   # video hook / test: a fixed reading; float("nan") = failed sensor
     gas_sensor_offset: tuple = (0.0, 0.0, 0.0)   # sensor position relative to robot_position(), world frame
 
-    # -- sensing ---------------------------------------------------------------
     def gas_sensor_position(self) -> np.ndarray:
         return np.asarray(self.robot_position(), float) + np.asarray(self.gas_sensor_offset, float)
 
@@ -103,10 +88,7 @@ class LeakBridgeMixin:
         return min(self.leak_world.flanges, key=lambda f: float(np.linalg.norm(self.flange(f).center - p)),
                    default=None)
 
-    # -- motion ----------------------------------------------------------------
     def approach_flange(self, fid: str, max_steps: int = 400, dt: float = 0.1) -> bool:
-        """Walk to the flange's viewing pose, checking gas every step. Unlike the CPU mock, which jumps there,
-        this stops early (returns False) if gas reaches the stop limit on the way."""
         g = self.flange(fid)
         target = g.center + self.approach_distance * g.normal
         for _ in range(max_steps):
@@ -148,10 +130,7 @@ class LeakBridgeMixin:
                 break
             self.advance(0.1)
 
-    # -- the arm ---------------------------------------------------------------
     def torque_bolt(self, fid: str, bolt: int) -> bool:
-        """ArmController.torque(): put the socket on the bolt head, then tighten. Tightening is applied to
-        LeakWorld and pushed to the stage (the demo does not simulate thread friction; say so)."""
         g = self.flange(fid)
         reached = self.arm.move_to([bolt_waypoint(g, bolt, 0.05), bolt_waypoint(g, bolt, 0.0)])
         if not all(reached):

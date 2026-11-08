@@ -1,18 +1,14 @@
-"""Grade Poly Haven's CC0 pure-sky HDRIs into the cinematic sky presets.
-
-    C:\\isaacsim\\python.bat sim\\tools\\make_preset_skies.py
-
-Writes sky_night.hdr, sky_storm.hdr and foam.png to sim/assets/generated/.
-"""
-
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
 SIM_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SIM_DIR))
+from hdri import horizon_gain
 HDRIS = SIM_DIR / "assets" / "third_party" / "hdris"
 GENERATED = SIM_DIR / "assets" / "generated"
 LUMA = np.array((0.2126, 0.7152, 0.0722))
@@ -56,7 +52,6 @@ def write_hdr(path: Path, image: np.ndarray) -> None:
 
 
 def grade(image: np.ndarray, tint, gain: float, contrast: float, saturation: float) -> np.ndarray:
-    """Push clouds toward a tint, deepening the darks. Sky above and below the horizon stays smooth."""
     luminance = np.maximum(image @ LUMA, 1e-6)
     middle = np.exp(np.log(luminance).mean())
     shaped = np.power(luminance / middle, contrast) * middle
@@ -79,8 +74,15 @@ def make_foam(size: int = 512) -> None:
     Image.fromarray(rgba, "RGBA").save(GENERATED / "foam.png")
 
 
+def darken_horizon(image: np.ndarray, floor: float, top: float) -> np.ndarray:
+    rows = image.shape[0]
+    elevation = 90.0 - 180.0 * (np.arange(rows) + 0.5) / rows
+    return image * horizon_gain(elevation, floor, top)[:, None, None]
+
+
 source = read_hdr(HDRIS / "overcast_soil_puresky.hdr")
-write_hdr(GENERATED / "sky_night.hdr", grade(source, (0.16, 0.62, 0.66), 0.42, 1.75, 0.0))
+night = grade(source, (0.16, 0.62, 0.66), 0.42, 1.75, 0.0)
+write_hdr(GENERATED / "sky_night.hdr", darken_horizon(night, 0.12, 12.0))
 write_hdr(GENERATED / "sky_storm.hdr", grade(source, (0.46, 0.53, 0.58), 0.34, 1.9, 0.0))
 make_foam()
 print("PRESET_SKIES_OK")

@@ -1,10 +1,3 @@
-"""Mock wrist-camera renderer for a bolted flange (no Isaac). Used by the CPU mock and to make synthetic
-training crops for the crack classifier (like the rust detector's synthetic subset).
-
-Draws, in perspective through a policy.interfaces.CameraModel: the flange face, the pipe bore, each bolt head
-turned by its true angle, the red torque stripe on the head and its fixed partner on the flange face, a crack
-(dark jagged line, plus a faint vapour haze when severe), and optional dust (haze + blur) or glare.
-"""
 from __future__ import annotations
 
 import math
@@ -35,7 +28,6 @@ def _quad(p0, p1, half_width, normal):
 
 
 def crack_path(geom, severity: float, seed: int = 7) -> np.ndarray:
-    """Deterministic jagged crack between bolts 1 and 2, from near the bore toward the rim (world points)."""
     rng = np.random.default_rng(seed)
     phi = 2 * math.pi * 1.5 / geom.n_bolts
     e = math.cos(phi) * geom.ref + math.sin(phi) * geom.binormal
@@ -83,10 +75,10 @@ def render_flange(camera, state, dust: float = 0.0, glare: bool = False, crack_s
         face_c = g.center + g.bolt_circle * g.radial(k)
         rh = g.head_radius
         e0 = g.radial(k)
-        draw(_quad(face_c + 1.25 * rh * e0, face_c + 2.1 * rh * e0, 0.14 * rh, n), RED)     # stripe on the face
+        draw(_quad(face_c + 1.25 * rh * e0, face_c + 2.1 * rh * e0, 0.14 * rh, n), RED)
         draw(_circle(c, rh, u, v, 6, phase=g.bolt_phi(k) + float(state.angles[k]) + math.pi / 6), HEAD, EDGE)
         ea = g.radial(k, float(state.angles[k]))
-        draw(_quad(c - 0.9 * rh * ea, c + 0.9 * rh * ea, 0.12 * rh, n), RED)                 # stripe on the head
+        draw(_quad(c - 0.9 * rh * ea, c + 0.9 * rh * ea, 0.12 * rh, n), RED)
 
     if dust > 0:
         img = img.filter(ImageFilter.GaussianBlur(radius=5.0 * dust))
@@ -96,5 +88,5 @@ def render_flange(camera, state, dust: float = 0.0, glare: bool = False, crack_s
         gl = np.exp(-(((xx - 0.55 * W) / (0.25 * W)) ** 2 + ((yy - 0.45 * H) / (0.2 * H)) ** 2))
         a = a * (1 - 0.6 * gl[..., None]) + 250 * 0.6 * gl[..., None]
     if dust > 0:
-        a = a * (1 - 0.8 * dust) + 150.0 * 0.8 * dust    # grime on the lens: haze toward grey
+        a = a * (1 - 0.8 * dust) + 150.0 * 0.8 * dust
     return np.clip(a, 0, 255).astype(np.uint8)

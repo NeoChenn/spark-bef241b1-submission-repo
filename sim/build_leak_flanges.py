@@ -1,23 +1,3 @@
-"""Add bolted flanges with torque stripes beside the rig's valves, for the gas-leak job.
-
-Writes, without touching full_rig.usda:
-  sim/output/leak_flanges.usda        /World/Leak/<flange>: spool, flange face, bore, 8 bolts, stripes, crack
-  sim/output/full_rig_leak.usda       root layer = leak_flanges.usda over full_rig.usda (open this one)
-  sim/output/leak_flanges_meta.json   flange geometry for perception and the bridge, plus prim paths
-
-Each flange is built in its own frame (face normal = local +X, bolt 0 straight up = local +Z) under an Xform
-placed beside a valve and turned to face the nearest patrol waypoint. Each bolt is an Xform with
-``xformOp:rotateX:phase`` (fixed) and ``xformOp:rotateX:loosen`` (degrees; the bridge sets it from LeakWorld),
-so the red stripe on the head turns away from its partner mark on the face, exactly as the perception expects
-(policy/leak/geometry.py, policy/leak/render.py). The crack is hidden until the bridge shows it.
-
-Runs with plain USD (``pip install usd-core``) or Isaac's python:
-    python sim/build_leak_flanges.py                  # uses sim/output/full_rig_meta.json
-    C:\\isaacsim\\python.bat sim\\build_leak_flanges.py
-
-PLACEMENT IS A GUESS from the valve positions and patrol route in full_rig_meta.json. Check it visually in
-Isaac Sim (open full_rig_leak.usda) and adjust --offset or edit the meta before relying on it.
-"""
 from __future__ import annotations
 
 import argparse
@@ -32,12 +12,12 @@ for p in (str(SIM_DIR), str(ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-import numpy as np  # noqa: E402
-from pxr import Gf, Sdf, Usd, UsdGeom  # noqa: E402
+import numpy as np
+from pxr import Gf, Sdf, Usd, UsdGeom
 
-from policy.leak.geometry import FlangeGeometry  # noqa: E402
-from policy.leak.render import crack_path  # noqa: E402
-from scene_builder import OUTPUT, SceneBuilder  # noqa: E402
+from policy.leak.geometry import FlangeGeometry
+from policy.leak.render import crack_path
+from scene_builder import OUTPUT, SceneBuilder
 
 ROOT_PRIM = "/World/Leak"
 STEEL = (0.59, 0.6, 0.63)
@@ -48,7 +28,6 @@ CRACK = (0.08, 0.08, 0.09)
 
 
 def placements(meta: dict, offset: float) -> list[dict]:
-    """One flange per valve: offset toward the nearest patrol waypoint, facing it (horizontal)."""
     route = np.asarray(meta.get("patrol_route_m", []), float)
     out = []
     for p in meta.get("inspection_points", []):
@@ -93,7 +72,7 @@ def build_flange(b: SceneBuilder, stage, fid: str, geom: FlangeGeometry, mats: d
     rh, bolts = geom.head_radius, []
     for k in range(geom.n_bolts):
         phi = geom.bolt_phi(k)
-        pos = (0.0, -geom.bolt_circle * math.sin(phi), geom.bolt_circle * math.cos(phi))   # local radial(k)
+        pos = (0.0, -geom.bolt_circle * math.sin(phi), geom.bolt_circle * math.cos(phi))
         bp = f"{root}/bolt_{k}"
         bx = _xform(stage, bp, translate=pos, phase_x=math.degrees(phi), loosen=True)
         bx.GetPrim().CreateAttribute("rig:boltIndex", Sdf.ValueTypeNames.Int).Set(k)
@@ -112,7 +91,7 @@ def build_flange(b: SceneBuilder, stage, fid: str, geom: FlangeGeometry, mats: d
     for i in range(len(pts) - 1):
         a, c = pts[i], pts[i + 1]
         mid, seg = (a + c) / 2, c - a
-        theta = math.degrees(math.atan2(-seg[1], seg[2]))     # rotate local +Z onto the segment (in the Y-Z plane)
+        theta = math.degrees(math.atan2(-seg[1], seg[2]))
         sp = f"{cp}/seg_{i}"
         _xform(stage, sp, translate=(0.0006, mid[1], mid[2]), phase_x=theta)
         b.box(sp, "line", (0, 0, 0), (0.0008, 0.004, float(np.linalg.norm(seg))), mats["crack"], collide=None)

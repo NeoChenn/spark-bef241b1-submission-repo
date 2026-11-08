@@ -1,0 +1,978 @@
+[
+ {
+  "file": "gauge_gauge_01.jpg",
+  "group": "rig",
+  "truth": 0.3944,
+  "truth_bar": 6.31,
+  "params": {
+   "yaw_deg": 13.575315646015497,
+   "pitch_deg": 7.072911043911532,
+   "roll_deg": -1.8567788784118189,
+   "blur_sigma": 0.22741610026265868,
+   "glare": 0.3920073128007524,
+   "noise_std": 8.534571059651606,
+   "scale": 0.8605337403321219,
+   "shift": [
+    -0.03383776354971168,
+    0.02599015631082993
+   ],
+   "glare_at": [
+    0.4824198024015651,
+    0.4491331583844269
+   ]
+  },
+  "classical": {
+   "value": 0.3697,
+   "confidence": 0.655,
+   "method": "classical_opencv",
+   "reading_bar": 5.92,
+   "detail": {
+    "needle_angle_deg": 234.82,
+    "twist_correction_deg": 1.0,
+    "needle_px": 402,
+    "concentration": 0.999,
+    "dial_aspect": 0.96,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.3875,
+   "confidence": 0.95,
+   "method": "gemini_vision",
+   "reading_bar": 6.2,
+   "detail": {
+    "reason": "The red needle points to approximately 6.2 bar, which is just before the 6.4 bar major tick.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 12189,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_gauge_02.jpg",
+  "group": "rig",
+  "truth": 0.2906,
+  "truth_bar": 4.65,
+  "params": {
+   "yaw_deg": -10.559653669766632,
+   "pitch_deg": -21.8073123428154,
+   "roll_deg": -0.22666917044220902,
+   "blur_sigma": 0.602906559199355,
+   "glare": 0.23344605197436105,
+   "noise_std": 5.402978193333679,
+   "scale": 1.0050769076216655,
+   "shift": [
+    0.014970285261387509,
+    0.029124534466628618
+   ],
+   "glare_at": [
+    0.21093041346724806,
+    0.5925542898392744
+   ]
+  },
+  "classical": {
+   "value": 0.3185,
+   "confidence": 0.893,
+   "method": "classical_opencv",
+   "reading_bar": 5.1,
+   "detail": {
+    "needle_angle_deg": 220.99,
+    "twist_correction_deg": 1.0,
+    "needle_px": 563,
+    "concentration": 0.9978,
+    "dial_aspect": 0.919,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.3312,
+   "confidence": 0.95,
+   "method": "gemini_vision",
+   "reading_bar": 5.3,
+   "detail": {
+    "reason": "The needle points to approximately 10:30 on the clockwise dial, corresponding to 5.3 bar.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 8327,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_gauge_03.jpg",
+  "group": "rig",
+  "truth": 0.5906,
+  "truth_bar": 9.45,
+  "params": {
+   "yaw_deg": 2.944378412882564,
+   "pitch_deg": 17.567050654309412,
+   "roll_deg": 2.195146229480093,
+   "blur_sigma": 0.025646236941681444,
+   "glare": 0.4969969787939033,
+   "noise_std": 2.5332389068272043,
+   "scale": 0.9874123969003807,
+   "shift": [
+    0.03173020322219082,
+    0.04163954688245347
+   ],
+   "glare_at": [
+    0.7643617501364219,
+    0.5808232684210977
+   ]
+  },
+  "classical": {
+   "value": 0.5885,
+   "confidence": 0.822,
+   "method": "classical_opencv",
+   "reading_bar": 9.42,
+   "detail": {
+    "needle_angle_deg": 293.89,
+    "twist_correction_deg": 4.0,
+    "needle_px": 507,
+    "concentration": 0.9991,
+    "dial_aspect": 0.946,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.6062,
+   "confidence": 0.95,
+   "method": "gemini_vision",
+   "reading_bar": 9.7,
+   "detail": {
+    "reason": "The needle points to approximately 9.7 bar, just past the 9.6 bar major tick.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 8489,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_gauge_04.jpg",
+  "group": "rig",
+  "truth": 0.2437,
+  "truth_bar": 3.9,
+  "params": {
+   "yaw_deg": 25.14459765902565,
+   "pitch_deg": -0.11506320623718125,
+   "roll_deg": -1.3331957520394444,
+   "blur_sigma": 0.3201156992326264,
+   "glare": 0.2987264669813044,
+   "noise_std": 7.453534018221998,
+   "scale": 0.934802984886218,
+   "shift": [
+    0.021753309007983723,
+    -0.0449621456136268
+   ],
+   "glare_at": [
+    0.7830267584435338,
+    0.4843391506895324
+   ]
+  },
+  "classical": {
+   "value": 0.2206,
+   "confidence": 0.841,
+   "method": "classical_opencv",
+   "reading_bar": 3.53,
+   "detail": {
+    "needle_angle_deg": 194.56,
+    "twist_correction_deg": 2.0,
+    "needle_px": 527,
+    "concentration": 0.9989,
+    "dial_aspect": 0.913,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.2437,
+   "confidence": 0.95,
+   "method": "gemini_vision",
+   "reading_bar": 3.9,
+   "detail": {
+    "reason": "The red needle points to 3.9 bar, which is roughly 24% along the 0 to 16 bar scale starting from the bottom-left.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 8710,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_gauge_05.jpg",
+  "group": "rig",
+  "truth": 0.5212,
+  "truth_bar": 8.34,
+  "params": {
+   "yaw_deg": 22.878537841004132,
+   "pitch_deg": 11.446284328686211,
+   "roll_deg": 1.4034166571600588,
+   "blur_sigma": 0.7665255675545395,
+   "glare": 0.06635967632283248,
+   "noise_std": 4.553147889828173,
+   "scale": 0.8993883863040509,
+   "shift": [
+    -0.012163753164038456,
+    0.059093453451657105
+   ],
+   "glare_at": [
+    0.38541638841045534,
+    0.6695064600889893
+   ]
+  },
+  "classical": {
+   "value": 0.4858,
+   "confidence": 0.943,
+   "method": "classical_opencv",
+   "reading_bar": 7.77,
+   "detail": {
+    "needle_angle_deg": 266.17,
+    "twist_correction_deg": 7.0,
+    "needle_px": 611,
+    "concentration": 0.9977,
+    "dial_aspect": 0.9,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.5188,
+   "confidence": 0.95,
+   "method": "gemini_vision",
+   "reading_bar": 8.3,
+   "detail": {
+    "reason": "The needle is clearly visible pointing almost straight up, slightly to the right of the 12 o'clock position (8 bar).",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 7152,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_gauge_06.jpg",
+  "group": "rig",
+  "truth": 0.4194,
+  "truth_bar": 6.71,
+  "params": {
+   "yaw_deg": -23.35470890397569,
+   "pitch_deg": 4.6844930024477875,
+   "roll_deg": -0.7664543721489903,
+   "blur_sigma": 0.48475974289978807,
+   "glare": 0.23557606819565738,
+   "noise_std": 9.343281542812582,
+   "scale": 0.9735077972876458,
+   "shift": [
+    0.002181038892232451,
+    0.036431504893355865
+   ],
+   "glare_at": [
+    0.5022231529788279,
+    0.26757404930337025
+   ]
+  },
+  "classical": {
+   "value": 0.4468,
+   "confidence": 0.816,
+   "method": "classical_opencv",
+   "reading_bar": 7.15,
+   "detail": {
+    "needle_angle_deg": 255.64,
+    "twist_correction_deg": -4.0,
+    "needle_px": 513,
+    "concentration": 0.9984,
+    "dial_aspect": 0.914,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.425,
+   "confidence": 0.95,
+   "method": "gemini_vision",
+   "reading_bar": 6.8,
+   "detail": {
+    "reason": "The needle is clearly visible pointing to approximately 6.8 bar, just past the 6.4 bar major tick.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 9050,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_gauge_07.jpg",
+  "group": "rig",
+  "truth": 0.235,
+  "truth_bar": 3.76,
+  "params": {
+   "yaw_deg": -25.820222830565243,
+   "pitch_deg": 10.922221099821613,
+   "roll_deg": -0.16605363825583908,
+   "blur_sigma": 0.41766283326430953,
+   "glare": 0.58013233349208,
+   "noise_std": 2.7035463796528236,
+   "scale": 1.0348321217579324,
+   "shift": [
+    -0.021978503430111228,
+    0.029539216651263286
+   ],
+   "glare_at": [
+    0.516454416387794,
+    0.22189333856481866
+   ]
+  },
+  "classical": {
+   "value": 0.2417,
+   "confidence": 0.739,
+   "method": "classical_opencv",
+   "reading_bar": 3.87,
+   "detail": {
+    "needle_angle_deg": 200.25,
+    "twist_correction_deg": -6.0,
+    "needle_px": 558,
+    "concentration": 0.9772,
+    "dial_aspect": 0.887,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.2313,
+   "confidence": 0.9,
+   "method": "gemini_vision",
+   "reading_bar": 3.7,
+   "detail": {
+    "reason": "The needle is clearly visible, pointing slightly above the 3.2 bar major tick mark on the left side of the dial.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 9564,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_synth_00.jpg",
+  "group": "normal",
+  "truth": 0.7128,
+  "truth_bar": 11.41,
+  "params": {
+   "yaw_deg": -14.558020014495956,
+   "pitch_deg": -3.2776491384875825,
+   "roll_deg": 1.0688142164012415,
+   "blur_sigma": 1.9905815636384356,
+   "glare": 0.2682000507964349,
+   "noise_std": 6.723210965318437,
+   "scale": 0.9456914690424789,
+   "shift": [
+    0.019947428231592942,
+    -0.04092529949338662
+   ],
+   "glare_at": [
+    0.796380283219174,
+    0.2863440464582532
+   ]
+  },
+  "classical": {
+   "value": 0.7252,
+   "confidence": 0.972,
+   "method": "classical_opencv",
+   "reading_bar": 11.6,
+   "detail": {
+    "needle_angle_deg": 330.79,
+    "twist_correction_deg": 0.0,
+    "needle_px": 646,
+    "concentration": 0.9984,
+    "dial_aspect": 0.962,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.725,
+   "confidence": 0.9,
+   "method": "gemini_vision",
+   "reading_bar": 11.6,
+   "detail": {
+    "reason": "The needle is clearly visible pointing at approximately the 2 o'clock position, representing around 11.6 bar.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 8625,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_synth_01.jpg",
+  "group": "normal",
+  "truth": 0.6675,
+  "truth_bar": 10.68,
+  "params": {
+   "yaw_deg": -30.38627929910796,
+   "pitch_deg": -20.63208148198467,
+   "roll_deg": 1.8684848446374858,
+   "blur_sigma": 1.4992967557714223,
+   "glare": 0.05781756607857935,
+   "noise_std": 2.8111448885553925,
+   "scale": 0.821050994709816,
+   "shift": [
+    0.05226482249307435,
+    0.041592604548894116
+   ],
+   "glare_at": [
+    0.666062458183905,
+    0.6190625792231055
+   ]
+  },
+  "classical": {
+   "value": 0.6768,
+   "confidence": 0.914,
+   "method": "classical_opencv",
+   "reading_bar": 10.83,
+   "detail": {
+    "needle_angle_deg": 317.74,
+    "twist_correction_deg": 5.0,
+    "needle_px": 657,
+    "concentration": 0.9985,
+    "dial_aspect": 0.812,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.6813,
+   "confidence": 0.95,
+   "method": "gemini_vision",
+   "reading_bar": 10.9,
+   "detail": {
+    "reason": "The red needle is clearly visible, pointing towards the upper-right at approximately 10.9 bar.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 6802,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_synth_02.jpg",
+  "group": "hard",
+  "truth": 0.6724,
+  "truth_bar": 10.76,
+  "params": {
+   "yaw_deg": -49.05449579522343,
+   "pitch_deg": -33.256502249424166,
+   "roll_deg": -0.9954896745838793,
+   "blur_sigma": 1.730939240001486,
+   "glare": 0.7462747123798266,
+   "noise_std": 6.640575660498357,
+   "scale": 0.8747558739090816,
+   "shift": [
+    0.016130781928930207,
+    0.054225335054127924
+   ],
+   "glare_at": [
+    0.4912752279231605,
+    0.5372715585373351
+   ]
+  },
+  "classical": {
+   "value": null,
+   "confidence": 0.0,
+   "method": "classical_opencv",
+   "reading_bar": null,
+   "detail": {
+    "reason": "needle not found",
+    "needle_px": 0
+   }
+  },
+  "gemini": {
+   "value": null,
+   "confidence": 0.1,
+   "method": "gemini_vision",
+   "reading_bar": null,
+   "detail": {
+    "reason": "Extreme glare and overexposure hide the needle and scale markings completely.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 3422,
+    "readable": false
+   }
+  }
+ },
+ {
+  "file": "gauge_synth_03.jpg",
+  "group": "normal",
+  "truth": 0.2899,
+  "truth_bar": 4.64,
+  "params": {
+   "yaw_deg": 17.74312929727222,
+   "pitch_deg": -17.68611301869984,
+   "roll_deg": 0.8478141378543702,
+   "blur_sigma": 0.43713053398351365,
+   "glare": 0.4052484433553535,
+   "noise_std": 5.019957408801301,
+   "scale": 1.0474740378958927,
+   "shift": [
+    0.007971875648262253,
+    0.048856877760270534
+   ],
+   "glare_at": [
+    0.4705226818951835,
+    0.2090536916353637
+   ]
+  },
+  "classical": {
+   "value": 0.2855,
+   "confidence": 0.824,
+   "method": "classical_opencv",
+   "reading_bar": 4.57,
+   "detail": {
+    "needle_angle_deg": 212.09,
+    "twist_correction_deg": 1.0,
+    "needle_px": 515,
+    "concentration": 0.999,
+    "dial_aspect": 0.917,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.2812,
+   "confidence": 0.95,
+   "method": "gemini_vision",
+   "reading_bar": 4.5,
+   "detail": {
+    "reason": "The needle is clearly visible pointing at approximately 4.5 bar (around the 10 o'clock position).",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 8836,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_synth_04.jpg",
+  "group": "normal",
+  "truth": 0.9752,
+  "truth_bar": 15.6,
+  "params": {
+   "yaw_deg": 18.806745963345243,
+   "pitch_deg": 16.121347137146515,
+   "roll_deg": 1.6393270904879733,
+   "blur_sigma": 0.25253390970818335,
+   "glare": 0.5246664569581077,
+   "noise_std": 0.8410675541688273,
+   "scale": 0.8926907143833205,
+   "shift": [
+    -0.04079002809145359,
+    -0.0020499701164636633
+   ],
+   "glare_at": [
+    0.31379678761628066,
+    0.32670574378943684
+   ]
+  },
+  "classical": {
+   "value": 0.9944,
+   "confidence": 0.881,
+   "method": "classical_opencv",
+   "reading_bar": 15.91,
+   "detail": {
+    "needle_angle_deg": 43.48,
+    "twist_correction_deg": 6.0,
+    "needle_px": 559,
+    "concentration": 0.9977,
+    "dial_aspect": 0.903,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.9125,
+   "confidence": 0.95,
+   "method": "gemini_vision",
+   "reading_bar": 14.6,
+   "detail": {
+    "reason": "The needle is pointing towards the upper portion of the high-alarm red band, close to the end of the scale at approximately 14.6 bar.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 10167,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_synth_05.jpg",
+  "group": "hard",
+  "truth": 0.5793,
+  "truth_bar": 9.27,
+  "params": {
+   "yaw_deg": -35.551523952500304,
+   "pitch_deg": -1.354890924611336,
+   "roll_deg": 0.9694635984458038,
+   "blur_sigma": 0.04693369002504155,
+   "glare": 0.7959097338886207,
+   "noise_std": 11.317002114130407,
+   "scale": 1.0255558792458284,
+   "shift": [
+    0.026882408308023117,
+    0.055339999804148124
+   ],
+   "glare_at": [
+    0.28651455333901693,
+    0.2496318173289117
+   ]
+  },
+  "classical": {
+   "value": 0.6253,
+   "confidence": 0.805,
+   "method": "classical_opencv",
+   "reading_bar": 10.0,
+   "detail": {
+    "needle_angle_deg": 303.82,
+    "twist_correction_deg": -3.0,
+    "needle_px": 534,
+    "concentration": 0.9969,
+    "dial_aspect": 0.814,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.5687,
+   "confidence": 0.95,
+   "method": "gemini_vision",
+   "reading_bar": 9.1,
+   "detail": {
+    "reason": "The needle points to the top-right, slightly past the 8 bar (12 o'clock) mark, corresponding to approximately 9.1 bar.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 11825,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_synth_06.jpg",
+  "group": "normal",
+  "truth": 0.7397,
+  "truth_bar": 11.84,
+  "params": {
+   "yaw_deg": -33.72722098649429,
+   "pitch_deg": 6.501443275507519,
+   "roll_deg": 0.6182904894146568,
+   "blur_sigma": 1.8483284470504457,
+   "glare": 0.05870420386477741,
+   "noise_std": 3.5210530295063336,
+   "scale": 1.0279005218822634,
+   "shift": [
+    -0.018171591122949554,
+    -0.02502966445041803
+   ],
+   "glare_at": [
+    0.30765663501191787,
+    0.21210564896915832
+   ]
+  },
+  "classical": {
+   "value": 0.7808,
+   "confidence": 0.915,
+   "method": "classical_opencv",
+   "reading_bar": 12.49,
+   "detail": {
+    "needle_angle_deg": 345.81,
+    "twist_correction_deg": -5.0,
+    "needle_px": 655,
+    "concentration": 0.9973,
+    "dial_aspect": 0.838,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.6937,
+   "confidence": 0.9,
+   "method": "gemini_vision",
+   "reading_bar": 11.1,
+   "detail": {
+    "reason": "The needle is clearly visible pointing towards approximately 11.1 bar, just before the red high-alarm band.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 7617,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_synth_07.jpg",
+  "group": "normal",
+  "truth": 0.529,
+  "truth_bar": 8.46,
+  "params": {
+   "yaw_deg": -30.524527728396862,
+   "pitch_deg": -1.5406698902070808,
+   "roll_deg": 1.1680151760256523,
+   "blur_sigma": 0.8374680996530732,
+   "glare": 0.3649358326640659,
+   "noise_std": 9.529821723207942,
+   "scale": 0.853876345657197,
+   "shift": [
+    0.017220321172258177,
+    0.020337446194152384
+   ],
+   "glare_at": [
+    0.5052209975580375,
+    0.4047258126587536
+   ]
+  },
+  "classical": {
+   "value": 0.5706,
+   "confidence": 0.5,
+   "method": "classical_opencv",
+   "reading_bar": 9.13,
+   "detail": {
+    "needle_angle_deg": 289.06,
+    "twist_correction_deg": -2.0,
+    "needle_px": 322,
+    "concentration": 0.9982,
+    "dial_aspect": 0.861,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.5188,
+   "confidence": 0.95,
+   "method": "gemini_vision",
+   "reading_bar": 8.3,
+   "detail": {
+    "reason": "The needle points slightly to the right of the 12 o'clock position (8 bar), indicating a reading around 8.3 bar.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 7293,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_synth_08.jpg",
+  "group": "hard",
+  "truth": 0.1628,
+  "truth_bar": 2.6,
+  "params": {
+   "yaw_deg": -12.850464727670458,
+   "pitch_deg": 4.034412070745622,
+   "roll_deg": 2.3627775465548435,
+   "blur_sigma": 0.8202274567668787,
+   "glare": 0.7731221337471177,
+   "noise_std": 11.783359102609124,
+   "scale": 0.910155288083675,
+   "shift": [
+    0.009092433470663436,
+    -0.05679218710062124
+   ],
+   "glare_at": [
+    0.7886986683914563,
+    0.4955242173598944
+   ]
+  },
+  "classical": {
+   "value": 0.166,
+   "confidence": 0.98,
+   "method": "classical_opencv",
+   "reading_bar": 2.66,
+   "detail": {
+    "needle_angle_deg": 179.81,
+    "twist_correction_deg": 0.0,
+    "needle_px": 612,
+    "concentration": 0.9987,
+    "dial_aspect": 0.976,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.15,
+   "confidence": 0.9,
+   "method": "gemini_vision",
+   "reading_bar": 2.4,
+   "detail": {
+    "reason": "The red needle is clearly visible pointing to the left side of the scale, corresponding to approximately 2.4 bar.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 6916,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_synth_09.jpg",
+  "group": "normal",
+  "truth": 0.1537,
+  "truth_bar": 2.46,
+  "params": {
+   "yaw_deg": 20.537772874685913,
+   "pitch_deg": 18.56962549626978,
+   "roll_deg": 1.182526180767165,
+   "blur_sigma": 1.9660467713908674,
+   "glare": 0.16636310192107565,
+   "noise_std": 5.536755147648968,
+   "scale": 0.9320644827278632,
+   "shift": [
+    0.0166065687162852,
+    -0.026340546411259214
+   ],
+   "glare_at": [
+    0.6091235349198347,
+    0.4806036815185129
+   ]
+  },
+  "classical": {
+   "value": 0.1219,
+   "confidence": 0.94,
+   "method": "classical_opencv",
+   "reading_bar": 1.95,
+   "detail": {
+    "needle_angle_deg": 167.91,
+    "twist_correction_deg": 7.0,
+    "needle_px": 685,
+    "concentration": 0.9975,
+    "dial_aspect": 0.899,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.1437,
+   "confidence": 0.9,
+   "method": "gemini_vision",
+   "reading_bar": 2.3,
+   "detail": {
+    "reason": "The needle is clearly visible, pointing almost horizontally to the left, which is roughly 2.3 bar on the 0-16 bar scale.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 10536,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_synth_10.jpg",
+  "group": "normal",
+  "truth": 0.3837,
+  "truth_bar": 6.14,
+  "params": {
+   "yaw_deg": 13.921248177110975,
+   "pitch_deg": -11.391152578524604,
+   "roll_deg": -0.8460650284461941,
+   "blur_sigma": 1.9955093017046295,
+   "glare": 0.23357094433860523,
+   "noise_std": 3.381484472341257,
+   "scale": 1.0893924892006681,
+   "shift": [
+    0.05244316418668844,
+    0.05040461743457346
+   ],
+   "glare_at": [
+    0.2589249677127399,
+    0.6826427319654483
+   ]
+  },
+  "classical": {
+   "value": 0.3667,
+   "confidence": 0.973,
+   "method": "classical_opencv",
+   "reading_bar": 5.87,
+   "detail": {
+    "needle_angle_deg": 234.0,
+    "twist_correction_deg": 0.0,
+    "needle_px": 636,
+    "concentration": 0.9984,
+    "dial_aspect": 0.962,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.375,
+   "confidence": 0.9,
+   "method": "gemini_vision",
+   "reading_bar": 6.0,
+   "detail": {
+    "reason": "The thin red needle is clearly visible and points to approximately 6.0 bar, just below the 6.4 bar major tick at the 11 o'clock position.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 8341,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_synth_11.jpg",
+  "group": "hard",
+  "truth": 0.2103,
+  "truth_bar": 3.36,
+  "params": {
+   "yaw_deg": 15.624396745989753,
+   "pitch_deg": 26.715099443365684,
+   "roll_deg": 1.2335129681421995,
+   "blur_sigma": 0.17734869760490968,
+   "glare": 0.5348628398373539,
+   "noise_std": 2.566050986798882,
+   "scale": 1.0484194644569462,
+   "shift": [
+    -0.032803007199796105,
+    -0.03529306086261224
+   ],
+   "glare_at": [
+    0.41314848917137714,
+    0.5306863125218708
+   ]
+  },
+  "classical": {
+   "value": 0.1684,
+   "confidence": 0.638,
+   "method": "classical_opencv",
+   "reading_bar": 2.69,
+   "detail": {
+    "needle_angle_deg": 180.47,
+    "twist_correction_deg": 7.0,
+    "needle_px": 411,
+    "concentration": 0.9976,
+    "dial_aspect": 0.869,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.225,
+   "confidence": 0.95,
+   "method": "gemini_vision",
+   "reading_bar": 3.6,
+   "detail": {
+    "reason": "The needle is clearly visible, pointing to approximately the 3.6 bar position (about 22.5% along the scale).",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 12063,
+    "readable": true
+   }
+  }
+ },
+ {
+  "file": "gauge_synth_12.jpg",
+  "group": "normal",
+  "truth": 0.9031,
+  "truth_bar": 14.45,
+  "params": {
+   "yaw_deg": -22.49741063582072,
+   "pitch_deg": 17.014814227474837,
+   "roll_deg": -0.39535376021283675,
+   "blur_sigma": 1.9880381743272,
+   "glare": 0.3816602200398039,
+   "noise_std": 2.211457871091037,
+   "scale": 0.9524815847770804,
+   "shift": [
+    0.029037496482868103,
+    0.0397440465892277
+   ],
+   "glare_at": [
+    0.4802791439025572,
+    0.4266179178938105
+   ]
+  },
+  "classical": {
+   "value": 0.9044,
+   "confidence": 0.941,
+   "method": "classical_opencv",
+   "reading_bar": 14.47,
+   "detail": {
+    "needle_angle_deg": 19.18,
+    "twist_correction_deg": null,
+    "needle_px": 613,
+    "concentration": 0.9984,
+    "dial_aspect": 0.884,
+    "dead_zone": false
+   }
+  },
+  "gemini": {
+   "value": 0.8625,
+   "confidence": 0.9,
+   "method": "gemini_vision",
+   "reading_bar": 13.8,
+   "detail": {
+    "reason": "The needle is clearly visible pointing into the red high-alarm band on the right side of the dial.",
+    "model": "gemini-robotics-er-2-preview",
+    "latency_ms": 8556,
+    "readable": true
+   }
+  }
+ }
+]

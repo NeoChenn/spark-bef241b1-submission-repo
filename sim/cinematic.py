@@ -1,9 +1,3 @@
-"""Cinematic layer for the full rig: skies, ocean, rig lighting and presets.
-
-This layer sits on top of sim/output/full_rig.usda, so the engineering scene and
-its data stay unchanged. Import after SimulationApp has started.
-"""
-
 from __future__ import annotations
 
 import math
@@ -14,6 +8,7 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
 import ocean
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
+from topside_frames import aim_from_down, kelvin_rgb
 
 SCENE_PATH = OUTPUT / "cinematic.usda"
 SEA_NORMAL_TILE_M = 26.0
@@ -36,7 +31,7 @@ PRESETS = {
         "sun": 0.0,
         "sun_rotation": (55.0, 15.0, 35.0),
         "sun_color": (0.7, 0.85, 1.0),
-        "fog_color": (0.05, 0.16, 0.18),
+        "fog_color": (0.03, 0.08, 0.095),
         "fog_height": 0.002,
         "wave_height": 1.5,
         "lights": 1.0,
@@ -75,7 +70,6 @@ PRESETS = {
 
 
 def render_settings(name: str) -> dict:
-    """Settings saved in the scene file, so opening it gives the same look."""
     preset = PRESETS[name]
     return {
         **GLOW_SETTINGS,
@@ -115,23 +109,93 @@ def add_lamp(stage, material, index: int, position, color, radius: float, intens
     light.CreateColorAttr(Gf.Vec3f(*color))
 
 
-def lamp_positions() -> list[tuple]:
-    """Lamp posts along the deck edges of the three levels, chosen from the deck outline."""
-    points = []
-    for x in np.arange(-25, 37, 9.0):
-        points.append((float(x), 26.6, 46.0))
-    for y in np.arange(-11, 26, 9.0):
-        points.append((36.6, float(y), 46.0))
-    for x in np.arange(11, 37, 9.0):
-        points.append((float(x), -12.6, 46.0))
-    for x in np.arange(-25, 2, 9.0):
-        points.append((float(x), -27.6, 46.0))
-    for y in np.arange(-27, 26, 9.0):
-        points.append((-26.8, float(y), 46.0))
-    for x in np.arange(-16, 30, 11.0):
-        points.append((float(x), -14.0, 36.0))
-        points.append((float(x), -24.0, 24.5))
-    return points
+SODIUM, NEUTRAL, LED = 2000.0, 4000.0, 6000.0
+DOWN = (0.0, 0.0, -1.0)
+AREA_LIGHTS = (
+    ("rect", (18.75, -11.0, 53.0), NEUTRAL, 110000.0, (0.0, 0.7, -1.0), (3.0, 1.2)),
+    ("rect", (-18.0, 16.4, 50.5), NEUTRAL, 70000.0, (0.0, 0.5, -1.0), (2.2, 0.8)),
+    ("rect", (-5.0, 16.4, 50.5), NEUTRAL, 60000.0, (0.0, 0.5, -1.0), (2.2, 0.8)),
+    ("spot", (16.0, 16.0, 60.0), LED, 1350000.0, (0.25, 0.25, -1.0), 38.0),
+    ("spot", (24.0, 24.0, 60.0), LED, 1050000.0, (-0.25, -0.25, -1.0), 38.0),
+    ("spot", (-20.0, -8.0, 48.3), LED, 675000.0, DOWN, 55.0),
+    ("spot", (-10.0, -8.0, 48.3), LED, 525000.0, DOWN, 55.0),
+    ("spot", (31.5, -10.0, 40.6), SODIUM, 975000.0, DOWN, 50.0),
+    ("spot", (31.5, 3.0, 40.6), SODIUM, 750000.0, DOWN, 50.0),
+    ("spot", (31.5, 16.0, 40.6), SODIUM, 975000.0, DOWN, 50.0),
+    ("spot", (29.0, -4.0, 35.9), SODIUM, 450000.0, DOWN, 60.0),
+    ("spot", (34.0, 9.0, 35.9), SODIUM, 450000.0, DOWN, 60.0),
+    ("spot", (14.0, -6.0, 40.6), NEUTRAL, 675000.0, DOWN, 50.0),
+    ("spot", (20.0, 5.0, 40.6), NEUTRAL, 525000.0, DOWN, 50.0),
+    ("rect", (31.0, -27.0, 39.5), LED, 90000.0, DOWN, (2.6, 1.0)),
+    ("spot", (31.0, -31.0, 35.3), LED, 600000.0, DOWN, 60.0),
+    ("spot", (-18.0, -8.0, 40.6), SODIUM, 240000.0, DOWN, 45.0),
+    ("spot", (0.0, -12.0, 24.7), LED, 450000.0, DOWN, 60.0),
+    ("spot", (8.0, -12.0, 24.7), LED, 450000.0, DOWN, 60.0),
+    ("spot", (4.0, -12.0, 29.6), LED, 675000.0, DOWN, 55.0),
+    ("spot", (12.0, -12.0, 29.6), LED, 675000.0, DOWN, 55.0),
+    ("spot", (19.5, -28.0, 29.6), SODIUM, 750000.0, DOWN, 50.0),
+    ("spot", (21.5, -8.0, 29.6), NEUTRAL, 525000.0, DOWN, 50.0),
+)
+BULBS = (
+    ((-1.0, 4.0, 48.0), SODIUM, 260000.0),
+    ((8.0, -12.5, 47.0), SODIUM, 220000.0),
+    ((34.0, 24.0, 46.0), SODIUM, 90000.0),
+    ((-26.8, -5.0, 46.0), SODIUM, 200000.0),
+    ((36.6, 6.0, 46.0), LED, 220000.0),
+    ((8.0, 26.6, 46.0), SODIUM, 200000.0),
+    ((-12.0, 26.6, 46.0), NEUTRAL, 160000.0),
+    ((8.0, -37.2, 33.5), SODIUM, 160000.0),
+    ((20.0, -37.2, 33.5), SODIUM, 160000.0),
+    ((-5.0, 24.7, 23.0), SODIUM, 80000.0),
+    ((-24.7, -15.0, 23.0), SODIUM, 60000.0),
+    ((24.7, -10.0, 23.0), LED, 140000.0),
+    ((14.0, -37.2, 23.0), SODIUM, 160000.0),
+    ((24.7, 15.0, 23.0), SODIUM, 120000.0),
+    ((40.2, -1.0, 34.7), SODIUM, 70000.0),
+    ((40.2, 2.5, 38.4), SODIUM, 70000.0),
+)
+SEA_FLOODS = (
+    ((2.0, -31.0, 17.0), SODIUM, 330000.0),
+    ((14.0, 8.0, 17.0), LED, 220000.0),
+    ((-16.0, 2.0, 17.0), SODIUM, 120000.0),
+)
+POLES = ((18.75, -11.6, 53.0), (-18.0, 15.8, 50.5), (-5.0, 15.8, 50.5))
+
+
+def add_fixture(stage, index: int, kind: str, position, kelvin, intensity, aim, shape) -> None:
+    path = f"/World/Cinematic/Lamps/area_{index:03d}"
+    root = UsdGeom.Xform.Define(stage, path)
+    ops = UsdGeom.Xformable(root)
+    ops.AddTranslateOp().Set(Gf.Vec3d(*position))
+    w, x, y, z = aim_from_down(aim)
+    ops.AddOrientOp().Set(Gf.Quatf(float(w), float(x), float(y), float(z)))
+    color = kelvin_rgb(kelvin)
+    glow = emissive_material(stage, f"fixture_{int(kelvin)}", tuple(c * 20 for c in color))
+    dark = SceneBuilder(stage).plain("fixture_housing", (0.12, 0.13, 0.14), 0.5, 0.6)
+    width, depth = (shape[0], shape[1]) if kind == "rect" else (0.45, 0.3)
+    for name, z, size, material in (
+        ("housing", 0.12, (width + 0.12, depth + 0.12, 0.18), dark),
+        ("lens", 0.02, (width, depth, 0.02), glow),
+    ):
+        part = UsdGeom.Cube.Define(stage, f"{path}/{name}")
+        part.CreateSizeAttr(1.0)
+        part_ops = UsdGeom.Xformable(part)
+        part_ops.AddTranslateOp().Set(Gf.Vec3d(0, 0, z))
+        part_ops.AddScaleOp().Set(Gf.Vec3f(*size))
+        UsdShade.MaterialBindingAPI.Apply(part.GetPrim()).Bind(material)
+    if kind == "rect":
+        light = UsdLux.RectLight.Define(stage, f"{path}/light")
+        light.CreateWidthAttr(shape[0])
+        light.CreateHeightAttr(shape[1])
+    else:
+        light = UsdLux.SphereLight.Define(stage, f"{path}/light")
+        light.CreateRadiusAttr(0.18)
+        UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(0, 0, -0.2))
+        shaping = UsdLux.ShapingAPI.Apply(light.GetPrim())
+        shaping.CreateShapingConeAngleAttr(shape)
+        shaping.CreateShapingConeSoftnessAttr(0.35)
+    light.CreateIntensityAttr(intensity)
+    light.CreateColorAttr(Gf.Vec3f(*color))
 
 
 def build_ocean(stage):
@@ -241,29 +305,63 @@ def build_foam(stage) -> None:
         UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material)
 
 
+RED = (1.0, 0.05, 0.03)
+HELIDECK = (-22.5, -22.5, 51.4)
+RED_BEACONS = (
+    (900, DERRICK_TOP, 1.0, 1200000.0, 1.3),
+    (901, (-36.0, -32.0, 52.5), 0.3, 60000.0, 0.4),
+    (902, (37.2, 26.8, 47.5), 0.3, 60000.0, 0.4),
+    (903, (15.0, 15.0, 66.0), 0.3, 90000.0, 0.45),
+    (904, (25.0, 25.0, 66.0), 0.3, 90000.0, 0.45),
+    (905, (15.0, 25.0, 54.0), 0.3, 90000.0, 0.45),
+    (906, (25.0, 15.0, 54.0), 0.3, 90000.0, 0.45),
+    (907, (34.7, -4.5, 51.6), 0.3, 90000.0, 0.45),
+    (908, (-55.0, 8.0, 66.5), 0.4, 150000.0, 0.5),
+    (909, (-11.6, 20.8, 41.6), 0.3, 60000.0, 0.4),
+)
+STROBES = ((970, (-27.2, 27.0, 49.2)), (971, (37.2, -27.2, 49.2)), (972, (-27.2, -27.4, 49.2)), (973, (37.2, 27.2, 49.6)))
+STATUS = ((980, (1.1, -5.8, 23.0), (0.1, 0.45, 1.0)), (981, (11.1, -5.8, 23.0), (0.1, 0.45, 1.0)),
+          (982, (-3.9, -5.8, 23.0), (0.1, 1.0, 0.3)), (983, (6.1, -5.8, 23.0), (1.0, 0.75, 0.05)))
+
+
+def ring(center, radius: float, count: int) -> list[tuple]:
+    return [(center[0] + radius * math.cos(2 * math.pi * k / count), center[1] + radius * math.sin(2 * math.pi * k / count),
+             center[2]) for k in range(count)]
+
+
 def build_rig_lights(stage) -> None:
-    amber = emissive_material(stage, "lamp_amber", tuple(c * 7 for c in LAMP_COLOR))
     red = emissive_material(stage, "lamp_red", (26.0, 0.9, 0.4))
-    for index, position in enumerate(lamp_positions()):
-        add_lamp(stage, amber, index, position, LAMP_COLOR, 0.25, 240000.0, 0.34)
-    add_lamp(stage, red, 900, DERRICK_TOP, (1.0, 0.05, 0.03), 1.0, 1200000.0, 1.3)
-    add_lamp(stage, red, 901, (-36.0, -32.0, 52.5), (1.0, 0.05, 0.03), 0.3, 60000.0, 0.4)
-    add_lamp(stage, red, 902, (37.2, 26.8, 47.5), (1.0, 0.05, 0.03), 0.3, 60000.0, 0.4)
+    green = emissive_material(stage, "lamp_green", (0.6, 22.0, 2.0))
+    yellow = emissive_material(stage, "lamp_yellow", (20.0, 14.0, 0.5))
+    white = emissive_material(stage, "lamp_white", (30.0, 30.0, 30.0))
+    bulbs = {k: emissive_material(stage, f"lamp_{int(k)}", tuple(c * 8 for c in kelvin_rgb(k))) for k in (SODIUM, NEUTRAL, LED)}
+    for index, (position, kelvin, intensity) in enumerate(BULBS):
+        add_lamp(stage, bulbs[kelvin], index, position, kelvin_rgb(kelvin), 0.25, intensity, 0.3)
+    for index, (kind, position, kelvin, intensity, aim, shape) in enumerate(AREA_LIGHTS):
+        add_fixture(stage, 500 + index, kind, position, kelvin, intensity, aim, shape)
+    for index, position, radius, intensity, sphere in RED_BEACONS:
+        add_lamp(stage, red, index, position, RED, radius, intensity, sphere)
+    for k, position in enumerate(ring(HELIDECK, 10.5, 16)):
+        add_lamp(stage, green, 930 + k, position, (0.05, 1.0, 0.15), 0.15, 20000.0, 0.22)
+    for k, position in enumerate(ring(HELIDECK, 8.2, 12)):
+        add_lamp(stage, yellow, 950 + k, position, (1.0, 0.75, 0.05), 0.12, 12000.0, 0.16)
+    for index, position in STROBES:
+        add_lamp(stage, white, index, position, (1.0, 1.0, 1.0), 0.3, 200000.0, 0.35)
+    for index, position, color in STATUS:
+        add_lamp(stage, emissive_material(stage, f"lamp_status_{index}", tuple(c * 18 for c in color)), index, position,
+                 color, 0.12, 15000.0, 0.15)
 
 
 def build_floodlights(stage) -> None:
-    """Unseen lights that make warm pools on the decks and on the sea below."""
-    deck_floods = (
-        (-15, 10, 50), (10, -6, 50), (28, 10, 50), (-5, -20, 38), (20, -20, 38), (-10, -20, 27), (15, -20, 27),
-    )
-    for index, position in enumerate(deck_floods):
-        add_lamp(stage, None, 300 + index, position, LAMP_COLOR, 1.0, 190000.0, 0.0)
-    for index, position in enumerate(((0, -36, 17), (28, -22, 17), (-22, -36, 17), (40, 6, 17))):
-        add_lamp(stage, None, 320 + index, position, LAMP_COLOR, 1.5, 380000.0, 0.0)
+    for index, (position, kelvin, intensity) in enumerate(SEA_FLOODS):
+        add_lamp(stage, None, 320 + index, position, kelvin_rgb(kelvin), 1.0, intensity, 0.0)
+    b = SceneBuilder(stage)
+    steel = b.plain("lamp_pole", (0.3, 0.32, 0.33), 0.5, 0.6)
+    for x, y, top in POLES:
+        b.tube("/World/Cinematic/Lamps", "pole", (x, y, 42.5), (x, y, top + 0.3), 0.09, steel, segments=12)
 
 
 def build_flare(stage) -> None:
-    """Flare boom and flame. The flame is emissive geometry shaped for bloom, not a fluid sim."""
     b = SceneBuilder(stage)
     steel = b.plain("flare_steel", (0.1, 0.11, 0.12), 0.5, 0.5)
     base = (-26.0, 8.0, 42.0)
@@ -291,7 +389,6 @@ def build_flare(stage) -> None:
 
 
 def add_ship(stage) -> None:
-    """Distant supply vessel, kept simple because it reads as a silhouette."""
     b = SceneBuilder(stage)
     hull = b.plain("ship_hull", (0.05, 0.07, 0.09), 0.6, 0.2)
     deck = b.plain("ship_deck", (0.3, 0.32, 0.34), 0.6, 0.1)
@@ -309,7 +406,7 @@ def build_stage() -> Usd.Stage:
         SCENE_PATH.unlink()
     stage = Usd.Stage.CreateNew(str(SCENE_PATH))
     stage.GetRootLayer().subLayerPaths.append(rel(OUTPUT / "full_rig.usda"))
-    leak = OUTPUT / "leak_flanges.usda"          # gas-leak job's bolted flanges (sim/build_leak_flanges.py)
+    leak = OUTPUT / "leak_flanges.usda"
     if leak.exists():
         stage.GetRootLayer().subLayerPaths.insert(0, rel(leak))
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
@@ -352,7 +449,7 @@ def apply_preset(stage, name: str) -> None:
 
     scale = preset["lights"]
     for prim in Usd.PrimRange(stage.GetPrimAtPath("/World/Cinematic")):
-        if prim.IsA(UsdLux.SphereLight):
+        if prim.IsA(UsdLux.SphereLight) or prim.IsA(UsdLux.RectLight):
             base = prim.GetAttribute("spark:baseIntensity")
             if not base.IsValid():
                 base = prim.CreateAttribute("spark:baseIntensity", Sdf.ValueTypeNames.Float, custom=True)
@@ -382,7 +479,6 @@ SEQUENCE_SECONDS = CAMERA_KEYS[-1][0]
 
 
 def camera_at(time: float):
-    """Return eye, target and focal length, smoothly interpolated through CAMERA_KEYS."""
     times = [key[0] for key in CAMERA_KEYS]
     time = min(max(time, 0.0), times[-1] - 1e-6)
     index = int(np.searchsorted(times, time, side="right")) - 1
@@ -410,17 +506,18 @@ def set_camera(stage, path: str, time: float) -> None:
 
 
 def animate_effects(stage, time: float) -> None:
-    """Flame flicker and a slow pulse on the derrick beacon."""
     for index in range(5):
         prim = stage.GetPrimAtPath(f"/World/Cinematic/Flare/flame_{index}")
         wave = math.sin(time * (7.0 + index * 1.7) + index * 2.1) * 0.5 + math.sin(time * 13.0 + index) * 0.5
         stretch = 2.2 + 0.32 * wave
         prim.GetAttribute("xformOp:scale").Set(Gf.Vec3f(1.0 + 0.12 * wave, 1.0 + 0.12 * wave, stretch))
-    beacon = stage.GetPrimAtPath("/World/Cinematic/Lamps/lamp_900/light")
-    base = beacon.GetAttribute("spark:baseIntensity")
-    if base.IsValid():
-        pulse = 0.55 + 0.45 * max(math.sin(time * 2.2), 0.0)
-        beacon.GetAttribute("inputs:intensity").Set(base.Get() * pulse)
+    pulse = 0.55 + 0.45 * max(math.sin(time * 2.2), 0.0)
+    strobe = 1.0 if (time % 1.6) < 0.12 else 0.02
+    for index, level in [(b[0], pulse) for b in RED_BEACONS] + [(i, strobe) for i, _ in STROBES]:
+        light = stage.GetPrimAtPath(f"/World/Cinematic/Lamps/lamp_{index:03d}/light")
+        base = light.GetAttribute("spark:baseIntensity")
+        if base.IsValid():
+            light.GetAttribute("inputs:intensity").Set(base.Get() * level)
 
 
 def animate_ocean(stage, rest, distance, time: float, height: float) -> None:

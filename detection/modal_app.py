@@ -1,16 +1,3 @@
-"""Modal entrypoints for the rust classifier.
-
-  (add --detach after `modal run` so a flaky local connection does not kill the runs;
-   set DETECTOR_DATA=rust_v2 to train on rust_v1 + synthetic sim-domain data (runs get a _v2 suffix);
-   set DETECTOR_GPU=none to train on 32-core CPU containers if GPUs are unavailable)
-  modal run detection/modal_app.py --model mobilenetv4_conv_small            # one LoRA run
-  modal run detection/modal_app.py --model mobilenetv4_conv_small --full-ft  # one full fine-tune
-  modal run detection/modal_app.py --all                                     # bake-off (4 runs in parallel) + promote
-  modal run detection/modal_app.py --promote-only                            # re-run selection on existing runs
-
-Outputs: rust-ckpt volume /ckpt/detector/<run_name>/{model.pt,model.onnx,meta.json,metrics.json,logits.npz}
-Deployed model: /ckpt/detector/best/{model.onnx,model.pt,meta.json,metrics.json}
-"""
 from __future__ import annotations
 
 import json
@@ -21,23 +8,20 @@ from pathlib import Path
 import modal
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from infra.common import CKPT_DIR, CKPT_VOL, DATA_DIR, DATA_VOL  # noqa: E402
+from infra.common import CKPT_DIR, CKPT_VOL, DATA_DIR, DATA_VOL
 
-DATA_VERSION = os.environ.get("DETECTOR_DATA", "rust_v1")  # rust_v1 | rust_v2 (+ synthetic sim-domain)
+DATA_VERSION = os.environ.get("DETECTOR_DATA", "rust_v1")
 DATA_ROOT = f"{DATA_DIR}/{DATA_VERSION}"
 OUT_ROOT = f"{CKPT_DIR}/detector"
 PACK = f"{OUT_ROOT}/_cache/{DATA_VERSION}_raw.pkl"
 RUN_SUFFIX = "" if DATA_VERSION == "rust_v1" else f"_{DATA_VERSION.split('_')[-1]}"
 MODELS = ["mobilenetv4_conv_small", "resnet18", "vit_small_patch14_dinov2"]
 PRIMARY = MODELS[0]
-EDGE_OK = {"mobilenetv4_conv_small", "resnet18"}  # ViT = accuracy ceiling only
+EDGE_OK = {"mobilenetv4_conv_small", "resnet18"}
 
-# DETECTOR_GPU=L4 (default) | A10G | none. "none" trains on a 32-core CPU container
-# (used when the Modal workspace has no payment method and GPU functions are refused).
 GPU = os.environ.get("DETECTOR_GPU", "L4")
 ON_CPU = GPU.lower() in ("", "none", "cpu")
 FN_KW = dict(cpu=32.0, memory=32768) if ON_CPU else dict(gpu=GPU, cpu=8.0, memory=24576)
-# CPU budget: fewer epochs for the heavier backbones so the bake-off fits in the 2 h timeout.
 CPU_EPOCHS = {"mobilenetv4_conv_small": 12, "resnet18": 8, "vit_small_patch14_dinov2": 4}
 
 image = (
@@ -69,7 +53,6 @@ def train_remote(model: str, full_ft: bool = False, epochs: int = 12, batch_size
 
 @app.function(timeout=3600, cpu=8.0, memory=8192, volumes={DATA_DIR: DATA_VOL, CKPT_DIR: CKPT_VOL})
 def build_pack() -> str:
-    """Read every image once and pack raw bytes into one file (cold volume reads are ~0.2 s/file)."""
     from detection.train import list_split, load_pack
 
     items = {s: list_split(DATA_ROOT, s) for s in ("train", "val", "test")}
@@ -93,7 +76,6 @@ def summarize(res: dict) -> dict:
 
 
 def select(summaries: dict[str, dict]) -> tuple[str, list[str]]:
-    """Apply the LoRA-vs-full rule to the primary model, then pick the deploy model."""
     why = []
     lora, full = summaries.get(run_name_for(PRIMARY, False)), summaries.get(run_name_for(PRIMARY, True))
     if lora and full:
@@ -110,14 +92,13 @@ def select(summaries: dict[str, dict]) -> tuple[str, list[str]]:
                 s["val"]["f1@0.5"] > summaries[best]["val"]["f1@0.5"] + 0.02:
             why.append(f"{name} beats primary by >2 val-F1 pts -> {name}")
             best = name
-    if best is None:  # nothing edge-capable finished
+    if best is None:
         best = max(summaries, key=lambda k: summaries[k]["val"]["pr_auc"])
     why.append(f"deploy: {best}")
     return best, why
 
 
 def promote_dir(root: str | Path, run_names: list[str] | None = None, force: str | None = None) -> dict:
-    """Pick the deploy model among <root>/<run>/metrics.json and copy it to <root>/best/."""
     import shutil
 
     root = Path(root)
@@ -163,8 +144,6 @@ def _print(summaries: dict):
 
 @app.function(timeout=3 * 3600, cpu=1.0, volumes={CKPT_DIR: CKPT_VOL})
 def run_jobs(jobs: list, epochs: int = 12, do_promote: bool = True) -> dict:
-    """Server-side driver: pack data, train jobs in parallel, promote. Runs remotely so a flaky
-    local connection cannot kill the bake-off (pair with `modal run --detach`)."""
     print("[modal_app] pack:", build_pack.remote())
     calls = [train_remote.spawn(m, f, min(epochs, CPU_EPOCHS[m]) if ON_CPU else epochs) for m, f in jobs]
     summaries = {}
@@ -173,7 +152,7 @@ def run_jobs(jobs: list, epochs: int = 12, do_promote: bool = True) -> dict:
             s = c.get()
             summaries[s["run_name"]] = s
             print(json.dumps(s, indent=1))
-        except Exception as e:  # noqa: BLE001 - keep the bake-off going if one model dies (e.g. ViT)
+        except Exception as e:
             print(f"[modal_app] {run_name_for(m, f)} FAILED: {e!r}")
     _print(summaries)
     res = {"runs": summaries}
@@ -190,7 +169,7 @@ def main(model: str = PRIMARY, all: bool = False, full_ft: bool = False, epochs:
         res = promote.remote(None, force or None)
         _print(res["runs"]), print("\n".join(res["why"]))
         return
-    if not all:  # single run: call the GPU function directly (with --detach it survives disconnects)
+    if not all:
         build_pack.remote()
         print(json.dumps(train_remote.remote(model, full_ft, epochs), indent=1))
         return
@@ -199,8 +178,6 @@ def main(model: str = PRIMARY, all: bool = False, full_ft: bool = False, epochs:
 
 
 if __name__ == "__main__":
-    # Local promotion for runs trained off-Modal:  python -m detection.modal_app runs/detector
-    # then upload:  modal volume put -f rust-ckpt runs/detector /detector
     r = promote_dir(sys.argv[1] if len(sys.argv) > 1 else "runs/detector")
     _print(r["runs"])
     print("\n".join(r["why"]))

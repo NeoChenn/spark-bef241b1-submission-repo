@@ -95,6 +95,7 @@ Control rates: physics 60–120 Hz; the orchestrator makes a scrub decision ever
 | `occlude_camera(s)` | black frames / spray mist on lens for s seconds | `→HOLD`, then resume the same state |
 | `force_spike()` | a weld bead / collider on the scrub path | `SCRUB→BACK_OFF→SCRUB`, press scaled 0.7 |
 | `person_at(2.4 m)` | move a `/World/People/worker` prim near the robot | `→PAUSE_PERSON`, resume when > 3 m |
+| `storm_level(1.0)` | gusts on the arm, rain on the lens, wet pipe (`policy/storm.py`) | `SCRUB→WAIT_LULL` (gust > 12 N, brush retracted) `→SCRUB`; `→WIPE_LENS` (lens < 0.7 of clear view) `→` resume or `WAIT_LULL` then wipe; spray/paint wait out gusts; no lull in 60 s `→ESCALATE_TO_HUMAN` |
 | `move_pipe(dx)` | translate the segment origin attr + overlay | grid re-projected from the new `pipe()` |
 | stubborn rust | `RustState.abrasion_coef[:] = 0.1` | 3 failed VERIFYs → `ESCALATE_TO_HUMAN` with residual cells |
 

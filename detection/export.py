@@ -1,7 +1,3 @@
-"""ONNX export (opset 17) + latency / FLOPs benchmark for the rust classifier.
-
-Standalone: .venv/bin/python -m detection.export --ckpt runs/dummy/model.pt
-"""
 from __future__ import annotations
 
 import argparse
@@ -25,7 +21,7 @@ def export_onnx(model: nn.Module, path: str | Path, size: int = INPUT_SIZE) -> s
               dynamic_axes={"input": {0: "batch"}, "logit": {0: "batch"}})
     try:
         torch.onnx.export(model, (x,), str(path), dynamo=False, **kw)
-    except TypeError:  # older torch without the dynamo kwarg
+    except TypeError:
         torch.onnx.export(model, (x,), str(path), **kw)
     import onnxruntime as ort
 
@@ -45,8 +41,8 @@ def gflops(model: nn.Module, size: int = INPUT_SIZE) -> float | None:
 
         fl = FlopCountAnalysis(model.eval().cpu().float(), torch.randn(1, 3, size, size))
         fl.unsupported_ops_warnings(False), fl.uncalled_modules_warnings(False)
-        return float(fl.total()) / 1e9  # fvcore counts one fused multiply-add as 1 flop (i.e. GMACs)
-    except Exception as e:  # noqa: BLE001
+        return float(fl.total()) / 1e9
+    except Exception as e:
         print(f"[export] flop count failed: {e}")
         return None
 
@@ -102,11 +98,6 @@ def load_plain(ckpt: str | Path):
 
 
 class OnnxRustClassifier:
-    """Inference wrapper the orchestrator can use: loads meta.json + model.onnx from one directory.
-
-    clf = OnnxRustClassifier("/ckpt/detector/best"); clf.predict(pil_image)
-    -> {"p_rust": calibrated prob, "rust": bool, "unsure": bool, "logit": raw}
-    """
 
     def __init__(self, model_dir: str | Path, threads: int = 4):
         import onnxruntime as ort

@@ -1,15 +1,7 @@
-"""CPU mock of the whole rig robot with both jobs (rust + gas leak). No Isaac Sim.
+"""CPU mock of the rig robot: rust + gas leak + deck sweep (debris pickup, camera person check).
 
-Reuses the team's rust mock (policy/demo_mock.py) unchanged and adds: a bolted flange near the rust work
-position, a LeakWorld with a gas field, a wrist-camera renderer for the flange, an arm that can re-torque a
-bolt, and a bridge with the leak methods the Isaac bridge must also provide (see integration/INTERFACE.md):
-
-    gas_reading() -> float | None     flanges() / flange(id) / nearest_flange()
-    approach_flange(id) -> bool       retreat(distance)      return_to_work()
-    arm.torque(flange_id, bolt) -> bool
-
-Run:  python -m policy.leak.mock --leak loose          (also: crack, big, none, dust; --gas-during-scrub)
-      python -m policy.leak.mock --leak none --debris litter --person-at 2   (deck sweep: debris + camera person)
+    python -m policy.leak.mock --leak loose
+    python -m policy.leak.mock --leak none --debris litter --person-at 2
 """
 from __future__ import annotations
 
@@ -34,7 +26,6 @@ from policy.orchestrator import OrchestratorConfig, S
 
 
 class LeakPerception:
-    """Wrist camera pointed at a flange; renders it with the mock renderer."""
 
     def __init__(self, world: LeakWorld, W=640, H=480, focal_mm=35.0, h_aperture_mm=20.955):
         self.world, self.W, self.H = world, W, H
@@ -72,7 +63,6 @@ class LeakPerception:
 
 
 class RigPerception:
-    """One wrist camera, two things it can be looking at: the rust work area or a flange."""
 
     def __init__(self, rust: MockPerception, leak: LeakPerception):
         self.rust, self.leak = rust, leak
@@ -96,7 +86,7 @@ class LeakArm(MockArm):
     def __init__(self, world, pipe, leak_world: LeakWorld, seed=0):
         super().__init__(world, pipe, seed=seed)
         self.leak_world = leak_world
-        self.miss = set()            # (flange, bolt) the tool fails to reach once
+        self.miss = set()
         self.torques: list[tuple[str, int, float]] = []
 
     def torque(self, fid: str, bolt: int) -> bool:
@@ -114,7 +104,7 @@ class RigMockBridge(DeckMockMixin, MockBridge):
         self.leak_world = leak_world
         self.work_pos = np.asarray(work_pos, np.float64)
         self.robot = self.work_pos.copy()
-        self.gas_override = None     # e.g. float("nan") = failed sensor
+        self.gas_override = None
         self._deck_init()
 
     def advance(self, dt):
@@ -221,7 +211,7 @@ def build_rig(log_path=None, leak="none", rust=True, glare=False, dust=0.0, verb
     perc = RigPerception(rust_perc, leak_perc)
     arm = LeakArm(world, pipe, leak_world, seed=seed)
     arm.theta = dmg_theta
-    work = [pipe.origin[0], -1.0, 0.6]       # 1.5 m from the flange: a real leak shows on the gas sensor here
+    work = [pipe.origin[0], -1.0, 0.6]
     bridge = RigMockBridge(pipe, world, perc, arm, leak_world, work, verbose=verbose)
     bridge.dmg_theta = dmg_theta
     bridge._deck_init([Debris(**vars(d)) for d in DEBRIS_SCENES[debris]], person_m=person_m, deck_dust=deck_dust)

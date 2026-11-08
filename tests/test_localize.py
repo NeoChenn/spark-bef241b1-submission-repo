@@ -54,7 +54,7 @@ def test_two_blobs_two_components():
 def test_unsure_flag_on_ambiguous_texture():
     img = canvas()
     rng = np.random.default_rng(0)
-    region = rng.random((48, 48)) < 0.15          # sparse speckle: ~15% rusty pixels
+    region = rng.random((48, 48)) < 0.15
     sub = img[50:98, 60:108]
     sub[region] = RUST
     r = loc().localize(img)
@@ -85,18 +85,16 @@ def test_pixel_ray_cylinder_projection():
     pipe, cam = _scene()
     th, z = pixel_to_theta_z((160, 120), cam, pipe)
     assert abs(th - 1.0) < 0.02 and abs(z) < 0.01
-    assert pixel_to_theta_z((0, 0), cam, pipe) is None or True   # corner may miss the pipe
+    assert pixel_to_theta_z((0, 0), cam, pipe) is None or True
     mask = np.zeros((240, 320), bool)
     mask[110:130, 150:170] = True
     grid, vis, conf = project_mask_to_grid(mask, cam, pipe)
     assert grid.shape == (40, 64) and vis.sum() > grid.sum() > 0
     i, j = pipe.theta_z_to_cell(1.0, 0.0)
     assert grid[i, j]
-    # theta cells behind the pipe are never visible
     assert not vis[:, pipe.theta_z_to_cell(1.0 + math.pi, 0)[1]].any()
 
 
-# ------------------------------------------------------------------ coverage
 @pytest.mark.parametrize("seed", range(5))
 def test_boustrophedon_covers_dilated_mask(seed):
     rng = np.random.default_rng(seed)
@@ -104,7 +102,7 @@ def test_boustrophedon_covers_dilated_mask(seed):
     for _ in range(3):
         i, j = rng.integers(0, 40), rng.integers(0, 64)
         m[max(0, i - 3):i + 3, [(j + d) % 64 for d in range(-4, 5)]] = True
-    m[10:14, [62, 63, 0, 1]] = True                  # straddles theta = 0
+    m[10:14, [62, 63, 0, 1]] = True
     for lw in (1, 3):
         target = dilate(m, 1)
         cells = boustrophedon_cells(target, lw)
@@ -122,7 +120,6 @@ def test_coverage_waypoints_on_surface_with_standoff():
         radial = rel - rel.dot(pipe.axis) * pipe.axis
         assert abs(np.linalg.norm(radial) - 0.30) < 1e-6
         assert abs(np.dot(w.approach, radial / np.linalg.norm(radial)) + 1) < 1e-6
-    # consecutive lanes alternate direction (boustrophedon)
     cols = [w.cell[1] for w in wps]
     first = [w.cell[0] for w in wps if w.cell[1] == cols[0]]
     second = [w.cell[0] for w in wps if w.cell[1] == cols[len(first)]]
@@ -148,11 +145,9 @@ def test_paint_repaints_gaps_to_98pct():
 
 
 def test_onnx_checkpoint_roundtrip(tmp_path):
-    """from_checkpoint: meta.json + model.onnx (single rust logit) -> same API."""
     pytest.importorskip("onnxruntime")
     onnx = pytest.importorskip("onnx")
     from onnx import TensorProto, helper
-    # logit = 20 * (mean(R) - mean(G)) on the normalised input -> rust-ish patches positive
     w = np.zeros((1, 3, 1, 1), np.float32)
     w[0, 0], w[0, 1] = 20.0, -20.0
     graph = helper.make_graph(

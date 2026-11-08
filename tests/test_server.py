@@ -145,3 +145,153 @@ def test_viewer_shows_server_state():
     js = VIEWER_JS.read_text()
     assert "h.state" in js
     assert 'setStatus("live", true)' not in js
+
+
+def state_frame(seq: int, events: list) -> bytes:
+    header = {"type": "frame", "w": 640, "h": 360, "seq": seq, "t": seq / 10, "state": "SCRUB",
+              "force_n": 12.5, "events": events}
+    return encode(header, b"\xff\xd8" + bytes([seq]))
+
+
+def test_ws_state_sends_header_json(client):
+    with client.websocket_connect("/ws/state") as ws, connect(client.app) as s:
+        s.sendall(state_frame(0, [{"t": 0, "from": "PATROL", "to": "DETECT", "reason": "x", "evidence": {}}]))
+        msg = ws.receive_json()
+        assert msg["state"] == "SCRUB"
+        assert msg["force_n"] == 12.5
+        assert [e["to"] for e in msg["events"]] == ["DETECT"]
+
+
+def test_ws_state_merges_events_and_replays_recent(client):
+    with connect(client.app) as s:
+        for k in range(3):
+            s.sendall(state_frame(k, [{"t": k, "from": "A", "to": f"S{k}", "reason": "", "evidence": {}}]))
+        wait_frames(client, 3)
+        with client.websocket_connect("/ws/state") as ws:
+            msg = ws.receive_json()
+            assert [e["to"] for e in msg["events"]] == ["S0", "S1", "S2"]
+            s.sendall(state_frame(3, []))
+            assert ws.receive_json()["events"] == []
+
+
+def test_ws_video_still_binary_with_rich_header(client):
+    with client.websocket_connect("/ws/video") as ws, connect(client.app) as s:
+        s.sendall(state_frame(0, []))
+        assert ws.receive_bytes() == b"\xff\xd8\x00"
+
+
+def read_event(sock: socket.socket) -> dict:
+    from rig.frames import read_message
+    sock.settimeout(2)
+    header, _ = read_message(sock)
+    return header
+
+
+def test_post_event_forwards_to_sim(client):
+    with connect(client.app) as s:
+        s.sendall(frame(0))
+        wait_frames(client, 1)
+        r = client.post("/api/event", json={"name": "spawn_patch", "args": {"theta": 1.2, "z": 0.1}})
+        assert r.status_code == 200
+        assert read_event(s) == {"type": "event", "name": "spawn_patch", "args": {"theta": 1.2, "z": 0.1}}
+
+
+def test_post_event_rejects_unknown(client):
+    assert client.post("/api/event", json={"name": "shutdown"}).status_code == 400
+
+
+def test_post_event_accepts_control_events(client):
+    assert client.post("/api/event", json={"name": "cut_link", "args": {"on": True}}).status_code == 200
+    assert client.post("/api/event", json={"name": "intent", "args": {"text": "inspect deck 2"}}).status_code == 200
+
+
+def test_event_queued_until_sim_connects(client):
+    r = client.post("/api/event", json={"name": "force_spike"})
+    assert r.json()["queued"] == 1
+    with connect(client.app) as s:
+        s.sendall(frame(0))
+        assert read_event(s)["name"] == "force_spike"
+    assert client.get("/api/health").json()["events_pending"] == 0
+
+
+def test_mock_session_generated_and_served(tmp_path):
+    with TestClient(create_app(sim_port=0, mock_path=tmp_path / "mock.json")) as c:
+        r = c.get("/api/mock")
+        assert r.status_code == 200
+        assert r.json()["snapshots"][-1]["state"] == "DONE"
+        assert (tmp_path / "mock.json").exists()
+
+
+def test_mock_shots_served(client):
+    for n in (1, 2, 3):
+        r = client.get(f"/api/mock/shot/{n}")
+        assert r.status_code == 200
+        assert r.headers["content-type"] == "image/png"
+    assert client.get("/api/mock/shot/9").status_code == 404
+
+
+def test_viewer_skips_stream_in_mock_mode():
+    assert '"mock"' in VIEWER_JS.read_text()
+
+
+def test_post_scenario_event_forwards(client):
+    with connect(client.app) as s:
+        s.sendall(frame(0))
+        wait_frames(client, 1)
+        r = client.post("/api/event", json={"name": "set_weather", "args": {"level": "storm", "gust": 30}})
+        assert r.status_code == 200
+        assert read_event(s) == {"type": "event", "name": "set_weather", "args": {"level": "storm", "gust": 30}}
+    assert client.post("/api/event", json={"name": "set_weather", "args": {"level": "hail"}}).status_code == 400
+
+
+def test_fleet_serves_sample_then_live(tmp_path):
+    import json as js
+    d = tmp_path / "fleet"
+    d.mkdir()
+    (d / "fleet_state.json").write_text(js.dumps({"schema": "fleet_state.v1", "t": 1.0, "robots": []}))
+    (d / "fleet_map.json").write_text(js.dumps({"schema": "fleet_map.v1", "decks": []}))
+    with TestClient(create_app(sim_port=0, fleet_dirs=(tmp_path / "missing", d))) as c:
+        assert c.get("/api/fleet").json()["t"] == 1.0
+        assert c.get("/api/fleet/map").json()["schema"] == "fleet_map.v1"
+        assert c.post("/api/fleet", json={"schema": "fleet_state.v1", "t": 5.0, "robots": []}).status_code == 200
+        assert c.get("/api/fleet").json()["t"] == 5.0
+        assert c.post("/api/fleet", json={"schema": "other"}).status_code == 400
+        with connect(c.app) as s:
+            hdr = {"type": "frame", "w": 4, "h": 4, "seq": 0, "t": 0, "fleet": {"schema": "fleet_state.v1", "t": 9.0}}
+            s.sendall(encode(hdr, b"\xff\xd8\x00"))
+            wait_frames(c, 1)
+            assert c.get("/api/fleet").json()["t"] == 9.0
+
+
+def test_fleet_missing_is_404(tmp_path):
+    with TestClient(create_app(sim_port=0, fleet_dirs=(tmp_path,))) as c:
+        assert c.get("/api/fleet").status_code == 404
+        assert c.get("/api/fleet/map").status_code == 404
+
+
+def test_replay_converts_timeline_under_runs_only(tmp_path):
+    import json as js
+    (tmp_path / "runs/fleet").mkdir(parents=True)
+    line = {"t": 0.0, "robot": "Q1", "kind": "Q", "position": [1, 2, 42.5], "yaw": 0, "state": "IDLE", "job": None}
+    (tmp_path / "runs/fleet/timeline.jsonl").write_text(js.dumps(line) + "\n")
+    (tmp_path / "secret.jsonl").write_text(js.dumps(line) + "\n")
+    with TestClient(create_app(sim_port=0, root=tmp_path)) as c:
+        r = c.get("/api/replay", params={"path": "runs/fleet/timeline.jsonl"})
+        assert r.status_code == 200 and r.json()["snapshots"][0]["robots"][0]["name"] == "Unit 1 · rust"
+        assert c.get("/api/replay", params={"path": "secret.jsonl"}).status_code == 403
+        assert c.get("/api/replay", params={"path": "runs/../secret.jsonl"}).status_code == 403
+        assert c.get("/api/replay", params={"path": "runs/none.jsonl"}).status_code == 404
+
+
+def test_bench_lists_json(tmp_path):
+    import json as js
+    (tmp_path / "runs_sample/bench").mkdir(parents=True)
+    (tmp_path / "runs_sample/bench/scrub.json").write_text(js.dumps({"title": "Scrub", "rows": []}))
+    (tmp_path / "runs_sample/bench/bad.json").write_text("{")
+    with TestClient(create_app(sim_port=0, root=tmp_path)) as c:
+        assert c.get("/api/bench").json() == [{"name": "scrub", "title": "Scrub", "rows": []}]
+
+
+def test_default_fleet_sample_exists(client):
+    assert client.get("/api/fleet").json()["schema"] == "fleet_state.v1"
+    assert client.get("/api/fleet/map").json()["schema"] == "fleet_map.v1"

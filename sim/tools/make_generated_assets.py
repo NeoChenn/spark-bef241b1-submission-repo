@@ -1,11 +1,3 @@
-"""Create the project's own sky, sea and gauge textures in sim/assets/generated/.
-
-    C:\\isaacsim\\python.bat sim\\tools\\make_generated_assets.py
-
-Run this only when changing these files. They're committed to the repo. The sky
-starts from Poly Haven's CC0 aristea_wreck HDRI with the coastline removed.
-"""
-
 from __future__ import annotations
 
 import math
@@ -19,7 +11,7 @@ SOURCE_SKY = SIM_DIR / "assets" / "third_party" / "hdris" / "aristea_wreck.hdr"
 GENERATED = SIM_DIR / "assets" / "generated"
 LAND_LIMIT_DEG = 4.0
 BLEND_DEG = 4.0
-HORIZON_GLOW = 1.4  # brightens the haze so the sky meets the bright far sea
+HORIZON_GLOW = 1.4
 GLOW_TOP_DEG = 14.0
 
 

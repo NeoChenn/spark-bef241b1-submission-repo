@@ -1,9 +1,3 @@
-"""Classical brush-paint skill (primer/topcoat) with coverage verification.
-
-The brush is in contact (0.05 m standoff = brush bristle length to the tool
-flange). Coverage is tracked in ``painted`` (n_theta, n_z); gaps (unreached
-waypoints) are re-painted until coverage >= ``min_coverage`` or passes run out.
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -19,9 +13,9 @@ from policy.skills.spray import to_world_mask
 @dataclass
 class PaintSkill:
     standoff: float = 0.05
-    flow_rate: float = 0.2       # L/min paint feed to brush
+    flow_rate: float = 0.2
     margin: int = 1
-    lane_width: int = 1          # brush is one cell wide
+    lane_width: int = 1
     min_coverage: float = 0.98
     max_passes: int = 3
     painted: Optional[np.ndarray] = None
@@ -36,7 +30,6 @@ class PaintSkill:
         return float((self.painted & target).sum() / target.sum())
 
     def paint_pass(self, mask: np.ndarray, pipe: PipeGeometry, arm, world) -> float:
-        """One boustrophedon pass over ``mask`` (no extra margin). Returns coverage gain."""
         wps, tgt = coverage_path(mask, pipe, margin=0, lane_width=self.lane_width,
                                  standoff=self.standoff, flow_rate=self.flow_rate)
         if self.painted is None:
@@ -52,7 +45,6 @@ class PaintSkill:
         return float(new.sum())
 
     def execute(self, rust_mask: np.ndarray, pipe: PipeGeometry, arm, world) -> dict:
-        """Paint target = dilate(rust_mask); re-paint gaps until >= min_coverage."""
         target = self.target_for(rust_mask)
         self.paint_pass(target, pipe, arm, world)
         n = 1
