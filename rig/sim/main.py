@@ -102,8 +102,10 @@ def load_cinematic(app, ctx, preset: str, args=None):
         cinematic.animate_effects(stage, t)
         if view is None:
             cinematic.set_camera(stage, path, t % cinematic.SEQUENCE_SECONDS)
+            update.eye_target = cinematic.camera_at(t % cinematic.SEQUENCE_SECONDS)[:2]
             return
         eye, target, focal = view(t)
+        update.eye_target = (eye, target)
         cam.GetFocalLengthAttr().Set(focal)
         op.Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*eye), Gf.Vec3d(*target), Gf.Vec3d(0, 0, 1)).GetInverse())
 
@@ -111,6 +113,32 @@ def load_cinematic(app, ctx, preset: str, args=None):
     update(0.0)
     print(f"rig sim: cinematic preset {preset} scene {scene_path.name}", flush=True)
     return path, update
+
+
+def load_atmosphere(stage, cam_path: str, args):
+    import sys
+
+    sys.path.insert(0, "/rig/sim")
+    import atmos
+    from atmos_fx import Atmosphere
+
+    schedule = atmos.parse_schedule(args.weather)
+    first = atmos.schedule_at(schedule, 0.0)
+    atm = Atmosphere(stage, args.cinematic, args.atmos, first, cam_path=cam_path)
+    if first is not None:
+        atm.set_weather(first, args.wind_dir, args.gust)
+    state = {"kind": first}
+
+    def tick(t: float) -> None:
+        kind = atmos.schedule_at(schedule, t)
+        if kind is not None and kind != state["kind"]:
+            state["kind"] = kind
+            atm.set_weather(kind, args.wind_dir, args.gust)
+            print(f"rig sim: weather {kind}", flush=True)
+        atm.update(t)
+
+    print(f"rig sim: atmosphere tier={args.atmos} weather={args.weather or 'preset'}", flush=True)
+    return atm, tick
 
 
 def load_fleet_log(path: str):
@@ -142,8 +170,10 @@ def make_obstacles(stage, cine_update, args):
     return scene, tick
 
 
-def handle_event(scene, event: dict) -> None:
+def handle_event(scene, event: dict, atm=None) -> None:
     name, args = event.get("name"), event.get("args") or {}
+    if atm is not None and name == "set_weather":
+        atm.set_weather(**{k: args[k] for k in ("level", "wind_dir", "gust") if k in args})
     if scene is not None and name == "fleet":
         scene.sync(args)
         return
@@ -237,6 +267,29 @@ def main() -> None:
         cam_path, orbit_update = make_orbit_camera(stage, cam_path, args)
         tickers.append(orbit_update)
     camera_header = make_camera_header(stage, cam_path, args.width, args.height)
+    grade = None
+    if args.cinematic and args.look != "none":
+        import look
+
+        for key, value in look.rtx_settings(args.look).items():
+            settings.set(key, value)
+
+        def expose(t: float) -> None:
+            eye, target = getattr(cine_update, "eye_target", ((0.0, 0.0, 0.0), (0.0, 0.0, 30.0)))
+            ev = look.view_look(None, float(np.linalg.norm(np.subtract(target, eye))), bool(args.atmos))["ev"]
+            for key, value in look.exposure(ev).items():
+                settings.set(key, value)
+
+        tickers.append(expose)
+        grade = look.grade
+        import cinematic
+        import shafts
+
+        beams = shafts.specs(cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS, args.look)
+    atm = None
+    if args.atmos and args.cinematic:
+        atm, atm_tick = load_atmosphere(stage, cam_path, args)
+        tickers.append(atm_tick)
     env = load_environment(stage, args.env, args.sea_level)
     if env is not None:
         tickers.append(lambda t: env.update(t, camera=cam_path))
@@ -281,7 +334,7 @@ def main() -> None:
             if leak and ev["name"] == "gas_leak":
                 print(f"rig sim: gas_leak {ev['args']} -> {leak.event(ev['args'])}", flush=True)
             else:
-                handle_event(obstacles, ev)
+                handle_event(obstacles, ev, atm)
         for tick in tickers:
             tick(t)
         rep.orchestrator.step(rt_subframes=args.subframes, pause_timeline=False, wait_for_render=args.wait_render)
@@ -293,6 +346,10 @@ def main() -> None:
         if fresh or (sample and now - last_sent >= KEEPALIVE_S):
             last_sent = now
             rgb = np.ascontiguousarray(data[..., :3], dtype=np.uint8)
+            if atm is not None:
+                rgb = atm.post(rgb, camera_header(), t, args.lens)
+            if grade is not None:
+                rgb = grade(shafts.add(rgb, shafts.layer(camera_header(), beams, t)) if beams else rgb, args.look, t)
             mean = float(rgb.mean())
             buf = io.BytesIO()
             Image.fromarray(rgb).save(buf, "JPEG", quality=args.quality)

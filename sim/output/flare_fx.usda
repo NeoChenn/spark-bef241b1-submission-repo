@@ -1,0 +1,503 @@
+#usda 1.0
+(
+    upAxis = "Z"
+)
+
+over "World"
+{
+    over "Cinematic"
+    {
+        over "Flare"
+        {
+            over "flame_0"
+            {
+                token visibility = "invisible"
+            }
+
+            over "flame_1"
+            {
+                token visibility = "invisible"
+            }
+
+            over "flame_2"
+            {
+                token visibility = "invisible"
+            }
+
+            over "flame_3"
+            {
+                token visibility = "invisible"
+            }
+
+            over "flame_4"
+            {
+                token visibility = "invisible"
+            }
+        }
+
+        over "Lamps"
+        {
+            over "lamp_400"
+            {
+                over "light"
+                {
+                    float inputs:radius = 6
+                    bool visibleInPrimaryRay = 0
+                }
+            }
+        }
+    }
+
+    def Xform "FlareFx"
+    {
+        def Scope "Looks"
+        {
+            def Material "flame_0"
+            {
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/flame_0/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/flame_0/shader.outputs:out>
+
+                def Shader "shader"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "flare_card"
+                    asset inputs:atlas = @../assets/generated/flare_flame_atlas.png@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:cols = 8
+                    float inputs:frame = 0
+                    float inputs:gain = 6000
+                    float inputs:rows = 4
+                    token outputs:out
+                }
+            }
+
+            def Material "flame_1"
+            {
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/flame_1/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/flame_1/shader.outputs:out>
+
+                def Shader "shader"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "flare_card"
+                    asset inputs:atlas = @../assets/generated/flare_flame_atlas.png@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:cols = 8
+                    float inputs:frame = 0
+                    float inputs:gain = 6000
+                    float inputs:rows = 4
+                    token outputs:out
+                }
+            }
+
+            def Material "flame_2"
+            {
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/flame_2/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/flame_2/shader.outputs:out>
+
+                def Shader "shader"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "flare_card"
+                    asset inputs:atlas = @../assets/generated/flare_flame_atlas.png@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:cols = 8
+                    float inputs:frame = 0
+                    float inputs:gain = 6000
+                    float inputs:rows = 4
+                    token outputs:out
+                }
+            }
+
+            def Material "halo"
+            {
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/halo/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/halo/shader.outputs:out>
+
+                def Shader "shader"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "flare_card"
+                    float inputs:alpha_gain = 0.35
+                    asset inputs:atlas = @../assets/generated/flare_halo.png@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:cols = 1
+                    float inputs:gain = 480
+                    float inputs:rows = 1
+                    token outputs:out
+                }
+            }
+
+            def Material "smoke_0"
+            {
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/smoke_0/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/smoke_0/shader.outputs:out>
+
+                def Shader "shader"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "smoke_card"
+                    float inputs:alpha_gain = 0.38371527
+                    color3f inputs:glow = (41.024364, 17.230232, 4.9229236)
+                    asset inputs:puff = @../assets/generated/flare_smoke_puff.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:tint = (0.055, 0.045, 0.036)
+                    token outputs:out
+                }
+            }
+
+            def Material "smoke_1"
+            {
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/smoke_1/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/smoke_1/shader.outputs:out>
+
+                def Shader "shader"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "smoke_card"
+                    float inputs:alpha_gain = 0.3140523
+                    color3f inputs:glow = (13.318661, 5.5938377, 1.5982393)
+                    asset inputs:puff = @../assets/generated/flare_smoke_puff.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:tint = (0.055, 0.045, 0.036)
+                    token outputs:out
+                }
+            }
+
+            def Material "smoke_2"
+            {
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/smoke_2/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/smoke_2/shader.outputs:out>
+
+                def Shader "shader"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "smoke_card"
+                    float inputs:alpha_gain = 0.2485599
+                    color3f inputs:glow = (4.323936, 1.8160532, 0.5188723)
+                    asset inputs:puff = @../assets/generated/flare_smoke_puff.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:tint = (0.055, 0.045, 0.036)
+                    token outputs:out
+                }
+            }
+
+            def Material "smoke_3"
+            {
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/smoke_3/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/smoke_3/shader.outputs:out>
+
+                def Shader "shader"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "smoke_card"
+                    float inputs:alpha_gain = 0.18768123
+                    color3f inputs:glow = (1.4037765, 0.58958614, 0.16845319)
+                    asset inputs:puff = @../assets/generated/flare_smoke_puff.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:tint = (0.055, 0.045, 0.036)
+                    token outputs:out
+                }
+            }
+
+            def Material "smoke_4"
+            {
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/smoke_4/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/smoke_4/shader.outputs:out>
+
+                def Shader "shader"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "smoke_card"
+                    float inputs:alpha_gain = 0.13201357
+                    color3f inputs:glow = (0.4557395, 0.1914106, 0.05468874)
+                    asset inputs:puff = @../assets/generated/flare_smoke_puff.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:tint = (0.055, 0.045, 0.036)
+                    token outputs:out
+                }
+            }
+
+            def Material "smoke_5"
+            {
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/smoke_5/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/smoke_5/shader.outputs:out>
+
+                def Shader "shader"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "smoke_card"
+                    float inputs:alpha_gain = 0.08242127
+                    color3f inputs:glow = (0.14795695, 0.06214192, 0.017754834)
+                    asset inputs:puff = @../assets/generated/flare_smoke_puff.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:tint = (0.055, 0.045, 0.036)
+                    token outputs:out
+                }
+            }
+
+            def Material "smoke_6"
+            {
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/smoke_6/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/smoke_6/shader.outputs:out>
+
+                def Shader "shader"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "smoke_card"
+                    float inputs:alpha_gain = 0.040313553
+                    color3f inputs:glow = (0.04803459, 0.020174528, 0.005764151)
+                    asset inputs:puff = @../assets/generated/flare_smoke_puff.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:tint = (0.055, 0.045, 0.036)
+                    token outputs:out
+                }
+            }
+
+            def Material "smoke_7"
+            {
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/smoke_7/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/smoke_7/shader.outputs:out>
+
+                def Shader "shader"
+                {
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "smoke_card"
+                    float inputs:alpha_gain = 0.008659271
+                    color3f inputs:glow = (0.015594549, 0.0065497104, 0.0018713458)
+                    asset inputs:puff = @../assets/generated/flare_smoke_puff.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:tint = (0.055, 0.045, 0.036)
+                    token outputs:out
+                }
+            }
+        }
+
+        def Mesh "flame_0" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            uniform bool doubleSided = 1
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 4, 3, 1, 2, 5, 4, 3, 4, 7, 6, 4, 5, 8, 7, 6, 7, 10, 9, 7, 8, 11, 10, 9, 10, 13, 12, 10, 11, 14, 13, 12, 13, 16, 15, 13, 14, 17, 16, 15, 16, 19, 18, 16, 17, 20, 19, 18, 19, 22, 21, 19, 20, 23, 22, 21, 22, 25, 24, 22, 23, 26, 25, 24, 25, 28, 27, 25, 26, 29, 28, 27, 28, 31, 30, 28, 29, 32, 31, 30, 31, 34, 33, 31, 32, 35, 34, 33, 34, 37, 36, 34, 35, 38, 37]
+            rel material:binding = </World/FlareFx/Looks/flame_0>
+            point3f[] points = [(-66.10217, 5.837467, 70.6), (-58.4, 8, 70.6), (-50.697826, 10.162533, 70.6), (-67.31517, 5.8964467, 73.38457), (-59.613, 8.05898, 73.38457), (-51.910828, 10.221513, 73.38457), (-68.04848, 6.0264378, 75.84469), (-60.346302, 8.188971, 75.84469), (-52.64413, 10.351503, 75.84469), (-68.43056, 6.2111826, 78.07233), (-60.728386, 8.373715, 78.07233), (-53.026215, 10.536248, 78.07233), (-68.54652, 6.443924, 80.13339), (-60.844345, 8.606457, 80.13339), (-53.14217, 10.76899, 80.13339), (-68.45639, 6.7204766, 82.075096), (-60.75422, 8.883009, 82.075096), (-53.052048, 11.045543, 82.075096), (-68.203186, 7.037874, 83.931274), (-60.501015, 9.200407, 83.931274), (-52.798843, 11.36294, 83.931274), (-67.81794, 7.3938546, 85.72617), (-60.11577, 9.556388, 85.72617), (-52.413597, 11.718921, 85.72617), (-67.3232, 7.7866087, 87.477165), (-59.621025, 9.9491415, 87.477165), (-51.918854, 12.111674, 87.477165), (-66.73543, 8.214642, 89.19669), (-59.033253, 10.377174, 89.19669), (-51.33108, 12.539707, 89.19669), (-66.06673, 8.676686, 90.89368), (-58.364555, 10.839219, 90.89368), (-50.662384, 13.001752, 90.89368), (-65.32608, 9.17165, 92.57451), (-57.623905, 11.334184, 92.57451), (-49.921734, 13.4967165, 92.57451), (-64.52017, 9.698577, 94.24377), (-56.818, 11.86111, 94.24377), (-49.115826, 14.023643, 94.24377)]
+            custom bool primvars:doNotCastShadows = 1
+            texCoord2f[] primvars:st = [(0, 0), (0.5, 0), (1, 0), (0, 0.083333336), (0.5, 0.083333336), (1, 0.083333336), (0, 0.16666667), (0.5, 0.16666667), (1, 0.16666667), (0, 0.25), (0.5, 0.25), (1, 0.25), (0, 0.33333334), (0.5, 0.33333334), (1, 0.33333334), (0, 0.41666666), (0.5, 0.41666666), (1, 0.41666666), (0, 0.5), (0.5, 0.5), (1, 0.5), (0, 0.5833333), (0.5, 0.5833333), (1, 0.5833333), (0, 0.6666667), (0.5, 0.6666667), (1, 0.6666667), (0, 0.75), (0.5, 0.75), (1, 0.75), (0, 0.8333333), (0.5, 0.8333333), (1, 0.8333333), (0, 0.9166667), (0.5, 0.9166667), (1, 0.9166667), (0, 1), (0.5, 1), (1, 1)] (
+                interpolation = "vertex"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "flame_1" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            uniform bool doubleSided = 1
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 4, 3, 1, 2, 5, 4, 3, 4, 7, 6, 4, 5, 8, 7, 6, 7, 10, 9, 7, 8, 11, 10, 9, 10, 13, 12, 10, 11, 14, 13, 12, 13, 16, 15, 13, 14, 17, 16, 15, 16, 19, 18, 16, 17, 20, 19, 18, 19, 22, 21, 19, 20, 23, 22, 21, 22, 25, 24, 22, 23, 26, 25, 24, 25, 28, 27, 25, 26, 29, 28, 27, 28, 31, 30, 28, 29, 32, 31, 30, 31, 34, 33, 31, 32, 35, 34, 33, 34, 37, 36, 34, 35, 38, 37]
+            rel material:binding = </World/FlareFx/Looks/flame_1>
+            point3f[] points = [(-60.52648, 2.8194523, 70.6), (-58.4, 8, 70.6), (-56.273518, 13.180548, 70.6), (-61.73948, 2.878432, 73.38457), (-59.613, 8.05898, 73.38457), (-57.486515, 13.239528, 73.38457), (-62.472786, 3.0084229, 75.84469), (-60.346302, 8.188971, 75.84469), (-58.219822, 13.369518, 75.84469), (-62.85487, 3.1931674, 78.07233), (-60.728386, 8.373715, 78.07233), (-58.601906, 13.554263, 78.07233), (-62.970825, 3.425909, 80.13339), (-60.844345, 8.606457, 80.13339), (-58.71786, 13.787004, 80.13339), (-62.8807, 3.7024617, 82.075096), (-60.75422, 8.883009, 82.075096), (-58.627735, 14.063557, 82.075096), (-62.627495, 4.0198593, 83.931274), (-60.501015, 9.200407, 83.931274), (-58.37453, 14.380955, 83.931274), (-62.242252, 4.3758397, 85.72617), (-60.11577, 9.556388, 85.72617), (-57.98929, 14.736936, 85.72617), (-61.74751, 4.768594, 87.477165), (-59.621025, 9.9491415, 87.477165), (-57.494545, 15.129689, 87.477165), (-61.159737, 5.1966267, 89.19669), (-59.033253, 10.377174, 89.19669), (-56.906773, 15.557722, 89.19669), (-60.49104, 5.6586714, 90.89368), (-58.364555, 10.839219, 90.89368), (-56.238075, 16.019766, 90.89368), (-59.750385, 6.1536355, 92.57451), (-57.623905, 11.334184, 92.57451), (-55.49742, 16.51473, 92.57451), (-58.94448, 6.680562, 94.24377), (-56.818, 11.86111, 94.24377), (-54.691517, 17.041656, 94.24377)]
+            custom bool primvars:doNotCastShadows = 1
+            texCoord2f[] primvars:st = [(0, 0), (0.5, 0), (1, 0), (0, 0.083333336), (0.5, 0.083333336), (1, 0.083333336), (0, 0.16666667), (0.5, 0.16666667), (1, 0.16666667), (0, 0.25), (0.5, 0.25), (1, 0.25), (0, 0.33333334), (0.5, 0.33333334), (1, 0.33333334), (0, 0.41666666), (0.5, 0.41666666), (1, 0.41666666), (0, 0.5), (0.5, 0.5), (1, 0.5), (0, 0.5833333), (0.5, 0.5833333), (1, 0.5833333), (0, 0.6666667), (0.5, 0.6666667), (1, 0.6666667), (0, 0.75), (0.5, 0.75), (1, 0.75), (0, 0.8333333), (0.5, 0.8333333), (1, 0.8333333), (0, 0.9166667), (0.5, 0.9166667), (1, 0.9166667), (0, 1), (0.5, 1), (1, 1)] (
+                interpolation = "vertex"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "flame_2" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            uniform bool doubleSided = 1
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 4, 3, 1, 2, 5, 4, 3, 4, 7, 6, 4, 5, 8, 7, 6, 7, 10, 9, 7, 8, 11, 10, 9, 10, 13, 12, 10, 11, 14, 13, 12, 13, 16, 15, 13, 14, 17, 16, 15, 16, 19, 18, 16, 17, 20, 19, 18, 19, 22, 21, 19, 20, 23, 22, 21, 22, 25, 24, 22, 23, 26, 25, 24, 25, 28, 27, 25, 26, 29, 28, 27, 28, 31, 30, 28, 29, 32, 31, 30, 31, 34, 33, 31, 32, 35, 34, 33, 34, 37, 36, 34, 35, 38, 37]
+            rel material:binding = </World/FlareFx/Looks/flame_2>
+            point3f[] points = [(-62.4565, 10.566088, 70.6), (-58.4, 8, 70.6), (-54.3435, 5.4339128, 70.6), (-63.6695, 10.625067, 73.38457), (-59.613, 8.05898, 73.38457), (-55.5565, 5.4928923, 73.38457), (-64.4028, 10.755058, 75.84469), (-60.346302, 8.188971, 75.84469), (-56.289803, 5.6228833, 75.84469), (-64.78489, 10.939802, 78.07233), (-60.728386, 8.373715, 78.07233), (-56.671886, 5.8076277, 78.07233), (-64.90084, 11.1725445, 80.13339), (-60.844345, 8.606457, 80.13339), (-56.78784, 6.0403695, 80.13339), (-64.81072, 11.449097, 82.075096), (-60.75422, 8.883009, 82.075096), (-56.69772, 6.316922, 82.075096), (-64.55752, 11.766495, 83.931274), (-60.501015, 9.200407, 83.931274), (-56.444515, 6.63432, 83.931274), (-64.17227, 12.122475, 85.72617), (-60.11577, 9.556388, 85.72617), (-56.05927, 6.9903, 85.72617), (-63.67753, 12.515229, 87.477165), (-59.621025, 9.9491415, 87.477165), (-55.564526, 7.3830543, 87.477165), (-63.089752, 12.943261, 89.19669), (-59.033253, 10.377174, 89.19669), (-54.976753, 7.8110867, 89.19669), (-62.42106, 13.405306, 90.89368), (-58.364555, 10.839219, 90.89368), (-54.308056, 8.273131, 90.89368), (-61.680405, 13.90027, 92.57451), (-57.623905, 11.334184, 92.57451), (-53.567406, 8.768096, 92.57451), (-60.8745, 14.4271965, 94.24377), (-56.818, 11.86111, 94.24377), (-52.761497, 9.295022, 94.24377)]
+            custom bool primvars:doNotCastShadows = 1
+            texCoord2f[] primvars:st = [(0, 0), (0.5, 0), (1, 0), (0, 0.083333336), (0.5, 0.083333336), (1, 0.083333336), (0, 0.16666667), (0.5, 0.16666667), (1, 0.16666667), (0, 0.25), (0.5, 0.25), (1, 0.25), (0, 0.33333334), (0.5, 0.33333334), (1, 0.33333334), (0, 0.41666666), (0.5, 0.41666666), (1, 0.41666666), (0, 0.5), (0.5, 0.5), (1, 0.5), (0, 0.5833333), (0.5, 0.5833333), (1, 0.5833333), (0, 0.6666667), (0.5, 0.6666667), (1, 0.6666667), (0, 0.75), (0.5, 0.75), (1, 0.75), (0, 0.8333333), (0.5, 0.8333333), (1, 0.8333333), (0, 0.9166667), (0.5, 0.9166667), (1, 0.9166667), (0, 1), (0.5, 1), (1, 1)] (
+                interpolation = "vertex"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "halo" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            uniform bool doubleSided = 1
+            int[] faceVertexCounts = [4]
+            int[] faceVertexIndices = [0, 1, 2, 3]
+            rel material:binding = </World/FlareFx/Looks/halo>
+            point3f[] points = [(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5)]
+            custom bool primvars:doNotCastShadows = 1
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "vertex"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def PointInstancer "smoke"
+        {
+            quath[] orientations = []
+            point3f[] positions = []
+            int[] protoIndices = []
+            rel prototypes = [
+                </World/FlareFx/smoke/proto_0>,
+                </World/FlareFx/smoke/proto_1>,
+                </World/FlareFx/smoke/proto_2>,
+                </World/FlareFx/smoke/proto_3>,
+                </World/FlareFx/smoke/proto_4>,
+                </World/FlareFx/smoke/proto_5>,
+                </World/FlareFx/smoke/proto_6>,
+                </World/FlareFx/smoke/proto_7>,
+            ]
+            float3[] scales = []
+
+            def Mesh "proto_0" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4]
+                int[] faceVertexIndices = [0, 1, 2, 3]
+                rel material:binding = </World/FlareFx/Looks/smoke_0>
+                point3f[] points = [(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "vertex"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+
+            def Mesh "proto_1" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4]
+                int[] faceVertexIndices = [0, 1, 2, 3]
+                rel material:binding = </World/FlareFx/Looks/smoke_1>
+                point3f[] points = [(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "vertex"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+
+            def Mesh "proto_2" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4]
+                int[] faceVertexIndices = [0, 1, 2, 3]
+                rel material:binding = </World/FlareFx/Looks/smoke_2>
+                point3f[] points = [(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "vertex"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+
+            def Mesh "proto_3" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4]
+                int[] faceVertexIndices = [0, 1, 2, 3]
+                rel material:binding = </World/FlareFx/Looks/smoke_3>
+                point3f[] points = [(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "vertex"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+
+            def Mesh "proto_4" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4]
+                int[] faceVertexIndices = [0, 1, 2, 3]
+                rel material:binding = </World/FlareFx/Looks/smoke_4>
+                point3f[] points = [(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "vertex"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+
+            def Mesh "proto_5" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4]
+                int[] faceVertexIndices = [0, 1, 2, 3]
+                rel material:binding = </World/FlareFx/Looks/smoke_5>
+                point3f[] points = [(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "vertex"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+
+            def Mesh "proto_6" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4]
+                int[] faceVertexIndices = [0, 1, 2, 3]
+                rel material:binding = </World/FlareFx/Looks/smoke_6>
+                point3f[] points = [(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "vertex"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+
+            def Mesh "proto_7" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform bool doubleSided = 1
+                int[] faceVertexCounts = [4]
+                int[] faceVertexIndices = [0, 1, 2, 3]
+                rel material:binding = </World/FlareFx/Looks/smoke_7>
+                point3f[] points = [(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5)]
+                texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                    interpolation = "vertex"
+                )
+                uniform token subdivisionScheme = "none"
+            }
+        }
+    }
+}
+

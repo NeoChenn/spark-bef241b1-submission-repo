@@ -4,14 +4,23 @@ import math
 
 import numpy as np
 
-WAVES = (
-    (140.0, 1.00, 18.0, 0.45),
-    (86.0, 0.62, -12.0, 0.50),
-    (52.0, 0.36, 41.0, 0.55),
-    (31.0, 0.20, -33.0, 0.60),
-    (19.0, 0.11, 72.0, 0.60),
-    (12.0, 0.06, -64.0, 0.55),
-)
+SWELL_COUNT = 14
+
+
+def swell(count: int = SWELL_COUNT, seed: int = 11, longest: float = 150.0, shortest: float = 9.0,
+          heading: float = 18.0) -> tuple:
+    rng = np.random.default_rng(seed)
+    lengths = longest * (shortest / longest) ** (np.arange(count) / (count - 1)) * rng.uniform(0.9, 1.1, count)
+    rel = (lengths / longest) ** 0.85 * rng.uniform(0.8, 1.2, count)
+    rel *= math.sqrt(1.56 / np.sum(rel**2))
+    spread = 22.0 + 30.0 * (1.0 - lengths / longest)
+    headings = heading + rng.normal(0.0, 1.0, count) * spread
+    steep = rng.uniform(0.45, 0.6, count)
+    phases = rng.uniform(0.0, math.tau, count)
+    return tuple((float(a), float(b), float(c), float(d), float(e)) for a, b, c, d, e in zip(lengths, rel, headings, steep, phases))
+
+
+WAVES = swell()
 GRAVITY = 9.81
 FADE_DISTANCE_M = 1600.0
 
@@ -35,25 +44,29 @@ def make_grid(rings: int = 190, segments: int = 256, inner: float = 6.0, outer: 
     return points, np.linalg.norm(points, axis=1), counts, indices
 
 
-def surface(rest: np.ndarray, distance: np.ndarray, time: float, height: float):
-    fade = np.exp(-distance / FADE_DISTANCE_M)
-    x, y, z = rest[:, 0].copy(), rest[:, 1].copy(), np.zeros(len(rest))
-    slope_x, slope_y, stretch = np.zeros(len(rest)), np.zeros(len(rest)), np.zeros(len(rest))
-    for wavelength, relative, heading, steepness in WAVES:
-        amplitude = height * relative
+def wave_table(height: float) -> np.ndarray:
+    rows = []
+    for wavelength, relative, heading, steepness, phase in WAVES:
         k = math.tau / wavelength
-        omega = math.sqrt(GRAVITY * k)
-        dx, dy = math.cos(math.radians(heading)), math.sin(math.radians(heading))
-        phase = k * (rest[:, 0] * dx + rest[:, 1] * dy) - omega * time
-        sin, cos = np.sin(phase), np.cos(phase)
-        q = steepness / max(k * amplitude * len(WAVES), 1e-6) if amplitude > 0 else 0.0
-        q = min(q, 1.0 / max(k * amplitude * len(WAVES), 1e-6)) * 0.8
-        x += q * amplitude * dx * cos * fade
-        y += q * amplitude * dy * cos * fade
-        z += amplitude * sin * fade
-        slope_x += dx * k * amplitude * cos * fade
-        slope_y += dy * k * amplitude * cos * fade
-        stretch += q * k * amplitude * sin * fade
-    normals = np.stack((-slope_x, -slope_y, 1.0 - stretch), axis=1)
+        rows.append((math.cos(math.radians(heading)) * k, math.sin(math.radians(heading)) * k, k,
+                     height * relative, math.sqrt(GRAVITY * k), phase, 0.8 * min(steepness, 1.0) / (k * len(WAVES))))
+    return np.array(rows, np.float32)
+
+
+def surface(rest: np.ndarray, distance: np.ndarray, time: float, height: float):
+    w = wave_table(height)
+    fade = np.exp(-distance / FADE_DISTANCE_M).astype(np.float32)[:, None]
+    theta = rest.astype(np.float32) @ w[:, :2].T - (w[:, 4] * time - w[:, 5])
+    sin, cos = np.sin(theta), np.cos(theta)
+    unit = w[:, :2] / w[:, 2:3]
+    hc = cos * (w[:, 6] * fade)
+    out = np.empty((len(rest), 3), np.float32)
+    out[:, :2] = rest + hc @ unit
+    out[:, 2] = (sin * fade) @ w[:, 3]
+    ac = cos * fade
+    sx, sy = ac @ (w[:, 0] * w[:, 3]), ac @ (w[:, 1] * w[:, 3])
+    qs = sin * fade * (w[:, 6] * w[:, 2])
+    jxx, jyy, jxy = qs @ unit[:, 0] ** 2, qs @ unit[:, 1] ** 2, qs @ (unit[:, 0] * unit[:, 1])
+    normals = np.stack((-jxy * sy - sx * (1 - jyy), -jxy * sx - sy * (1 - jxx), (1 - jxx) * (1 - jyy) - jxy**2), axis=1)
     normals /= np.linalg.norm(normals, axis=1, keepdims=True)
-    return np.stack((x, y, z), axis=1), normals
+    return out, normals
