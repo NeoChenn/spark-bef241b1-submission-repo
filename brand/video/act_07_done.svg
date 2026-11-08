@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <title>Act 7: Done</title>
+  <style>@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500;600&amp;display=swap');</style>
+  <rect width="100%" height="100%" fill="#0B0D10"/>
+  <line x1="96" y1="96" x2="124" y2="96" stroke="#9AA3AE" stroke-width="1.5" opacity="0.55"/>
+  <line x1="96" y1="96" x2="96" y2="124" stroke="#9AA3AE" stroke-width="1.5" opacity="0.55"/>
+  <line x1="1824" y1="96" x2="1796" y2="96" stroke="#9AA3AE" stroke-width="1.5" opacity="0.55"/>
+  <line x1="1824" y1="96" x2="1824" y2="124" stroke="#9AA3AE" stroke-width="1.5" opacity="0.55"/>
+  <line x1="96" y1="984" x2="124" y2="984" stroke="#9AA3AE" stroke-width="1.5" opacity="0.55"/>
+  <line x1="96" y1="984" x2="96" y2="956" stroke="#9AA3AE" stroke-width="1.5" opacity="0.55"/>
+  <line x1="1824" y1="984" x2="1796" y2="984" stroke="#9AA3AE" stroke-width="1.5" opacity="0.55"/>
+  <line x1="1824" y1="984" x2="1824" y2="956" stroke="#9AA3AE" stroke-width="1.5" opacity="0.55"/>
+  <g fill="#2EE6D6">
+    <path d="M152.8 136 L165.6 136 L157.6 152 L168.8 152 L150.4 176 L155.2 159.2 L144 159.2 Z"/>
+  </g>
+  <g fill="#9AA3AE">
+    <path d="M195.76 147 L186.52 147 L182.8 150.72 L182.8 157.44 L192.88 157.44 L192.88 160.08 L190.84 162.12 L182.8 162.12 L182.8 165 L192.04 165 L195.76 161.28 L195.76 154.56 L185.68 154.56 L185.68 151.92 L187.72 149.88 L195.76 149.88 Z"/>
+    <path d="M202.6 165 L202.6 151.92 L204.64 149.88 L209.8 149.88 L209.8 154.56 L206.92 154.56 L206.92 157.44 L212.68 157.44 L212.68 147 L203.44 147 L199.72 150.72 L199.72 165 Z"/>
+    <path d="M201.16 157.44 L208.36 157.44 L208.36 154.56 L201.16 154.56 Z"/>
+    <path d="M219.52 165 L219.52 151.92 L221.56 149.88 L226.72 149.88 L226.72 165 L229.6 165 L229.6 147 L220.36 147 L216.64 150.72 L216.64 165 Z"/>
+    <path d="M218.08 159.24 L228.16 159.24 L228.16 156.36 L218.08 156.36 Z"/>
+    <path d="M236.44 165 L236.44 151.92 L238.48 149.88 L243.64 149.88 L243.64 154.56 L240.76 154.56 L240.76 157.44 L246.52 157.44 L246.52 147 L237.28 147 L233.56 150.72 L233.56 165 Z"/>
+    <path d="M235 157.44 L242.2 157.44 L242.2 154.56 L235 154.56 Z"/>
+    <path d="M239.74 157.02 L243.64 160.92 L243.64 165 L246.52 165 L246.52 159.72 L241.78 154.98 Z"/>
+    <path d="M250.48 147 L250.48 165 L253.36 165 L253.36 147 Z"/>
+    <path d="M251.92 157.44 L258.28 157.44 L263.44 152.28 L263.44 147 L260.56 147 L260.56 151.08 L257.08 154.56 L251.92 154.56 Z"/>
+    <path d="M256.66 157.02 L260.56 160.92 L260.56 165 L263.44 165 L263.44 159.72 L258.7 154.98 Z"/>
+  </g>
+  <text x="1776" y="168" font-family="'JetBrains Mono', 'Consolas', monospace" font-size="20" font-weight="500" fill="#9AA3AE" text-anchor="end" letter-spacing="5">OFFSHORE AUTONOMY</text>
+  <text x="1776" y="936" font-family="'JetBrains Mono', 'Consolas', monospace" font-size="20" font-weight="500" fill="#9AA3AE" text-anchor="end" letter-spacing="4">07 / 07</text>
+  <rect x="144" y="452" width="6" height="172" fill="#3DDC84"/>
+  <text x="184" y="492" font-family="'JetBrains Mono', 'Consolas', monospace" font-size="26" font-weight="600" fill="#3DDC84" text-anchor="start" letter-spacing="6">ACT 07</text>
+  <text x="180" y="612" font-family="'Space Grotesk', 'Bahnschrift', 'Segoe UI', sans-serif" font-size="112" font-weight="600" fill="#F3F5F8" text-anchor="start" letter-spacing="-1">Done</text>
+  <line x1="144" y1="708" x2="1776" y2="708" stroke="#262A31" stroke-width="1"/>
+  <rect x="144" y="738" width="48" height="4" rx="2" fill="#262A31"/>
+  <rect x="208" y="738" width="48" height="4" rx="2" fill="#262A31"/>
+  <rect x="272" y="738" width="48" height="4" rx="2" fill="#262A31"/>
+  <rect x="336" y="738" width="48" height="4" rx="2" fill="#262A31"/>
+  <rect x="400" y="738" width="48" height="4" rx="2" fill="#262A31"/>
+  <rect x="464" y="738" width="48" height="4" rx="2" fill="#262A31"/>
+  <rect x="528" y="738" width="48" height="4" rx="2" fill="#3DDC84"/>
+</svg>
