@@ -48,6 +48,7 @@ parser.add_argument("--seed", type=int, default=10)
 parser.add_argument("--start", type=float, nargs=2, default=[6.6, 1.25])
 parser.add_argument("--plume", default="gauss", choices=["gauss", "solver"],
                     help="gauss: Gaussian stand-in; solver: sim.plume Warp advection-diffusion solver (gas-plume)")
+parser.add_argument("--leak-flow", type=float, default=0.0, help="g/s; 0 = random from --seed")
 parser.add_argument("--hole-mm", type=float, default=2.0)
 parser.add_argument("--bar", type=float, default=10.0)
 parser.add_argument("--max-sim-s", type=float, default=90.0)

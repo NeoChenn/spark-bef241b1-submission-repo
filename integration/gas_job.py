@@ -108,6 +108,8 @@ def run(app, rep, stage, args, out: Path, hero, hero_size, encode) -> None:
     flow_full = {g.id: 0.0 for g in geoms}
     flow_full[args.leak_flange] = make_leak(rng, lw, args.leak, args.leak_flange)
     lw.settle()
+    if args.leak_flow > 0:
+        flow_full[args.leak_flange] = args.leak_flow / max(lw.flanges[args.leak_flange].level, 1e-6)
     wind = Wind(args.wind_speed, math.radians(args.wind_dir), meander_deg=10.0, seed=args.seed)
     pipe = rs.read_pipe(rs.find_main_pipe(stage))
     world = MockRustWorld(H=pipe.n_z, W=pipe.n_theta, length=pipe.length, radius=pipe.radius)
