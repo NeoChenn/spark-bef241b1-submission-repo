@@ -31,6 +31,7 @@ ap.add_argument("--weather", default="")
 ap.add_argument("--weather-at", type=float, default=0.0)
 ap.add_argument("--set-time", default="")
 ap.add_argument("--zoom-at", default="")
+ap.add_argument("--raw", action="store_true")
 args = ap.parse_args()
 os.environ["RIG_QUALITY"] = args.quality
 
@@ -197,6 +198,10 @@ for t0 in times:
                 rgb = atm.post(rgb, header(), t0, args.lens)
             if lk != "none":
                 depth = np.asarray(dist_ann.get_data()) if dist_ann is not None else None
+                if args.raw:
+                    Image.fromarray(np.ascontiguousarray(rgb)).save(out / f"{args.tag}{tsuf}_{name}_raw.png")
+                    np.save(out / f"{args.tag}{tsuf}_{name}_depth.npy", np.asarray(depth, np.float16))
+                    (out / f"{args.tag}{tsuf}_{name}_cam.json").write_text(json.dumps(header()))
                 rgb = shafts.add(rgb, shafts.layer(header(), beams, t0, depth=depth))
                 now = cinematic.CURRENT["time"]
                 rgb = look.inscatter(rgb, depth, header(), now, look.sun_direction(cinematic.PRESETS[now]["sun_rotation"]))
