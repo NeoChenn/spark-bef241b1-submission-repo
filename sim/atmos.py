@@ -186,8 +186,8 @@ def fade_bucket(age, ttl, n: int) -> np.ndarray:
     return np.clip((level * n).astype(int), 0, n - 1)
 
 
-def flow_overrides(flare, vents, wind, cell: float, flame_radius: float = 1.2, fuel: float = 0.8, cooling: float = 2.2,
-                   steam: float = 0.9, smoke_fade: float = 0.25, jet: float = 8.0) -> dict:
+def flow_overrides(flare, vents, wind, cell: float, flame_radius: float = 2.6, fuel: float = 0.8, cooling: float = 2.2,
+                   steam: float = 0.9, smoke_fade: float = 0.25, jet: float = 3.0) -> dict:
     s = flame_radius / 10.0
     lean = (float(wind[0]) * 0.3, float(wind[1]) * 0.3)
     rgba, xs = FIRE_MAP

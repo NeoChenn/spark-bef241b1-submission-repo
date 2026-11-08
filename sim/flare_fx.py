@@ -364,7 +364,12 @@ def update(stage, t: float, wind=WIND) -> None:
     if not root or not root.IsValid():
         return
     flow = stage.GetPrimAtPath(FLOW)
-    shown = "invisible" if flow and flow.IsValid() else "inherited"
+    flow_flame = bool(flow and flow.IsValid()) and os.environ.get("RIG_FLARE_FLOW", "0") == "1"
+    shown = "invisible" if flow_flame else "inherited"
+    emitter = stage.GetPrimAtPath(f"{FLOW}/flowEmitterSphere")
+    if emitter and emitter.IsValid() and not flow_flame:
+        emitter.GetAttribute("fuel").Set(0.0)
+        emitter.GetAttribute("temperature").Set(0.0)
     for name in [f"flame_{k}" for k in range(len(CARDS))]:
         UsdGeom.Imageable(stage.GetPrimAtPath(f"{ROOT}/{name}")).GetVisibilityAttr().Set(shown)
     eye = _eye(stage)
