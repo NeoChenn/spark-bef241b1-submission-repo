@@ -2605,6 +2605,7 @@ dependencies = [
 dev = [
     { name = "fvcore" },
     { name = "httpx2" },
+    { name = "matplotlib" },
     { name = "numpy" },
     { name = "onnx" },
     { name = "onnxruntime" },
@@ -2639,6 +2640,7 @@ requires-dist = [
 dev = [
     { name = "fvcore", specifier = ">=0.1.5.post20221221" },
     { name = "httpx2", specifier = ">=2.16.0" },
+    { name = "matplotlib", specifier = ">=3.11.2" },
     { name = "numpy", specifier = ">=2.5.4" },
     { name = "onnx", specifier = ">=1.23.2" },
     { name = "onnxruntime", specifier = ">=1.31.1" },
