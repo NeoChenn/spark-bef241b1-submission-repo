@@ -41,3 +41,12 @@ def test_ramp_eases_from_current_state():
 
 def test_flare_wind_default():
     assert wx.flare_wind((2.6, 1.5)) == (2.6, 1.5)
+
+
+def test_named_conditions_split_rain_and_fog():
+    fog, rain = wx.target("fog"), wx.target("rain")
+    assert fog["fog"] == 1.0 and fog["rain"] == 0.0 and fog["fog_height"] > rain["fog_height"]
+    assert rain["rain"] == 1.0 and rain["wave_height"] > wx.target("calm")["wave_height"]
+    base = {"height": 0.004, "dist": 0.001, "color": (0.3, 0.2, 0.1)}
+    calm = wx.target("calm", fog_base=base)
+    assert calm["fog_height"] == 0.004 and calm["fog_color"] == (0.3, 0.2, 0.1)

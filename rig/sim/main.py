@@ -176,13 +176,13 @@ def make_obstacles(stage, cine_update, args):
 def handle_event(scene, event: dict, atm=None, weather=None) -> None:
     name, args = event.get("name"), event.get("args") or {}
     if weather is not None and name == "set_weather":
-        weather.set(**{k: args[k] for k in ("level", "wind_dir", "gust") if k in args})
-    if atm is not None and name == "set_weather":
+        weather.set(**{k: args[k] for k in ("level", "wind_dir", "gust", "time") if k in args})
+    if atm is not None and name == "set_weather" and "level" in args:
         atm.set_weather(**{k: args[k] for k in ("level", "wind_dir", "gust") if k in args})
     if scene is not None and name == "fleet":
         scene.sync(args)
         return
-    if scene is not None and name == "set_weather":
+    if scene is not None and name == "set_weather" and "level" in args:
         scene.set_weather(**{k: args[k] for k in ("level", "wind_dir", "gust") if k in args})
     print(f"rig sim: event {name} {args}", flush=True)
 
@@ -266,7 +266,8 @@ def wave_of(tickers: list):
     return None
 
 
-def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, leak=None, wave=None, atm=None) -> None:
+def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, leak=None, wave=None, atm=None,
+               weather=None) -> None:
     import json
 
     import carb
@@ -300,7 +301,7 @@ def run_remote(app, args, stage, cam_path: str, tickers: list, obstacles=None, l
             if leak and ev["name"] == "gas_leak":
                 print(f"rig sim: gas_leak {ev['args']} -> {leak.event(ev['args'])}", flush=True)
             else:
-                handle_event(obstacles, ev, atm)
+                handle_event(obstacles, ev, atm, weather)
         for tick in tickers:
             tick(t)
         app.update()
@@ -433,7 +434,7 @@ def main() -> None:
         leak = LeakStream(stage, args)
         tickers.append(leak.tick)
     if args.render_mode == "remote":
-        run_remote(app, args, stage, cam_path, tickers, obstacles, leak, wave_of(tickers), atm)
+        run_remote(app, args, stage, cam_path, tickers, obstacles, leak, wave_of(tickers), atm, weather)
 
     rp = rep.create.render_product(cam_path, (args.width, args.height))
     ann = rep.AnnotatorRegistry.get_annotator("rgb")
