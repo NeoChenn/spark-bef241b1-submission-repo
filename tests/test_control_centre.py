@@ -195,3 +195,24 @@ def test_centre_latches_evacuation(tmp_path):
     assert any(a["kind"] == "evacuate" for a in c.tick(fleet(lel=30.0), now=1.0)["actions"])
     assert not any(a["kind"] == "evacuate" for a in c.tick(fleet(lel=8.0), now=2.0)["actions"])
     assert not any(a["kind"] == "evacuate" for a in c.tick(fleet(lel=30.0), now=3.0)["actions"])
+
+
+def test_cut_link_keeps_plan_and_edge_rules(tmp_path):
+    from policy.control.agent import OrchestrationAgent, ReplayAgentBackend
+    from policy.control.centre import CUT_BANNER
+    from policy.control.port import MemoryCoordinator
+    b = Scripted(GOOD)
+    port = MemoryCoordinator([{"id": "go2-1"}])
+    c = centre(b, tmp_path, interval_s=1.0, agent=OrchestrationAgent(port, ReplayAgentBackend(), log_path=None))
+    first = c.tick(fleet(0.0), now=0.0)
+    assert first["agent"]["link"] == "UP"
+    c.cut_link(True)
+    h = c.tick(fleet(5.0, force=70.0), now=5.0)
+    assert b.n == 1 and h["mode"] == "EDGE" and h["status"] == "cut" and h["banner"] == CUT_BANNER
+    assert h["situation"] == first["situation"] and h["actions"][0]["kind"] == "back_off"
+    assert h["agent"]["link"] == "CUT" and c.intent("inspect deck 2", now=5.0)["status"] == "cut"
+    c.cut_link(False)
+    h = c.tick(fleet(7.0), now=7.0)
+    assert b.n == 2 and h["mode"] == "CLOUD"
+    assert c.intent("inspect deck 2", now=8.0)["status"] == "ok"
+    assert [e["event"] for e in port.timeline][:2] == ["link_cut", "link_restored"]

@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from rig.frames import encode, read_message_async
-from rig.hud import EXTRA, HOOKS
+from rig.hud import CONTROL_EVENTS, EXTRA, HOOKS
 
 STATIC = Path(__file__).parent / "static"
 REPO = Path(__file__).resolve().parents[2]
@@ -146,8 +146,8 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
     @app.post("/api/event")
     async def post_event(body: dict) -> dict:
         name = body.get("name")
-        if name not in HOOKS + EXTRA:
-            raise HTTPException(400, f"unknown event {name!r}; expected one of {HOOKS + EXTRA}")
+        if name not in HOOKS + EXTRA + CONTROL_EVENTS:
+            raise HTTPException(400, f"unknown event {name!r}; expected one of {HOOKS + EXTRA + CONTROL_EVENTS}")
         pending.append({"name": name, "args": body.get("args") or {}})
         queued = len(pending)
         flush()

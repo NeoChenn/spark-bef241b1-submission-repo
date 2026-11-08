@@ -10,6 +10,7 @@ from rig.captions import robot_entry
 
 HOOKS = ("spawn_patch", "set_glare", "occlude_camera", "force_spike", "person_at")
 EXTRA = ("camera",)
+CONTROL_EVENTS = ("cut_link", "intent")
 RATES = {"SOAK": 0.15, "SCRUB": 0.35}
 DWELL = 1.3
 THUMB_W = 320
@@ -149,16 +150,25 @@ def _plain(o):
     return str(o)
 
 
-def apply_event(bridge, event: dict) -> None:
+def apply_event(bridge, event: dict, control=None) -> None:
     name = event.get("name")
-    if name not in HOOKS + EXTRA:
+    if name not in HOOKS + EXTRA + CONTROL_EVENTS:
         raise ValueError(f"unknown event {name!r}")
     args = dict(event.get("args") or {})
+    if name in CONTROL_EVENTS:
+        if control is None:
+            raise ValueError("no control centre attached")
+        if name == "cut_link":
+            control.cut_link(bool(args.get("on", True)))
+        else:
+            control.intent(str(args.get("text") or ""))
+        return
     if name == "spawn_patch" and ("theta" not in args or "z" not in args):
         theta, z = bridge.ee_theta_z()
         args.setdefault("theta", float(theta) + PATCH_OFFSET[0])
         args.setdefault("z", float(z) + PATCH_OFFSET[1])
-    getattr(bridge, name)(**args)
+    # the 'camera' event picks the video shot; bridge.camera() is the perception camera model
+    getattr(bridge, "set_shot" if name == "camera" else name)(**args)
 
 
 def playback_times(snaps: list[dict]) -> list[float]:

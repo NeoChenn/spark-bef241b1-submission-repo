@@ -186,7 +186,7 @@ def main() -> None:
         while not sender.inbox.empty():
             event = sender.inbox.get_nowait()
             try:
-                apply_event(bridge, event)
+                apply_event(bridge, event, state["feed"].control)
                 print(f"   >>> [web event t={bridge.sim_time():5.1f}s] {event}", flush=True)
             except Exception as e:
                 print(f"   >>> [web event rejected] {event}: {e}", flush=True)
@@ -239,7 +239,11 @@ def main() -> None:
     if sender is not None:
         if args.control != "off":
             from policy.control.centre import from_env
-            state["captions"].control = from_env(args.control, OUT / "control_calls.jsonl")
+            from policy.control.port import MemoryCoordinator
+            port = MemoryCoordinator([{"id": "unit-1", "state": "PATROL", "zone": "A"}],
+                                     [{"id": "R-1", "kind": "rust_repair", "target": "main pipe", "level": "SUPV",
+                                       "status": "RUNNING"}], clock=bridge.sim_time)
+            state["captions"].control = from_env(args.control, OUT / "control_calls.jsonl", port=port)
             backend = state["captions"].control.backend
             print(f"CONTROL CENTRE {backend.name if backend else 'edge only'}", flush=True)
         state["feed"] = state["captions"]
@@ -264,7 +268,7 @@ def main() -> None:
             continue
         if prev == S.SPRAY and "patch" not in fired:
             fired.add("patch")
-            th_new, z_new = theta + 0.28, 0.12
+            th_new, z_new = theta - 0.3, 0.12      # inside the arm's reach map (theta 0.3-1.2 at this stance)
             bridge.schedule(now + 12.0, f"NEW rust patch at theta={th_new:.2f}, z={z_new:+.2f}",
                             lambda: bridge.spawn_patch(th_new, z_new, size=0.035, level=0.85))
         if orch.state == S.SCRUB and "bead" not in fired:
