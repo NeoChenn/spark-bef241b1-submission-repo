@@ -561,6 +561,14 @@ def bolt_target(f: dict, robot_xy, k: int = 0):
     return p + side * 0.05 * n, -side * n
 
 
+def fixer_stance(f: dict, xy, reach: float = 0.4):
+    c = np.asarray(f["center_m"][:2], float)
+    d = np.asarray(xy, float) - c
+    d = d / max(np.linalg.norm(d), 1e-6)
+    p = c + reach * d
+    return float(p[0]), float(p[1]), math.atan2(-d[1], -d[0])
+
+
 def nearest_flange(flanges: dict | None, xy, within: float = 3.5):
     best = None
     for f in (flanges or {}).get("flanges", []):
@@ -885,7 +893,7 @@ def main(argv=None):
                                     codec="libx264", quality=9, macro_block_size=8, pixelformat="yuv420p")
     head = (out / "fleet_isaac_header.jsonl").open("w")
     nav_t = args.start
-    scrub_t, t_prev, rendered, work_w = 0.0, args.start, 0, 0.0
+    scrub_t, t_prev, rendered, work_w, fix_w, fix_pose = 0.0, args.start, 0, 0.0, 0.0, None
     seeds = {rid: dict(q[rid]) for rid in UNITS}
 
     def arm_target(rid, act, u, t):
@@ -920,10 +928,20 @@ def main(argv=None):
         t_prev = t
         working = acts["unit1"] in ("scrub", "spray", "paint")
         work_w = min(1.0, work_w + 1.0 / args.fps) if working else max(0.0, work_w - 1.0 / args.fps)
+        u2 = units["unit2"]
+        f2 = nearest_flange(flanges, (u2.x, u2.y)) if acts["unit2"] in ("inspect", "retorque") else None
+        fix_w = min(1.0, fix_w + 1.0 / args.fps) if f2 is not None else max(0.0, fix_w - 1.0 / args.fps)
+        if f2 is not None:
+            fix_pose = fixer_stance(f2, (u2.x, u2.y))
         for rid, u in units.items():
             model = models[rid]
             moving = abs(u.v) > 0.05 or abs(u.w) > 0.15
             bx, by, byaw = u.x, u.y, u.yaw
+            if rid == "unit2" and fix_w > 0 and fix_pose is not None:
+                s3 = fix_w * fix_w * (3 - 2 * fix_w)
+                bx, by = bx + s3 * (fix_pose[0] - bx), by + s3 * (fix_pose[1] - by)
+                byaw = wrap(byaw + s3 * wrap(fix_pose[2] - byaw))
+                moving = moving or 0 < fix_w < 1
             if rid == "unit1" and work_w > 0:
                 sx, sy, syaw = scrub_stance(pipe, (u.x, u.y))
                 s3 = work_w * work_w * (3 - 2 * work_w)
@@ -937,7 +955,8 @@ def main(argv=None):
                 target_q.update({j: v for j, v in legs.items() if "thigh" in j or "calf" in j})
             else:
                 target_q.update(gait(STANDING, u.dist / 0.18 * math.pi, 1.0 if moving else 0.0))
-            goal = arm_target(rid, acts[rid], u, t) if not moving else None
+            goal = arm_target(rid, acts[rid], u if rid == "unit1" else NavUnit(rid, bx, by, byaw), t) \
+                if not moving else None
             if goal is None:
                 target_q.update(ARM_STOWED)
             else:
