@@ -65,7 +65,7 @@ def build(preset: str = "night") -> Path:
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     for path, kind in hm.TARGETS.items():
         sub, values = recipes[kind]
-        extra = {"wetness": w["wetness"], **({"puddles": w["puddles"]} if kind == "deck" else {})}
+        extra = {"wetness": w["wetness"], **({"puddles": w["puddles"]} if kind in hm.WET_PUDDLES else {})}
         bind(stage, path, sub, {**values, **extra})
     geom = stage.OverridePrim(hm.PATCH_GEOM)
     st = UsdGeom.PrimvarsAPI(geom).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex)

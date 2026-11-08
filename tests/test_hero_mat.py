@@ -72,3 +72,10 @@ def test_mdl_exports_every_sub_identifier():
     text = hm.MDL.read_text()
     for sub in hm.SUBS:
         assert f"export material {sub}(" in text
+
+
+def test_structure_paints_are_muted_and_wet():
+    r = hm.recipes(META)
+    for kind in ("frame", "zone_steel"):
+        sub, v = r[kind]
+        assert sub == "rig_hero_paint" and max(v["paint_color"]) < 0.3 and kind in hm.WET_PUDDLES

@@ -12,7 +12,7 @@ MDL = SIM_DIR / "assets" / "mdl" / "rig_hero.mdl"
 LAYER = SIM_DIR / "output" / "hero_mat.usda"
 NOISE = SIM_DIR / "assets" / "generated" / "hero_noise.png"
 SHADER = "hero_mdl"
-SUBS = ("rig_hero_pipe", "rig_hero_rust", "rig_hero_deck", "rig_hero_line")
+SUBS = ("rig_hero_pipe", "rig_hero_rust", "rig_hero_deck", "rig_hero_line", "rig_hero_paint")
 PATCH_RINGS, PATCH_SEGMENTS = 8, 48
 PIPE_TINT = (0.95, 1.0, 0.92)
 PUDDLE_BOOST = 0.25
@@ -23,7 +23,10 @@ TARGETS = {
     "/World/Looks/deck": "deck",
     "/World/Looks/walkway_line": "line",
     "/World/Looks/zone_marking": "line",
+    "/World/Looks/frame": "frame",
+    "/World/RepairZone/Looks/rusty_painted_metal": "zone_steel",
 }
+WET_PUDDLES = ("deck", "frame", "zone_steel")
 PATCH_GEOM = "/World/Pipes/damage_patch/geom"
 
 
@@ -61,6 +64,10 @@ def recipes(meta: dict) -> dict:
     geo = {"pipe_y": pipe["y_m"], "pipe_z": pipe["z_m"], "pipe_r": pipe["radius_m"]}
     paint_scale = wrap_scale(pipe["radius_m"], 0.32)
     paint = "green_metal_rust_4k"
+    paint_set = {"chip_mask": tex("PaintedMetal010_4k", "diff"), "paint_rough": tex("PaintedMetal010_4k", "rough"),
+                 "paint_normal": tex("PaintedMetal010_4k", "nor_gl"), "rust_diff": tex("Rust007_4k", "diff"),
+                 "rust_normal": tex("Rust007_4k", "nor_gl"), "noise": NOISE, "streaks": pr.COMMON["streaks"],
+                 "grime_tex": tex("SurfaceImperfections011", "diff")}
     return {
         "pipe": ("rig_hero_pipe", {
             "paint_diff": tex(paint, "diff"), "paint_rough": tex(paint, "rough"), "paint_normal": tex(paint, "nor_gl"),
@@ -82,6 +89,10 @@ def recipes(meta: dict) -> dict:
             "noise": NOISE, "rust_diff": tex("Rust007_4k", "diff"), "grime_tex": tex("SurfaceImperfections011", "diff"),
         }),
         "line": ("rig_hero_line", {"noise": NOISE, "wear_tex": tex("SurfaceImperfections011", "diff")}),
+        "frame": ("rig_hero_paint", {**paint_set, "paint_color": (0.19, 0.21, 0.22), "chip_amount": 0.5,
+                                     "rust_amount": 0.35}),
+        "zone_steel": ("rig_hero_paint", {**paint_set, "paint_color": (0.09, 0.105, 0.11), "chip_amount": 0.8,
+                                          "rust_amount": 0.65, "streak_amount": 0.9}),
     }
 
 
@@ -125,6 +136,6 @@ def apply(stage, preset: str) -> dict:
         if not shader:
             continue
         shader.CreateInput("wetness", Sdf.ValueTypeNames.Float).Set(w["wetness"])
-        if kind == "deck":
+        if kind in WET_PUDDLES:
             shader.CreateInput("puddles", Sdf.ValueTypeNames.Float).Set(w["puddles"])
     return w
