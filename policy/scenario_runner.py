@@ -101,7 +101,22 @@ def _components(mask: np.ndarray) -> int:
     return len(comps(mask))
 
 
-def run_scenario(sc: dict, max_steps: int = 400) -> dict:
+SCRUB_POLICIES = ("greedy", "ppo")
+
+
+def make_scrub_policy(name: str, pipe, onnx_path: str | None = None):
+    """'greedy': the scripted ``GreedyScrub`` stand-in (default). 'ppo': the trained PPO ONNX (``OnnxScrubPolicy``)."""
+    if name == "greedy":
+        return GreedyScrub(pipe)
+    if name == "ppo":
+        from policy.skills.onnx_scrub import OnnxScrubPolicy
+        return OnnxScrubPolicy(pipe, onnx_path)
+    raise ValueError(f"scrub_policy must be one of {SCRUB_POLICIES}, got {name!r}")
+
+
+def run_scenario(sc: dict, max_steps: int = 400, scrub_policy: str | None = None, onnx_path: str | None = None) -> dict:
+    scrub_policy = str(scrub_policy or sc.get("scrub_policy") or "greedy").lower()
+    onnx_path = onnx_path or sc.get("scrub_onnx")
     sc = normalise(sc)
     started = time.perf_counter()
     torch.manual_seed(sc["seed"])
@@ -119,7 +134,8 @@ def run_scenario(sc: dict, max_steps: int = 400) -> dict:
     arm.drop_prob = sc["arm_drop_prob"]
     bridge = MockBridge(pipe, world, perception, arm, verbose=False)
     loc = RustLocalizer(fake_colour_classifier, patch=16, stride=8, threshold=0.5, temperature=1.0)
-    orch = Orchestrator(bridge, perception, loc, world, arm, GreedyScrub(pipe),
+    scrubber = make_scrub_policy(scrub_policy, pipe, onnx_path)
+    orch = Orchestrator(bridge, perception, loc, world, arm, scrubber,
                         OrchestratorConfig(log_path=None, scrub_steps=200, scrub_redetect_every=40))
 
     stats = {"max_force": 0.0, "over_limit_steps": 0, "scrub_steps": 0}
@@ -187,6 +203,8 @@ def run_scenario(sc: dict, max_steps: int = 400) -> dict:
         "new_patch_detected": bool(detected_new),
         "max_force": round(stats["max_force"], 1),
         "over_limit_steps": int(stats["over_limit_steps"]),
+        "scrub_steps": int(stats["scrub_steps"]),
+        "over_limit_share": round(stats["over_limit_steps"] / max(stats["scrub_steps"], 1), 4),
         "backoffs": transitions.count("BACK_OFF"),
         "holds": transitions.count("HOLD"),
         "person_pauses": transitions.count("PAUSE_PERSON"),
@@ -197,9 +215,61 @@ def run_scenario(sc: dict, max_steps: int = 400) -> dict:
         "decisions": len(orch.records),
         "wall_s": round(time.perf_counter() - started, 2),
         "unsafe": None,
+        "scrub_policy": scrub_policy,
+        "scrub_policy_stats": dict(getattr(scrubber, "stats", {})) or None,
         "trace": [f"t={r.t:.1f} {r.frm}->{r.to}: {r.reason[:90]}" for r in orch.records][-14:],
         "phases": [[round(float(r.t), 2), getattr(r.to, "value", str(r.to)), r.reason[:80]] for r in orch.records],
     }
     result["label"] = classify(result)
     result["unsafe"] = result["label"] in UNSAFE
     return result
+
+
+def summarise(rows: list[dict]) -> dict:
+    labels: dict[str, int] = {}
+    for r in rows:
+        labels[r["label"]] = labels.get(r["label"], 0) + 1
+    steps = sum(r.get("scrub_steps", 0) for r in rows)
+    over = sum(r.get("over_limit_steps", 0) for r in rows)
+    return {"n": len(rows), "unsafe": sum(bool(r["unsafe"]) for r in rows),
+            "success": labels.get("success", 0), "labels": dict(sorted(labels.items())),
+            "over_40N_step_share": round(over / max(steps, 1), 4), "runs_over_40N": sum(r["max_force"] > 40 for r in rows),
+            "mean_scrub_cycles": round(float(np.mean([r["scrub_cycles"] for r in rows])), 2) if rows else 0.0,
+            "mean_sim_time_s": round(float(np.mean([r["sim_time_s"] for r in rows])), 1) if rows else 0.0}
+
+
+def compare(scenarios_path: str, out_dir: str, onnx_path: str | None = None, policies=("greedy", "ppo")) -> dict:
+    """Re-run every scenario in a results.jsonl (same parameters, same seeds) with each scrub policy."""
+    import json
+    from pathlib import Path
+    scen = [json.loads(line) for line in Path(scenarios_path).read_text(encoding="utf-8").splitlines() if line.strip()]
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    summary = {"scenarios": str(scenarios_path), "onnx": onnx_path, "policies": {}}
+    for pol in policies:
+        rows = []
+        t0 = time.perf_counter()
+        for sc in scen:
+            params = {k: sc[k] for k in ("id", "rationale", *FIELDS) if k in sc}
+            r = run_scenario(params, scrub_policy=pol, onnx_path=onnx_path)
+            r["round"] = sc.get("round")
+            r["baseline_label"] = sc.get("label")
+            rows.append(r)
+        with open(out / f"rerun_{pol}.jsonl", "w", encoding="utf-8") as f:
+            for r in rows:
+                f.write(json.dumps(r) + "\n")
+        summary["policies"][pol] = {**summarise(rows), "wall_s": round(time.perf_counter() - t0, 1)}
+        print(pol, json.dumps(summary["policies"][pol]), flush=True)
+    (out / "summary.json").write_text(json.dumps(summary, indent=1), encoding="utf-8")
+    return summary
+
+
+if __name__ == "__main__":
+    import argparse
+    ap = argparse.ArgumentParser(description="re-run a results.jsonl with the greedy and/or PPO scrub policy")
+    ap.add_argument("--scenarios", default="docs/gemini_test_report/results.jsonl")
+    ap.add_argument("--out", default="docs/gemini_test_report/ppo_vs_greedy")
+    ap.add_argument("--onnx", default=None, help="PPO policy.onnx (default: $SCRUB_ONNX or runs/scrub_v2/policy.onnx)")
+    ap.add_argument("--policies", default="greedy,ppo")
+    a = ap.parse_args()
+    compare(a.scenarios, a.out, a.onnx, tuple(p.strip() for p in a.policies.split(",") if p.strip()))
