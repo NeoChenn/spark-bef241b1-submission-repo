@@ -100,7 +100,7 @@ from patrol.controller import PatrolController
 from patrol.mission import PatrolMission, MissionCfg
 
 spec = json.load(open("path.json"))
-ctrl = PatrolController("runs/patrol/nav_v1/policy.onnx", spec["waypoints"])   # or "pure_pursuit" baseline
+ctrl = PatrolController("runs/patrol/nav_v3a/policy.onnx", spec["waypoints"])   # or "pure_pursuit" baseline
 mission = PatrolMission(ctrl, MissionCfg())
 angles = np.deg2rad(np.arange(360) - 180 + 0.5)            # whatever your lidar reports, robot frame
 
