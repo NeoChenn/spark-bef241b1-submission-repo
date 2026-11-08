@@ -6,6 +6,15 @@
   const chips = (cur) => fleetBots().map((r) => `<button data-id="${esc(r.id)}" class="${r.id === cur ? "on" : ""}">${esc(r.name || H.rname(r))}</button>`).join("");
   const onFocus = (el) => { if (!el._f) { el._f = 1; el.addEventListener("click", (e) => { const b = e.target.closest("[data-id]"); if (b) H.focus(b.dataset.id); }); } };
   const last = (k) => S.series[k]?.at(-1)?.[1];
+  const cam = { want: null, at: 0, sent: null, sentAt: 0 };
+  const want = (id) => { cam.want = id || null; cam.at = now(); };
+  setInterval(() => {
+    const id = now() - cam.at < 1.5 ? cam.want : null;
+    if (id === cam.sent && (!id || now() - cam.sentAt < 20)) return;
+    if (!H.post) return;
+    H.post("views", id ? { robot: id, on: true } : { robot: cam.sent, on: false });
+    cam.sent = id; cam.sentAt = now();
+  }, 1000);
   const DECKS = [["auto", "Busiest deck"], ["top_deck", "Top"], ["middle_deck", "Middle"], ["lower_deck", "Lower"], ["all", "All decks"]];
   H.view({ id: "map", title: "Mission map", icon: "map", key: "⇧M", keys: "top down rig decks walkways plume people dock no-fly fleet",
     desc: "Top-down rig with decks as layers: robots with heading and status, walkways, jobs, gas plume, people and docks. Click a robot to focus it.",
@@ -50,6 +59,7 @@
     desc: "The focused robot's own sensors and what its policy is conditioned on: camera, detector boxes, OGI gas false colour and lidar BEV. Switch robot and view at the top.",
     render(el) {
       const r = bot(), id = r?.id, ks = kindsOf(id), k = ks.includes(S.kind) ? S.kind : ks[0], e = k ? entry(id, k) : null, f = e ? null : legacy(r);
+      want(id);
       const x = q(el, `<div class="fp-bar"><div class="seg" data-k="who"></div><div class="seg" data-k="kinds"></div></div><div class="fp"><div class="fp-img"><img data-k="img" alt=""><svg data-k="pts"></svg><span class="fp-cap" data-k="cap"></span><p class="none" data-k="none"></p></div><aside class="side" data-k="side"></aside></div>`);
       onFocus(x.who);
       if (!x.kinds._b) { x.kinds._b = 1; x.kinds.onclick = (ev) => { const b = ev.target.closest("[data-kind]"); if (b) S.kind = b.dataset.kind; }; }
@@ -79,11 +89,12 @@
     } });
   H.command({ id: "views.toggle", group: "Views", label: "Sensor views on the robots", icon: "eye", keys: "perspective policy views sensor cameras render toggle",
     desc: "Turns the low-res sensor head cameras in the sim on or off. They feed First person, Sensors and the Policy view inset.", active: () => S.viewsOn !== false && !!S.vkinds,
-    run: () => { S.viewsOn = S.viewsOn === false; H.event("views", { on: S.viewsOn }); } });
+    run: () => { S.viewsOn = S.viewsOn === false; H.event("views", { robot: bot()?.id, on: S.viewsOn }); } });
   H.panel({ id: "persp", title: "Policy view", icon: "eye", key: "j", keys: "perspective inset policy sees camera detector ogi lidar bev pip",
     desc: "A small inset of what the focused robot's policy sees. ⇧F opens it full size.", suggest: (S) => (S.vkinds ? 0.3 : 0), hint: () => (S.vkinds ? kname(kindsOf(bot()?.id)[0] || "") : ""),
     render(el) {
       const r = bot(), id = r?.id, ks = kindsOf(id), k = ks.includes(S.kind) ? S.kind : ks[0], src = k ? srcOf(id, k) : null;
+      want(id);
       const x = q(el, `<div class="pip on"><img data-k="img" alt=""><span class="fp-cap" data-k="cap"></span><span class="pip-none" data-k="none"></span></div>`);
       if (src && x.img._s !== src) { x.img._s = src; x.img.src = src; }
       x.img.hidden = !src;

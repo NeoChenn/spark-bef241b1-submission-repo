@@ -76,5 +76,27 @@ def robot_views(rid: str, role: str, rgb, depth, cam: dict, pose, path=None, fie
     fov = 2 * math.atan(w / 2 / cam["K"][0][0])
     top = label(bev.render((x, y, yaw), path, size=h, span=span, fov=fov), "BEV · depth -> occupancy", f"±{span:.0f} m")
     fpv = label(Image.fromarray(rgb), f"{rid} · {UNITS.get(role, role)}", "head cam")
-    return {"fpv": encode(fpv, f"{rid} head camera", seq), "policy": encode(pol, cap, seq),
+    return {"fpv": encode(fpv, f"{rid} head camera", seq), "boxes": encode(pol, cap, seq),
             "bev": encode(top, "BEV occupancy from depth points + planned path", seq), "info": info}
+
+
+def depth_views(rid: str, role: str, depth, cam: dict, pose, path=None, bev: Bev | None = None, seq: int = 0,
+                size=(256, 192), span: float = 12.0) -> dict:
+    from rig.views.geom import scaled
+
+    z = np.asarray(depth, np.float32)
+    h, w = z.shape
+    small = scaled(cam, w, h)
+    x, y, fz, yaw = (float(v) for v in pose)
+    pts = backproject(z, small, stride=1)
+    bev = bev if bev is not None else Bev()
+    bev.update(pts, floor_z=fz)
+    ok = np.isfinite(z)
+    info = {"role": role, "unit": UNITS.get(role, role), "pose": [round(x, 2), round(y, 2), round(fz, 2), round(yaw, 3)],
+            "points": int(len(pts)), "depth_min": round(float(z[ok].min()), 2) if ok.any() else None}
+    img = depth_rgb(z).resize(size, Image.NEAREST)
+    pic = label(img, "DEPTH · ray cast", f"{w}x{h} · min {info['depth_min'] or 0:.1f} m")
+    fov = 2 * math.atan(w / 2 / small["K"][0][0])
+    top = label(bev.render((x, y, yaw), path, size=size[1], span=span, fov=fov), "BEV · ray-cast occupancy", f"±{span:.0f} m")
+    return {"depth": encode(pic, "depth from simulation ray casts against the stage meshes", seq),
+            "bev": encode(top, "BEV occupancy from ray-cast points + planned path", seq), "info": info}

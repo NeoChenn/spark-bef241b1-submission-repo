@@ -9,7 +9,7 @@ import numpy as np
 from rig.captions import robot_entry
 
 HOOKS = ("spawn_patch", "set_glare", "occlude_camera", "force_spike", "person_at")
-EXTRA = ("camera",)
+EXTRA = ("camera", "views", "force")
 CONTROL_EVENTS = ("cut_link", "intent")
 SCENARIO = ("set_weather", "drop_obstacle", "drop_can", "close_walkway", "close_stairs", "clear", "gas_leak",
             "control_action", "battery_fault", "approve", "reject", "weld_job")
