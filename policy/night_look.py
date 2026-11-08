@@ -31,12 +31,21 @@ def aim_matrix(pos, target):
     return m
 
 
-def grade(rgb: np.ndarray, vignette: float = 0.35, lift=(2, 7, 9)) -> np.ndarray:
+_VIG: dict = {}
+
+
+def grade(rgb: np.ndarray, vignette: float = 0.55, lift=(2, 7, 9), gamma: float = 1.3,
+          shadow=(0.82, 0.97, 1.05), highlight=(1.06, 1.0, 0.92), saturation: float = 0.85) -> np.ndarray:
     h, w = rgb.shape[:2]
-    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
-    r2 = ((xx - w / 2) / (w / 2)) ** 2 + ((yy - h / 2) / (h / 2)) ** 2
-    v = 1.0 - vignette * np.clip(r2 / 2.0, 0, 1) ** 1.2
-    f = rgb.astype(np.float32) * v[..., None]
+    if (h, w, vignette) not in _VIG:
+        yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+        r2 = ((xx - w / 2) / (w / 2)) ** 2 + ((yy - h / 2) / (h / 2)) ** 2
+        _VIG[(h, w, vignette)] = (1.0 - vignette * np.clip(r2 / 2.0, 0, 1) ** 1.1)[..., None]
+    f = (rgb.astype(np.float32) / 255.0) ** gamma
+    lum = f.mean(-1, keepdims=True)
+    f = lum + saturation * (f - lum)
+    tone = np.asarray(shadow, np.float32) * (1 - lum) + np.asarray(highlight, np.float32) * lum
+    f = f * tone * _VIG[(h, w, vignette)] * 255.0
     f = f + np.asarray(lift, np.float32) * (1.0 - f / 255.0)
     return np.clip(f, 0, 255).astype(np.uint8)
 
@@ -44,10 +53,10 @@ def grade(rgb: np.ndarray, vignette: float = 0.35, lift=(2, 7, 9)) -> np.ndarray
 def lamps(work):
     wx, wy, wz = work
     return [
-        dict(name="flood_back", pos=(wx - 2.5, -3.6, 3.9), color=AMBER, radius=0.35, intensity=9.0e4),
-        dict(name="flood_key", pos=(wx + 3.5, 3.4, 3.9), color=AMBER, radius=0.45, intensity=5.5e4),
-        dict(name="led_rim", pos=(wx - 1.2, -1.6, 2.4), color=LED, radius=0.15, intensity=2.2e4),
-        dict(name="led_fill", pos=(wx + 5.5, 1.0, 2.0), color=LED, radius=0.6, intensity=6.0e3),
+        dict(name="flood_back", pos=(wx - 2.5, -3.6, 3.9), color=AMBER, radius=0.35, intensity=6.0e4),
+        dict(name="flood_key", pos=(wx + 3.5, 3.4, 3.9), color=AMBER, radius=0.45, intensity=2.5e4),
+        dict(name="led_rim", pos=(wx - 1.2, -1.6, 2.4), color=LED, radius=0.15, intensity=4.5e4),
+        dict(name="led_fill", pos=(wx + 5.5, 1.0, 2.0), color=LED, radius=0.6, intensity=3.0e3),
     ]
 
 
@@ -147,12 +156,13 @@ def paint_robot(stage, robot_root, color="graphite"):
         for prim in inst:
             prim.SetInstanceable(False)
     n = {"body": 0, "brush": 0}
-    for prim in Usd.PrimRange(root):
-        if not prim.IsA(UsdGeom.Gprim) or "collision" in str(prim.GetPath()):
+    for prim in [*root.GetChildren(), *(p for p in Usd.PrimRange(root) if p.IsA(UsdGeom.Gprim))]:
+        if "collision" in str(prim.GetPath()):
             continue
         is_pad = "scrubber_link" in str(prim.GetPath())
         UsdShade.MaterialBindingAPI.Apply(prim).Bind(pad if is_pad else body, UsdShade.Tokens.strongerThanDescendants)
         n["brush" if is_pad else "body"] += 1
+    n["links"] = [c.GetName() for c in root.GetChildren()][-8:]
     return n
 
 
@@ -189,7 +199,7 @@ def apply(stage, zone_root, work, full=False, dome=220.0, moon=25.0, lamp_gain=1
     for lamp in lamps(work):
         _lamp(stage, f"{base}/{lamp['name']}", lamp["pos"], lamp["color"], lamp["radius"], lamp["intensity"] * lamp_gain)
     wx, wy, wz = work
-    _lamp(stage, f"{base}/work_spot", (wx + 1.0, 1.6, 2.6), LED, 0.08, 1.2e5 * lamp_gain, aim=work, cone=22.0)
+    _lamp(stage, f"{base}/work_spot", (wx + 1.0, 1.6, 2.6), LED, 0.08, 2.5e5 * lamp_gain, aim=work, cone=28.0)
     bulb_amber = _material(stage, "/World/Looks/night_bulb_amber", (0.02, 0.02, 0.02), 0.5,
                            emissive=tuple(c * 40 for c in AMBER))
     for k, (x, y) in enumerate(((-3.5, -2.5), (-3.5, 2.5), (3.5, -2.5), (3.5, 2.5))):

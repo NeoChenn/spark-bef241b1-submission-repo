@@ -303,7 +303,7 @@ def composite(raw, log_path, sinks, keys=(), key_stem=None, spark_s=3.0):
         if i >= len(log):
             break
         e = log[i]
-        bp = project(e["brush"], e["eye"], e["look"], e["focal"], w, h) if "brush" in e else None
+        bp = project(e["brush"], e["eye"], e["look"], e["focal"], w, h, e.get("aperture", 20.955)) if "brush" in e else None
         img = draw_card(grade(fr), e["state"], e["frac"], e["force"], forces[max(0, i - n_spark):i + 1], e["t"],
                         brush_px=bp)
         for s in sinks:
