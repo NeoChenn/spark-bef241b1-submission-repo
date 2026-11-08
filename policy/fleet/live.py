@@ -14,7 +14,9 @@ QUICK = {"rust": [(0, "DETECT", "rust confirmed"), (6, "SPRAY", "spray converter
          "inspect": [(0, "DETECT", "read gauge"), (15, "DONE", "gauge in range")],
          "gas": [(0, "LEAK_APPROACH", "approach leak"), (10, "LEAK_INSPECT", "localise leak"),
                  (30, "RETORQUE", "re-torque bolts"), (55, "DONE", "leak stopped")],
-         "crack": [(0, "LEAK_INSPECT", "inspect crack"), (25, "ESCALATE_TO_HUMAN", "crack -> human crew")]}
+         "crack": [(0, "LEAK_INSPECT", "inspect crack"), (25, "ESCALATE_TO_HUMAN", "crack -> human crew")],
+         "weld": [(0, "INSPECT", "eddy + laser seam scan"), (16, "GRIND", "grind out crack"),
+                  (37, "WELD", "seam-tracked weld"), (68, "INSPECT_WELD", "verify weld"), (77, "DONE", "weld verified")]}
 
 
 def quick_run(kind: str, scenario: str) -> JobTrace:

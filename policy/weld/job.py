@@ -192,6 +192,7 @@ class WeldJob:
                 self.go("DONE", "seam sound: no crack indication")
                 return self.finish(None)
             x0, x1 = ext
+            self.view.update(x=(x0 + x1) / 2, y=self.seam_y((x0 + x1) / 2), profile_y=None, profile_z=None)
             self.ev["crack_mm"] = round(x1 - x0 - 2 * MARGIN_MM, 1)
             self.grind(x0, x1)
             self.weld(x0, x1)
