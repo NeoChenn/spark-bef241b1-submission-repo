@@ -13,6 +13,7 @@
     ["repair", "Pipe repair", "Rust scrub, verify, paint, weld crack", "⇧3"], ["flyby", "Fly-by", "Ambient camera, no robot selected", "esc"]];
   const DEMOS = [["can", "Demo: Can pick-up", "Unit 3 walks to a dropped can, learned pick-up into the tote", "⇧C", "R3"], ["gas", "Demo: Gas leak", "Vapour from the orange line, Unit 2 finds the leak and closes the valve", "⇧G", "R2"], ["rust", "Demo: Rust scrub", "Unit 1 scrubs the rusted pipe clean", "⇧R", "R1"],
     ["nav", "Demo: Navigation", "Unit 3 walks a deck loop; drop a crate ahead and it re-routes", "⇧N", "R3"],
+    ["deck", "Demo: Deck", "One deck camera; drop a can or add rust and the robots answer", "⇧D", null],
     ["reset", "Demo: Reset", "Back to the normal fleet", "⇧X", null]];
   const UNITS = { R1: ["Unit 1", "repair and weld"], R2: ["Unit 2", "gas"], R3: ["Unit 3", "patrol and pick-up"] };
   const CARDS = { f: ["fpv", "Head camera", ["fpv", "policy", "obs", "belief"]], b: ["boxes", "Detections", ["boxes", "fpv", "policy"]], l: ["lidar", "Lidar", ["lidar", "bev"]], d: ["depth", "Depth", ["depth", "obs", "belief", "policy"]] };
@@ -341,6 +342,9 @@
   function rows() {
     const s = scen(), sid = s?.id || (S.h.scenario?.id ?? "flyby"), rid = selected(), R = [];
     DEMOS.forEach(([id, label, sub, key, r]) => R.push({ g: "Demos", id: "demo." + id, label, sub, key, on: sid === "demo_" + id || sid === id, run: () => demo(id, r) }));
+    R.push({ g: "Demos", id: "deck.can", label: "Drop can", sub: "A can on the deck walkway; Unit 3 picks it up into its tote", key: "", run: () => post("demo", { id: "deck_can" }) });
+    R.push({ g: "Demos", id: "deck.rust", label: "Add rust", sub: "Rust on the pipe; Unit 1 walks over and scrubs it clean", key: "", run: () => post("demo", { id: "deck_rust" }) });
+    R.push({ g: "Demos", id: "drop.crate", label: "Drop crate", sub: "Crate 3 m in front of the walking robot; it re-routes", key: "", run: () => post("drop_obstacle", { kind: "crate", at: "ahead", ahead_m: 3 }) });
     SCEN.forEach(([id, label, sub, key]) => R.push({ g: "Scenarios", id: "scen." + id, label, sub, key, on: sid === id, run: () => startScenario(id) }));
     R.push({ g: "Views", id: "view.rig", label: "Rig", sub: "Wide exterior camera", key: "0", on: cm().mode === "rig" || cm().mode === "flyby", run: () => cam("rig") });
     R.push({ g: "Views", id: "view.deck", label: "Deck", sub: "Fixed camera over the work area", key: "0", on: cm().mode === "deck", run: () => cam("deck") });
@@ -350,7 +354,7 @@
     R.push({ g: "Views", id: "strip", label: "Sensor strip", sub: "Readings along the bottom", key: "S", on: S.strip, run: () => (S.strip = !S.strip) });
     R.push({ g: "Views", id: "gemini", label: "Gemini 4 Argon", sub: "Thoughts, calls and refusals", key: "G", on: S.g, run: () => (S.g = !S.g) });
     const ds = Array.isArray(s?.disturbances) ? s.disturbances : [];
-    R.push({ g: "Disturbances", id: "drop.crate", label: "Drop crate ahead", sub: "Crate 3 m in front of the walking robot; it re-routes", key: "", run: () => post("drop_obstacle", { kind: "crate", at: "ahead", ahead_m: 3 }) });
+    R.push({ g: "Disturbances", id: "clear", label: "Clear walkway", sub: "Remove every dropped can, crate, drum and puddle; routes restored", key: "", run: () => post("clear", { id: "all" }) });
     R.push({ g: "Disturbances", id: "drop.can", label: "Drop can in view", sub: "Small can where the camera looks; nearest gripper picks it up", key: "", run: () => post("drop_can", { size: "small", at: "view" }) });
     ds.forEach((d, i) => R.push({ g: "Disturbances", id: "dist." + (d.id || i), label: d.name || nice(d.id), sub: d.fired ? "Fired" : i === s.next ? "Next" : "Later", key: i === s.next ? "I" : d.fired ? "✓" : "", tag: i === s.next, dis: i !== s.next, run: disturb }));
     if (s && !ds.length) R.push({ g: "Disturbances", id: "dist.next", label: "Next disturbance", sub: s.name || s.id, key: "I", run: disturb });
@@ -399,7 +403,7 @@
   addEventListener("pointerdown", (e) => { if (S.spot && !spot.contains(e.target)) closeSpot(); });
 
   const HELP = [["⌘K", "Spotlight"], ["0", "Rig ↔ Deck camera"], ["Z", "Next close-up"], ["1 2 3", "Select a robot"], ["F", "Head camera"], ["B", "Detection boxes"], ["L", "Lidar"], ["D", "Depth"], ["S", "Sensor strip"],
-    ["G", "Gemini panel"], ["I", "Next disturbance"], ["⇧1 ⇧2 ⇧3", "Start a scenario"], ["⇧C ⇧G ⇧R ⇧N", "Demo: can pick-up, gas leak, rust scrub, navigation"], ["⇧X", "Demo reset"], ["esc", "Back to fly-by"], ["M", "Mute"], ["?", "This card"]];
+    ["G", "Gemini panel"], ["I", "Next disturbance"], ["⇧1 ⇧2 ⇧3", "Start a scenario"], ["⇧C ⇧G ⇧R ⇧N ⇧D", "Demo: can pick-up, gas leak, rust scrub, navigation, deck"], ["⇧X", "Demo reset"], ["esc", "Back to fly-by"], ["M", "Mute"], ["?", "This card"]];
   function help() {
     const el = $("help");
     el.classList.toggle("on", S.help);
