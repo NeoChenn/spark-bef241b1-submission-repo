@@ -2,6 +2,7 @@ name: rig
 
 services:
   web:
+    init: true
     build:
       context: .
       dockerfile: docker/web.Dockerfile
@@ -13,6 +14,7 @@ services:
     restart: unless-stopped
 
   sim:
+    init: true
     build:
       context: docker
       dockerfile: sim.Dockerfile
@@ -54,6 +56,7 @@ services:
     restart: unless-stopped
 
   tunnel:
+    init: true
     profiles: ["public"]
     image: cloudflare/cloudflared:2026.9.3
     command: tunnel --no-autoupdate run
