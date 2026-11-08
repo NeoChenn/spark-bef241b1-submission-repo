@@ -158,7 +158,7 @@ class Atmosphere:
         UsdGeom.Scope.Define(stage, ROOT)
         UsdGeom.Scope.Define(stage, f"{ROOT}/Looks")
         self.ember_mat = _material(stage, "ember", (0.0, 0.0, 0.0), primvar_emissive=True)
-        self.rain_mat = _material(stage, "rain", (0.6, 0.65, 0.7), (0.05, 0.06, 0.07), opacity=0.5, roughness=0.1)
+        self.rain_mat = _material(stage, "rain", (0.5, 0.52, 0.54), (0.025, 0.027, 0.03), opacity=0.5, roughness=0.1)
         self.spray_mat = _material(stage, "spray", (0.85, 0.9, 0.92), (0.02, 0.025, 0.03), roughness=0.3)
         self.embers = atmos.Particles(self.q["embers"], (np.full(3, -1e4), np.full(3, 1e4)), velocity=(0, 0, 9.0),
                                       spread=3.0, gravity=-1.5, drag=0.35, life=(1.2, 3.5), source=flare_source, seed=1)
