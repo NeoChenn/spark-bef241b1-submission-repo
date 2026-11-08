@@ -28,7 +28,7 @@ REFERENCE_WIDTH_PX = 1280.0
 FX = {
     "night": {"chop": 1.0, "coverage": 0.025, "foam_amount": 1.0, "leg_foam": 1.0, "roughness": 0.025,
               "deep_color": (0.0015, 0.007, 0.010), "crest_color": (0.006, 0.03, 0.032),
-              "aerated_color": (0.03, 0.09, 0.085), "foam_color": (0.62, 0.66, 0.66)},
+              "aerated_color": (0.03, 0.09, 0.085), "foam_color": (0.8, 0.84, 0.84)},
     "storm": {"chop": 1.45, "coverage": 0.09, "foam_amount": 1.25, "leg_foam": 1.35, "roughness": 0.045,
               "deep_color": (0.004, 0.012, 0.014), "crest_color": (0.012, 0.045, 0.045),
               "aerated_color": (0.05, 0.12, 0.11), "foam_color": (0.7, 0.74, 0.75)},
@@ -121,6 +121,10 @@ def pixel_angle(aperture_mm: float, focal_mm: float, width_px: float = REFERENCE
     return aperture_mm / max(focal_mm, 1e-3) / width_px
 
 
+def parse_overrides(text: str) -> dict:
+    return {k.strip(): float(v) for k, v in (item.split("=") for item in text.split(",") if "=" in item)}
+
+
 _state: dict = {}
 
 
@@ -151,6 +155,8 @@ def apply(stage, name: str, height: float) -> bool:
         else:
             shader.CreateInput(key, Sdf.ValueTypeNames.Float).Set(float(value))
     shader.CreateInput("debug", Sdf.ValueTypeNames.Float).Set(float(os.environ.get("RIG_OCEAN_FX_DEBUG", "0")))
+    for key, value in parse_overrides(os.environ.get("RIG_OCEAN_FX_INPUTS", "")).items():
+        shader.CreateInput(key, Sdf.ValueTypeNames.Float).Set(value)
     print(f"ocean_fx: preset={name} height={height} threshold={threshold:.3f}", flush=True)
     _state.update(stage=stage, time=shader.CreateInput("time", Sdf.ValueTypeNames.Float),
                   cam=shader.CreateInput("camera_position", Sdf.ValueTypeNames.Float3),

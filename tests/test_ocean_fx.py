@@ -54,3 +54,8 @@ def test_preset_inputs_and_pixel_angle():
     assert night["height"] == 1.5 and night["foam_threshold"] == 0.6
     assert fx.preset_inputs("unknown", 1.0, 0.5)["chop"] == fx.FX["night"]["chop"]
     assert math.isclose(fx.pixel_angle(20.955, 18.0, 1280.0), 20.955 / 18.0 / 1280.0)
+
+
+def test_parse_overrides():
+    assert fx.parse_overrides("chop=2, slope_gain=1.5,bad") == {"chop": 2.0, "slope_gain": 1.5}
+    assert fx.parse_overrides("") == {}
