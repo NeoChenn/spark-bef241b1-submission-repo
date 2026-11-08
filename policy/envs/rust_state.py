@@ -332,4 +332,5 @@ def rig_meta_scene(meta_path: str = "sim/output/rig_deck_meta.json", standoff: f
         "standoff": standoff,
         "env_to_world": {"translation": (xd, robot_pos[1], 0.0), "yaw": 0.0 if side > 0 else math.pi},
         "work_zone": m.get("work_zone_m"),
+        "zone_to_world": m.get("zone_to_world"),
     }
