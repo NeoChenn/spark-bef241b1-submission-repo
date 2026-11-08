@@ -158,36 +158,36 @@ def evaluate(args):
     dt = base.step_dt
     out = {}
     for name in args.policies.split(","):
-        torch.manual_seed(args.seed)
-        base._rma_gen.manual_seed(args.seed + 7)
-        env.reset()
-        obs = env.get_observations()["policy"]
-        hist = History(base.num_envs, HIST, len(PROPRIO), dev)
-        age = torch.zeros(base.num_envs, device=dev)
-        s = {"err": 0.0, "werr": 0.0, "steps": 0, "dist": 0.0, "falls": 0}
-        preds, tgts = [], []
-        for k in range(int(args.track_s / dt)):
-            hist.push(obs[:, PROPRIO])
-            with torch.inference_mode():
+        with torch.inference_mode():
+            torch.manual_seed(args.seed)
+            base._rma_gen.manual_seed(args.seed + 7)
+            env.reset()
+            obs = env.get_observations()["policy"]
+            hist = History(base.num_envs, HIST, len(PROPRIO), dev)
+            age = torch.zeros(base.num_envs, device=dev)
+            s = {"err": 0.0, "werr": 0.0, "steps": 0, "dist": 0.0, "falls": 0}
+            preds, tgts = [], []
+            for k in range(int(args.track_s / dt)):
+                hist.push(obs[:, PROPRIO])
                 if name == "rma" and k % 5 == 0:
                     preds.append(adapter(hist.data).cpu())
                     tgts.append(obs[:, BASE_OBS:].cpu())
                 nxt, _, dones, extras = env.step(pols[name](obs, hist.data))
-            obs = nxt["policy"]
-            cmd = base.command_manager.get_command("base_velocity")
-            v = r.data.root_lin_vel_b[:, :2]
-            ok = age > 0.5
-            s["err"] += float(torch.linalg.norm(cmd[:, :2] - v, dim=1)[ok].sum())
-            s["werr"] += float((cmd[:, 2] - r.data.root_ang_vel_b[:, 2]).abs()[ok].sum())
-            s["steps"] += int(ok.sum())
-            s["dist"] += float((torch.linalg.norm(v, dim=1) * dt).sum())
-            to = extras.get("time_outs", torch.zeros_like(dones)).bool()
-            s["falls"] += int((dones.bool() & ~to).sum())
-            ids = dones.nonzero().flatten()
-            if len(ids):
-                hist.reset(ids)
-            age = torch.where(dones.bool(), torch.zeros_like(age), age + dt)
-            age = torch.where(base.command_manager.get_term("base_velocity").time_left > 4.5, torch.zeros_like(age), age)
+                obs = nxt["policy"]
+                cmd = base.command_manager.get_command("base_velocity")
+                v = r.data.root_lin_vel_b[:, :2]
+                ok = age > 0.5
+                s["err"] += float(torch.linalg.norm(cmd[:, :2] - v, dim=1)[ok].sum())
+                s["werr"] += float((cmd[:, 2] - r.data.root_ang_vel_b[:, 2]).abs()[ok].sum())
+                s["steps"] += int(ok.sum())
+                s["dist"] += float((torch.linalg.norm(v, dim=1) * dt).sum())
+                to = extras.get("time_outs", torch.zeros_like(dones)).bool()
+                s["falls"] += int((dones.bool() & ~to).sum())
+                ids = dones.nonzero().flatten()
+                if len(ids):
+                    hist.reset(ids)
+                age = torch.where(dones.bool(), torch.zeros_like(age), age + dt)
+                age = torch.where(base.command_manager.get_term("base_velocity").time_left > 4.5, torch.zeros_like(age), age)
         out[name] = {"vel_err_xy_mps": s["err"] / max(1, s["steps"]), "yaw_rate_err_radps": s["werr"] / max(1, s["steps"]),
                      "dist_km": s["dist"] / 1000.0, "falls": s["falls"], "falls_per_km": falls_per_km(s["falls"], s["dist"])}
         if preds:
