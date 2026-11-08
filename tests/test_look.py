@@ -89,3 +89,10 @@ def test_work_light_aims_at_target_from_above():
     assert pos[2] > 3.0
     assert np.allclose(np.add(pos, np.multiply(aim, np.linalg.norm(look.WORK_LIGHT["offset"]))), (1.0, 2.0, 3.0))
     assert np.linalg.norm(aim) == pytest.approx(1.0)
+
+
+def test_atmos_darkens_far_views_only():
+    assert look.view_look("wide", 250.0, True)["ev"] < look.view_look("wide", 250.0)["ev"]
+    assert look.view_look("repair", 1.9, True)["ev"] == look.view_look("repair", 1.9)["ev"]
+    assert look.view_look(None, 330.0, True)["ev"] == pytest.approx(look.ev_at(330.0) + look.ATMOS_EV_KEYS[-1][1])
+    assert look.view_look(None, 3.0, True)["ev"] == pytest.approx(look.ev_at(3.0))

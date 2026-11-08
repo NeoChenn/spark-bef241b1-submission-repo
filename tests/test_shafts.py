@@ -3,6 +3,11 @@ import math
 import numpy as np
 import pytest
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sim"))
+
 from sim import shafts
 
 AREA = (
@@ -26,21 +31,6 @@ def test_specs_per_tier_reach_floor():
         assert np.linalg.norm(sp["aim"]) == pytest.approx(1.0)
 
 
-def test_card_faces_camera_and_spans_cone():
-    sp = shafts.specs(AREA, SEA, "offline")[3]
-    eye = (200.0, -31.0, 8.0)
-    pts = shafts.card(sp, eye, rings=5, cols=3).reshape(5, 3, 3)
-    assert np.allclose(pts[0], sp["apex"])
-    half = sp["length"] * math.tan(math.radians(sp["angle"]))
-    assert np.linalg.norm(pts[-1, 0] - pts[-1, 1]) == pytest.approx(half)
-    across = pts[-1, 2] - pts[-1, 0]
-    view = np.subtract(eye, pts[-1, 1])
-    assert abs(across @ view) < 1e-6 * np.linalg.norm(view) * np.linalg.norm(across) + 1e-6
-    counts, idx, st = shafts.topology(5, 3)
-    assert counts.sum() == len(idx) and idx.max() == 14 and st.shape == (15, 2)
-    assert st.min() == 0.0 and st.max() == 1.0
-
-
 def test_inside_cone():
     sp = shafts.specs(AREA, SEA, "offline")[3]
     assert shafts.inside(np.add(sp["apex"], np.multiply(sp["aim"], sp["length"] * 0.5)), sp)
@@ -48,26 +38,31 @@ def test_inside_cone():
     assert not shafts.inside(np.add(sp["apex"], (0.0, 0.0, 3.0)), sp)
 
 
-def test_usd_beams_follow_camera_and_hide():
-    import sys
-    from pathlib import Path
+def _cam(eye, target):
+    from rig.camera import look_at
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sim"))
-    from pxr import Usd, UsdGeom
+    return look_at(eye, target, 24.0, 20.955, 320, 180)
 
-    import shafts_fx
 
-    stage = Usd.Stage.CreateInMemory()
-    fx = shafts_fx.Shafts(stage, "offline", AREA, SEA)
-    assert len(fx.items) == len(shafts.PICKS) and shafts_fx.MDL.exists()
-    m, sp, sh = fx.items[3]
-    fx.update((200.0, -200.0, 10.0), 0.5)
-    assert np.allclose(np.array(m.GetPointsAttr().Get()), shafts.card(sp, (200.0, -200.0, 10.0)), atol=1e-4)
-    assert sh.GetInput("time").Get() == 0.5
-    assert UsdGeom.Imageable(m).ComputeVisibility() != "invisible"
-    fx.update(np.add(sp["apex"], np.multiply(sp["aim"], 5.0)), 0.6)
-    assert UsdGeom.Imageable(m).ComputeVisibility() == "invisible"
-    fx.show(False)
-    fx.update((200.0, -200.0, 10.0), 0.7)
-    assert UsdGeom.Imageable(m).ComputeVisibility() == "invisible"
-    assert shafts_fx.Shafts(Usd.Stage.CreateInMemory(), "none", AREA, SEA).items == []
+def test_layer_draws_beam_where_it_projects():
+    sp = shafts.specs(AREA, SEA, "offline")[3]
+    mid = np.add(sp["apex"], np.multiply(sp["aim"], sp["length"] * 0.4))
+    cam = _cam((120.0, -31.0, 8.0), mid)
+    beam = shafts.layer(cam, [sp], 0.0, scale=2)
+    assert beam.shape == (90, 160, 3)
+    assert beam[40:50, 75:85].sum() > 10 * beam[:, :20].sum() + 1
+    assert beam[..., 0].sum() > beam[..., 2].sum()
+    away = _cam((120.0, -31.0, 8.0), (300.0, -31.0, 8.0))
+    assert not shafts.layer(away, [sp]).any()
+    inner = _cam(np.add(sp["apex"], np.multiply(sp["aim"], sp["length"] * 0.5)), (0.0, 0.0, 0.0))
+    assert not shafts.layer(inner, [sp]).any()
+
+
+def test_add_upsamples_and_brightens():
+    img = np.full((180, 320, 3), 20, np.uint8)
+    beam = np.zeros((45, 80, 3), np.float32)
+    beam[20:25, 38:42] = 100.0
+    out = shafts.add(img, beam)
+    assert out.shape == img.shape and out.dtype == np.uint8
+    assert out[90, 160].mean() > 60 and out[0, 0].mean() == 20
+    assert shafts.add(img, np.zeros_like(beam)) is img

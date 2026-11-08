@@ -90,17 +90,15 @@ if args.atmos != "none":
 overrides = dict(parse_setting(item) for item in args.set)
 looks = args.look.split(",")
 import cinematic
-from shafts_fx import Shafts
+import shafts
 
 tier = next((lk for lk in ("offline", "live") if lk in looks), "none")
-beams = Shafts(stage, tier, cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS)
-eye = (0.0, 0.0, 0.0)
+beams = shafts.specs(cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS, tier)
 keys = {k for lk in looks for k in look.rtx_settings(lk)}
 neutral = {k: settings.get(k) if settings.get(k) is not None else (False if k.endswith("enabled") else None) for k in keys}
 
 
 def use_look(lk, ev, eye, target, fstop):
-    beams.show(lk != "none")
     for k, v in {**neutral, **look.rtx_settings(lk, ev), **overrides}.items():
         if v is not None:
             settings.set(k, v)
@@ -128,7 +126,6 @@ def header():
 
 def tick(t):
     cine_update(t)
-    beams.update(eye, t)
     if atm is not None:
         atm.update(t)
 
@@ -136,7 +133,7 @@ def tick(t):
 for name in filter(None, args.views.split(",")):
     start = time.monotonic()
     eye, target, focal = VIEWS[name]
-    vl = look.view_look(name, float(np.linalg.norm(np.subtract(target, eye))))
+    vl = look.view_look(name, float(np.linalg.norm(np.subtract(target, eye))), atm is not None)
     use_look(looks[0], vl["ev"], eye, target, vl["fstop"])
     aim(*VIEWS[name])
     for i in range(args.warm):
@@ -151,6 +148,8 @@ for name in filter(None, args.views.split(",")):
         rgb = np.asarray(ann.get_data())[..., :3].astype(np.uint8)
         if atm is not None:
             rgb = atm.post(rgb, header(), args.t, args.lens)
+        if lk != "none":
+            rgb = shafts.add(rgb, shafts.layer(header(), beams, args.t))
         rgb = look.grade(rgb, lk, args.t)
         suffix = f"_{lk}" if len(looks) > 1 else ""
         Image.fromarray(np.ascontiguousarray(rgb)).save(out / f"{args.tag}_{name}{suffix}.png")

@@ -276,18 +276,16 @@ def main() -> None:
 
         def expose(t: float) -> None:
             eye, target = getattr(cine_update, "eye_target", ((0.0, 0.0, 0.0), (0.0, 0.0, 30.0)))
-            for key, value in look.exposure(look.ev_at(float(np.linalg.norm(np.subtract(target, eye))))).items():
+            ev = look.view_look(None, float(np.linalg.norm(np.subtract(target, eye))), bool(args.atmos))["ev"]
+            for key, value in look.exposure(ev).items():
                 settings.set(key, value)
 
         tickers.append(expose)
         grade = look.grade
         import cinematic
-        from pxr import Usd, UsdGeom
-        from shafts_fx import Shafts
+        import shafts
 
-        beams = Shafts(stage, args.look, cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS)
-        eye_of = UsdGeom.Xformable(stage.GetPrimAtPath(cam_path))
-        tickers.append(lambda t: beams.update(eye_of.ComputeLocalToWorldTransform(Usd.TimeCode.Default()).ExtractTranslation(), t))
+        beams = shafts.specs(cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS, args.look)
     atm = None
     if args.atmos and args.cinematic:
         atm, atm_tick = load_atmosphere(stage, cam_path, args)
@@ -351,7 +349,7 @@ def main() -> None:
             if atm is not None:
                 rgb = atm.post(rgb, camera_header(), t, args.lens)
             if grade is not None:
-                rgb = grade(rgb, args.look, t)
+                rgb = grade(shafts.add(rgb, shafts.layer(camera_header(), beams, t)), args.look, t)
             mean = float(rgb.mean())
             buf = io.BytesIO()
             Image.fromarray(rgb).save(buf, "JPEG", quality=args.quality)

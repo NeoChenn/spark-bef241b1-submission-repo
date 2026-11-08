@@ -4,7 +4,6 @@ import math
 
 import numpy as np
 
-RINGS, COLS = 12, 9
 DECK_Z, SEA_Z = 42.5, 0.3
 PICKS = (
     ("area", 0, DECK_Z, 30.0, 1.0, True),
@@ -13,6 +12,7 @@ PICKS = (
     ("sea", 0, SEA_Z, 24.0, 1.0, False),
     ("sea", 1, SEA_Z, 24.0, 1.0, False),
 )
+KELVIN = {2000.0: 2100.0, 4000.0: 4500.0, 6000.0: 7000.0}
 TIERS = {"none": 0, "live": 2, "offline": len(PICKS)}
 DOWN = (0.0, 0.0, -1.0)
 
@@ -27,7 +27,7 @@ def specs(area, sea, tier: str) -> list[dict]:
             aim = DOWN
         w = np.asarray(aim, float) / np.linalg.norm(aim)
         out.append({"apex": tuple(map(float, apex)), "aim": tuple(map(float, w)), "angle": angle, "gain": gain,
-                    "kelvin": float(kelvin), "length": float((apex[2] - floor) / max(-w[2], 1e-3))})
+                    "kelvin": KELVIN.get(float(kelvin), float(kelvin)), "length": float((apex[2] - floor) / max(-w[2], 1e-3))})
     return out
 
 
@@ -39,28 +39,6 @@ def basis(aim):
     return u, np.cross(w, u), w
 
 
-def card(spec: dict, eye, rings: int = RINGS, cols: int = COLS) -> np.ndarray:
-    w = np.asarray(spec["aim"], float)
-    apex = np.asarray(spec["apex"], float)
-    s = np.linspace(0.0, 1.0, rings)
-    centre = apex + (s * spec["length"])[:, None] * w
-    view = np.asarray(eye, float) - centre
-    side = np.cross(w, view)
-    n = np.linalg.norm(side, axis=-1, keepdims=True)
-    side = np.where(n > 1e-6, side / np.maximum(n, 1e-6), basis(w)[0])
-    r = s * spec["length"] * math.tan(math.radians(spec["angle"]))
-    u = np.linspace(-1.0, 1.0, cols)
-    return (centre[:, None] + (r[:, None] * u[None])[..., None] * side[:, None]).reshape(-1, 3)
-
-
-def topology(rings: int = RINGS, cols: int = COLS):
-    r, c = np.meshgrid(np.arange(rings - 1), np.arange(cols - 1), indexing="ij")
-    a = r * cols + c
-    quads = np.stack((a, a + 1, a + cols + 1, a + cols), -1).reshape(-1).astype(np.int32)
-    v, u = np.meshgrid(np.linspace(0.0, 1.0, rings), np.linspace(0.0, 1.0, cols), indexing="ij")
-    return np.full(len(quads) // 4, 4, np.int32), quads, np.stack((u.reshape(-1), v.reshape(-1)), -1)
-
-
 def inside(eye, spec: dict, margin: float = 1.15) -> bool:
     _, _, w = basis(spec["aim"])
     rel = np.asarray(eye, float) - np.asarray(spec["apex"])
@@ -68,3 +46,58 @@ def inside(eye, spec: dict, margin: float = 1.15) -> bool:
     if h <= 0 or h >= spec["length"]:
         return False
     return float(np.linalg.norm(rel - h * w)) < h * math.tan(math.radians(spec["angle"])) * margin
+
+
+def _ramp(e0: float, e1: float, x):
+    t = np.clip((x - e0) / (e1 - e0), 0.0, 1.0)
+    return t * t * (3 - 2 * t)
+
+
+def layer(cam: dict, specs, t: float = 0.0, gain: float = 40.0, scale: int = 4, samples: int = 40) -> np.ndarray:
+    from topside_frames import kelvin_rgb
+
+    h, w = max(1, cam["h"] // scale), max(1, cam["w"] // scale)
+    K, T = np.asarray(cam["K"], float), np.asarray(cam["T"], float)
+    eye = T[:3, 3]
+    acc = np.zeros((h, w, 3), np.float32)
+    s = np.linspace(0.02, 1.0, samples)
+    along = _ramp(0.0, 0.08, s) * (1 - s) ** 1.3 * (1 - _ramp(0.75, 1.0, s))
+    for sp in specs:
+        if inside(eye, sp):
+            continue
+        ax = np.asarray(sp["aim"], float)
+        pts = np.asarray(sp["apex"], float) + (s * sp["length"])[:, None] * ax
+        pc = (pts - eye) @ T[:3, :3]
+        z = pc[:, 2]
+        ok = z > 0.5
+        if not ok.any():
+            continue
+        zs = np.maximum(z, 0.5)
+        u = (K[0, 0] * pc[:, 0] / zs + K[0, 2]) / scale
+        v = (K[1, 1] * pc[:, 1] / zs + K[1, 2]) / scale
+        r = np.maximum(K[0, 0] * s * sp["length"] * math.tan(math.radians(sp["angle"])) / zs / scale, 0.7)
+        step = np.hypot(np.gradient(u), np.gradient(v))
+        motes = 0.85 + 0.15 * np.sin(s * 23.0 - 1.3 * t)
+        amp = along * motes * _ramp(2.0, 10.0, z) * np.clip(step / r, 0.0, 1.0) * ok
+        rgb = np.asarray(kelvin_rgb(sp["kelvin"]), np.float32) * gain * sp["gain"]
+        for ui, vi, ri, ai in zip(u, v, r, amp):
+            if ai <= 1e-3:
+                continue
+            x0, x1 = int(max(0, ui - 2.5 * ri)), int(min(w, ui + 2.5 * ri + 1))
+            y0, y1 = int(max(0, vi - 2.5 * ri)), int(min(h, vi + 2.5 * ri + 1))
+            if x0 >= x1 or y0 >= y1:
+                continue
+            yy, xx = np.mgrid[y0:y1, x0:x1].astype(np.float32)
+            g = np.exp(-((xx - ui) ** 2 + (yy - vi) ** 2) / (2 * (0.6 * ri) ** 2)) * ai
+            acc[y0:y1, x0:x1] += g[..., None] * rgb
+    return acc
+
+
+def add(rgb: np.ndarray, beams: np.ndarray) -> np.ndarray:
+    from PIL import Image
+
+    if not beams.any():
+        return rgb
+    h, w = rgb.shape[:2]
+    up = np.stack([np.asarray(Image.fromarray(beams[..., c]).resize((w, h), Image.BILINEAR)) for c in range(3)], -1)
+    return np.clip(rgb[..., :3].astype(np.float32) + up, 0, 255).astype(np.uint8)
