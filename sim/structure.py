@@ -41,6 +41,23 @@ RECIPES = {
     "anode": {"kind": "paint", "paint_color": (0.42, 0.42, 0.4), "chip_amount": 0.0, "rust_amount": 0.05,
               "streak_amount": 0.0, "salt_amount": 0.7, "macro_scale": 3.0},
     "grating": dict(pr.RECIPES["topside_grating"]),
+    "flare_steel": {"kind": "paint", "paint_color": (0.27, 0.28, 0.28), "chip_amount": 0.5, "rust_amount": 0.35,
+                    "streak_amount": 0.8, "salt_amount": 0.2, "macro_scale": 6.0},
+    "heat": {"kind": "paint", "paint_color": (0.13, 0.1, 0.08), "chip_amount": 0.2, "rust_amount": 0.6,
+             "streak_amount": 0.9, "salt_amount": 0.05, "macro_scale": 4.0},
+    "soot": {"kind": "paint", "paint_color": (0.028, 0.026, 0.024), "chip_amount": 0.0, "rust_amount": 0.25,
+             "streak_amount": 0.6, "salt_amount": 0.0, "macro_scale": 3.0},
+    "helideck": {"kind": "paint", "paint_color": (0.035, 0.085, 0.055), "chip_amount": 0.15, "rust_amount": 0.04,
+                 "streak_amount": 0.0, "salt_amount": 0.15, "macro_scale": 8.0, "scale": 3.0},
+    "mark_white": {"kind": "paint", "paint_color": (0.6, 0.6, 0.58), "chip_amount": 0.4, "rust_amount": 0.02,
+                   "streak_amount": 0.0, "salt_amount": 0.1, "macro_scale": 5.0},
+    "mark_yellow": {"kind": "paint", "paint_color": (0.6, 0.4, 0.03), "chip_amount": 0.4, "rust_amount": 0.02,
+                    "streak_amount": 0.0, "salt_amount": 0.1, "macro_scale": 5.0},
+    "net": {"kind": "grating", "texture": "Net004A", "rust_amount": 0.05, "metallic": 0.0, "scale": 1.2},
+    "lifeboat": {"kind": "paint", "paint_color": (0.78, 0.22, 0.025), "chip_amount": 0.2, "rust_amount": 0.05,
+                 "streak_amount": 0.35, "salt_amount": 0.2, "macro_scale": 4.0},
+    "lifeboat_white": {"kind": "paint", "paint_color": (0.58, 0.58, 0.56), "chip_amount": 0.2, "rust_amount": 0.04,
+                       "streak_amount": 0.3, "salt_amount": 0.15, "macro_scale": 4.0},
 }
 WET = {"growth": 1.0, "splash": 0.9, "rubber": 0.8, "anode": 0.9}
 
