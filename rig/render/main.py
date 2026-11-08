@@ -315,11 +315,15 @@ def write_mp4(out: Path, fps: float) -> None:
     if not frames:
         return
     h, w = cv2.imread(str(frames[0])).shape[:2]
-    writer = cv2.VideoWriter(str(out / "offline.mp4"), cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
-    for f in frames:
-        writer.write(cv2.imread(str(f)))
-    writer.release()
-    print(f"rig render: wrote {out / 'offline.mp4'}", flush=True)
+    for name, codec in (("offline.mp4", "mp4v"), ("offline.avi", "MJPG")):
+        writer = cv2.VideoWriter(str(out / name), cv2.VideoWriter_fourcc(*codec), fps, (w, h))
+        if writer.isOpened():
+            for f in frames:
+                writer.write(cv2.imread(str(f)))
+            writer.release()
+            print(f"rig render: wrote {out / name}", flush=True)
+            return
+    print(f"rig render: no video codec available, PNG sequence only in {out}", flush=True)
 
 
 def main() -> None:
