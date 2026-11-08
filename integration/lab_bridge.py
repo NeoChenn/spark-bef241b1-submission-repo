@@ -133,6 +133,8 @@ class LabRepairBridge:
         names = [r.joint_names[i] for i in self.arm_ids]
         self.q_stow = torch.tensor([[ARM_STOWED[n] for n in names]], device=self.dev)
         self.q_work = r.data.default_joint_pos[:1, self.arm_ids].clone()
+        self.lift_ids = list(base.lift_ids)
+        self.lift_work = float(r.data.joint_pos[0, self.lift_ids[0]]) if self.lift_ids else None
         self.leg_ids = {f"{leg}_{part}": r.find_joints(f"{leg}_{part}_joint")[0][0]
                         for leg in LEGS for part in ("thigh", "calf")}
         self.leg_default = r.data.default_joint_pos[:1].clone()
@@ -167,8 +169,11 @@ class LabRepairBridge:
         self.start[0, 0] += start_x
         self._set_root(self.start)
         self.joint_target = self.q_stow.clone()
-        r.write_joint_state_to_sim(self._full_q(self.q_stow), torch.zeros_like(r.data.joint_pos[:1]),
-                                   env_ids=torch.tensor([0], device=self.dev))
+        q = self._full_q(self.q_stow)
+        if self.lift_ids:
+            q[:, self.lift_ids] = 0.0
+            r.set_joint_position_target(q[:, self.lift_ids], joint_ids=self.lift_ids)
+        r.write_joint_state_to_sim(q, torch.zeros_like(r.data.joint_pos[:1]), env_ids=torch.tensor([0], device=self.dev))
         self.parked = True
         self.at_station = start_x == 0.0
 
@@ -235,10 +240,15 @@ class LabRepairBridge:
     def record_decision(self, rec: dict) -> None:
         self.pending_events.append(rec)
 
-    def _interp_joints(self, q1, steps: int = 24, stop_force: float | None = None) -> bool:
-        q0 = self.base._robot.data.joint_pos[:1, self.arm_ids].clone()
+    def _interp_joints(self, q1, steps: int = 24, stop_force: float | None = None, lift: float | None = None) -> bool:
+        r = self.base._robot
+        q0 = r.data.joint_pos[:1, self.arm_ids].clone()
+        l0 = r.data.joint_pos[:1, self.lift_ids].clone() if self.lift_ids else None
         for k in range(1, steps + 1):
-            self.joint_target = q0 + (q1 - q0) * smooth(k / steps)
+            s = smooth(k / steps)
+            self.joint_target = q0 + (q1 - q0) * s
+            if lift is not None and l0 is not None:
+                r.set_joint_position_target(l0 + (lift - l0) * s, joint_ids=self.lift_ids)
             self._step()
             if stop_force is not None and self.force_peak > stop_force:
                 return False
@@ -248,14 +258,14 @@ class LabRepairBridge:
         if self.parked:
             return
         self.press = None
-        self._interp_joints(self.q_stow)
+        self._interp_joints(self.q_stow, steps=30, lift=0.0)
         self.parked = True
         self.force_now = 0.0
 
     def _unpark(self):
         if not self.parked:
             return
-        clear = self._interp_joints(self.q_work, steps=36, stop_force=5.0)
+        clear = self._interp_joints(self.q_work, steps=36, stop_force=5.0, lift=self.lift_work)
         b = self.base
         if not clear:
             self.joint_target = b._robot.data.joint_pos[:1, self.arm_ids].clone()

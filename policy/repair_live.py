@@ -151,7 +151,9 @@ def worker(argv):
         rgba = rust_rgba(rust_m, painter.tex, painter.noise)
         wet = grid_to_mask((snap["sprayed"] & ~snap["painted"]).astype(np.float32), H, W, flip_v=True)
         primer = grid_to_mask(snap["painted"].astype(np.float32), H, W, flip_v=True)
-        rgba = repair_rgba(np.where((primer > 0.5)[..., None], 0, rgba).astype(np.uint8), wet, primer)
+        rgba = rgba.astype(np.float32)
+        rgba[..., :3] *= 1.0 - 0.4 * wet[..., None]
+        rgba = repair_rgba(np.where((primer > 0.5)[..., None], 0, rgba).astype(np.uint8), np.zeros_like(wet), primer)
         painter.provider.set_data_array(rgba, [W, H])
 
     def render(snap):
