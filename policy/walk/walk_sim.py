@@ -258,12 +258,12 @@ def dress(stage, work, args):
                             robot_color=args.robot_color)
 
 
-def chase_camera(p, yaw, back=2.6, side=1.5, up=1.1):
+def lead_camera(p, yaw, front=2.6, side=2.1, height=1.75):
     import numpy as np
 
     c, s = math.cos(yaw), math.sin(yaw)
-    eye = np.array([p[0] - c * back - s * side, p[1] - s * back + c * side, p[2] + up])
-    look = np.array([p[0] + c * 0.8, p[1] + s * 0.8, p[2] + 0.1])
+    eye = np.array([p[0] + c * front - s * side, p[1] + s * front + c * side, height])
+    look = np.array([p[0] + c * 0.3, p[1] + s * 0.3, 0.45])
     return eye, look
 
 
@@ -331,10 +331,11 @@ def render(args, meta, full):
     obs = env.get_observations()
     hero = np.array([gx + 2.6, gy + 2.1, 1.75]), np.array([gx, gy - 0.25, 0.8])
     stage.GetPrimAtPath(cfg.viewer.cam_prim_path).GetAttribute("focalLength").Set(args.focal)
-    cam_eye, cam_look = None, None
     frames, log, t, t_stop, alpha = [], [], 0.0, None, 0.0
     os.makedirs(args.out_dir, exist_ok=True)
     t_wall = time.time()
+    cam_eye, cam_look = lead_camera((sub[0][0], sub[0][1], 0.0), yaw0)
+    base.sim.set_camera_view(cam_eye.tolist(), cam_look.tolist())
     for _ in range(40):
         base.sim.render()
     while t < args.max_s:
@@ -355,18 +356,16 @@ def render(args, meta, full):
             obs = env.get_observations()
             obs, _, _, _ = env.step(policy(obs))
         p = np.array([x, y, z])
-        eye, look = chase_camera(p, yaw)
+        eye, look = lead_camera(p, yaw)
         rem = max(0.0, follower.total - follower.progress)
         w = float(np.clip((args.blend_m - rem) / args.blend_m, 0.0, 1.0)) if t_stop is None else 1.0
         w = w * w * (3 - 2 * w)
         eye, look = (1 - w) * eye + w * hero[0], (1 - w) * look + w * hero[1]
-        if cam_eye is None:
-            cam_eye, cam_look = eye, look
         a = 1.0 - math.exp(-dt / 0.35)
         cam_eye, cam_look = cam_eye + a * (eye - cam_eye), cam_look + a * (look - cam_look)
         base.sim.set_camera_view(cam_eye.tolist(), cam_look.tolist())
         rgb = base.render()
-        if rgb is not None and rgb.size and rgb[..., :3].mean() > 1:
+        if rgb is not None and rgb.size and rgb[..., :3].mean() > 1 and t > 0.2:
             frames.append(grade(np.ascontiguousarray(rgb[..., :3])))
         v = base.scene["robot"].data.root_lin_vel_b[0]
         log.append({"t": round(t, 3), "state": state, "x": x, "y": y, "z": z, "yaw": yaw, "cmd": [vx, vy, wz],
