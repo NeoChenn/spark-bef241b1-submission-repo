@@ -43,11 +43,16 @@ export material flare_card(
 export material smoke_card(
     uniform texture_2d puff = texture_2d(),
     color tint = color(0.05),
+    color glow = color(0.0),
     float alpha_gain = 1.0
 ) = let {
     float4 t = tile(puff, 0.0, 1.0, 1.0);
+    color e = glow * color(t.x, t.y, t.z) * math::PI;
 } in material(
     thin_walled: true,
-    surface: material_surface(scattering: df::diffuse_reflection_bsdf(tint: tint * color(t.x, t.y, t.z))),
+    surface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(tint: tint * color(t.x, t.y, t.z)),
+        emission: material_emission(emission: df::diffuse_edf(), intensity: e, mode: intensity_radiant_exitance)
+    ),
     geometry: material_geometry(cutout_opacity: math::clamp(t.w * alpha_gain, 0.0, 1.0))
 );
