@@ -71,7 +71,7 @@ pipe_frame frame(float3 p, float3 n, float cy, float cz, float r) {
     return pipe_frame(float2(p.x, ang * r), float3(1.0, 0.0, 0.0), float3(0.0, -math::sin(ang), math::cos(ang)), ang, 1.0);
 }
 
-float hash(float2 c) {
+float cell_rand(float2 c) {
     return math::frac(math::sin(c.x * 12.9898 + c.y * 78.233) * 43758.5453);
 }
 
@@ -292,8 +292,8 @@ hero_sample deck_sample(
     float3 b = a.z >= math::max(a.x, a.y) ? float3(0.0, 1.0, 0.0) : float3(0.0, 0.0, 1.0);
     float2 cell = math::floor(q / plate_size);
     float2 fr = q / plate_size - cell;
-    float h1 = hash(cell);
-    float h2 = hash(cell + float2(17.0, 31.0));
+    float h1 = cell_rand(cell);
+    float h2 = cell_rand(cell + float2(17.0, 31.0));
     float2 edge = math::min(fr, 1.0 - fr) * plate_size;
     float sd = up > 0.5 ? math::min(edge.x, edge.y) : 1.0;
     float bead = 1.0 - ss(0.003, 0.011, sd);
@@ -558,7 +558,7 @@ export material rig_hero_rust_mask(
     uniform texture_2d scale_normal = texture_2d(),
     uniform texture_2d noise = texture_2d(),
     color paint_color = color(0.05, 0.074, 0.034),
-    color primer_color = color(0.13, 0.15, 0.13),
+    color primer_color = color(0.085, 0.095, 0.085),
     float2 uv_scale = float2(0.94, 1.2),
     float rust_scale = 0.3,
     float amount = 1.0 [[ anno::hard_range(0.0, 1.0) ]],
