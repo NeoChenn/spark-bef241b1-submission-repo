@@ -118,3 +118,38 @@ def test_mlp_from_state_matches_manual():
     x = torch.randn(5, 3)
     ref = torch.nn.functional.elu(x @ sd["actor.0.weight"].T + sd["actor.0.bias"]) @ sd["actor.2.weight"].T + sd["actor.2.bias"]
     assert torch.allclose(m(x), ref, atol=1e-6)
+
+
+def test_rma_runtime_runs_exported_onnx(tmp_path):
+    import numpy as np
+
+    from policy.walk.rma import BASE_OBS, HIST, RMARuntime
+
+    torch.manual_seed(0)
+    adapter = Adapter(len(PROPRIO), HIST, EXT_DIM)
+    actor = torch.nn.Linear(BASE_OBS + EXT_DIM, 12)
+
+    class M(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.actor, self.adapter = actor, adapter
+
+        def forward(self, obs, hist):
+            return self.actor(torch.cat([obs, self.adapter(hist)], 1))
+
+    path = str(tmp_path / "p.onnx")
+    torch.onnx.export(M(), (torch.zeros(1, BASE_OBS), torch.zeros(1, HIST, len(PROPRIO))), path,
+                      input_names=["obs", "history"], output_names=["actions"], opset_version=17, dynamo=False,
+                      dynamic_axes={"obs": {0: "n"}, "history": {0: "n"}, "actions": {0: "n"}})
+    rt = RMARuntime(path, n=2)
+    obs = np.random.default_rng(0).standard_normal((2, BASE_OBS)).astype(np.float32)
+    a = rt.act(obs)
+    assert a.shape == (2, 12)
+    h = torch.from_numpy(obs[:, PROPRIO])[:, None].expand(-1, HIST, -1)
+    ref = M()(torch.from_numpy(obs), h).detach().numpy()
+    assert np.allclose(a, ref, atol=1e-4)
+    rt.act(obs * 0)
+    assert np.allclose(rt.history[:, -1], 0) and np.allclose(rt.history[:, 0], obs[:, PROPRIO])
+    rt.reset([0])
+    rt.act(obs)
+    assert np.allclose(rt.history[0], obs[0, PROPRIO])

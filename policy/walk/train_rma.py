@@ -132,7 +132,8 @@ def export(args, actor, adapter, dev):
     m = RMAPolicy().cpu().eval()
     torch.onnx.export(m, (torch.zeros(1, BASE_OBS), torch.zeros(1, HIST, len(PROPRIO))),
                       os.path.join(args.run_dir, "policy_rma.onnx"), input_names=["obs", "history"],
-                      output_names=["actions"], opset_version=17, dynamo=False)
+                      output_names=["actions"], opset_version=17, dynamo=False,
+                      dynamic_axes={"obs": {0: "n"}, "history": {0: "n"}, "actions": {0: "n"}})
     m.to(dev)
 
 

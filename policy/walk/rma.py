@@ -111,3 +111,27 @@ def r2_score(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     ss_res = ((pred - target) ** 2).sum(0)
     ss_tot = ((target - target.mean(0)) ** 2).sum(0)
     return torch.where(ss_tot > 1e-12, 1 - ss_res / ss_tot.clamp_min(1e-12), torch.ones_like(ss_tot))
+
+
+class RMARuntime:
+    def __init__(self, path: str, n: int = 1):
+        import numpy as np
+        import onnxruntime as ort
+
+        self.sess = ort.InferenceSession(path, providers=["CPUExecutionProvider"])
+        self.history = np.zeros((n, HIST, len(PROPRIO)), dtype=np.float32)
+        self.fresh = np.ones(n, dtype=bool)
+
+    def reset(self, ids):
+        self.history[ids] = 0.0
+        self.fresh[ids] = True
+
+    def act(self, obs):
+        import numpy as np
+
+        obs = np.asarray(obs, dtype=np.float32)
+        p = obs[:, PROPRIO]
+        self.history = np.concatenate([self.history[:, 1:], p[:, None]], 1)
+        self.history[self.fresh] = p[self.fresh][:, None]
+        self.fresh[:] = False
+        return self.sess.run(None, {"obs": obs[:, :BASE_OBS], "history": self.history})[0]
