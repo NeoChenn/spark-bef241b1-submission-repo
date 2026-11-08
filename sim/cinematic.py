@@ -500,7 +500,8 @@ DECK_FLOODS = (
 )
 
 
-ZONE_SPOT = ((20.2, -3.6, 44.8), (18.26, -5.25, 43.1), LED, 1.0e6, 12.0)
+DECK_Z = 42.5
+ZONE_SPOT = ((20.2, -3.6, 44.8), (18.26, -5.25, 43.1), LED, 1.5e7, 12.0)
 
 
 def add_zone_spot(stage) -> None:
@@ -508,6 +509,9 @@ def add_zone_spot(stage) -> None:
     path = "/World/Cinematic/Lamps/area_610"
     if not stage.GetPrimAtPath(path):
         add_fixture(stage, 610, "spot", pos, kelvin, intensity, tuple(np.subtract(target, pos)), cone)
+        b = SceneBuilder(stage)
+        b.tube("/World/Cinematic/Lamps", "zone_stand", (pos[0], pos[1], DECK_Z), (pos[0], pos[1], pos[2] - 0.1), 0.05,
+               b.plain("lamp_pole", (0.3, 0.32, 0.33), 0.5, 0.6), segments=12)
     f = look.fixture("spot", kelvin, intensity, cone)
     _relight(stage.GetPrimAtPath(path), {**f, "softness": 0.25})
 
