@@ -26,14 +26,14 @@ WIND = (2.6, 1.5)
 EMISSION = float(os.environ.get("RIG_FLARE_GAIN", "6000"))
 CARDS = (
     (0.0, 1.0, 1.0, 0.0, 1.0),
-    (38.0, 0.8, 0.82, 0.37, 1.27),
-    (-34.0, 0.72, 0.74, 0.71, 0.83),
+    (52.0, 0.75, 0.8, 0.37, 1.27),
+    (-48.0, 0.68, 0.72, 0.71, 0.83),
 )
 SEGMENTS = 12
 SMOKE_N, SMOKE_LIFE, SMOKE_LEVELS = 40, 10.0, 5
 HALO_SIZE, HALO_GAIN, HALO_ALPHA = 80.0, EMISSION * 0.1, 0.35
 STOPS = (
-    (0.0, (0.85, 0.2, 0.02)),
+    (0.0, (0.7, 0.1, 0.01)),
     (0.3, (1.0, 0.38, 0.05)),
     (0.55, (1.0, 0.6, 0.16)),
     (0.75, (1.0, 0.8, 0.42)),
@@ -99,7 +99,8 @@ def flame_frames(n: int = FRAMES, w: int = TILE_W, h: int = TILE_H, seed: int = 
         i = body**0.8 * (1.1 - 0.85 * v) + (turb - 0.55) * (0.6 + 1.6 * v) * env - 0.25 * v
         i = np.clip(i * env**0.5, 0.0, 1.0) * smoothstep(0.0, 0.03, v) * edge
         heat = np.clip(i * (1.0 - 0.8 * v) * body**0.4, 0.0, 1.0)
-        glow = 0.1 + 0.9 * heat**2.6
+        streak = roll(fine, 3)
+        glow = (0.07 + 0.93 * heat**2.4) * (0.35 + 1.3 * streak**1.5)
         out[k, ..., 3] = smoothstep(0.06, 0.3, i)
         out[k, ..., :3] = ramp(heat) * glow[..., None]
     return out
@@ -183,7 +184,7 @@ def facing_right(centre, eye, yaw_deg: float = 0.0) -> np.ndarray:
 
 
 def smoke_state(t: float, wind=WIND, n: int = SMOKE_N, life: float = SMOKE_LIFE, origin=None):
-    origin = centerline(np.array([0.92]), t, wind)[0] if origin is None else np.asarray(origin, float)
+    origin = centerline(np.array([0.8]), t, wind)[0] if origin is None else np.asarray(origin, float)
     w = np.array([wind[0], wind[1], 0.0])
     speed = max(np.linalg.norm(w), 1.5)
     w = w / max(np.linalg.norm(w), 1e-6) * speed
@@ -197,7 +198,7 @@ def smoke_state(t: float, wind=WIND, n: int = SMOKE_N, life: float = SMOKE_LIFE,
     pos = pos + jitter * (0.8 + 0.55 * age[:, None])
     scale = 3.0 + 2.1 * age
     u = age / life
-    alpha = smoothstep(0.0, 0.12, u) * (1 - smoothstep(0.45, 1.0, u))
+    alpha = (0.35 + 0.65 * smoothstep(0.0, 0.1, u)) * (1 - smoothstep(0.45, 1.0, u))
     return pos, scale, alpha
 
 
