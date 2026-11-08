@@ -44,6 +44,7 @@ class NavProfile:
     map_heights: tuple = (0.7, 0.9)
     goal_xy_tol: float = 0.04
     turn_clear_m: float = 0.2
+    map_tol_m: float = 0.2
 
     def resolved_policy(self) -> str:
         p = Path(self.policy)
@@ -116,6 +117,11 @@ class FleetNav:
             r = np.fmin(r, self.deck.raycast(pose[0], pose[1], pose[2], angles, h, self.profile.lidar_range))
         return r
 
+    def unmapped(self, ranges, angles, pose) -> np.ndarray:
+        r = np.asarray(ranges, float)
+        known = self.deck.raycast(pose[0], pose[1], pose[2], angles, None, self.profile.lidar_range + 1.0)
+        return np.where(r < known - self.profile.map_tol_m, r, np.inf)
+
     def _emit(self, kind: str, **kw) -> dict:
         ev = {"type": kind, "unit": self.unit, "t": round(self.t, 2), "state": self.state, **kw}
         self.events.append(ev)
@@ -133,11 +139,13 @@ class FleetNav:
         if self.ctl is None or self.state == ARRIVED:
             return NavCmd(0.0, 0.0, ARRIVED)
         pose = tuple(float(q) for q in pose)
-        ranges = self.with_map(ranges, angles, pose)
+        raw = np.asarray(ranges, float)
+        ranges = self.with_map(raw, angles, pose)
         vx, wz, _ = self.ctl.step(ranges, angles, pose, v, w)
         L = (self.ctl.M - 1) * self.ctl.ds
         s0 = self.ctl.dist_from_start
-        dets = self.tracker.update(detect_frame(ranges, angles, pose, self.ctl.ref, self.ctl.progress_idx, self.cfg))
+        dets = self.tracker.update(detect_frame(self.unmapped(raw, angles, pose), angles, pose, self.ctl.ref,
+                                                self.ctl.progress_idx, self.cfg))
         dets = [d for d in dets if s0 + d.ahead < L - 0.3]
         if self.state == ALIGN:
             err = self.ctl.heading_error(pose[2])
@@ -223,8 +231,13 @@ def drive(unit: str, scan, pose, v: float, w: float, path, t: Optional[float] = 
     lg = get_leg(path) if isinstance(path, str) else path
     key = lg.name if isinstance(lg, Leg) else np.asarray(lg, float).tobytes()
     if getattr(n, "_key", None) != key:
-        n.start(lg)
         n._key = key
+        if not isinstance(lg, Leg):
+            p = np.asarray(lg, float)[:, :2]
+            if not _path_clear(n.deck, p):
+                p = plan(p[0], p[-1], n.deck)
+            lg = p
+        n.start(lg)
     ranges, angles = scan
     cmd = n.step(n.t + 0.1 if t is None else t, ranges, angles, pose, v, w)
     return cmd.vx, cmd.wz
@@ -319,7 +332,7 @@ def run_leg(unit: str, leg, deck: Optional[DeckMap] = None, start=None, t0: floa
             on_event: Optional[Callable] = None, resume_after: Optional[float] = None) -> Rollout:
     lg = get_leg(leg) if isinstance(leg, str) else leg
     deck = deck or DeckMap.rig_merged()
-    n = FleetNav(unit, profile, on_event, policy, deck)
+    n = FleetNav(unit, profile, on_event, policy)
     p = n.profile
     angles = p.angles()
     sx, sy, syaw = start if start is not None else (*lg.start, math.atan2(*(lg.path[1] - lg.path[0])[::-1]))
@@ -384,6 +397,13 @@ def plan(start_xy, goal_xy, deck: Optional[DeckMap] = None, lane_y: float = LANE
     return polyline(*pts)
 
 
+def _path_clear(deck: DeckMap, p, margin: float = 0.05) -> bool:
+    if len(p) < 2:
+        return True
+    h = np.arctan2(*np.diff(p, axis=0).T[::-1])
+    return all(deck.clearance(x, y, a) > margin for (x, y), a in zip(p[:-1], h))
+
+
 def _line_clear(deck: DeckMap, a, b, margin: float = 0.05) -> bool:
     h = math.atan2(b[1] - a[1], b[0] - a[0])
     return all(deck.clearance(x, y, h) > margin for x, y in polyline(a, b))
@@ -394,7 +414,7 @@ class NavWalker:
                  profile: Optional[NavProfile] = None, on_event: Optional[Callable] = None, policy=None,
                  lag: float = 0.5):
         self.deck = deck or DeckMap.rig_merged()
-        self.nav = FleetNav(unit, profile, on_event, policy, self.deck)
+        self.nav = FleetNav(unit, profile, on_event, policy)
         self.base = BaseSim(float(xy[0]), float(xy[1]), float(yaw), lag)
         self.angles = self.nav.profile.angles()
         self.t, self.acc, self.goal = 0.0, 0.0, None
