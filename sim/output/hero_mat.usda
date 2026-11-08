@@ -402,7 +402,7 @@ over "World"
                     colorSpace = "raw"
                 )
                 bool inputs:tube = 1
-                float inputs:tube_r = 0.04
+                float inputs:tube_r = 0.075
                 float inputs:wetness = 0.64
                 token outputs:out
             }

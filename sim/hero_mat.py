@@ -105,7 +105,7 @@ def recipes(meta: dict) -> dict:
         "zone_steel": ("rig_hero_paint", {**paint_set, "paint_color": (0.09, 0.105, 0.11), "chip_amount": 0.8,
                                           "rust_amount": 0.65, "streak_amount": 0.9}),
         "rail": ("rig_hero_paint", {**paint_set, "paint_color": (0.6, 0.38, 0.025), "chip_amount": 1.0,
-                                    "rust_amount": 0.5, "scale": 0.35, "tube": True, "tube_r": 0.04}),
+                                    "rust_amount": 0.5, "scale": 0.35, "tube": True, "tube_r": 0.075}),
         "zone_pipe_grey": ("rig_hero_paint", {**paint_set, "paint_color": (0.27, 0.29, 0.3), "chip_amount": 0.7,
                                               "rust_amount": 0.45, "scale": 0.7, "tube": True, "tube_r": 0.1}),
         "zone_pipe_orange": ("rig_hero_paint", {**paint_set, "paint_color": (0.5, 0.16, 0.03), "chip_amount": 0.9,
