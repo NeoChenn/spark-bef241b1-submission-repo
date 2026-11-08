@@ -49,8 +49,13 @@
  "reservation_wait_s": 14.0,
  "corridor_conflicts": 0,
  "late_tasks": [],
+ "reroutes": 0,
+ "reroute_extra_m": 0,
+ "reroute_extra_s": 0,
+ "blocked_tasks": 0,
+ "weather": "calm",
  "robots": 3,
- "wall_s": 3.29,
+ "wall_s": 3.38,
  "orchestrator_jobs": {
   "crack/crack": {
    "duration_s": 3.0,

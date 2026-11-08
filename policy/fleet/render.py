@@ -8,6 +8,10 @@ WALK = (92, 108, 124)
 NARROW = (201, 138, 58)
 STAIRS = (150, 110, 220)
 TEXT = (220, 228, 236)
+CLOSED = (248, 81, 73)
+OBST = (255, 150, 40)
+GHOST = (150, 156, 165)
+CORAL = (217, 119, 87)
 MUTED = (130, 142, 155)
 ROBOT_COLORS = [(64, 156, 255), (60, 200, 120), (255, 184, 48), (230, 90, 200), (90, 220, 230), (240, 240, 240)]
 TASK_COLORS = {"gas": (255, 64, 64), "crack": (230, 80, 220), "rust": (214, 110, 40), "leak_check": (80, 200, 220),
@@ -89,14 +93,41 @@ def render_png(map_json: dict, snap: dict, path: str) -> None:
             d.ellipse([x - r, y - r, x + r, y + r], fill=col + (230,))
         else:
             d.ellipse([x - r, y - r, x + r, y + r], outline=col + (120,), width=1)
+    def seg(a, c, col, wd, dash=0):
+        da, dc = deck_of(a[2]), deck_of(c[2])
+        if not da or da != dc:
+            return
+        i = DECK_ORDER.index(da)
+        (x0, y0), (x1, y1) = px(i, a[0], a[1]), px(i, c[0], c[1])
+        if not dash:
+            d.line([x0, y0, x1, y1], fill=col, width=wd)
+            return
+        L = max(((x1 - x0) ** 2 + (y1 - y0) ** 2) ** 0.5, 1e-6)
+        s = 0.0
+        while s < L:
+            e = min(s + dash, L)
+            d.line([x0 + (x1 - x0) * s / L, y0 + (y1 - y0) * s / L, x0 + (x1 - x0) * e / L, y0 + (y1 - y0) * e / L],
+                   fill=col, width=wd)
+            s += 2 * dash
+
+    hz = snap.get("hazards") or {}
+    for c in hz.get("closed", []):
+        seg(c["a"], c["b"], CLOSED, 3, 4)
+    for ob in hz.get("obstacles", []):
+        dk = deck_of(ob["xyz"][2])
+        if dk:
+            x, y = px(DECK_ORDER.index(dk), ob["xyz"][0], ob["xyz"][1])
+            r = max(4, ob["radius"] * SCALE)
+            d.rectangle([x - r, y - r, x + r, y + r], fill=OBST + (90,), outline=OBST, width=2)
+            d.text((x + r + 2, y - r - 2), ob["kind"], fill=OBST, font=f10)
     for k, rb in enumerate(snap["robots"]):
         col = ROBOT_COLORS[k % len(ROBOT_COLORS)]
+        prev = rb.get("prev_path") or []
+        for a, c in zip(prev, prev[1:]):
+            seg(a, c, GHOST, 2, 3)
         pts = [p for p in rb["path"]]
         for a, c in zip(pts, pts[1:]):
-            da, dc = deck_of(a[2]), deck_of(c[2])
-            if da and da == dc:
-                i = DECK_ORDER.index(da)
-                d.line([px(i, a[0], a[1]), px(i, c[0], c[1])], fill=col + (170,), width=2)
+            seg(a, c, (CORAL + (230,)) if prev else (col + (170,)), 3 if prev else 2)
         p = rb["pose"]
         dk = deck_of(p["z"])
         if dk is None:
@@ -115,6 +146,11 @@ def render_png(map_json: dict, snap: dict, path: str) -> None:
     if gas:
         g = gas[-1]
         head += f"   GAS ALARM {g['flange']} -> {g['responder'] or 'unassigned'}"
+    w = hz.get("weather") or {}
+    if w.get("level", "calm") != "calm":
+        head += f"   WEATHER {w['level'].upper()}  speed x{w['speed']['walk']:.2f}  sight {w['perception_range_m']:.0f} m"
+    if m.get("reroutes"):
+        head += f"   re-routes {m['reroutes']}"
     d.text((PAD, 9), head, fill=TEXT, font=f14)
     lx = W - PAD - 470
     for name, col in TASK_COLORS.items():

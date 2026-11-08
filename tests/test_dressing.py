@@ -25,3 +25,18 @@ def test_props_reference_known_assets():
 def test_dressing_stays_on_the_top_deck():
     for x, y in dressing.footprints():
         assert -27.0 < x < 37.0 and -27.0 < y < 27.0
+
+
+def test_dressing_stands_on_solid_deck_not_over_openings():
+    assert dressing.unsupported() == []
+
+
+def test_hazard_strips_and_tarps_sit_on_solid_deck():
+    for (x0, y0), (x1, y1) in dressing.HAZARD_STRIPS:
+        assert not dressing_unsupported_points([(x0, y0), (x1, y1)])
+    for _, _, (x0, y0, x1, y1) in dressing.TARPS:
+        assert not dressing_unsupported_points([(x0, y0), (x1, y1)])
+
+
+def dressing_unsupported_points(points):
+    return [p for p in points if not any(a <= p[0] <= b and c <= p[1] <= d for a, b, c, d in dressing.SOLID)]

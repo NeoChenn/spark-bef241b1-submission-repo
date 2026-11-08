@@ -52,6 +52,7 @@ parser.add_argument("--leak-flow", type=float, default=0.0, help="g/s; 0 = rando
 parser.add_argument("--hole-mm", type=float, default=2.0)
 parser.add_argument("--bar", type=float, default=10.0)
 parser.add_argument("--max-sim-s", type=float, default=90.0)
+parser.add_argument("--storm", type=float, default=0.0, help="storm level 0-1 that starts 20 s into the soak")
 parser.add_argument("--no-gemini", action="store_true",
                     help="skip the Gemini second opinion even if GEMINI_API_KEY is set")
 parser.add_argument("--control", choices=["off", "auto", "live", "replay"], default="auto",
@@ -284,6 +285,9 @@ def main() -> None:
         now = bridge.sim_time()
         if args.no_events:
             continue
+        if args.storm > 0 and prev == S.SPRAY and "storm" not in fired:
+            fired.add("storm")
+            bridge.schedule(now + 20.0, f"storm_level {args.storm:.1f}", lambda: bridge.storm_level(args.storm))
         if prev == S.SPRAY and "patch" not in fired:
             fired.add("patch")
             th_new, z_new = theta - 0.3, 0.12

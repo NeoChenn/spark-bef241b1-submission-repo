@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import re
 
 import numpy as np
 
@@ -14,17 +13,17 @@ KINDS = {
 }
 DEFAULT_KIND = {"night": "calm", "golden": "calm", "storm": "storm"}
 TIERS = {
-    "live": {"width": 1280, "height": 720, "rain": 1500, "embers": 160, "spray": 300, "fog_cards": 10, "flow": True,
-             "flow_cell": 0.35, "slices": 96, "pixel_ratio": 8, "accum": 32, "renderer": "RealTimePathTracing",
+    "live": {"width": 1280, "height": 720, "rain": 1500, "embers": 160, "spray": 300, "smoke": 48, "steam": 40, "flow": True,
+             "flow_cell": 0.25, "slices": 96, "pixel_ratio": 8, "accum": 32, "renderer": "RealTimePathTracing",
              "subframes": 1, "spp": 1},
-    "offline": {"width": 1920, "height": 1080, "rain": 6000, "embers": 600, "spray": 1200, "fog_cards": 18, "flow": True,
+    "offline": {"width": 1920, "height": 1080, "rain": 3500, "embers": 600, "spray": 1200, "smoke": 140, "steam": 120, "flow": True,
                 "flow_cell": 0.18, "slices": 256, "pixel_ratio": 4, "accum": 128, "renderer": "RealTimePathTracing",
                 "subframes": 16, "spp": 2},
 }
 MEDIA = {
-    "night": {"density": 0.4, "albedo": (0.9, 0.86, 0.8), "transmit": (0.55, 0.62, 0.66), "height": 120.0, "g": 0.55},
-    "storm": {"density": 0.7, "albedo": (0.82, 0.86, 0.9), "transmit": (0.5, 0.55, 0.6), "height": 160.0, "g": 0.35},
-    "golden": {"density": 0.3, "albedo": (0.95, 0.82, 0.66), "transmit": (0.7, 0.6, 0.5), "height": 140.0, "g": 0.6},
+    "night": {"vis": 240.0, "albedo": (0.6, 0.57, 0.53), "transmit": (0.5, 0.58, 0.62), "height": 52.0, "g": 0.55},
+    "storm": {"vis": 170.0, "albedo": (0.82, 0.86, 0.9), "transmit": (0.5, 0.55, 0.6), "height": 70.0, "g": 0.35},
+    "golden": {"vis": 420.0, "albedo": (0.95, 0.82, 0.66), "transmit": (0.62, 0.55, 0.48), "height": 60.0, "g": 0.6},
 }
 
 
@@ -62,18 +61,24 @@ def volumetric_settings(preset: str, tier: str, weather: dict) -> dict:
     m, q = MEDIA[preset], TIERS[tier]
     return {
         "/rtx/raytracing/globalVolumetricEffects/enabled": True,
-        "/rtx/raytracing/inscattering/densityMult": m["density"] * (0.5 + 1.5 * weather["fog"]),
+        "/rtx/raytracing/fractionalCutoutOpacity": True,
+        "/rtx/pathtracing/fractionalCutoutOpacity": True,
+        "/rtx/shadows/fractionalCutoutOpacity": True,
+        "/rtx/raytracing/inscattering/detailNoiseScale": 0.012,
+        "/rtx/raytracing/inscattering/noiseScaleRangeMin": 0.15,
+        "/rtx/raytracing/inscattering/noiseScaleRangeMax": 1.0,
+        "/rtx/raytracing/inscattering/densityMult": 1.0,
         "/rtx/raytracing/inscattering/singleScatteringAlbedo": list(m["albedo"]),
         "/rtx/raytracing/inscattering/transmittanceColor": list(m["transmit"]),
-        "/rtx/raytracing/inscattering/transmittanceMeasurementDistance": 900.0 / (0.4 + weather["fog"]),
+        "/rtx/raytracing/inscattering/transmittanceMeasurementDistance": m["vis"] * 0.35 / max(weather["fog"], 0.1),
         "/rtx/raytracing/inscattering/atmosphereHeight": m["height"],
         "/rtx/raytracing/inscattering/anisotropyFactor": m["g"],
         "/rtx/raytracing/inscattering/depthSlices": q["slices"],
         "/rtx/raytracing/inscattering/pixelRatio": q["pixel_ratio"],
         "/rtx/raytracing/inscattering/maxAccumulationFrames": q["accum"],
         "/rtx/raytracing/inscattering/useDetailNoise": 1,
-        "/rtx/raytracing/inscattering/noiseAnimationSpeedX": weather["wind"][0] * 0.02,
-        "/rtx/raytracing/inscattering/noiseAnimationSpeedY": weather["wind"][1] * 0.02,
+        "/rtx/raytracing/inscattering/noiseAnimationSpeedX": weather["wind"][0] * 0.05,
+        "/rtx/raytracing/inscattering/noiseAnimationSpeedY": weather["wind"][1] * 0.05,
         "/rtx/raytracing/inscattering/maxDistance": 3000.0,
     }
 
@@ -145,14 +150,6 @@ def streak_points(pos, vel, shutter: float) -> np.ndarray:
     return out
 
 
-def fog_cards(n: int, radius: float, z=(2.0, 14.0), seed: int = 0, t: float = 0.0, wind=(0.0, 0.0)) -> dict:
-    rng = np.random.default_rng(seed)
-    xy = rng.uniform(-radius, radius, (n, 2)) + np.asarray(wind) * 0.35 * t
-    xy = (xy + radius) % (2 * radius) - radius
-    return {"centre": np.column_stack([xy, rng.uniform(*z, n)]), "size": rng.uniform(0.35, 0.7, n) * radius,
-            "yaw": rng.uniform(0.0, 360.0, n)}
-
-
 def soft_texture(size: int, seed: int = 0, octaves: int = 5) -> np.ndarray:
     rng = np.random.default_rng(seed)
     acc = np.zeros((size, size))
@@ -171,127 +168,42 @@ def soft_texture(size: int, seed: int = 0, octaves: int = 5) -> np.ndarray:
     return (np.clip(acc * 1.3 - 0.05, 0, 1) * edge * 255).astype(np.uint8)
 
 
-FIRE_MAP = ("[(0.012, 0.012, 0.012, 0.0), (0.03, 0.028, 0.026, 0.55), (0.05, 0.045, 0.04, 0.6), (1.0, 0.16, 0.013, 0.8), "
-            "(13.5, 3.0, 0.13, 0.8), (78.0, 39.0, 6.1, 0.7)]", "[0, 0.05, 0.15, 0.6, 0.85, 1]")
-STEAM_MAP = ("[(0.5, 0.52, 0.55, 0.0), (0.7, 0.72, 0.75, 0.25), (0.8, 0.82, 0.85, 0.45), (0.85, 0.86, 0.88, 0.5)]",
-             "[0, 0.2, 0.6, 1]")
+FIRE_MAP = ([(0.07, 0.07, 0.075, 0.28), (0.04, 0.038, 0.035, 0.45), (0.035, 0.033, 0.03, 0.5), (1.0, 0.16, 0.013, 0.8),
+             (13.5, 3.0, 0.126, 0.8), (78.0, 39.0, 6.1, 0.7)], [0, 0.05, 0.15, 0.6, 0.85, 1])
 
 
-def _vec(v) -> str:
-    return ", ".join(f"{float(c):g}" for c in v)
+def billboard_quats(pos, eye) -> np.ndarray:
+    d = np.asarray(eye, float) - np.asarray(pos, float)
+    yaw = np.arctan2(d[:, 1], d[:, 0]) + np.pi / 2
+    pitch = np.arctan2(d[:, 2], np.hypot(d[:, 0], d[:, 1]))
+    cy, sy, cp, sp = np.cos(yaw / 2), np.sin(yaw / 2), np.cos(-pitch / 2), np.sin(-pitch / 2)
+    return np.column_stack([cy * cp, cy * sp, sy * sp, sy * cp])
 
 
-def _emitter(name, pos, radius, layer, velocity, fuel=0.0, temp=0.0, smoke=0.0) -> str:
-    return f"""    def FlowEmitterSphere "{name}"
-    {{
-        float coupleRateFuel = 2
-        float coupleRateSmoke = 2
-        float coupleRateTemperature = 10
-        float coupleRateVelocity = 2
-        float fuel = {fuel:g}
-        int layer = {layer}
-        float3 position = ({_vec(pos)})
-        float radius = {radius:g}
-        bool radiusIsWorldSpace = 1
-        float smoke = {smoke:g}
-        float temperature = {temp:g}
-        float3 velocity = ({_vec(velocity)})
-        bool velocityIsWorldSpace = 1
-    }}
-"""
+def fade_bucket(age, ttl, n: int) -> np.ndarray:
+    u = np.clip(np.asarray(age) / np.maximum(np.asarray(ttl), 1e-6), 0, 1)
+    level = np.minimum(np.minimum(u / 0.15, 1.0), (1 - u) / 0.5)
+    return np.clip((level * n).astype(int), 0, n - 1)
 
 
-def _wind(layer, wind, centre) -> str:
-    return f"""    def FlowEmitterBox "wind_{layer}"
-    {{
-        float allocationScale = 0
-        float coupleRateVelocity = 0.4
-        float coupleRateTemperature = 0
-        float coupleRateFuel = 0
-        float coupleRateSmoke = 0
-        float3 halfSize = (400, 400, 200)
-        int layer = {layer}
-        float3 position = ({_vec(centre)})
-        float3 velocity = ({_vec((wind[0], wind[1], 0.0))})
-    }}
-"""
+def flow_overrides(flare, vents, wind, cell: float, flame_radius: float = 2.6, fuel: float = 0.8, cooling: float = 2.2,
+                   steam: float = 0.9, smoke_fade: float = 0.25, jet: float = 3.0) -> dict:
+    s = flame_radius / 10.0
+    lean = (float(wind[0]) * 0.3, float(wind[1]) * 0.3)
+    rgba, xs = FIRE_MAP
 
+    def emitter(pos, radius, up, **emit):
+        return {"layer": 0, "position": tuple(map(float, pos)), "radius": float(radius),
+                "velocity": (lean[0], lean[1], up), "velocityIsWorldSpace": True, **emit}
 
-def _layer(layer, cell, rgba, xs, combustion, fade, buoyancy) -> str:
-    return f"""    def FlowSimulate "sim_{layer}"
-    {{
-        float densityCellSize = {cell:g}
-        int layer = {layer}
-        float stepsPerSecond = 30
-        uint maxStepsPerSimulate = 2
-        def FlowAdvectionCombustionParams "advection"
-        {{
-            float buoyancyPerTemp = {buoyancy:g}
-            float buoyancyPerSmoke = {0.0 if combustion else 0.6:g}
-            float burnPerTemp = 4
-            bool combustionEnabled = {int(combustion)}
-            float coolingRate = 1.0
-            float fuelPerBurn = 0.25
-            float3 gravity = (0, 0, -9.8)
-            float ignitionTemp = 0.05
-            float smokePerBurn = 4
-            float tempPerBurn = 5
-            def FlowAdvectionChannelParams "smoke" {{ float damping = 0.05
-                float fade = {fade:g} }}
-            def FlowAdvectionChannelParams "velocity" {{ float damping = 0.01
-                float fade = 1 }}
-            def FlowAdvectionChannelParams "divergence" {{}}
-            def FlowAdvectionChannelParams "temperature" {{ float damping = 0
-                float fade = 0 }}
-            def FlowAdvectionChannelParams "fuel" {{ float damping = 0
-                float fade = 0 }}
-            def FlowAdvectionChannelParams "burn" {{ float damping = 0
-                float fade = 0 }}
-        }}
-        def FlowVorticityParams "vorticity" {{ bool enabled = 1
-            float forceScale = 2.5
-            float velocityMask = 1 }}
-        def FlowPressureParams "pressure" {{ bool enabled = 1 }}
-        def FlowSummaryAllocateParams "summaryAllocate" {{ bool enableNeighborAllocation = 1
-            float smokeThreshold = 0.02
-            float speedThreshold = 1 }}
-    }}
-    def FlowOffscreen "offscreen_{layer}"
-    {{
-        int layer = {layer}
-        def FlowRayMarchColormapParams "colormap"
-        {{
-            float colorScale = 2.5
-            uint resolution = 32
-            float4[] rgbaPoints = {rgba}
-            float[] xPoints = {xs}
-        }}
-        def FlowShadowParams "shadow" {{ bool enabled = 1
-            float attenuation = 0.045
-            float minIntensity = 0.125
-            uint numSteps = 16 }}
-        def FlowDebugVolumeParams "debugVolume" {{}}
-    }}
-    def FlowRender "render_{layer}"
-    {{
-        int layer = {layer}
-        def FlowRayMarchParams "rayMarch"
-        {{
-            float attenuation = 0.05
-            float colorScale = 1
-            float stepSizeScale = 0.75
-            def FlowRayMarchCloudParams "cloud" {{}}
-        }}
-    }}
-"""
-
-
-def flow_usda(flare, vents, wind, cell: float) -> str:
-    lean = (wind[0] * 0.4, wind[1] * 0.4)
-    body = _emitter("flare", flare, 1.3, 0, (lean[0] - 2.0, lean[1], 14.0), fuel=1.0, temp=2.0)
-    body += "".join(_emitter(f"vent_{i}", p, 0.6, 1, (lean[0], lean[1], 5.0), smoke=0.8, temp=0.4)
-                    for i, p in enumerate(vents))
-    body += _wind(0, wind, flare) + _wind(1, wind, flare)
-    body += _layer(0, cell, *FIRE_MAP, True, 0.25, 4.0) + _layer(1, cell, *STEAM_MAP, False, 1.2, 1.5)
-    body = re.sub(r"(\S) \}$", "\\1\n}", body, flags=re.M)
-    return f'#usda 1.0\n(\n    defaultPrim = "Flow"\n    metersPerUnit = 1\n    upAxis = "Z"\n)\ndef Xform "Flow"\n{{\n{body}}}\n'
+    return {
+        "flowEmitterSphere": emitter(flare, flame_radius, jet, fuel=fuel, temperature=2.0),
+        "flowSimulate": {"layer": 0, "densityCellSize": float(cell)},
+        "flowSimulate/advection": {"gravity": (0.0, 0.0, -100.0 * s), "coolingRate": cooling, "combustionEnabled": True},
+        "flowSimulate/advection/smoke": {"fade": smoke_fade},
+        "flowOffscreen": {"layer": 0},
+        "flowOffscreen/colormap": {"rgbaPoints": list(rgba), "xPoints": [float(x) for x in xs],
+                                   "colorScalePoints": [1.0] * len(xs)},
+        "flowRender": {"layer": 0},
+        "vents": [emitter(p, 1.0, 3.0, fuel=0.0, temperature=0.08, smoke=steam, coupleRateSmoke=2.0) for p in vents],
+    }

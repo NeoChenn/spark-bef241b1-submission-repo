@@ -1,0 +1,344 @@
+mdl 1.7;
+
+import ::df::*;
+import ::state::*;
+import ::math::*;
+import ::anno::*;
+
+const int BIG_COUNT = 6;
+const float4[BIG_COUNT] BIG_A = float4[](float4(0.9510565, 0.309017, 0.0448799, 1),
+    float4(0.9781476, -0.2079117, 0.07306029, 0.62),
+    float4(0.7547096, 0.656059, 0.1208305, 0.36),
+    float4(0.8386706, -0.544639, 0.2026834, 0.2),
+    float4(0.309017, 0.9510565, 0.330694, 0.11),
+    float4(0.4383711, -0.898794, 0.5235988, 0.06));
+const float4[BIG_COUNT] BIG_B = float4[](float4(0.6635298, 0, 0.06, 0),
+    float4(0.8465941, 0, 0.06666667, 0),
+    float4(1.088736, 0, 0.07333333, 0),
+    float4(1.410079, 0, 0.08, 0),
+    float4(1.801141, 0, 0.08, 0),
+    float4(2.266386, 0, 0.07333333, 0));
+const int WAVE_COUNT = 61;
+const float4[WAVE_COUNT] WAVE_A = float4[](float4(0.4931981, 0.869917, 0.6603501, 0.04204318),
+    float4(0.4335013, 0.901153, 0.8330252, 0.03005041),
+    float4(0.9022501, 0.4312131, 0.7348324, 0.03005041),
+    float4(0.2242464, -0.9745325, 0.9755076, 0.03005041),
+    float4(-0.01577409, 0.9998756, 0.7738064, 0.03005041),
+    float4(-0.3512852, 0.9362685, 1.133403, 0.02140359),
+    float4(0.9721777, 0.2342447, 1.398374, 0.02140359),
+    float4(0.9999997, 0.0007691698, 1.231538, 0.02140359),
+    float4(0.9920866, 0.1255554, 1.382555, 0.02140359),
+    float4(0.6098024, -0.7925534, 1.814261, 0.01521801),
+    float4(-0.1397988, 0.99018, 1.878867, 0.01521801),
+    float4(0.9431794, -0.3322839, 1.503373, 0.01521801),
+    float4(0.9688683, 0.2475769, 1.753968, 0.01521801),
+    float4(0.7227652, -0.6910936, 2.443192, 0.01081045),
+    float4(0.8457378, -0.5335987, 2.767545, 0.01081045),
+    float4(0.1708335, -0.9852999, 2.323496, 0.01081045),
+    float4(-0.4471055, 0.8944812, 2.520116, 0.01081045),
+    float4(0.9955091, 0.09466509, 2.951725, 0.007676011),
+    float4(-0.1570078, 0.9875973, 3.303493, 0.007676011),
+    float4(0.9448823, 0.3274102, 3.231132, 0.007676011),
+    float4(0.7762511, -0.6304238, 3.045218, 0.007676011),
+    float4(0.9744611, -0.2245563, 5.391568, 0.005449161),
+    float4(0.8370568, -0.547116, 4.641513, 0.005449161),
+    float4(0.9468444, 0.3216919, 5.700314, 0.005449161),
+    float4(0.9568154, -0.2906963, 4.98897, 0.005449161),
+    float4(0.9765666, -0.2152155, 7.065767, 0.003867893),
+    float4(-0.5337175, -0.8456629, 7.146021, 0.003867893),
+    float4(0.4327155, -0.9015306, 7.240861, 0.003867893),
+    float4(-0.9999455, 0.01044405, 6.046672, 0.003867893),
+    float4(0.6262515, -0.7796211, 9.408782, 0.00274533),
+    float4(-0.01241291, -0.9999229, 8.782957, 0.00274533),
+    float4(0.6047482, 0.7964168, 9.28758, 0.00274533),
+    float4(-0.9569928, 0.2901116, 8.363117, 0.00274533),
+    float4(-0.668573, -0.7436466, 15.88504, 0.001948507),
+    float4(0.9981291, -0.0611419, 12.27125, 0.001948507),
+    float4(0.6796321, -0.7335531, 14.35169, 0.001948507),
+    float4(-0.9594035, -0.2820372, 12.63595, 0.001948507),
+    float4(-0.06618261, 0.9978075, 21.67372, 0.00138294),
+    float4(0.9632462, 0.2686201, 20.15515, 0.00138294),
+    float4(0.9035749, 0.4284301, 16.80262, 0.00138294),
+    float4(0.5062191, -0.8624049, 21.45926, 0.00138294),
+    float4(0.4241523, 0.9055909, 31.289, 0.0009815247),
+    float4(0.792087, -0.6104083, 30.8519, 0.0009815247),
+    float4(0.9983797, 0.05690274, 27.51174, 0.0009815247),
+    float4(-0.1096927, -0.9939656, 23.78722, 0.0009815247),
+    float4(-0.2993672, -0.954138, 34.06026, 0.0006966228),
+    float4(-0.911666, 0.4109319, 43.82875, 0.0006966228),
+    float4(0.8261089, -0.5635106, 38.53305, 0.0006966228),
+    float4(0.6680703, 0.7440982, 33.92145, 0.0006966228),
+    float4(0.9680816, 0.2506353, 60.83241, 0.0004944169),
+    float4(0.8870401, -0.4616923, 55.97933, 0.0004944169),
+    float4(0.8252394, -0.5647832, 54.61661, 0.0004944169),
+    float4(0.1221823, 0.9925077, 51.11232, 0.0004944169),
+    float4(0.9738479, -0.2272009, 72.8774, 0.0003509042),
+    float4(0.9991365, 0.04154874, 68.71645, 0.0003509042),
+    float4(0.9379388, 0.3468008, 64.13077, 0.0003509042),
+    float4(-0.7585454, 0.6516202, 85.48167, 0.0003509042),
+    float4(0.03171199, 0.9994971, 104.7013, 0.0002490483),
+    float4(0.5379106, 0.8430019, 107.6095, 0.0002490483),
+    float4(0.7646687, -0.6444236, 99.60393, 0.0002490483),
+    float4(-0.5667766, -0.8238715, 115.3934, 0.0002490483));
+const float4[WAVE_COUNT] WAVE_B = float4[](float4(2.545198, 5.176625, 0.4133314, 0),
+    float4(2.858667, 2.055659, 0.458416, 0),
+    float4(2.684903, 4.536757, 0.5196723, 0),
+    float4(3.093498, 5.449239, 0.3914598, 0),
+    float4(2.755184, 5.610556, 0.4934981, 0),
+    float4(3.334469, 1.014812, 0.4730394, 0),
+    float4(3.703789, 0.1677758, 0.3834054, 0),
+    float4(3.475829, 4.089144, 0.4353451, 0),
+    float4(3.68278, 1.348851, 0.3877922, 0),
+    float4(4.218756, 3.541893, 0.4156335, 0),
+    float4(4.293214, 5.936382, 0.4013416, 0),
+    float4(3.840324, 2.383336, 0.5015839, 0),
+    float4(4.148063, 1.588229, 0.429921, 0),
+    float4(4.895684, 2.868337, 0.434477, 0),
+    float4(5.210529, 4.129585, 0.3835568, 0),
+    float4(4.774253, 0.6352236, 0.4568594, 0),
+    float4(4.972156, 2.391285, 0.4212151, 0),
+    float4(5.381117, 0.840195, 0.5064735, 0),
+    float4(5.692738, 4.162272, 0.4525424, 0),
+    float4(5.630045, 5.218515, 0.4626769, 0),
+    float4(5.465674, 2.367842, 0.4909239, 0),
+    float4(7.272639, 2.33561, 0.3905921, 0),
+    float4(6.747833, 3.389915, 0.4537106, 0),
+    float4(7.477973, 1.351248, 0.3694365, 0),
+    float4(6.995842, 1.55452, 0.4221119, 0),
+    float4(8.325573, 2.072523, 0.4198889, 0),
+    float4(8.372722, 2.87409, 0.4151733, 0),
+    float4(8.428099, 0.5122772, 0.4097354, 0),
+    float4(7.701808, 4.729556, 0.4906563, 0),
+    float4(9.607297, 3.638307, 0.4442632, 0),
+    float4(9.282285, 1.883032, 0.4759189, 0),
+    float4(9.545217, 0.4872395, 0.4500608, 0),
+    float4(9.057714, 4.795208, 0.4998107, 0),
+    float4(12.48328, 0.8235936, 0.3707473, 0),
+    float4(10.97183, 0.836962, 0.4799294, 0),
+    float4(11.8655, 0.8211133, 0.4103583, 0),
+    float4(11.13367, 0.5105861, 0.4660779, 0),
+    float4(14.58147, 5.695031, 0.3828526, 0),
+    float4(14.06137, 1.691712, 0.4116982, 0),
+    float4(12.83876, 1.925234, 0.4938418, 0),
+    float4(14.50915, 5.232601, 0.3866787, 0),
+    float4(17.51985, 3.895094, 0.3736589, 0),
+    float4(17.39704, 1.175857, 0.3789528, 0),
+    float4(16.42834, 2.732013, 0.4249608, 0),
+    float4(15.27588, 5.553849, 0.4914997, 0),
+    float4(18.27925, 2.358545, 0.4836404, 0),
+    float4(20.73548, 4.4666, 0.3758473, 0),
+    float4(19.44246, 0.6082608, 0.4275009, 0),
+    float4(18.24197, 4.569916, 0.4856195, 0),
+    float4(24.42879, 4.878727, 0.3815398, 0),
+    float4(23.4341, 5.188446, 0.4146171, 0),
+    float4(23.14712, 4.23613, 0.424962, 0),
+    float4(22.39223, 2.329383, 0.4540977, 0),
+    float4(26.73812, 0.4034559, 0.4487317, 0),
+    float4(25.9636, 3.259567, 0.4759035, 0),
+    float4(25.08232, 4.759261, 0.5099331, 0),
+    float4(28.95816, 1.199072, 0.3825662, 0),
+    float4(32.04871, 1.672818, 0.4400808, 0),
+    float4(32.49075, 3.368541, 0.4281877, 0),
+    float4(31.25883, 4.701906, 0.4626027, 0),
+    float4(33.64534, 5.63342, 0.3993041, 0));
+const int LEG_COUNT = 4;
+const float3[4] LEGS = float3[](float3(-17.94193, -17.94193, 5.05),
+    float3(-17.94193, 17.05807, 5.05),
+    float3(17.05807, -17.94193, 5.05),
+    float3(17.05807, 17.05807, 5.05));
+const float2 DRIFT = float2(0.9510565, 0.309017);
+const float FADE = 1600;
+
+struct sea {
+    float3 n;
+    float h;
+    float jac;
+    float lost;
+};
+
+sea sea_eval(float2 p, float t, float height, float chop, float near_chop, float slope_gain, float resolved_gain, float footprint, uniform int stride)
+{
+    float fade = math::exp(-math::length(p) / FADE);
+    float sx = 0.0, sy = 0.0, jxx = 0.0, jyy = 0.0, jxy = 0.0, h = 0.0, lost = 0.0;
+    for (int i = 0; i < BIG_COUNT; ++i) {
+        float4 a = BIG_A[i];
+        float4 b = BIG_B[i];
+        float amp = height * a.w * fade;
+        float th = a.z * (a.x * p.x + a.y * p.y) - b.x * t;
+        float s = math::sin(th);
+        float c = math::cos(th);
+        float ka = a.z * amp;
+        sx += a.x * ka * c;
+        sy += a.y * ka * c;
+        float qs = b.z * fade * s;
+        jxx += qs * a.x * a.x;
+        jyy += qs * a.y * a.y;
+        jxy += qs * a.x * a.y;
+        h += amp * s;
+    }
+    for (int i = 0; i < WAVE_COUNT; i += stride) {
+        float4 a = WAVE_A[i];
+        float4 b = WAVE_B[i];
+        float lambda = 6.2831853 / a.z;
+        float w = math::smoothstep(1.0, 2.5, lambda / footprint);
+        float wj = math::smoothstep(0.7, 1.6, lambda / footprint);
+        float amp = a.w * math::sqrt(float(stride)) * (lambda < 3.0 ? near_chop : chop);
+        float th = a.z * (a.x * p.x + a.y * p.y) - (b.x * t - b.y);
+        float s = math::sin(th);
+        float c = math::cos(th);
+        float ka = a.z * amp;
+        sx += a.x * ka * w * resolved_gain * c;
+        sy += a.y * ka * w * resolved_gain * c;
+        float qs = b.z * ka * wj * s;
+        jxx += qs * a.x * a.x;
+        jyy += qs * a.y * a.y;
+        jxy += qs * a.x * a.y;
+        lost += 0.25 * ka * ka * slope_gain * slope_gain * (1.0 - w * w);
+    }
+    float jac = (1.0 - jxx) * (1.0 - jyy) - jxy * jxy;
+    float3 n = float3(-jxy * sy - sx * (1.0 - jyy), -jxy * sx - sy * (1.0 - jxx), math::max(jac, 0.15));
+    return sea(math::normalize(n), h, jac, lost);
+}
+
+float hash(float2 c)
+{
+    return math::frac(math::sin(c.x * 127.1 + c.y * 311.7) * 43758.5453);
+}
+
+float vnoise(float2 q)
+{
+    float2 i = math::floor(q);
+    float2 f = q - i;
+    float2 u = f * f * (3.0 - 2.0 * f);
+    float a = hash(i);
+    float b = hash(i + float2(1.0, 0.0));
+    float c = hash(i + float2(0.0, 1.0));
+    float d = hash(i + float2(1.0, 1.0));
+    return math::lerp(math::lerp(a, b, u.x), math::lerp(c, d, u.x), u.y);
+}
+
+float noise(float2 p, float t, uniform float size, uniform int levels)
+{
+    float2 q = p / size;
+    float e = t / size;
+    float sum = 0.0;
+    float norm = 0.0;
+    float w = 1.0;
+    for (int i = 0; i < levels; ++i) {
+        float2 o = float2(e * (0.7 + 0.3 * float(i)), -e * (0.4 + 0.25 * float(i)));
+        sum += w * 0.5 * (vnoise(q + o) + vnoise(q * 1.07 - o + float2(17.3, 9.1)));
+        norm += w;
+        q = float2(1.6 * q.x - 1.2 * q.y, 1.2 * q.x + 1.6 * q.y);
+        w *= 0.5;
+    }
+    return sum / norm;
+}
+
+float ridge(float n, float width)
+{
+    return math::smoothstep(1.0 - width, 1.0, 1.0 - math::abs(2.0 * n - 1.0));
+}
+
+float4 legs_eval(float2 p)
+{
+    float2 perp = float2(-DRIFT.y, DRIFT.x);
+    float ring = 0.0;
+    float wash = 0.0;
+    float wake = 0.0;
+    float contact = 0.0;
+    for (int i = 0; i < LEG_COUNT; ++i) {
+        float3 l = LEGS[i];
+        float2 rel = p - float2(l.x, l.y);
+        float d = math::max(math::length(rel) - l.z, 0.0);
+        ring = math::max(ring, math::max(math::exp(-d / 3.2), d < 0.7 ? 1.0 : 0.0));
+        wash = math::max(wash, math::exp(-d / 12.0));
+        contact = math::max(contact, 1.0 - math::smoothstep(0.5, 3.4, d));
+        float along = math::dot(rel, DRIFT);
+        float across = math::abs(math::dot(rel, perp));
+        float spread = l.z * 1.1 + 0.2 * math::max(along, 0.0);
+        float q = across / spread;
+        if (along > 0.0)
+            wake = math::max(wake, math::exp(-q * q) * math::exp(-along / 90.0));
+    }
+    return float4(ring, wash, wake, contact);
+}
+
+export material OceanFx(
+    float time = 0.0,
+    float height = 1.5,
+    float chop = 1.0,
+    float uv_tile = 26.0,
+    color deep_color = color(0.0015, 0.007, 0.01),
+    color crest_color = color(0.006, 0.03, 0.032),
+    color aerated_color = color(0.03, 0.09, 0.085),
+    color foam_color = color(0.62, 0.66, 0.66),
+    float roughness = 0.025,
+    float foam_threshold = 0.55,
+    float foam_softness = 0.12,
+    float foam_amount = 1.0,
+    float leg_foam = 1.0,
+    float leg_chop = 3.0,
+    float grazing_gain = 0.8,
+    float drift_speed = 0.6,
+    float3 camera_position = float3(0.0, 0.0, 40.0),
+    float pixel_angle = 0.0008,
+    float min_footprint = 0.01,
+    float slope_gain = 1.0,
+    float debug = 0.0,
+    uniform int wave_stride = 1,
+    float debug_mode = 0.0
+)
+= let {
+    float2 p = float2(state::texture_coordinate(0).x, state::texture_coordinate(0).y) * uv_tile;
+    float3 pw = state::transform_point(state::coordinate_internal, state::coordinate_world, state::position());
+    float3 to_cam = camera_position - pw;
+    float dist = math::length(to_cam);
+    float stretch = math::sqrt(1.0 / math::max(math::abs(to_cam.z) / math::max(dist, 1e-3), 0.05));
+    float footprint = math::max(min_footprint, dist * pixel_angle * math::sqrt(stretch));
+
+    float2 perp = float2(-DRIFT.y, DRIFT.x);
+    float4 lg = legs_eval(float2(pw.x, pw.y));
+    float contact = lg.w * math::min(leg_foam, 1.0);
+    float grazing = 1.0 - math::abs(to_cam.z) / math::max(dist, 1e-3);
+    float ring = lg.x;
+    float wash = lg.y;
+    float wake = lg.z;
+    float near = math::max(ring, wash) * leg_foam;
+    sea o = sea_eval(p, time, height, chop, chop * (1.0 + leg_chop * near), slope_gain, slope_gain * (1.0 + grazing_gain * grazing), footprint, wave_stride);
+    float alpha = math::min(math::sqrt(roughness * roughness + 2.0 * o.lost) + 0.12 * ring * leg_foam, 0.35);
+
+    float2 adv = p - DRIFT * (time * drift_speed);
+    float2 dc = float2(math::dot(adv, DRIFT), math::dot(adv, perp));
+    float lace = math::max(ridge(noise(adv, time * 0.08, 1.6, 3), 0.22), 0.8 * ridge(noise(adv * 2.7, time * 0.15, 1.6, 2), 0.3));
+    float blob = noise(adv, time * 0.05, 7.0, 3);
+    float streak = noise(float2(dc.x * 0.12, dc.y * 1.4), time * 0.03, 1.0, 3);
+    float pattern = math::saturate(0.45 * lace + 0.35 * math::smoothstep(0.3, 0.7, blob) + 0.3 * math::smoothstep(0.35, 0.65, streak));
+
+    float crest = math::saturate((foam_threshold - o.jac) / foam_softness);
+    float residue = math::saturate((foam_threshold + 0.25 - o.jac) / 0.45) * math::smoothstep(0.4, 0.75, streak) * 0.7;
+    float surge = 0.7 + 0.3 * math::saturate(o.h / math::max(height, 0.1) + 0.5);
+    float leg = leg_foam * surge * math::max(math::max(ring, 0.9 * wash), 0.9 * wake * (0.4 + 0.6 * math::smoothstep(0.3, 0.7, streak)));
+    float m = math::saturate(math::max(math::max(foam_amount * math::max(crest, residue), leg), contact));
+    float foam = math::max(m <= 0.001 ? 0.0 : math::smoothstep(1.0 - m, 1.2 - m, pattern + 0.15 * m) * math::min(1.0, m * 3.0), contact * (0.7 + 0.3 * pattern));
+
+    float crest_tint = math::pow(math::saturate(o.h / math::max(height, 0.1) * 0.7 + 0.3), 2.0);
+    color body0 = math::lerp(deep_color, crest_color, crest_tint);
+    color body = math::lerp(body0, aerated_color, math::saturate(1.4 * math::max(m, 0.5 * wash * leg_foam)) * (1.0 - foam));
+    float3 n = state::transform_normal(state::coordinate_world, state::coordinate_internal, o.n);
+    bsdf water = df::fresnel_layer(
+        ior: 1.333,
+        layer: df::microfacet_ggx_smith_bsdf(roughness_u: alpha, roughness_v: alpha, tint: color(1.0), mode: df::scatter_reflect),
+        base: df::diffuse_reflection_bsdf(tint: body)
+    );
+    bsdf froth = df::fresnel_layer(
+        ior: 1.333,
+        layer: df::microfacet_ggx_smith_bsdf(roughness_u: 0.35, roughness_v: 0.35, tint: color(1.0), mode: df::scatter_reflect),
+        base: df::diffuse_reflection_bsdf(tint: foam_color * (0.75 + 0.25 * pattern), roughness: 0.6)
+    );
+} in material(
+    surface: material_surface(
+        scattering: df::weighted_layer(weight: foam, layer: froth, base: water),
+        emission: material_emission(emission: df::diffuse_edf(), intensity: debug * (debug_mode > 0.5 ? color(0.5 + 0.5 * o.n.x, 0.5 + 0.5 * o.n.y, alpha * 3.0) : color(math::frac(p.x / 20.0) * 0.2, m, foam)), mode: intensity_radiant_exitance)
+    ),
+    geometry: material_geometry(normal: n)
+);

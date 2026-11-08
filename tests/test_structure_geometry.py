@@ -145,3 +145,85 @@ def test_walkway_rails_and_hangers():
     assert np.allclose(centre, (5, 0, 16)) and math.isclose(angle, 0.0) and math.isclose(size[0], 10.0)
     assert len(w["rails"]) == 4 and len(w["posts"]) == 2 * 5
     assert all(math.isclose(b[2], 18.0) for _, b in w["hangers"])
+
+
+def test_caged_ladder_spans_levels():
+    l = sg.caged_ladder((1.0, 2.0), 31.25, 42.5, 0.0)
+    assert len(l["rails"]) == 2 and all(math.isclose(a[2], 31.25) and math.isclose(b[2], 43.5) for a, b in l["rails"])
+    assert len(l["rungs"]) == 37 and all(31.25 < a[2] < 42.5 for a, _ in l["rungs"])
+    assert l["hoops"][0][0][2] > 33.0 and len(l["straps"]) == 3
+
+
+def test_edge_detail_ribs_sit_outside():
+    e = sg.edge_detail((0, -37.5), (10, -37.5), 30.0, 1.25, (0, -1))
+    assert len(e["ribs"]) == 4
+    assert all(r[0][1] < -37.5 and math.isclose(r[0][2], 30.625) for r in e["ribs"])
+    assert math.isclose(e["strip"][0][2], 31.2)
+
+
+def test_lattice_boom_chords_follow_axis_and_taper():
+    b = sg.lattice_boom((-26, 8, 42), (-57.5, 8, 69.6), 3.2, 1.6)
+    assert len(b["chords"]) == 3 * (len(b["struts"]) // 3 - 1)
+    first = [s for s in b["struts"] if s[2] == 0.0]
+    last = [s for s in b["struts"] if s[2] == 1.0]
+    span0 = max(np.linalg.norm(np.subtract(p, q)) for p, q, _ in first)
+    span1 = max(np.linalg.norm(np.subtract(p, q)) for p, q, _ in last)
+    assert math.isclose(span0, 3.2, rel_tol=0.05) and math.isclose(span1, 1.6, rel_tol=0.05)
+    assert abs(np.dot(b["up"], b["axis"])) < 1e-9 and b["up"][2] > 0
+
+
+def test_hex_and_disc_rings():
+    h = sg.hex_ring((0, 0), 10.0, 9.0, 5.0)
+    assert len(h["points"]) == 12 and len(h["counts"]) == 6
+    d = sg.disc_ring((1, 2), 5.0, 6.0, 3.0)
+    r = np.hypot(d["points"][:, 0] - 1, d["points"][:, 1] - 2)
+    assert r.min() >= 5.0 - 1e-9 and r.max() <= 6.0 + 1e-9
+
+
+def test_perimeter_points_cover_polygon():
+    pts = sg.perimeter_points(sg.hexagon((0, 0), 10.0, 0.0), 2.5)
+    assert len(pts) == 24
+    assert np.allclose(np.linalg.norm(np.array(pts)[:, :2], axis=1).max(), 10.0)
+
+
+def test_lifeboat_bounds_and_normals():
+    m = sg.lifeboat(8.0, 2.8, 1.0, 1.5)
+    p = m["points"]
+    assert np.allclose(p.min(0), (-4.0, -1.4, -1.0), atol=0.05) and np.allclose(p.max(0), (4.0, 1.4, 1.5), atol=0.05)
+    assert np.allclose(np.linalg.norm(m["normals"], axis=1), 1.0)
+    side = (np.abs(p[:, 0]) < 1.0) & (np.abs(p[:, 2]) < 0.1)
+    assert (np.sign(m["normals"][side, 1]) == np.sign(p[side, 1])).all()
+
+
+def test_helideck_stays_dry_and_splash_stays_wet():
+    import structure
+
+    assert structure.wetness_for("helideck", 0.64) == 0.15
+    assert structure.wetness_for("growth", 0.3) == 1.0
+    assert structure.wetness_for("column", 0.64) == 0.64
+
+
+def test_rect_lattice_vertical_derrick():
+    d = sg.rect_lattice((20, 20, 45.9), (20, 20, 81.3), 7.4, 2.2, panel=3.0, cross=True)
+    base = np.array(d["rings"][0])
+    top = np.array(d["rings"][-1])
+    assert np.allclose(np.ptp(base[:, :2], axis=0), 7.4) and np.allclose(np.ptp(top[:, :2], axis=0), 2.2)
+    panels = len(d["rings"]) - 1
+    assert len(d["chords"]) == 4 * panels and len(d["diagonals"]) == 8 * panels
+
+
+def test_ship_planform_and_extrusion():
+    ring = sg.ship_planform(80.0, 18.0)
+    assert np.isclose(ring[:, 0].max(), 40.0) and np.isclose(np.abs(ring[:, 1]).max(), 9.0)
+    m = sg.extrude_ring(ring, -5.0, 5.0)
+    centre = ring.mean(0)
+    out = ((m["points"][:len(ring), :2] - centre) * m["normals"][:len(ring), :2]).sum(1)
+    assert (out > -1e-6).mean() > 0.95
+    f = sg.fan(ring, 4.0)
+    assert len(f["counts"]) == len(ring)
+
+
+def test_containers_fit_deck():
+    cs = sg.container_stacks(-38.0, 14.0, 7.5)
+    assert cs and all(-38.0 <= c[0][0] - 3.03 and c[0][0] + 3.03 <= 14.0 + 1e-9 for c in cs)
+    assert all(abs(c[0][1]) + 1.22 <= 7.5 + 1e-9 for c in cs)

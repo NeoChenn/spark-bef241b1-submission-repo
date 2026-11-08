@@ -11,6 +11,7 @@ from detection.localize import pixel_rays, ray_cylinder
 from integration import repair_scene as rs
 from integration.kinematics import ARM_STOWED, TRUNK_HEIGHT, RobotModel, pose, spring_force
 from policy.interfaces import CameraModel, PipeGeometry, Waypoint, camera_from_usd
+from policy.storm import Lens, Weather, wet_factor
 
 TWO_PI = 2 * math.pi
 STIFFNESS = 2500.0
@@ -20,6 +21,7 @@ CONTACT_RADIUS = 0.03
 AXIS_DISTANCE = 0.45
 WORK_LIFT = 0.45
 CONTACT_TOLERANCE = 0.003
+GUST_GAIN = 0.9
 
 
 @dataclass
@@ -77,6 +79,10 @@ class IsaacRigBridge:
         self.occluded_until = -1.0
         self.parked = True
         self.unpark_q = self.model.default_q()
+        self.storm = Weather(seed=0)
+        self.lens = Lens(seed=0)
+        self.base_coef = None
+        self._rain_t = 0.0
         self._sync()
 
     def log(self, msg: str) -> None:
@@ -93,7 +99,11 @@ class IsaacRigBridge:
     def _render(self, record: bool = True) -> dict:
         self._sync()
         images = self.frames.render()
+        w = self.weather()
+        self.lens.rain(self.state.t - self._rain_t, w["rain"])
+        self._rain_t = self.state.t
         if images.get("inspection") is not None:
+            images["inspection"] = self.lens.apply(images["inspection"], 0.6 * w["rain"])
             self.last_inspection = images["inspection"]
             self.last_camera = self._camera_model()
         if record and images.get("hero") is not None:
@@ -140,6 +150,8 @@ class IsaacRigBridge:
         self.state.q = q_new
         tip = self.tool()[:3, 3]
         self.state.force = spring_force(tip, self._pipe, STIFFNESS, self.bumps)
+        if self.state.force > 0:
+            self.state.force += GUST_GAIN * self.weather()["gust_n"]
         return converged
 
     def sim_time(self) -> float:
@@ -336,6 +348,22 @@ class IsaacRigBridge:
 
     def set_shot(self, shot: int) -> None:
         self.state.shot = int(shot)
+
+    def weather(self) -> dict:
+        return self.storm.at(self.state.t)
+
+    def storm_level(self, level: float) -> None:
+        self.set_weather(float(level))
+
+    def set_weather(self, level="storm", wind_dir=None, gust=None):
+        lv = self.storm.set_weather(level, self.state.t, wind_dir, gust)
+        coef = getattr(self.world, "abrasion_coef", None)
+        if coef is not None:
+            self.base_coef = coef.clone() if self.base_coef is None else self.base_coef
+            coef[:] = self.base_coef * wet_factor(lv * self.storm.rain_scale)
+
+    def wipe_lens(self) -> None:
+        self.lens.wipe()
 
     def person_at(self, distance: Optional[float]) -> None:
         if distance is None:

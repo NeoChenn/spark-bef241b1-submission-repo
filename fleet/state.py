@@ -9,6 +9,7 @@ import numpy as np
 from fleet.contract import JobStatus
 from fleet.coordinator import FAILED_RADIUS_M, GAS_ZONE_M, PERSON_RADIUS_M, Coordinator, RobotRT
 from policy.fleet.api import SCHEMA, corners, deck_at
+from policy.fleet.hazards import weather_state
 
 STATE_V1 = {"IDLE": "IDLE", "MOVING": "TRANSIT", "WAITING_SEGMENT": "WAIT", "WORKING": "WORK",
             "PAUSED_PERSON": "PAUSED", "DOCKING": "TO_DOCK", "CHARGING": "CHARGING", "DOCK_QUEUE": "DOCK_QUEUE",
@@ -73,8 +74,16 @@ def robot_json(c: Coordinator, rt: RobotRT) -> dict:
             "deck": {"A": "air", "R": "subsea"}.get(r.kind.value) or deck_at(float(r.position[2])),
             "battery": {"soc": round(r.battery, 4), "wh": round(r.battery * p.capacity_wh, 2),
                         "used_wh": round(rt.used_wh, 2), "charged_wh": round(rt.charged_wh, 2)},
-            "path": corners(pts), "eta_s": round(max(eta, 0.0), 1), "dist_m": round(rt.dist_m, 1),
+            "path": corners(pts), "prev_path": None, "reroute_t": None,
+            "eta_s": round(max(eta, 0.0), 1), "dist_m": round(rt.dist_m, 1),
             "capabilities": sorted(r.capabilities)}
+
+
+def hazards_json(c: Coordinator) -> dict:
+    hz, rm = getattr(c.planner, "hazards", None), getattr(c.planner, "rm", None)
+    if hz is not None and rm is not None:
+        return hz.to_json(rm)
+    return {"obstacles": [], "closures": [], "weather": weather_state(), "closed": [], "slow": []}
 
 
 def task_json(c: Coordinator, jid: str) -> dict:
@@ -166,7 +175,8 @@ def metrics(c: Coordinator) -> dict:
             "preemptions": c.preemptions, "robot_failures": c.failures, "replans": c.replans,
             "reservation_wait_s": round(c.wait_s, 1), "corridor_conflicts": sum(v - 1 for v in seg.values() if v > 1),
             "late_tasks": late, "approvals_pending": len(c.approvals), "crew_jobs": len(c.crew),
-            "used_gemini": c.used_gemini}
+            "used_gemini": c.used_gemini, "reroutes": 0, "reroute_extra_m": 0.0, "reroute_extra_s": 0.0,
+            "blocked_tasks": 0, "weather": hazards_json(c)["weather"]["level"]}
 
 
 def approvals_json(c: Coordinator) -> list[dict]:
@@ -187,7 +197,7 @@ class Snapshotter:
         return {"schema": SCHEMA, "t": round(c.t, 2),
                 "robots": [robot_json(c, rt) for rt in c.rt.values()],
                 "tasks": [task_json(c, j) for j in c.jobs],
-                "zones": zones_json(c), "alarms": alarms_json(c),
+                "zones": zones_json(c), "alarms": alarms_json(c), "hazards": hazards_json(c),
                 "events": [event_v1(e) for e in new], "recent_events": recent,
                 "assignments": [{"robot": e["robot"], "task": e["job"], "why": f"cost {e['detail'].get('cost_s')} s, "
                                  f"route {e['detail'].get('route_m')} m"} for e in new if e["event"] == "assigned"],

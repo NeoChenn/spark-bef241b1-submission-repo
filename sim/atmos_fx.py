@@ -14,7 +14,6 @@ ROOT = "/World/Atmos"
 FLARE_TIP = (-59.5, 8.0, 71.0)
 EXHAUST = (32.0, 22.0, 42.5, 10.0)
 VENTS = ((-16.0, 15.0, 41.6), (-0.5, -13.0, 37.6), (-2.0, 0.0, 39.2), (-7.0, 22.0, 31.6))
-FOG_COLOR = {"night": (0.05, 0.075, 0.085), "storm": (0.2, 0.22, 0.24), "golden": (0.8, 0.6, 0.42)}
 
 
 def _material(stage, name, diffuse, emissive=(0.0, 0.0, 0.0), opacity=1.0, texture=None, primvar_emissive=False,
@@ -39,6 +38,7 @@ def _material(stage, name, diffuse, emissive=(0.0, 0.0, 0.0), opacity=1.0, textu
         tex.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(st.CreateOutput("result", Sdf.ValueTypeNames.Float2))
         tex.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("raw")
         op.ConnectToSource(tex.CreateOutput("a", Sdf.ValueTypeNames.Float))
+        sh.CreateInput("opacityThreshold", Sdf.ValueTypeNames.Float).Set(0.01)
     if primvar_emissive:
         rd = UsdShade.Shader.Define(stage, f"{path}/glow")
         rd.CreateIdAttr("UsdPrimvarReader_float3")
@@ -46,6 +46,11 @@ def _material(stage, name, diffuse, emissive=(0.0, 0.0, 0.0), opacity=1.0, textu
         em.ConnectToSource(rd.CreateOutput("result", Sdf.ValueTypeNames.Float3))
     mat.CreateSurfaceOutput().ConnectToSource(sh.CreateOutput("surface", Sdf.ValueTypeNames.Token))
     return mat
+
+
+def _assign(prim, attrs):
+    for k, v in attrs.items():
+        prim.GetAttribute(k).Set(v)
 
 
 def _bind(prim, mat):
@@ -90,8 +95,8 @@ def leg_sources(stage):
         leg = legs[rng.integers(0, len(legs), k)]
         a = rng.uniform(0, math.tau, k)
         d = np.column_stack([np.cos(a), np.sin(a)])
-        pos = np.column_stack([leg[:, :2] + d * (leg[:, 2:3] + 0.3), rng.uniform(0.0, 1.0, k)])
-        up = rng.uniform(3.0, 11.0, k)
+        pos = np.column_stack([leg[:, :2] + d * (leg[:, 2:3] + 0.3), rng.uniform(2.0, 4.5, k)])
+        up = rng.uniform(4.0, 14.0, k)
         vel = np.column_stack([d * rng.uniform(1.0, 4.0, (k, 1)), up])
         return pos, vel
 
@@ -102,40 +107,15 @@ def flare_source(rng, k):
     return np.asarray(FLARE_TIP) + rng.normal(0, 1.0, (k, 3)) + [0.0, 0.0, 3.0]
 
 
-class Atmosphere:
-    def __init__(self, stage, preset: str, tier: str = "live", weather=None, cam_path: str | None = None, flow=None):
-        self.stage, self.preset, self.tier, self.q = stage, preset, tier, atmos.TIERS[tier]
-        self.cam_path, self.t = cam_path, None
-        self.w = atmos.weather_state(weather or atmos.DEFAULT_KIND.get(preset, "calm"))
-        UsdGeom.Scope.Define(stage, ROOT)
-        UsdGeom.Scope.Define(stage, f"{ROOT}/Looks")
-        self.ember_mat = _material(stage, "ember", (0.0, 0.0, 0.0), primvar_emissive=True)
-        self.rain_mat = _material(stage, "rain", (0.6, 0.65, 0.7), (0.05, 0.06, 0.07), opacity=0.5, roughness=0.1)
-        self.spray_mat = _material(stage, "spray", (0.85, 0.9, 0.92), (0.02, 0.025, 0.03), opacity=0.7, roughness=0.3)
-        self.fog = FOG_COLOR[preset]
-        self.embers = atmos.Particles(self.q["embers"], (np.full(3, -1e4), np.full(3, 1e4)), velocity=(0, 0, 9.0),
-                                      spread=3.0, gravity=-1.5, drag=0.35, life=(1.2, 3.5), source=flare_source, seed=1)
-        self.ember_curves = _curves(stage, "embers", 0.07, self.ember_mat)
-        self.rain = atmos.Particles(self.q["rain"], (np.array([-30, -30, -5.0]), np.array([30, 30, 30.0])),
-                                    velocity=(0, 0, -11.0), spread=0.6, seed=2)
-        self.rain_curves = _curves(stage, "rain", 0.012, self.rain_mat)
-        self.spray = atmos.Particles(self.q["spray"], (np.array([-200, -200, -0.5]), np.array([200, 200, 40.0])),
-                                     gravity=-9.8, drag=0.25, life=(0.8, 2.4), source=leg_sources(stage), seed=3)
-        self.spray_pts = UsdGeom.Points.Define(stage, f"{ROOT}/spray")
-        self.spray_pts.CreatePointsAttr()
-        self.spray_pts.CreateWidthsAttr()
-        _bind(self.spray_pts, self.spray_mat)
-        self.cards = self._build_cards(self.q["fog_cards"])
-        self._build_exhaust()
-        self.flow = self._build_flow() if (flow if flow is not None else self.q["flow"]) else None
-        self.wet = self._collect_roughness()
-        self.set_weather(self.w)
-
-    def _build_cards(self, n):
-        cards = []
-        for i in range(n):
-            m = UsdGeom.Mesh.Define(self.stage, f"{ROOT}/FogCards/card_{i:02d}")
-            m.CreatePointsAttr([(-0.5, 0, 0), (0.5, 0, 0), (0.5, 0, 1), (-0.5, 0, 1)])
+class Puffs:
+    def __init__(self, stage, name, particles, colour, size, emissive=0.0, alpha=0.6, levels=4):
+        self.p, self.size = particles, size
+        root = f"{ROOT}/{name}"
+        self.inst = UsdGeom.PointInstancer.Define(stage, root)
+        protos = []
+        for k in range(levels):
+            m = UsdGeom.Mesh.Define(stage, f"{root}/proto_{k}")
+            m.CreatePointsAttr([(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5)])
             m.CreateFaceVertexCountsAttr([4])
             m.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
             m.CreateNormalsAttr([(0, -1, 0)] * 4)
@@ -143,13 +123,74 @@ class Atmosphere:
             m.CreateSubdivisionSchemeAttr("none")
             UsdGeom.PrimvarsAPI(m).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex).Set(
                 [(0, 0), (1, 0), (1, 1), (0, 1)])
-            x = UsdGeom.Xformable(m)
-            mat = _material(self.stage, f"fog_{i:02d}", self.fog, tuple(c * 0.15 for c in self.fog), texture=_texture(),
+            mat = _material(stage, f"{name}_{k}", colour, tuple(c * emissive for c in colour), texture=_texture(),
                             roughness=1.0)
-            fade = UsdShade.Shader.Get(self.stage, f"{ROOT}/Looks/fog_{i:02d}/tex").CreateInput("scale", Sdf.ValueTypeNames.Float4)
-            cards.append((x.AddTranslateOp(), x.AddRotateZOp(), x.AddScaleOp(), fade))
+            UsdShade.Shader.Get(stage, f"{ROOT}/Looks/{name}_{k}/tex").CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(
+                Gf.Vec4f(1, 1, 1, alpha * (k + 1) / levels))
             _bind(m, mat)
-        return cards
+            protos.append(m.GetPath())
+        self.inst.CreatePrototypesRel().SetTargets(protos)
+        self.inst.CreatePositionsAttr(Vt.Vec3fArray())
+        self.inst.CreateProtoIndicesAttr(Vt.IntArray())
+        self.inst.CreateScalesAttr(Vt.Vec3fArray())
+        self.inst.CreateOrientationsAttr(Vt.QuathArray())
+        self.levels = levels
+
+    def update(self, dt, wind, eye):
+        p = self.p
+        p.step(dt, wind)
+        u = np.clip(p.age / np.maximum(p.ttl, 1e-6), 0, 1)
+        s = self.size[0] + (self.size[1] - self.size[0]) * np.sqrt(u)
+        self.inst.GetPositionsAttr().Set(Vt.Vec3fArray.FromNumpy(p.pos.astype(np.float32)))
+        self.inst.GetScalesAttr().Set(Vt.Vec3fArray.FromNumpy(np.repeat(s[:, None], 3, 1).astype(np.float32)))
+        self.inst.GetProtoIndicesAttr().Set(Vt.IntArray.FromNumpy(atmos.fade_bucket(p.age, p.ttl, self.levels).astype(np.int32)))
+        if eye is not None:
+            q = atmos.billboard_quats(p.pos, eye)
+            self.inst.GetOrientationsAttr().Set(Vt.QuathArray([Gf.Quath(*map(float, r)) for r in q]))
+
+
+class Atmosphere:
+    def __init__(self, stage, preset: str, tier: str = "live", weather=None, cam_path: str | None = None, flow=None,
+                 flow_kw=None):
+        self.stage, self.preset, self.tier, self.q = stage, preset, tier, atmos.TIERS[tier]
+        self.cam_path, self.t, self.flow_kw = cam_path, None, flow_kw or {}
+        self.w = atmos.weather_state(weather or atmos.DEFAULT_KIND.get(preset, "calm"))
+        UsdGeom.Scope.Define(stage, ROOT)
+        UsdGeom.Scope.Define(stage, f"{ROOT}/Looks")
+        self.ember_mat = _material(stage, "ember", (0.0, 0.0, 0.0), primvar_emissive=True)
+        self.rain_mat = _material(stage, "rain", (0.5, 0.52, 0.54), (0.025, 0.027, 0.03), opacity=0.5, roughness=0.1)
+        self.spray_mat = _material(stage, "spray", (0.85, 0.9, 0.92), (0.02, 0.025, 0.03), roughness=0.3)
+        self.embers = atmos.Particles(self.q["embers"], (np.full(3, -1e4), np.full(3, 1e4)), velocity=(0, 0, 9.0),
+                                      spread=3.0, gravity=-1.5, drag=0.35, life=(1.2, 3.5), source=flare_source, seed=1)
+        self.ember_curves = _curves(stage, "embers", 0.07, self.ember_mat)
+        self.rain = atmos.Particles(self.q["rain"], (np.array([-22, -22, -5.0]), np.array([22, 22, 25.0])),
+                                    velocity=(0, 0, -11.0), spread=0.6, seed=2)
+        self.rain_curves = _curves(stage, "rain", 0.012, self.rain_mat)
+        self.spray = atmos.Particles(self.q["spray"], (np.array([-200, -200, -0.5]), np.array([200, 200, 40.0])),
+                                     gravity=-9.8, drag=0.25, life=(0.8, 2.4), source=leg_sources(stage), seed=3)
+        self.spray_curves = _curves(stage, "spray", 0.14, self.spray_mat)
+        self._build_exhaust()
+        self.flow = self._build_flow() if (flow if flow is not None else self.q["flow"]) else None
+        self.puffs = [] if self.flow is not None else self._build_puffs()
+        if self.flow is not None:
+            for i in range(5):
+                blob = stage.GetPrimAtPath(f"/World/Cinematic/Flare/flame_{i}")
+                if blob:
+                    UsdGeom.Imageable(blob).MakeInvisible()
+        self.wet = self._collect_roughness()
+        self.set_weather(self.w)
+
+    def _build_puffs(self):
+        tip = np.asarray(FLARE_TIP) + [-1.5, 0.0, 11.0]
+        vents = np.array(list(VENTS) + [(EXHAUST[0], EXHAUST[1], EXHAUST[2] + EXHAUST[3] + 0.3)])
+        far = (np.full(3, -1e4), np.full(3, 1e4))
+        smoke = atmos.Particles(self.q["smoke"], far, velocity=(0, 0, 3.0), spread=0.8, gravity=0.6, drag=0.18,
+                                life=(6.0, 12.0), seed=5, source=lambda r, k: tip + r.normal(0, 1.2, (k, 3)))
+        steam = atmos.Particles(self.q["steam"], far, velocity=(0, 0, 2.5), spread=0.4, gravity=0.4, drag=0.3,
+                                life=(2.5, 6.0), seed=6,
+                                source=lambda r, k: vents[r.integers(0, len(vents), k)] + r.normal(0, 0.25, (k, 3)))
+        return [Puffs(self.stage, "smoke", smoke, (0.05, 0.045, 0.04), (3.0, 22.0), alpha=0.7),
+                Puffs(self.stage, "steam", steam, (0.75, 0.77, 0.8), (0.8, 7.0), emissive=0.02, alpha=0.5)]
 
     def _build_exhaust(self):
         x, y, z, h = EXHAUST
@@ -160,19 +201,32 @@ class Atmosphere:
         _bind(c, _material(self.stage, "stack", (0.08, 0.08, 0.085), roughness=0.5))
 
     def _build_flow(self):
+        import glob
+
         import omni.kit.app
 
-        if not omni.kit.app.get_app().get_extension_manager().set_extension_enabled_immediate("omni.flowusd", True):
+        found = glob.glob("/isaac-sim/extscache/omni.flowusd-*/data/presets/Fire/Fire.usda")
+        if not found or not omni.kit.app.get_app().get_extension_manager().set_extension_enabled_immediate("omni.flowusd", True):
             return None
         vents = list(VENTS) + [(EXHAUST[0], EXHAUST[1], EXHAUST[2] + EXHAUST[3] + 0.5)]
-        self.flow_layer = Sdf.Layer.CreateAnonymous("atmos_flow.usda")
-        self.flow_layer.ImportFromString(atmos.flow_usda(FLARE_TIP, vents, self.w["wind"], self.q["flow_cell"]))
-        prim = self.stage.DefinePrim(f"{ROOT}/Flow", "Xform")
-        prim.GetReferences().AddReference(self.flow_layer.identifier)
+        over = atmos.flow_overrides(FLARE_TIP, vents, self.w["wind"], self.q["flow_cell"], **self.flow_kw)
+        root = self.stage.DefinePrim(f"{ROOT}/Flow", "Xform")
+        root.GetReferences().AddReference(found[0])
+        for rel, values in over.items():
+            if rel == "vents":
+                for i, attrs in enumerate(values):
+                    _assign(self.stage.DefinePrim(f"{ROOT}/Flow/vent_{i}", "FlowEmitterSphere"), attrs)
+            else:
+                _assign(self.stage.GetPrimAtPath(f"{ROOT}/Flow/{rel}"), values)
+        for i, centre in enumerate((FLARE_TIP, np.mean(vents, 0))):
+            _assign(self.stage.DefinePrim(f"{ROOT}/Flow/wind_{i}", "FlowEmitterBox"), {
+                "allocationScale": 0.0, "coupleRateVelocity": 0.6, "coupleRateTemperature": 0.0, "coupleRateFuel": 0.0,
+                "coupleRateSmoke": 0.0, "fuel": 0.0, "temperature": 0.0, "velocityIsWorldSpace": True,
+                "position": Gf.Vec3f(*(np.asarray(centre) + [0.0, 0.0, 12.0])), "halfSize": Gf.Vec3f(24.0, 24.0, 18.0)})
         self._settings({"/rtx/flow/enabled": True, "/rtx/flow/pathTracingEnabled": True,
                         "/rtx/flow/rayTracedReflectionsEnabled": True, "/rtx/flow/rayTracedTranslucencyEnabled": True,
                         "/rtx/flow/rayTracedShadowsEnabled": True})
-        return prim
+        return root
 
     def _collect_roughness(self):
         out = []
@@ -205,9 +259,7 @@ class Atmosphere:
         if self.flow is not None:
             wind = Gf.Vec3f(self.w["wind"][0], self.w["wind"][1], 0.0)
             for i in (0, 1):
-                a = self.stage.GetPrimAtPath(f"{ROOT}/Flow/wind_{i}").GetAttribute("velocity")
-                if a:
-                    a.Set(wind)
+                self.stage.GetPrimAtPath(f"{ROOT}/Flow/wind_{i}").GetAttribute("velocity").Set(wind)
         return self.w
 
     def _eye(self):
@@ -228,25 +280,16 @@ class Atmosphere:
         colors = np.column_stack([60 * heat + 4, 22 * heat ** 2 + 0.6, 4 * heat ** 4]) * 2
         _set_curves(self.ember_curves, atmos.streak_points(self.embers.pos, self.embers.vel, 0.03), colors)
         if self.w["rain"] > 0 and eye is not None:
-            self.rain.recentre(eye + fwd * 22.0)
+            self.rain.recentre(eye + fwd * 16.0)
             self.rain.step(dt, (wind[0] * 0.6, wind[1] * 0.6))
             k = int(len(self.rain.pos) * self.w["rain"])
             vel = self.rain.vel[:k] + [wind[0] * 0.6, wind[1] * 0.6, 0.0]
             _set_curves(self.rain_curves, atmos.streak_points(self.rain.pos[:k], vel, 0.045))
+        for puff in self.puffs:
+            puff.update(dt, wind, eye)
         self.spray.step(dt, wind)
         k = int(len(self.spray.pos) * min(1.0, 0.15 + self.w["spray"]))
-        self.spray_pts.GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(self.spray.pos[:k].astype(np.float32)))
-        size = 0.12 + 0.5 * np.clip(self.spray.age[:k] / 2.0, 0, 1)
-        self.spray_pts.GetWidthsAttr().Set(Vt.FloatArray.FromNumpy(size.astype(np.float32)))
-        layout = atmos.fog_cards(len(self.cards), 320.0, (1.0, 10.0), seed=7, t=t, wind=wind)
-        for (tr, rz, sc, fade), c, s in zip(self.cards, layout["centre"], layout["size"]):
-            d = float(np.hypot(*(c[:2] - eye[:2]))) if eye is not None else 1e3
-            a = float(np.clip((d - 0.25 * s) / (0.5 * s), 0, 1)) * (0.35 + 0.65 * self.w["fog"])
-            fade.Set(Gf.Vec4f(1, 1, 1, a))
-            tr.Set(Gf.Vec3d(*c))
-            yaw = math.degrees(math.atan2(eye[1] - c[1], eye[0] - c[0])) - 90 if eye is not None else 0.0
-            rz.Set(yaw)
-            sc.Set(Gf.Vec3f(s, 1.0, s * 0.12 * (1 + self.w["fog"])))
+        _set_curves(self.spray_curves, atmos.streak_points(self.spray.pos[:k], self.spray.vel[:k], 0.09))
         tip = self.stage.GetPrimAtPath("/World/Cinematic/Lamps/lamp_400/light")
         if tip:
             base = tip.GetAttribute("spark:baseIntensity")
@@ -278,6 +321,8 @@ class Atmosphere:
         if lens:
             if not hasattr(self, "lens"):
                 self.lens, self.lens_t = LensDrops(seed=4), t
+                for _ in range(40):
+                    self.lens.step(0.1, self.w["rain"])
             self.lens.step(max(0.0, t - self.lens_t), self.w["rain"])
             self.lens_t = t
             rgb = self.lens.apply(rgb)

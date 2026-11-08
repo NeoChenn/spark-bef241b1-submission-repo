@@ -6,9 +6,11 @@ import carb.settings
 import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
+import greebles
 import look
 import ocean
 import hero_mat
+import ocean_fx
 import photoreal
 import structure
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
@@ -462,12 +464,40 @@ def relight(stage) -> None:
         _relight(stage.GetPrimAtPath(f"{lamps}/lamp_{index:03d}"), look.fixture("bulb", kelvin, intensity))
 
 
+def add_work_light(stage) -> None:
+    meta = OUTPUT / "rig_merged_meta.json"
+    if not stage.GetPrimAtPath("/World/Pipes/damage_patch") or not meta.exists():
+        return
+    import json
+
+    k = look.WORK_LIGHT
+    pos, aim = look.work_light(json.loads(meta.read_text())["world"]["damage"]["position_m"])
+    root = UsdGeom.Xform.Define(stage, "/World/Cinematic/Lamps/work_light")
+    w, x, y, z = aim_from_down(aim)
+    m = Gf.Matrix4d().SetRotate(Gf.Quatd(float(w), float(x), float(y), float(z)))
+    m.SetTranslateOnly(Gf.Vec3d(*pos))
+    root.MakeMatrixXform().Set(m)
+    light = UsdLux.SphereLight.Define(stage, "/World/Cinematic/Lamps/work_light/light")
+    light.CreateRadiusAttr().Set(k["radius"])
+    light.CreateIntensityAttr().Set(k["intensity"])
+    light.CreateColorAttr().Set(Gf.Vec3f(*kelvin_rgb(k["kelvin"])))
+    shaping = UsdLux.ShapingAPI.Apply(light.GetPrim())
+    shaping.CreateShapingConeAngleAttr().Set(k["cone"])
+    shaping.CreateShapingConeSoftnessAttr().Set(k["softness"])
+    base = light.GetPrim().GetAttribute("spark:baseIntensity")
+    if base.IsValid():
+        base.Set(k["intensity"])
+
+
 def apply_preset(stage, name: str) -> None:
     preset = PRESETS[name]
     photoreal.apply(stage, name)
+    greebles.apply(stage)
     structure.apply(stage, name)
     hero_mat.apply(stage, name)
+    ocean_fx.apply(stage, name, preset["wave_height"])
     relight(stage)
+    add_work_light(stage)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))
     dome.GetIntensityAttr().Set(preset["dome"])
@@ -565,3 +595,4 @@ def animate_ocean(stage, rest, distance, time: float, height: float) -> None:
     mesh.GetNormalsAttr().Set(Vt.Vec3fArray.FromNumpy(normals.astype(np.float32)))
     scroll = UsdShade.Shader.Get(stage, "/World/Looks/cinematic_sea/scroll")
     scroll.GetInput("translation").Set(Gf.Vec2f(time * 0.035, time * 0.02))
+    ocean_fx.animate(stage, time)
