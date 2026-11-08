@@ -12,8 +12,13 @@ import numpy as np
 
 ROOT = Path(sys.argv[1] if len(sys.argv) > 1 else "runs/storm")
 RUNS = [("v2 calm", "v2_s0"), ("v2 storm 0.5", "v2_s0.5"), ("v2 storm 1.0", "v2_s1.0"),
-        ("v3 calm", "v3_s0"), ("v3 storm 0.5", "v3_s0.5"), ("v3 storm 1.0", "v3_s1.0")]
-COLORS = {"v2": "#2a78d6", "v3": "#eb6834"}
+        ("v2+gate storm 1.0", "v2gate_s1.0"), ("v3 calm", "v3_s0"), ("v3 storm 0.5", "v3_s0.5"),
+        ("v3 storm 1.0", "v3_s1.0"), ("v3+gate storm 1.0", "v3gate_s1.0")]
+COLORS = {"v2": "#2a78d6", "v3": "#eb6834", "gate": "#1baf7a"}
+
+
+def color(name):
+    return COLORS["gate"] if "gate" in name else COLORS[name[:2]]
 INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e6e5e1"
 
 
@@ -36,10 +41,10 @@ def main():
 
     plt.rcParams.update({"font.size": 10, "axes.edgecolor": GRID, "axes.labelcolor": MUTED,
                          "xtick.color": MUTED, "ytick.color": MUTED, "text.color": INK})
-    fig, axes = plt.subplots(1, 3, figsize=(13, 4.2), facecolor="#fcfcfb")
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.4), facecolor="#fcfcfb")
     names = [n for n, *_ in rows]
     x = np.arange(len(names))
-    col = [COLORS[n[:2]] for n in names]
+    col = [color(n) for n in names]
     for ax, key, label, scale, limit in (
             (axes[0], "success_rate", "success (%)", 100, None),
             (axes[1], "p95_episode_max_force_N", "p95 episode max force (N)", 1, 40.0),
@@ -68,7 +73,7 @@ def main():
         if ep is None or name.endswith("0.5"):
             continue
         f = np.sort(np.asarray(ep["max_force"]))
-        ax.plot(f, np.arange(1, len(f) + 1) / len(f), color=COLORS[name[:2]], lw=2,
+        ax.plot(f, np.arange(1, len(f) + 1) / len(f), color=color(name), lw=2,
                 ls="-" if "storm" in name else ":", label=name)
     ax.axvline(40, color=MUTED, ls="--", lw=1)
     ax.set_xlabel("episode max contact force (N)")
