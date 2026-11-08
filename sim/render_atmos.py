@@ -26,6 +26,7 @@ ap.add_argument("--fps", type=int, default=24)
 ap.add_argument("--fps-test", type=float, default=0.0)
 ap.add_argument("--set", action="append", default=[])
 ap.add_argument("--renderer", default="")
+ap.add_argument("--flow-preset", action="store_true")
 args = ap.parse_args()
 
 import atmos
@@ -88,6 +89,19 @@ if args.tier != "none":
     if sched:
         atm.set_weather(sched[0][1], args.wind_dir, args.gust)
     print(f"ATMOS tier={args.tier} weather={atm.w}", flush=True)
+if args.flow_preset:
+    import glob
+
+    import omni.kit.app
+
+    omni.kit.app.get_app().get_extension_manager().set_extension_enabled_immediate("omni.flowusd", True)
+    fire = UsdGeom.Xform.Define(stage, "/World/FirePreset")
+    fire.AddTranslateOp().Set(Gf.Vec3d(-59.5, 8.0, 71.0))
+    fire.AddRotateXOp().Set(90.0)
+    fire.AddScaleOp().Set(Gf.Vec3f(0.3, 0.3, 0.3))
+    fire.GetPrim().GetReferences().AddReference(glob.glob("/isaac-sim/extscache/omni.flowusd-*/data/presets/Fire/Fire.usda")[0])
+    for k in ("enabled", "pathTracingEnabled", "rayTracedReflectionsEnabled", "rayTracedTranslucencyEnabled"):
+        settings.set(f"/rtx/flow/{k}", True)
 for item in args.set:
     k, v = parse_setting(item)
     settings.set(k, v)

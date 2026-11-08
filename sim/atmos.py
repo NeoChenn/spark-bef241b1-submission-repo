@@ -14,17 +14,17 @@ KINDS = {
 }
 DEFAULT_KIND = {"night": "calm", "golden": "calm", "storm": "storm"}
 TIERS = {
-    "live": {"width": 1280, "height": 720, "rain": 1500, "embers": 160, "spray": 300, "fog_cards": 10, "flow": True,
+    "live": {"width": 1280, "height": 720, "rain": 1500, "embers": 160, "spray": 300, "smoke": 48, "steam": 40, "fog_cards": 10, "flow": True,
              "flow_cell": 0.35, "slices": 96, "pixel_ratio": 8, "accum": 32, "renderer": "RealTimePathTracing",
              "subframes": 1, "spp": 1},
-    "offline": {"width": 1920, "height": 1080, "rain": 6000, "embers": 600, "spray": 1200, "fog_cards": 18, "flow": True,
+    "offline": {"width": 1920, "height": 1080, "rain": 6000, "embers": 600, "spray": 1200, "smoke": 140, "steam": 120, "fog_cards": 18, "flow": True,
                 "flow_cell": 0.18, "slices": 256, "pixel_ratio": 4, "accum": 128, "renderer": "RealTimePathTracing",
                 "subframes": 16, "spp": 2},
 }
 MEDIA = {
-    "night": {"density": 0.4, "albedo": (0.9, 0.86, 0.8), "transmit": (0.55, 0.62, 0.66), "height": 120.0, "g": 0.55},
-    "storm": {"density": 0.7, "albedo": (0.82, 0.86, 0.9), "transmit": (0.5, 0.55, 0.6), "height": 160.0, "g": 0.35},
-    "golden": {"density": 0.3, "albedo": (0.95, 0.82, 0.66), "transmit": (0.7, 0.6, 0.5), "height": 140.0, "g": 0.6},
+    "night": {"vis": 240.0, "albedo": (0.9, 0.86, 0.8), "transmit": (0.5, 0.58, 0.62), "height": 45.0, "g": 0.55},
+    "storm": {"vis": 170.0, "albedo": (0.82, 0.86, 0.9), "transmit": (0.5, 0.55, 0.6), "height": 70.0, "g": 0.35},
+    "golden": {"vis": 420.0, "albedo": (0.95, 0.82, 0.66), "transmit": (0.62, 0.55, 0.48), "height": 60.0, "g": 0.6},
 }
 
 
@@ -63,10 +63,10 @@ def volumetric_settings(preset: str, tier: str, weather: dict) -> dict:
     return {
         "/rtx/raytracing/globalVolumetricEffects/enabled": True,
         "/rtx/raytracing/fractionalCutoutOpacity": True,
-        "/rtx/raytracing/inscattering/densityMult": m["density"] * (0.5 + 1.5 * weather["fog"]),
+        "/rtx/raytracing/inscattering/densityMult": 1.0,
         "/rtx/raytracing/inscattering/singleScatteringAlbedo": list(m["albedo"]),
         "/rtx/raytracing/inscattering/transmittanceColor": list(m["transmit"]),
-        "/rtx/raytracing/inscattering/transmittanceMeasurementDistance": 900.0 / (0.4 + weather["fog"]),
+        "/rtx/raytracing/inscattering/transmittanceMeasurementDistance": m["vis"] * 0.35 / max(weather["fog"], 0.1),
         "/rtx/raytracing/inscattering/atmosphereHeight": m["height"],
         "/rtx/raytracing/inscattering/anisotropyFactor": m["g"],
         "/rtx/raytracing/inscattering/depthSlices": q["slices"],
@@ -296,3 +296,17 @@ def flow_usda(flare, vents, wind, cell: float) -> str:
     body += _layer(0, cell, *FIRE_MAP, True, 0.25, 4.0) + _layer(1, cell, *STEAM_MAP, False, 1.2, 1.5)
     body = re.sub(r"(\S) \}$", "\\1\n}", body, flags=re.M)
     return f'#usda 1.0\n(\n    defaultPrim = "Flow"\n    metersPerUnit = 1\n    upAxis = "Z"\n)\ndef Xform "Flow"\n{{\n{body}}}\n'
+
+
+def billboard_quats(pos, eye) -> np.ndarray:
+    d = np.asarray(eye, float) - np.asarray(pos, float)
+    yaw = np.arctan2(d[:, 1], d[:, 0]) + np.pi / 2
+    pitch = np.arctan2(d[:, 2], np.hypot(d[:, 0], d[:, 1]))
+    cy, sy, cp, sp = np.cos(yaw / 2), np.sin(yaw / 2), np.cos(-pitch / 2), np.sin(-pitch / 2)
+    return np.column_stack([cy * cp, cy * sp, sy * sp, sy * cp])
+
+
+def fade_bucket(age, ttl, n: int) -> np.ndarray:
+    u = np.clip(np.asarray(age) / np.maximum(np.asarray(ttl), 1e-6), 0, 1)
+    level = np.minimum(np.minimum(u / 0.15, 1.0), (1 - u) / 0.5)
+    return np.clip((level * n).astype(int), 0, n - 1)

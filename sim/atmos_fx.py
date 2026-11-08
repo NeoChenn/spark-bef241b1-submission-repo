@@ -102,6 +102,44 @@ def flare_source(rng, k):
     return np.asarray(FLARE_TIP) + rng.normal(0, 1.0, (k, 3)) + [0.0, 0.0, 3.0]
 
 
+class Puffs:
+    def __init__(self, stage, name, particles, colour, size, emissive=0.0, alpha=0.6, levels=4):
+        self.p, self.size = particles, size
+        root = f"{ROOT}/{name}"
+        self.inst = UsdGeom.PointInstancer.Define(stage, root)
+        protos = []
+        for k in range(levels):
+            m = UsdGeom.Mesh.Define(stage, f"{root}/proto_{k}")
+            m.CreatePointsAttr([(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5)])
+            m.CreateFaceVertexCountsAttr([4])
+            m.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+            m.CreateNormalsAttr([(0, -1, 0)] * 4)
+            m.CreateDoubleSidedAttr(True)
+            m.CreateSubdivisionSchemeAttr("none")
+            UsdGeom.PrimvarsAPI(m).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex).Set(
+                [(0, 0), (1, 0), (1, 1), (0, 1)])
+            mat = _material(stage, f"{name}_{k}", colour, tuple(c * emissive for c in colour), texture=_texture(),
+                            roughness=1.0)
+            UsdShade.Shader.Get(stage, f"{ROOT}/Looks/{name}_{k}/tex").CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(
+                Gf.Vec4f(1, 1, 1, alpha * (k + 1) / levels))
+            _bind(m, mat)
+            protos.append(m.GetPath())
+        self.inst.CreatePrototypesRel().SetTargets(protos)
+        self.levels = levels
+
+    def update(self, dt, wind, eye):
+        p = self.p
+        p.step(dt, wind)
+        u = np.clip(p.age / np.maximum(p.ttl, 1e-6), 0, 1)
+        s = self.size[0] + (self.size[1] - self.size[0]) * np.sqrt(u)
+        self.inst.GetPositionsAttr().Set(Vt.Vec3fArray.FromNumpy(p.pos.astype(np.float32)))
+        self.inst.GetScalesAttr().Set(Vt.Vec3fArray.FromNumpy(np.repeat(s[:, None], 3, 1).astype(np.float32)))
+        self.inst.GetProtoIndicesAttr().Set(Vt.IntArray.FromNumpy(atmos.fade_bucket(p.age, p.ttl, self.levels).astype(np.int32)))
+        if eye is not None:
+            q = atmos.billboard_quats(p.pos, eye)
+            self.inst.GetOrientationsAttr().Set(Vt.QuathArray([Gf.Quath(*map(float, r)) for r in q]))
+
+
 class Atmosphere:
     def __init__(self, stage, preset: str, tier: str = "live", weather=None, cam_path: str | None = None, flow=None):
         self.stage, self.preset, self.tier, self.q = stage, preset, tier, atmos.TIERS[tier]
@@ -126,6 +164,16 @@ class Atmosphere:
         self.spray_pts.CreateWidthsAttr()
         _bind(self.spray_pts, self.spray_mat)
         self.cards = self._build_cards(self.q["fog_cards"])
+        tip = np.asarray(FLARE_TIP) + [-1.5, 0.0, 11.0]
+        vents = np.array(list(VENTS) + [(EXHAUST[0], EXHAUST[1], EXHAUST[2] + EXHAUST[3] + 0.3)])
+        self.smoke = Puffs(stage, "smoke", atmos.Particles(
+            self.q["smoke"], (np.full(3, -1e4), np.full(3, 1e4)), velocity=(0, 0, 3.0), spread=0.8, gravity=0.6,
+            drag=0.18, life=(6.0, 12.0), seed=5, source=lambda r, k: tip + r.normal(0, 1.2, (k, 3))),
+            (0.05, 0.045, 0.04), (3.0, 22.0), emissive=0.0, alpha=0.7)
+        self.steam = Puffs(stage, "steam", atmos.Particles(
+            self.q["steam"], (np.full(3, -1e4), np.full(3, 1e4)), velocity=(0, 0, 2.5), spread=0.4, gravity=0.4,
+            drag=0.3, life=(2.5, 6.0), seed=6, source=lambda r, k: vents[r.integers(0, len(vents), k)] + r.normal(0, 0.25, (k, 3))),
+            (0.75, 0.77, 0.8), (0.8, 7.0), emissive=0.02, alpha=0.5)
         self._build_exhaust()
         self.flow = self._build_flow() if (flow if flow is not None else self.q["flow"]) else None
         self.wet = self._collect_roughness()
@@ -233,6 +281,8 @@ class Atmosphere:
             k = int(len(self.rain.pos) * self.w["rain"])
             vel = self.rain.vel[:k] + [wind[0] * 0.6, wind[1] * 0.6, 0.0]
             _set_curves(self.rain_curves, atmos.streak_points(self.rain.pos[:k], vel, 0.045))
+        self.smoke.update(dt, wind, eye)
+        self.steam.update(dt, wind, eye)
         self.spray.step(dt, wind)
         k = int(len(self.spray.pos) * min(1.0, 0.15 + self.w["spray"]))
         self.spray_pts.GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(self.spray.pos[:k].astype(np.float32)))
