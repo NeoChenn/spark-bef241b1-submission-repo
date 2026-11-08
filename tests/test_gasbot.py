@@ -236,3 +236,20 @@ def test_patrol_route_stays_clear_of_obstacles():
     for k in range(len(pts)):
         for s in np.linspace(0, 1, 50):
             assert not deck.clamp(pts[k - 1] + s * (pts[k] - pts[k - 1]))[1]
+
+
+def test_stripe_reader_on_an_isaac_render_of_a_deck_flange():
+    from pathlib import Path
+    from PIL import Image
+    from detection.leak import LeakLocalizer
+    from policy.interfaces import CameraModel
+    from policy.leak.geometry import look_at
+    g = next(f for f in deck.flanges() if f.id == "M3")
+    img = np.asarray(Image.open(Path(__file__).parent / "fixtures/isaac_flange_m3.jpg").convert("RGB"))
+    f = 18 / 20.955 * 640
+    cam = CameraModel(np.array([[f, 0, 320], [0, f, 180], [0, 0, 1.0]]), look_at(*g.view_poses(0.42, 0.3)[0]), 640, 360)
+    r = LeakLocalizer().read(img, cam, g)
+    seen = {b.bolt: b for b in r.bolts if b.angle is not None}
+    assert {1, 2, 3, 5, 6, 7} <= set(seen) and min(b.conf for b in seen.values()) >= 0.7
+    assert abs(seen[2].angle) > 0.15 and abs(seen[6].angle) > 0.1
+    assert all(abs(seen[k].angle) < 0.06 for k in (1, 3, 5, 7)) and r.crack_prob < 0.5

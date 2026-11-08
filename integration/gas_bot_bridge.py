@@ -199,7 +199,7 @@ class IsaacGasBot(GasBotMixin, IsaacRigBridge):
         self.at_flange = fid
         self.leak_mode = True
         self.leak_views = g.view_poses(0.42, 0.3)
-        self.inspection.camera.GetFocalLengthAttr().Set(18.0)
+        self.inspection.camera.GetFocalLengthAttr().Set(15.0)
         self.inspection.look(*self.leak_views[0])
         self._sniff(g)
         return True
