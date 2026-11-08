@@ -1158,7 +1158,7 @@ def main(argv=None):
     from PIL import Image
     from pxr import Gf, Usd, UsdGeom
 
-    from integration.kinematics import ARM_STOWED, STANDING, RobotModel, pose, rpy_matrix
+    from integration.kinematics import ARM_START, ARM_STOWED, STANDING, RobotModel, pose, rpy_matrix
     from integration.repair_scene import RobotPoser
 
     settings = carb.settings.get_settings()
@@ -1217,7 +1217,7 @@ def main(argv=None):
         work = tuple(np.asarray(meta["damage"]["position_m"], float))
         print("[fleet] night look", night_look.apply(stage, zone, work, full=True, dome=args.dome, moon=args.moon,
                                                      lamp_gain=args.lamp_gain, rig_gain=args.rig_gain,
-                                                     robot_root="/World/Fleet/unit1", robot_color="graphite",
+                                                     robot_root=None if args.colors else "/World/Fleet/unit1", robot_color="graphite",
                                                      rig_root="/World"), flush=True)
 
     detectors = None
@@ -1404,7 +1404,7 @@ def main(argv=None):
         if rid == "unit1" and act in ("scrub", "spray", "paint"):
             p, appr = brush_target(scrub_t, pipe, brush_log if act == "scrub" else None, (u.x, u.y))
             if act != "scrub":
-                p = p - appr * (0.12 if act == "paint" else 0.2)
+                p = p - appr * (0.06 if act == "paint" else 0.08)
             return p, appr, 0.0
         if rid == "unit2" and act in ("retorque", "inspect"):
             f = nearest_flange(flanges, (u.x, u.y))
@@ -1491,6 +1491,11 @@ def main(argv=None):
                 seed["lift_joint"] = 0.42 if rid == "unit1" else 0.40
                 res = model.solve_ik(base, seed, np.asarray(pt, float), np.asarray(appr, float), iterations=60,
                                      tip=tools[rid])
+                if res.position_error >= 0.03:
+                    alt = dict(model.default_q(), **ARM_START, lift_joint=seed["lift_joint"])
+                    res2 = model.solve_ik(base, alt, np.asarray(pt, float), np.asarray(appr, float), iterations=120,
+                                          tip=tools[rid])
+                    res = res2 if res2.position_error < res.position_error else res
                 if res.position_error < 0.03:
                     seeds[rid] = dict(res.q)
                     target_q.update({j: res.q[j] for j in res.q if "ur3" in j or j == "lift_joint"})
@@ -1512,7 +1517,7 @@ def main(argv=None):
                 act = acts["unit1"]
                 live = scn.masks_at(t) or {}
                 on = bool(live.get("nozzle_on", act in ("spray", "paint"))) and goal is not None and work_w >= 1.0
-                set_spray(cone, cone_op, tip[:3, 3], tip[:3, 0], 0.22 if act == "spray" else 0.14, on)
+                set_spray(cone, cone_op, tip[:3, 3], tip[:3, 0], 0.11 if act == "spray" else 0.09, on)
                 if brush is not None:
                     force = 25.0 if act == "scrub" and goal is not None and work_w >= 1.0 else 0.0
                     o_, a_ = np.asarray(pipe["origin"]), np.asarray(pipe["axis"])
@@ -1736,7 +1741,7 @@ def add_control_room(stage, center, size, yaw: float = 0.0, root: str = "/World/
     UsdGeom.Xform.Define(stage, root)
     wall = _surface(stage, f"{root}/Looks/wall", (0.55, 0.56, 0.55), 0.8)
     floor = _surface(stage, f"{root}/Looks/floor", (0.12, 0.13, 0.14), 0.6)
-    panel = _surface(stage, f"{root}/Looks/panel", (0.9, 0.9, 0.85), 0.5, emissive=(6.0, 6.0, 5.4))
+    panel = _surface(stage, f"{root}/Looks/panel", (0.9, 0.9, 0.85), 0.5, emissive=(40.0, 40.0, 36.0))
     parts = control_room_parts(center, size, yaw)
     for name, c, sz in parts:
         cube = UsdGeom.Cube.Define(stage, f"{root}/{name}")
@@ -1760,10 +1765,15 @@ def add_control_room(stage, center, size, yaw: float = 0.0, root: str = "/World/
         lt = UsdLux.RectLight.Define(stage, f"{root}/light_{k}")
         lt.CreateWidthAttr(min(1.6, 0.3 * w))
         lt.CreateHeightAttr(0.4)
-        lt.CreateIntensityAttr(6000.0)
+        lt.CreateIntensityAttr(1.5e5)
         lt.CreateColorAttr(Gf.Vec3f(1.0, 0.96, 0.9))
         UsdGeom.Xformable(lt).AddTranslateOp().Set(Gf.Vec3d(x, y, cz + h - 0.08))
-    return len(parts) + 4
+    fill = UsdLux.SphereLight.Define(stage, f"{root}/fill")
+    fill.CreateRadiusAttr(0.3)
+    fill.CreateIntensityAttr(3.0e4)
+    fill.CreateColorAttr(Gf.Vec3f(1.0, 0.95, 0.88))
+    UsdGeom.Xformable(fill).AddTranslateOp().Set(Gf.Vec3d(cx, cy, cz + 0.6 * h))
+    return len(parts) + 5
 
 
 def parse_room(spec: str):
