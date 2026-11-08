@@ -17,8 +17,9 @@ STIFFNESS = 2500.0
 NOMINAL_FORCE = 25.0
 SLIDE_SPEED = 0.3
 CONTACT_RADIUS = 0.03
-AXIS_DISTANCE = 0.5
-WORK_LIFT = 0.42
+AXIS_DISTANCE = 0.45
+WORK_LIFT = 0.45
+CONTACT_TOLERANCE = 0.003
 
 
 @dataclass
@@ -122,14 +123,24 @@ class IsaacRigBridge:
 
     def _move_tool(self, target: np.ndarray, approach: np.ndarray) -> bool:
         seed = self.unpark_q if self.parked and self.unpark_q else self.state.q
-        result = self.model.solve_ik(self.state.base, seed, target, approach)
+        result = self.model.solve_ik(self.state.base, seed, target, approach, iterations=120)
+        converged = result.position_error < CONTACT_TOLERANCE and result.axis_error < 0.05
+        if not converged:
+            nominal = self.model.default_q()
+            nominal["lift_joint"] = seed.get("lift_joint", WORK_LIFT)
+            retry = self.model.solve_ik(self.state.base, nominal, target, approach, iterations=120)
+            if retry.position_error < CONTACT_TOLERANCE and retry.axis_error < 0.05:
+                result, converged = retry, True
+        q_new = result.q
+        if not converged:
+            q_new = dict(seed)
         if self.parked:
             self.parked = False
-            self._animate({k: v for k, v in result.q.items() if k in ARM_STOWED})
-        self.state.q = result.q
+            self._animate({k: v for k, v in q_new.items() if k in ARM_STOWED})
+        self.state.q = q_new
         tip = self.tool()[:3, 3]
         self.state.force = spring_force(tip, self._pipe, STIFFNESS, self.bumps)
-        return result.reached
+        return converged
 
     def sim_time(self) -> float:
         return self.state.t
@@ -181,6 +192,7 @@ class IsaacRigBridge:
         for f in range(1, 9):
             s = f / 8
             start = self.model.default_q()
+            start["lift_joint"] = WORK_LIFT
             for name in ARM_STOWED:
                 self.state.q[name] = ARM_STOWED[name] + (start[name] - ARM_STOWED[name]) * s
             self.state.t += 0.25
@@ -247,9 +259,6 @@ class IsaacRigBridge:
                 hit = hit & np.roll(hit, 1, 0) & np.roll(hit, -1, 0) & np.roll(hit, 1, 1) & np.roll(hit, -1, 1)
             self._roi_key, self._roi = key, hit
         return self._roi
-
-    def camera(self) -> CameraModel:
-        return self.last_camera or self._camera_model()
 
     def request_view(self, index: int) -> bool:
         if not 0 <= index < len(self.views):
@@ -322,8 +331,11 @@ class IsaacRigBridge:
         self.bumps.append((theta, z, height, radius))
         rs.add_weld_bead(self.stage, f"{rs.PIPE_SCOPE}/weld_bead_{len(self.bumps)}", self._pipe, theta, z, height, radius)
 
-    def camera(self, shot: int) -> None:
+    def camera(self, shot: Optional[int] = None) -> Optional[CameraModel]:
+        if shot is None:
+            return self.last_camera or self._camera_model()
         self.state.shot = int(shot)
+        return None
 
     def person_at(self, distance: Optional[float]) -> None:
         if distance is None:
