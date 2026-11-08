@@ -71,9 +71,9 @@ body.flyby:not(.spotting) #hint { opacity: 1; }
 
 #labels { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
 .lbl { position: absolute; left: 0; top: 0; width: 0; height: 0; --tone: rgba(255,255,255,.85); transition: transform 120ms linear; }
-.lbl::before { content: ""; position: absolute; left: -0.5px; bottom: 0; width: 1px; height: 16px; background: rgba(255,255,255,.45); }
+.lbl::before { content: ""; position: absolute; left: -0.5px; bottom: 0; width: 1px; height: calc(16px + var(--lift, 0px)); background: rgba(255,255,255,.45); }
 .lbl::after { content: ""; position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: #fff; }
-.lc { position: absolute; left: 0; bottom: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 4px 9px 5px; border-radius: 9px; background: rgba(16,16,20,.72);
+.lc { position: absolute; left: 0; bottom: calc(16px + var(--lift, 0px)); transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 4px 9px 5px; border-radius: 9px; background: rgba(16,16,20,.72);
   box-shadow: 0 6px 16px rgba(0,0,0,.25); white-space: nowrap; font-size: 12px; }
 .lc b { font-weight: 600; }
 .lc span { color: var(--label2); }
