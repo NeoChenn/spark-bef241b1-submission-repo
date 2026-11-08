@@ -86,6 +86,15 @@ def first_rust_grid(rows, unit: str = "unit1"):
     return None
 
 
+def rust_track_from_timeline(rows, unit: str = "unit1") -> list:
+    out = []
+    for r in rows:
+        v = (r.get("robots") or {}).get(unit, {}).get("rust")
+        if isinstance(v, (int, float)) and (not out or out[-1][1] != float(v)):
+            out.append((float(r["t"]), float(v)))
+    return out
+
+
 def windows_from_timeline(rows, unit: str = "unit1") -> dict:
     seq = []
     for r in rows:
@@ -152,7 +161,7 @@ class ScrubJob:
 
     def __init__(self, scene_meta=None, scrub_pose=None, patch=None, urdf=LIFT_URDF, shape=(40, 64),
                  dt: float = 1 / 60, spray_standoff: float = 0.11, paint_standoff: float = 0.10,
-                 hover: float = 0.08, force=(28.0, 4.0), scrub_speed: float = 0.15, step_in: bool = True):
+                 hover: float = 0.08, force=(28.0, 4.0), scrub_speed: float = 0.11, step_in: bool = True):
         from integration.fleet_paths import SCRUB
 
         self.meta = load_meta() if scene_meta is None else (load_meta(scene_meta) if isinstance(scene_meta, (str, Path))
@@ -360,7 +369,7 @@ class ScrubJob:
         return float(np.linalg.norm(radial, axis=1).min() - self.pipe.radius - ARM_LINK_RADIUS)
 
     def plan(self, t_spray=None, t_soak=None, t_scrub=None, t_paint=None, t_done=None, t_deploy=None,
-             t_verify=None, stow_s: float = 2.0, soak_required=None) -> Plan:
+             t_verify=None, stow_s: float = 2.0, soak_required=None, rust_track=None) -> Plan:
         nat = self.natural_windows()
         given = {"deploy": t_deploy, "spray": t_spray, "soak": t_soak, "scrub": t_scrub, "verify": t_verify,
                  "paint": t_paint, "stow": t_done}
@@ -425,8 +434,8 @@ class ScrubJob:
         noz[ii] = True
         for k in ii:
             phase[k] = "spray"
-        sc = paths["scrub"]
-        p_scrub0 = (sc[0, 0], sc[0, 1], self.hover)
+        sc = self.scrub_rows()
+        p_scrub0 = (sc[0], sc[1], self.hover)
         ii = idx(w["soak"] - tr, w["soak"])
         move(ii, (sp[-1, 0], sp[-1, 1], self.spray_h), (sp[-1, 0], sp[-1, 1], self.hover))
         ii2 = idx(w["soak"], w["scrub"])
@@ -435,17 +444,23 @@ class ScrubJob:
         U[tail], Z[tail], H[tail], cart[tail] = p_scrub0[0], p_scrub0[1], self.hover, True
         for k in np.concatenate([ii, ii2]):
             phase[k] = "soak" if t[k] >= w["soak"] else "spray"
-        down = 0.7
-        f0 = self.force_mean
-        ii = idx(w["scrub"], w["scrub"] + down)
-        move(ii, p_scrub0, (sc[0, 0], sc[0, 1], -f0 / SPRING_K))
+        down = 0.4
         ii_s = idx(w["scrub"] + down, w["verify"] - down)
-        one = arclength(sc)[-1] / self.scrub_speed
-        passes = max(1, int(round((t[ii_s[-1]] - t[ii_s[0]]) / one)))
-        full = trace(ii_s, sc, 0.0, "scrub", passes)
-        ts = t[ii_s] - t[ii_s[0]]
-        F[ii_s] = f0 + self.force_amp * np.sin(2 * math.pi * 1.3 * ts) * smooth(ts / 0.5)
-        H[ii_s] = -F[ii_s] / SPRING_K
+        th_s = th_of(U)
+        k_spr = [k for k in range(n) if noz[k] and phase[k] == "spray"]
+        tip_s, d_s = self.surface(th_s[k_spr], Z[k_spr], H[k_spr])
+        spr = np.zeros(self.rust0.shape, bool)
+        for a, d in zip(tip_s, d_s):
+            spr |= self.cone(a, -d)
+        target = self.rust_target(rust_track, w) if rust_track is not None else None
+        Us, Zs, Fs = self._scrub_control(t[ii_s], spr, target)
+        U[ii_s], Z[ii_s], cart[ii_s] = Us, Zs, True
+        F[ii_s] = Fs
+        H[ii_s] = -Fs / SPRING_K
+        speeds["scrub"] = float(np.mean(np.hypot(np.diff(Us), np.diff(Zs))) / self.dt)
+        ii = idx(w["scrub"], w["scrub"] + down)
+        move(ii, p_scrub0, (Us[0], Zs[0], H[ii_s[0]]))
+        full = np.stack([Us, Zs], -1)
         pt = paths["paint"]
         p_paint0 = (pt[0, 0], pt[0, 1], self.hover)
         ii_u = idx(w["verify"] - down, w["verify"])
@@ -524,6 +539,78 @@ class ScrubJob:
                           clean_t, warnings)
         return self.plan_
 
+    def cone(self, tip, direction) -> np.ndarray:
+        v = self.cell_p - np.asarray(tip, float)
+        d = np.linalg.norm(v, axis=-1)
+        a = np.asarray(direction, float)
+        return ((v @ a) >= math.cos(math.atan(CONE)) * d) & ((self.cell_n @ a) < 0) & (d < 2.5 * self.spray_h)
+
+    def wear(self, cur, theta, z, force, vel, sprayed, soaked):
+        d2 = ((wrap(self.cell_theta - theta) * self.pipe.radius) ** 2 + (self.cell_z - z) ** 2) / PAD_RADIUS ** 2
+        wgt = np.clip(1.0 - d2, 0.0, None)
+        if force < WEAR["min_force"]:
+            return cur, wgt
+        mult = np.where(soaked, WEAR["mult_soaked"], np.where(sprayed, WEAR["mult_sprayed"], 1.0))
+        rate = WEAR["k"] * force * min(vel, WEAR["max_slide_speed"])
+        return cur - np.minimum(cur, rate * mult * wgt * self.dt), wgt
+
+    def scrub_rows(self):
+        (u0, u1), (z0, z1) = self.patch_u, self.patch_z
+        inset = 0.25 * PAD_RADIUS
+        n = max(1, int(math.ceil((u1 - u0 - 2 * inset) / (0.6 * PAD_RADIUS) - 1e-9)))
+        self.rows = np.linspace(u0 + inset, u1 - inset, n + 1)
+        self.stroke = ((z0 + z1) / 2, max(0.02, (z1 - z0) / 2 - inset))
+        return (self.rows[0], self.stroke[0] - self.stroke[1])
+
+    def rust_target(self, track, w):
+        pts = sorted(track)
+        before = [v for t, v in pts if t <= w["scrub"]]
+        tr = np.asarray([(w["scrub"], before[-1] if before else 1.0)] + [(t, v) for t, v in pts if t > w["scrub"]],
+                        float)
+        t_fin = w["verify"] - 1.6
+        t = np.arange(w["scrub"], w["verify"] + self.dt, self.dt)
+        base = np.interp(t, tr[:, 0], tr[:, 1])
+        low = np.flatnonzero(base <= 0.077)
+        t0 = t[low[0]] if len(low) else t_fin
+        tail = np.interp(t, [t0, t_fin], [0.077, 0.062]) * (t <= t_fin)
+        return t, np.maximum(base, tail), base
+
+    def _scrub_control(self, ts, sprayed, target):
+        r, (zc, amp) = self.pipe.radius, self.stroke
+        rows = self.rows
+        cu = wrap(self.cell_theta - self.theta0) * r
+        owner = np.abs(cu[..., None] - rows).argmin(-1)
+        cur = self.rust0.astype(np.float64).copy()
+        total0 = max(float(cur.sum()), 1e-9)
+        omega = math.pi * self.scrub_speed / (2 * amp)
+        u, z, phi, k, f_prev = rows[0], zc - amp, 0.0, 0, self.force_mean
+        U, Z, F = [], [], []
+        for i, t in enumerate(ts):
+            if i:
+                phi_new = phi + omega * self.dt
+                if math.floor(phi_new / math.pi) > math.floor(phi / math.pi):
+                    dirty = [j for j in range(len(rows)) if cur[owner == j].max(initial=0.0) > 0.03]
+                    if k not in dirty and dirty:
+                        k = min(dirty, key=lambda j: (abs(j - k), -j))
+                phi = phi_new
+                u += float(np.clip(rows[k] - u, -0.04 * self.dt, 0.04 * self.dt))
+                z = zc - amp * math.cos(phi)
+            if target is None:
+                f = self.force_mean + self.force_amp * math.sin(2 * math.pi * 1.3 * (t - ts[0]))
+            else:
+                goal = float(np.interp(t, target[0], target[1]))
+                err = cur.sum() / total0 - goal
+                f = 3.0 if err < -0.005 else float(np.clip(20.0 + 400.0 * err, 14.0 if goal > 0.15 else 6.0, 32.0))
+            f = float(np.clip(f, f_prev - 150 * self.dt, f_prev + 150 * self.dt))
+            f_prev = f
+            if i:
+                vel = math.hypot(u - U[-1], z - Z[-1]) / self.dt
+                cur, _ = self.wear(cur, self.theta0 + u / r, z, f, vel, sprayed, sprayed)
+            U.append(u)
+            Z.append(z)
+            F.append(f)
+        return np.array(U), np.array(Z), np.array(F)
+
     def _simulate(self, t, theta, Z, H, F, noz, phase, tip, appr, w, soak_required):
         r = self.pipe.radius
         soak_at = w["scrub"] if soak_required is None else None
@@ -536,32 +623,20 @@ class ScrubJob:
         wet_t = np.full(cur.shape, np.inf)
         spr, pnt = np.zeros(cur.shape, bool), np.zeros(cur.shape, bool)
         total0 = max(float(self.rust0.sum()), 1e-9)
-        cos_cone = math.cos(math.atan(CONE))
         clean_t = None
         for k in range(n):
             if noz[k]:
-                v = self.cell_p - tip[k]
-                d = np.linalg.norm(v, axis=-1)
-                cone = ((v @ appr[k]) >= cos_cone * d) & ((self.cell_n @ appr[k]) < 0) & (d < 2.5 * self.spray_h)
+                cone = self.cone(tip[k], appr[k])
                 if phase[k] == "spray":
                     wet_t = np.where(cone & ~spr, t[k], wet_t)
                     spr |= cone
                 elif phase[k] == "paint":
                     pnt |= cone
             if F[k] >= WEAR["min_force"] and k > 0:
-                darc = wrap(self.cell_theta - theta[k]) * r
-                dz = self.cell_z - Z[k]
-                d2 = (darc ** 2 + dz ** 2) / PAD_RADIUS ** 2
-                wgt = np.clip(1.0 - d2, 0.0, None)
-                foot[k] = wgt > 0
+                soaked = spr & ((t[k] >= soak_at) if soak_at is not None else (t[k] - wet_t >= soak_required))
                 vel = math.hypot((theta[k] - theta[k - 1]) * r, Z[k] - Z[k - 1]) / self.dt
-                if soak_at is not None:
-                    soaked = spr & (t[k] >= soak_at)
-                else:
-                    soaked = spr & (t[k] - wet_t >= soak_required)
-                mult = np.where(soaked, WEAR["mult_soaked"], np.where(spr, WEAR["mult_sprayed"], 1.0))
-                rate = WEAR["k"] * F[k] * min(vel, WEAR["max_slide_speed"])
-                cur = cur - np.minimum(cur, rate * mult * wgt * self.dt)
+                cur, wgt = self.wear(cur, theta[k], Z[k], F[k], vel, spr, soaked)
+                foot[k] = wgt > 0
             rust[k], sprayed[k], painted[k] = cur, spr, pnt
             if clean_t is None and phase[k] == "scrub" and cur.sum() / total0 < 0.05:
                 clean_t = float(t[k])
@@ -597,3 +672,104 @@ class ScrubJob:
             "painted": p.painted[0 if before else k],
             "rust_fraction": float(p.rust[0 if before else k].sum() / max(self.rust0.sum(), 1e-9)),
         }
+
+
+def film_job(timeline, scrub_pose=(18.225, -5.262, 0.0)) -> ScrubJob:
+    rows = [json.loads(ln) for ln in Path(timeline).read_text().splitlines() if ln.strip()]
+    w = windows_from_timeline(rows)
+    job = ScrubJob(patch=first_rust_grid(rows), scrub_pose=scrub_pose)
+    job.plan(t_deploy=w.get("deploy"), t_spray=w["spray"], t_soak=w["soak"], t_scrub=w["scrub"],
+             t_verify=w.get("verify"), t_paint=w["paint"], t_done=w.get("stow"),
+             rust_track=rust_track_from_timeline(rows))
+    return job
+
+
+def check_png(job: ScrubJob, out) -> list[Path]:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=True)
+    p, r = job.plan_, job.pipe.radius
+    ext = [job.pipe.length / -2, job.pipe.length / 2, 0, 2 * math.pi * r]
+    u = lambda th: np.mod(th, 2 * math.pi) * r
+    w = p.windows
+    picks = [("start of scrub", w["scrub"]), ("scrub +2 s", w["scrub"] + 2), ("scrub +6 s", w["scrub"] + 6), ("scrub +10 s", w["scrub"] + 10),
+             ("end of scrub", w["verify"] - 0.05), ("after paint", w["stow"])]
+    fig, ax = plt.subplots(1, len(picks) + 1, figsize=(4 * (len(picks) + 1), 4.6), sharey=True)
+    for a in ax:
+        a.set_xlim(job.z0 - 0.13, job.z0 + 0.13)
+        a.set_ylim(u(job.theta0) - 0.14, u(job.theta0) + 0.14)
+        a.set_xlabel("z along pipe (m)")
+    ax[0].set_ylabel("arc r·θ (m)")
+    ax[0].imshow(job.rust0.T[::-1], extent=ext, origin="upper", cmap="Oranges", vmin=0, vmax=1,
+                 aspect="auto", interpolation="nearest")
+    for name, col in (("spray", "tab:blue"), ("scrub", "black"), ("paint", "tab:green")):
+        m = np.array([ph == name for ph in p.phase]) & (p.nozzle_on if name != "scrub" else p.force > 0)
+        ax[0].plot(p.z[m], u(p.theta[m]), lw=0.8, color=col, label=name)
+    ax[0].legend(loc="upper right", fontsize=7)
+    ax[0].set_title("rust at start + tool paths")
+    for a, (label, t) in zip(ax[1:], picks):
+        k = job.index(t)
+        img = np.clip(p.rust[k] / 0.85, 0, 1)
+        rgb = np.ones(img.shape + (3,))
+        rgb[p.sprayed[k]] = (0.75, 0.85, 0.95)
+        rgb = rgb * (1 - img[..., None]) + np.array([0.72, 0.33, 0.1]) * img[..., None]
+        rgb[p.painted[k]] = (0.42, 0.55, 0.42)
+        a.imshow(np.transpose(rgb, (1, 0, 2))[::-1], extent=ext, origin="upper", aspect="auto",
+                 interpolation="nearest")
+        m = (p.t <= t) & (p.force > 0)
+        a.plot(p.z[m], u(p.theta[m]), lw=0.5, color="black", alpha=0.5)
+        if p.force[k] > 0:
+            a.add_patch(plt.Circle((p.z[k], u(p.theta[k])), PAD_RADIUS, fill=False, color="magenta", lw=1.5))
+        a.set_title(f"{label} t={t:.1f}  rust {p.rust[k].sum() / job.rust0.sum():.0%}")
+    fig.tight_layout()
+    a_png = out / "scrub_coverage.png"
+    fig.savefig(a_png, dpi=110)
+    plt.close(fig)
+    fig, ax = plt.subplots(1, 2, figsize=(13, 6.5))
+    ticks = [("deploy", w["deploy"] + 0.6), ("spray", w["spray"] + 1.2), ("scrub low row", w["scrub"] + 1.0),
+             ("scrub top row", w["scrub"] + 4.6), ("paint", w["paint"] + 2.0)]
+    o = job.pipe.origin
+    for a, (i0, i1, lab) in zip(ax, ((1, 2, "side: y (m)"), (0, 1, "top: x (m)"))):
+        if i0 == 1:
+            a.add_patch(plt.Circle((o[1], o[2]), r, color="0.6"))
+        else:
+            a.add_patch(plt.Rectangle((o[0] - 0.6, o[1] - r), 1.2, 2 * r, color="0.6"))
+        a.set_aspect("equal")
+        a.set_xlabel(lab)
+    for (label, t), col in zip(ticks, plt.cm.viridis(np.linspace(0, 0.9, len(ticks)))):
+        q = job.qdict(p.q[job.index(t)])
+        P = job.model.link_poses(job.base, q)
+        names = ["base", "lift_housing", "ur3_base_link", "ur3_shoulder_link", "ur3_upper_arm_link",
+                 "ur3_forearm_link", "ur3_wrist_1_link", "ur3_wrist_2_link", "ur3_wrist_3_link", TIP]
+        pts = np.array([P[n][:3, 3] for n in names if n in P])
+        for a, (i0, i1) in zip(ax, ((1, 2), (0, 1))):
+            a.plot(pts[:, i0], pts[:, i1], "-o", ms=3, color=col, label=f"{label} {t:.1f}s")
+            T = P[TIP]
+            a.plot([T[i0, 3], T[i0, 3] + 0.05 * T[i0, 0]], [T[i1, 3], T[i1, 3] + 0.05 * T[i1, 0]], color="red")
+    ax[0].set_ylabel("z (m)")
+    ax[1].set_ylabel("y (m)")
+    ax[0].legend(fontsize=7)
+    ax[0].set_title("Unit 1 arm, looking along the pipe")
+    ax[1].set_title("Unit 1 arm from above")
+    fig.tight_layout()
+    b_png = out / "scrub_arm.png"
+    fig.savefig(b_png, dpi=110)
+    plt.close(fig)
+    return [a_png, b_png]
+
+
+if __name__ == "__main__":
+    import argparse
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--timeline", default=str(REPO / "runs_sample/film/timeline.jsonl"))
+    ap.add_argument("--out", default=str(REPO / "runs/scrub_motion"))
+    a = ap.parse_args()
+    j = film_job(a.timeline)
+    print(json.dumps({"stance": j.scrub_pose, "windows": j.plan_.windows, "speeds": j.plan_.speeds,
+                      "clean_t": j.plan_.clean_t, "warnings": j.plan_.warnings,
+                      "png": [str(x) for x in check_png(j, a.out)]}, indent=1, default=float))

@@ -16,6 +16,7 @@ from integration.scrub_motion import (
 )
 from policy.brush_squish import compression, pad_thickness
 
+FILM_RUST = [(77.6, 1.0), (92.0, 0.4138), (96.0, 0.1379), (100.0, 0.0)]
 FILM = {"deploy": 77.0, "spray": 79.2, "soak": 82.3, "scrub": 88.0, "verify": 107.9, "paint": 109.5, "stow": 113.6}
 
 
@@ -23,7 +24,7 @@ FILM = {"deploy": 77.0, "spray": 79.2, "soak": 82.3, "scrub": 88.0, "verify": 10
 def job():
     j = ScrubJob(scrub_pose=(18.225, -5.262, 0.0))
     j.plan(t_deploy=FILM["deploy"], t_spray=FILM["spray"], t_soak=FILM["soak"], t_scrub=FILM["scrub"],
-           t_verify=FILM["verify"], t_paint=FILM["paint"], t_done=FILM["stow"])
+           t_verify=FILM["verify"], t_paint=FILM["paint"], t_done=FILM["stow"], rust_track=FILM_RUST)
     return j
 
 
@@ -56,11 +57,19 @@ def test_the_brush_rides_the_pipe_surface_within_the_squish(job, ticks):
         assert rho >= r - depth - 1e-3
 
 
-def test_full_squish_force_is_in_the_scrubbing_band(job, ticks):
-    work = np.array([s["brush_contact"]["force_N"] for s in contacts(ticks)
-                     if FILM["scrub"] + 1.0 <= s["t"] <= FILM["verify"] - 1.0])
-    assert 20 <= work.min() and work.max() <= 35
-    assert 0.25 < max(s["brush_contact"]["squish"] for s in contacts(ticks)) < 0.6
+def test_the_brush_presses_and_eases_within_the_pad_range(job, ticks):
+    work = [s for s in contacts(ticks) if FILM["scrub"] + 0.5 <= s["t"] <= FILM["verify"] - 0.5]
+    f = np.array([s["brush_contact"]["force_N"] for s in work])
+    assert 3.0 - 1e-6 <= f.min() and f.max() <= 35.0
+    assert (f >= 20).mean() > 0.05
+    assert 0.3 < max(s["brush_contact"]["squish"] for s in work) <= 0.6
+
+
+def test_render_rust_tracks_the_timeline_fraction(job, ticks):
+    tr = np.array([(FILM["scrub"], 1.0)] + [p for p in FILM_RUST if p[0] > FILM["scrub"]])
+    for s in ticks:
+        if FILM["scrub"] <= s["t"] <= FILM["verify"]:
+            assert abs(s["rust_fraction"] - np.interp(s["t"], tr[:, 0], tr[:, 1])) < 0.08
 
 
 def test_the_pad_face_is_normal_to_the_pipe(job, ticks):
@@ -136,7 +145,7 @@ def test_the_scrub_ends_with_under_five_percent_rust(job):
     p = job.plan_
     k = int(np.searchsorted(p.t, FILM["verify"])) - 1
     assert p.rust[k].sum() / job.rust0.sum() < 0.05
-    assert p.clean_t is not None and FILM["scrub"] < p.clean_t < FILM["verify"]
+    assert p.clean_t is not None and 105.5 <= p.clean_t <= 107.6
     assert 0.1 <= p.speeds["scrub"] <= 0.2
     assert not p.warnings
 
