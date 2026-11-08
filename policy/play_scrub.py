@@ -69,7 +69,9 @@ def worker(argv):
     p.add_argument("--cbf_fmax", type=float, default=40.0)
     p.add_argument("--cbf_gamma", type=float, default=0.5)
     p.add_argument("--cbf_margin", type=float, default=2.0)
-    p.add_argument("--cbf_alpha", type=float, default=1.0)
+    p.add_argument("--cbf_alpha", type=float, default=0.15)
+    p.add_argument("--cbf_trend", type=float, default=0.0)
+    p.add_argument("--cbf_retract", type=float, default=0.02)
     p.add_argument("--tag", type=str, default="")
     from isaaclab.app import AppLauncher
 
@@ -137,7 +139,8 @@ def worker(argv):
         from policy.cbf_shield import CBFShield, attach
 
         shield = attach(base, CBFShield(base.num_envs, k0=env_cfg.spring_k_nominal, f_max=args.cbf_fmax,
-                                        gamma=args.cbf_gamma, margin=args.cbf_margin, alpha=args.cbf_alpha,
+                                        gamma=args.cbf_gamma, margin=args.cbf_margin, alpha=args.cbf_alpha, trend=args.cbf_trend,
+                                        retract=args.cbf_retract,
                                         device=base.device))
     policy_nn = runner.alg.policy
     normalizer = getattr(policy_nn, "actor_obs_normalizer", None)
@@ -199,7 +202,7 @@ def worker(argv):
     }
     if shield is not None:
         res.update({"cbf_fmax": args.cbf_fmax, "cbf_gamma": args.cbf_gamma, "cbf_margin": args.cbf_margin,
-                    "cbf_alpha": args.cbf_alpha, "cbf_duty": shield.duty()})
+                    "cbf_alpha": args.cbf_alpha, "cbf_trend": args.cbf_trend, "cbf_retract": args.cbf_retract, "cbf_duty": shield.duty()})
     print("[play] EVAL", json.dumps(res), flush=True)
     os.makedirs(args.out_dir, exist_ok=True)
     with open(os.path.join(args.out_dir, f"eval{'_meta' if args.meta else ''}{args.tag}.json"), "w") as f:

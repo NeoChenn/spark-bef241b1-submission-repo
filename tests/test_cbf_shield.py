@@ -79,3 +79,14 @@ def test_reset_restores_prior():
 def test_rls_skips_stale_contact_after_reset():
     k, P = rls_step(torch.tensor([2500.0]), torch.tensor([1e7]), torch.tensor([0.01]), torch.tensor([0.0]), lam=0.98)
     assert float(k) == 2500.0
+
+
+def test_bench_build_pairs_before_after():
+    from bench.cbf_scrub import build
+
+    ev = lambda o, s: {"episodes": 10, "success_rate": s, "frac_episodes_over_40N": o, "mean_episode_max_force_N": 30.0,
+                       "p95_episode_max_force_N": 38.0, "max_force_N": 45.0, "mean_time_to_clean_s": 7.0}
+    res = build({"storm_base": ev(0.12, 1.0), "storm_cbf": ev(0.0, 0.98)})
+    assert res["storm_over40_pct"] == [12.0, 0.0]
+    assert res["storm_success_pct"] == [100.0, 98.0]
+    assert "calm_over40_pct" not in res
