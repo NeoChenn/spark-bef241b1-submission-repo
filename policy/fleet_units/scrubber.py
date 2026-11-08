@@ -58,12 +58,15 @@ def stub_safe_pose(bridge, hold_step_m: float = 1.5, retreat_m: float = 3.0) -> 
 class Scrubber:
     def __init__(self, orch, name: str = SCRUBBER, safe_pose: Optional[SafePose] = None, lift_m: float = 0.05,
                  hold_dt: float = 1.0, hold_step_m: float = 1.5, retreat_m: float = 3.0,
-                 stop_lel: Optional[float] = STOP_LEL):
+                 stop_lel: Optional[float] = STOP_LEL, frame: Optional[str] = None):
         self.orch = orch
         orch.leak = None
         orch._interrupt = self._interrupt
         self.name = name
-        self.safe_pose = safe_pose or _fleet_safe_pose or stub_safe_pose(orch.bridge, hold_step_m, retreat_m)
+        self.frame = frame or getattr(orch.bridge, "frame", "local")
+        world = self.frame == "world" and _fleet_safe_pose is not None
+        self.safe_pose = safe_pose or (_fleet_safe_pose if world else stub_safe_pose(orch.bridge, hold_step_m,
+                                                                                    retreat_m))
         self.lift_m, self.hold_dt, self.stop_lel = lift_m, hold_dt, stop_lel
         self.held = False
         self.hold_kind: Optional[str] = None
@@ -313,9 +316,15 @@ def _parse(cmd) -> tuple[str, str, str]:
     return cmd.kind, cmd.robot or "", cmd.reason or ""
 
 
-def build_scrubber(log_path=None, **kw) -> tuple[Scrubber, dict]:
+def build_scrubber(log_path=None, world_frame: bool = False, **kw) -> tuple[Scrubber, dict]:
     from policy.leak.mock import build_rig
 
     orch, bridge, world, leak_world, perc, arm, pipe = build_rig(log_path, leak="none")
+    if world_frame:
+        from integration.fleet_paths import SCRUB
+
+        bridge.frame = "world"
+        bridge.work_pos = np.array([SCRUB[0], SCRUB[1], bridge.work_pos[2]])
+        bridge.robot = bridge.work_pos.copy()
     return Scrubber(orch, **kw), {"bridge": bridge, "world": world, "leak_world": leak_world, "arm": arm,
                                   "pipe": pipe, "perception": perc}

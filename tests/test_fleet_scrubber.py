@@ -122,6 +122,36 @@ def test_onboard_gas_at_stop_limit_retreats_mid_scrub_and_resumes(unit):
     assert sc.handle(cmd(RESUME_RUST)) and sc.run(500) == "DONE"
 
 
+def test_world_frame_hold_uses_the_fleet_paths_safe_poses_near_the_scrub_spot():
+    from integration.fleet_paths import HOLD as HOLD_POSE
+    from integration.fleet_paths import RETREAT as RETREAT_POSE
+    from integration.fleet_paths import SCRUB
+
+    sc, parts = build_scrubber(None, world_frame=True)
+    assert sc.frame == "world"
+    until(sc, S.SCRUB)
+    spot = np.array(SCRUB[:2])
+    assert np.allclose(sc.pos[:2], spot)
+    assert sc.handle(cmd(HOLD))
+    assert np.allclose(sc.pos[:2], HOLD_POSE[:2])
+    assert 1.0 < np.linalg.norm(sc.pos[:2] - spot) < 3.0
+    assert sc.handle(cmd(RETREAT))
+    assert np.allclose(sc.pos[:2], RETREAT_POSE[:2])
+    assert 2.0 < np.linalg.norm(sc.pos[:2] - spot) < 3.5
+    assert sc.handle(cmd(RESUME_RUST))
+    assert np.allclose(sc.pos[:2], spot)
+    assert sc.run(500) == "DONE"
+
+
+def test_local_frame_hold_steps_back_without_crossing_the_deck(unit):
+    sc, _ = unit
+    assert sc.frame == "local"
+    until(sc, S.SCRUB)
+    work = sc.pos
+    sc.hold(HOLD)
+    assert np.linalg.norm(sc.pos - work) < 3.0
+
+
 def test_hud_fields_are_exposed():
     sc, _ = build_scrubber(None)
     sc.step()
