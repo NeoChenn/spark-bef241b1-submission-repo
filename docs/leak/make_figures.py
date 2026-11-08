@@ -26,7 +26,7 @@ from policy.leak.world import LeakWorld  # noqa: E402
 from policy.orchestrator import S, draw_hud  # noqa: E402
 
 G = FlangeGeometry("F1", [0, 0, 1], [0, -1, 0], [0, 0, 1])
-LOC = LeakLocalizer()
+LOC = LeakLocalizer.default()          # the trained crack model, as on the robot
 
 
 def font(size):
@@ -110,9 +110,11 @@ def fig_crack():
         tint[face] = tint[face] * 0.75 + np.array([60, 120, 255]) * 0.25
         im = Image.fromarray(tint.astype(np.uint8))
         d = ImageDraw.Draw(im)
-        for x, y, p in r.heat:
-            col = (230, 40, 40) if p >= LOC.threshold else ((255, 160, 0) if p >= 0.35 else (150, 150, 150))
-            d.ellipse([x - 14, y - 14, x + 14, y + 14], outline=col, width=3)
+        for x, y, p in r.heat:                    # only windows the model scores as crack-like
+            if p < 0.35:
+                continue
+            col = (230, 40, 40) if p >= LOC.threshold else (255, 160, 0)
+            d.ellipse([x - 9, y - 9, x + 9, y + 9], outline=col, width=2)
         if r.crack_prob >= LOC.threshold:
             verdict = f"CRACK (p={r.crack_prob:.2f})"
         elif r.crack_unsure:
@@ -127,10 +129,10 @@ def fig_crack():
     for p in panels:
         sheet.paste(p, (x, 0))
         x += p.width + 20
-    sheet = caption(sheet, ["Crack check (no ML). Blue tint: the flange face the check looks at (bore, rim, bolt heads and "
-                            "stripes masked out). Circles: thin dark shapes; red = crack-length, grey = too short.",
-                            "A dirty lens cannot say 'no crack': the stripes no longer read cleanly, so the answer "
-                            "becomes UNSURE and the robot takes another view, then asks a human."], size=17)
+    sheet = caption(sheet, ["Crack model (MobileNetV4 + LoRA, trained like the rust model). Blue tint: the flange face it "
+                            "looks at. Circles: windows it scores as crack; red = above threshold, orange = unsure band.",
+                            "A dirty lens cannot say 'no crack': if the stripes do not read cleanly, 'no crack' becomes "
+                            "UNSURE and the robot takes another view, then asks a human."], size=17)
     sheet.save(HERE / "crack_check.png")
 
 

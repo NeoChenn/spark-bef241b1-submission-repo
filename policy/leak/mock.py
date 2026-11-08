@@ -168,6 +168,15 @@ SCENARIOS = {
 }
 
 
+def _crack_detector(crack_ckpt):
+    """None: the shipped trained model (falls back to classical); "classical": the line check; else a checkpoint dir."""
+    if crack_ckpt is None:
+        return LeakLocalizer.default()
+    if crack_ckpt == "classical":
+        return LeakLocalizer()
+    return LeakLocalizer.from_checkpoint(crack_ckpt)
+
+
 def build_rig(log_path=None, leak="none", rust=True, glare=False, dust=0.0, verbose=False, seed=0, crack_ckpt=None):
     pipe, dmg_theta = scene_geometry()
     world = MockRustWorld(H=pipe.n_z, W=pipe.n_theta, length=pipe.length, radius=pipe.radius)
@@ -191,7 +200,7 @@ def build_rig(log_path=None, leak="none", rust=True, glare=False, dust=0.0, verb
     loc = RustLocalizer(fake_colour_classifier, patch=16, stride=8, threshold=0.5, temperature=1.0)
     orch = RigOrchestrator(bridge, perc, loc, world, arm, GreedyScrub(pipe),
                            OrchestratorConfig(log_path=log_path, scrub_steps=200, scrub_redetect_every=40),
-                           leak=LeakJob(LeakLocalizer.from_checkpoint(crack_ckpt) if crack_ckpt else LeakLocalizer()))
+                           leak=LeakJob(_crack_detector(crack_ckpt)))
     return orch, bridge, world, leak_world, perc, arm, pipe
 
 
@@ -201,7 +210,7 @@ def main(argv=None):
     ap.add_argument("--no-rust", action="store_true")
     ap.add_argument("--gas-during-scrub", action="store_true", help="a bolt works loose while the robot scrubs rust")
     ap.add_argument("--log", default="runs/decisions.jsonl")
-    ap.add_argument("--crack-ckpt", default="", help="trained crack detector dir (model.onnx + meta.json)")
+    ap.add_argument("--crack-ckpt", default="", help="crack detector: empty = shipped trained model, \"classical\" = line check, or a checkpoint dir")
     a = ap.parse_args(argv)
     t0 = time.time()
     leak = "loose" if a.leak == "dust" else a.leak

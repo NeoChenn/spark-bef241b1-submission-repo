@@ -29,7 +29,7 @@ def main(argv=None):
                   num_workers=a.workers, threads=a.threads, pretrained=True, export=True)
     meta_path = Path(a.out) / "meta.json"
     meta = json.loads(meta_path.read_text())
-    meta.update({"task": "crack", "classes": T.CLASSES,
+    meta.update({"task": "crack", "classes": T.CLASSES, "window_stride": 8, "window_min_coverage": 0.6,
                  "output": "single logit; p_crack = sigmoid(logit / temperature)",
                  "decision": "crack if p_crack >= threshold; if unsure_band[0] <= p_crack <= unsure_band[1] take another view"})
     meta_path.write_text(json.dumps(meta, indent=2))

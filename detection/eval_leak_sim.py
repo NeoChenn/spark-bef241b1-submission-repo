@@ -17,7 +17,7 @@ import json
 
 import numpy as np
 
-from detection.leak import LeakLocalizer
+from detection.leak import CRACK_CKPT, LeakLocalizer
 from detection.prepare_leak_data import _camera
 from policy.leak.geometry import FlangeGeometry
 from policy.leak.render import render_flange
@@ -57,7 +57,7 @@ def evaluate(loc: LeakLocalizer, n: int = 80, seed: int = 12345) -> dict:
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ckpt", default="")
+    ap.add_argument("--ckpt", default=str(CRACK_CKPT), help="trained model dir; empty to skip")
     ap.add_argument("--n", type=int, default=80)
     a = ap.parse_args(argv)
     from detection.leak import fake_crack_classifier

@@ -33,6 +33,9 @@ import numpy as np
 
 from detection.localize import UNSURE_HI, UNSURE_LO, OnnxPatchClassifier, PatchClassifier, _sigmoid, pixel_rays
 
+# Trained crack model shipped in the repo (rust keeps its checkpoint on Modal; ours is 10 MB, so it lives here).
+CRACK_CKPT = Path(__file__).resolve().parent / "checkpoints" / "crack_v1"
+
 
 @dataclass
 class BoltReading:
@@ -101,15 +104,30 @@ class LeakLocalizer:
         self.clear_view = clear_view                # below this view quality, "no crack" is not trusted
 
     @classmethod
-    def from_checkpoint(cls, ckpt_dir: str = "/ckpt/leak_detector/best", **kw) -> "LeakLocalizer":
-        """Same checkpoint layout as the rust detector: model.onnx + meta.json."""
+    def from_checkpoint(cls, ckpt_dir: str | Path = CRACK_CKPT, **kw) -> "LeakLocalizer":
+        """Same checkpoint layout as the rust detector: model.onnx + meta.json.
+
+        Windows: the flange face is only ~30 px wide at the Isaac viewing distance, so the trained model looks at
+        windows every 8 px that are at least 60% face (it was trained with bolt / rim edges as negatives). Fully-face
+        windows alone miss about half the cracks (see detection/LEAK_RESULTS.md)."""
         d = Path(ckpt_dir)
         meta = json.loads((d / "meta.json").read_text())
         kw.setdefault("threshold", float(meta.get("threshold", 0.5)))
         kw.setdefault("temperature", float(meta.get("temperature", 1.0)))
         if "unsure_band" in meta:
             kw.setdefault("unsure_band", tuple(meta["unsure_band"]))
+        kw.setdefault("stride", int(meta.get("window_stride", 8)))
+        kw.setdefault("min_coverage", float(meta.get("window_min_coverage", 0.6)))
         return cls(OnnxPatchClassifier(d / "model.onnx", meta), **kw)
+
+    @classmethod
+    def default(cls, **kw) -> "LeakLocalizer":
+        """What the robot uses: the trained crack model (like rust), or the classical line check if the
+        checkpoint or onnxruntime is missing."""
+        try:
+            return cls.from_checkpoint(CRACK_CKPT, **kw)
+        except (FileNotFoundError, ImportError):
+            return cls(**kw)
 
     # -- public ----------------------------------------------------------------
     def read(self, image: np.ndarray, camera, flange) -> LeakReading:
