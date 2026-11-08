@@ -165,16 +165,12 @@ def current_quality() -> str:
 
 
 def attach(stage) -> bool:
-    layer = Path(os.environ.get("RIG_GREEBLES_LAYER", LAYER))
-    if not layer.exists() or os.environ.get("RIG_GREEBLES", "1") == "0":
+    if not LAYER.exists() or os.environ.get("RIG_GREEBLES", "1") == "0":
         return False
     root = stage.GetRootLayer()
-    target = os.path.relpath(layer, Path(root.realPath).parent) if root.realPath else str(layer)
-    if not any(Path(p).name == layer.name for p in root.subLayerPaths):
-        if os.environ.get("RIG_GREEBLES_APPEND") == "1":
-            root.subLayerPaths.append(target)
-        else:
-            root.subLayerPaths.insert(0, target)
+    target = os.path.relpath(LAYER, Path(root.realPath).parent) if root.realPath else str(LAYER)
+    if not any(Path(p).name == LAYER.name for p in root.subLayerPaths):
+        root.subLayerPaths.insert(0, target)
     return True
 
 
