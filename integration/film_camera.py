@@ -109,6 +109,16 @@ def unit2_job(scene: FilmScene = DEFAULT_FILM_SCENE) -> tuple[Vec3, Vec3, float]
     return _fit(pts, 40.0, 18.0, 40.0, margin=70.0, target=_lerp(s.bolt, _up(s.unit2_work, 0.6), 0.3))
 
 
+CLOSE_UP = (1.0, 1.0, 62.0)
+
+
+def unit1_close(scene: FilmScene = DEFAULT_FILM_SCENE) -> tuple[Vec3, Vec3, float]:
+    side, d, focal = CLOSE_UP
+    n = np.asarray(scene.patch_normal) + side * np.array([1.0, 0.0, 0.0])
+    eye = np.asarray(scene.patch) + d * n / np.linalg.norm(n)
+    return tuple(float(v) for v in eye), scene.patch, focal
+
+
 def unit1_job(scene: FilmScene = DEFAULT_FILM_SCENE) -> tuple[Vec3, Vec3, float]:
     s = scene
     n = np.asarray(s.patch_normal)

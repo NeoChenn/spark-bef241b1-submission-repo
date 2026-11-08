@@ -9,13 +9,16 @@ from typing import Callable, Optional
 import numpy as np
 
 from integration.film_camera import (DEFAULT_FILM_SCENE, TRUNK_Z, FilmScene, conclusion, control_push,
-                                     control_room, follow, rig_orbit, unit1_job, unit2_job, walk_home)
+                                     control_room, follow, rig_orbit, unit1_close, unit1_job, unit2_job, walk_home)
 from rig.sim.zoom import ease
 
 REPO = Path(__file__).resolve().parent.parent
 FILM_RUN = REPO / "runs_sample/film"
 FOLLOW_FOCAL = 33.0
 MOVE_S = 1.2
+CLOSE_IN_S = 0.4
+PAINT_CLOSE_S = 1.5
+CLOSE_OUT_S = 1.0
 LENGTH = 60.0
 CUTS = {"short": (60.0, 3), "long": (66.0, 5)}
 ALIASES = {"u1_walk": "dispatch_u1", "end": "t_end"}
@@ -137,6 +140,15 @@ def _blend(prev: Callable, cur: Callable, seconds: float, length: float) -> Call
     return cam
 
 
+def _hold_then(first: Callable, second: Callable, hold_s: float, move_s: float, length: float) -> Callable:
+    def cam(u, t):
+        a, c = first(u, t), second(u, t)
+        k = ease((u * length - hold_s) / move_s)
+        mix = lambda p, q: tuple(x + (y - x) * k for x, y in zip(p, q))
+        return mix(a[0], c[0]), mix(a[1], c[1]), a[2] + (c[2] - a[2]) * k
+    return cam
+
+
 def _still(pose) -> Callable:
     return lambda u, t: pose
 
@@ -145,7 +157,7 @@ def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE
         length: float | str | None = LENGTH) -> list[Shot]:
     b, s = beats or FilmBeats(), scene
     tr = track or default_track(b, s)
-    j2, j1 = _still(unit2_job(s)), _still(unit1_job(s))
+    j2, j1, c1 = _still(unit2_job(s)), _still(unit1_job(s)), _still(unit1_close(s))
     home = min(b.u1_return, b.u2_return) if b.u2_return >= b.paint_done else b.u1_return
     p2, p1 = _pan(tr, "unit2", j2(0, 0)[0], b.u2_arrive), _pan(tr, "unit1", j1(0, 0)[0], b.u1_arrive)
     plan = [
@@ -159,8 +171,9 @@ def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE
         ("unit1_walk", 1.5, (b.u1_arrive - 1.5, b.u1_arrive), p1, "cut", "cut", False),
         ("unit1_spray", 3.4, (b.spray - 0.3, b.soak), j1, "cut", "cut", False),
         ("unit1_soak", 1.0, (b.soak, b.scrub), j1, "cut", "cut", False),
-        ("unit1_scrub", 8.0, (b.scrub, b.scrub_done), j1, "cut", "cut", False),
-        ("unit1_paint", 4.6, (b.scrub_done, b.paint_done + 0.3), j1, "cut", "xfade", False),
+        ("unit1_scrub", 8.0, (b.scrub, b.scrub_done), _blend(j1, c1, CLOSE_IN_S, 8.0), "cut", "cut", False),
+        ("unit1_paint", 4.6, (b.scrub_done, b.paint_done + 0.3),
+         _hold_then(j1, c1, 4.6 - PAINT_CLOSE_S - CLOSE_OUT_S, CLOSE_OUT_S, 4.6), "cut", "xfade", False),
         ("walk_back_u1", 2.0, (home + 5.0, home + 10.0),
          lambda u, t: walk_home("unit1", tr("unit1", home + 10.0 if t is None else t)), "xfade", "cut", False),
         ("walk_back_u2", 2.0, (home + 10.0, home + 15.0),
