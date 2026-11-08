@@ -214,3 +214,20 @@ def test_server_streams_mission_state_without_a_sim():
         assert r["leak"] == "F2"
         assert c.post("/api/event", json={"name": "battery_fault", "args": {"robot": "R9"}}).status_code == 400
         assert c.get("/api/fleet").json()["robots"][0]["name"].startswith("Unit ")
+
+
+def test_weld_job_runs_and_streams_its_policy_view():
+    m = mission()
+    out = m.event("weld_job", {"poi": "weld_test", "xyz": [10.0, -8.0, 42.5], "scenario": "crack"})
+    assert "fleet" in out
+    seen = {}
+
+    def check(x):
+        h = x.header()
+        for rid, v in h["views"].items():
+            seen[rid] = v["policy"]
+        return bool(seen) and any(r["state"] in ("GRIND", "WELD", "INSPECT_WELD") for r in h["robots"])
+    assert run(m, 400, until=check)
+    v = next(iter(seen.values()))
+    assert {"jpg", "w", "h", "caption", "seq"} <= set(v)
+    assert any(j["kind"] == "weld_repair" for j in m.header()["orchestrator"]["jobs"])

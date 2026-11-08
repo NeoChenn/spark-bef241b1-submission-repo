@@ -10,13 +10,14 @@ from datetime import date
 import numpy as np
 
 from policy.fleet.fleet import Event
+from policy.fleet.jobs import SETUP_S
 from rig.captions import caption, fleet_robots
 from rig.mission.gas import ALARM_LEL, FLOW_GS, SUB_S, WALK_MS, GasLeak, wind_from_weather
 from rig.mission.jobs import MissionPort
 
-FLEET_EVENTS = ("drop_obstacle", "close_walkway", "close_stairs", "clear", "set_weather")
-ROLE = {"rust": "rust", "gas": "gas", "leak_check": "leak check", "inspect": "inspection", "crack": "crack"}
-RUST = ("DETECT", "SPRAY", "SOAK", "SCRUB", "VERIFY", "PAINT", "APPROACH", "BACK_OFF")
+FLEET_EVENTS = ("drop_obstacle", "close_walkway", "close_stairs", "clear", "set_weather", "weld_job")
+ROLE = {"weld": "weld", "rust": "rust", "gas": "gas", "leak_check": "leak check", "inspect": "inspection", "crack": "crack"}
+RUST = ("DETECT", "SPRAY", "SOAK", "SCRUB", "VERIFY", "PAINT", "APPROACH", "BACK_OFF", "GRIND", "WELD", "INSPECT_WELD")
 GAS = ("LEAK_APPROACH", "LEAK_INSPECT", "RETORQUE", "LEAK_VERIFY", "GAS_CHECK")
 RANK = {"stop": 4, "warn": 3, "act": 2, "ok": 1}
 DEFAULT_FLANGE = "F2"
@@ -68,6 +69,7 @@ class MissionLive:
         self.notes: list[dict] = []
         self.busy = False
         self.sim_flange = lambda: None
+        self.view_seq: dict = {}
 
     @property
     def t(self) -> float:
@@ -118,7 +120,7 @@ class MissionLive:
     def _hold(self) -> float:
         tr = self.fleet.jobs.get("gas", "loose")
         segs = [s[0] for s in tr.segments if s[0] > 0]
-        return max(0.0, (segs[0] if segs else 10.0) - HOLD_MARGIN)
+        return max(0.0, SETUP_S.get("gas", 0.0) + (segs[0] if segs else 10.0) - HOLD_MARGIN)
 
     def _gas_logic(self) -> None:
         lk = self.leak
@@ -314,11 +316,12 @@ class MissionLive:
         if t is None:
             return {}
         tr = self.fleet.jobs.get(t.kind, t.scenario)
-        starts = [s[0] for s in tr.segments] + [tr.total_s]
-        i = max(0, sum(1 for s in starts[:-1] if s <= t.progress) - 1)
+        e = t.progress - SETUP_S.get(t.kind, 0.0)
+        starts = [s[0] for s in tr.segments] + [tr.duration_s]
+        i = max(0, sum(1 for s in starts[:-1] if s <= e) - 1)
         span = max(starts[i + 1] - starts[i], 1e-6)
-        return {"kind": t.kind, "u": min(1.0, (t.progress - starts[i]) / span), "left": starts[i + 1] - t.progress,
-                "poi": t.poi}
+        return {"kind": t.kind, "u": min(1.0, max(0.0, e - starts[i]) / span), "left": starts[i + 1] - e,
+                "poi": t.poi, "scenario": t.scenario}
 
     def _evidence(self, r, state: str, info: dict, gas: float | None) -> dict:
         u, tt = info.get("u", 0.0), self.t
@@ -353,6 +356,8 @@ class MissionLive:
         with self.fleet.lock:
             s = copy.deepcopy(self.fleet.snap)
             info = {r.id: (self._jobinfo(r), r) for r in self.fleet.f.robots}
+            welds = weld_views(self.fleet.f)
+        s["views"] = {}
         for d in s.get("robots") or []:
             inf, r = info.get(d["id"], ({}, None))
             o = self.override.get(d["id"])
@@ -371,6 +376,12 @@ class MissionLive:
             st = d.get("job_state") or d["state"]
             d["evidence"] = self._evidence(r, st, inf, g) if r is not None else {}
             d["gas_lel"] = g
+            wv = welds.get(d["id"])
+            if wv is not None:
+                d["job_state"] = wv.get("state") or d.get("job_state")
+                d["evidence"] = {**d["evidence"], **(wv.get("evidence") or {}), "job": "weld"}
+                if wv.get("pip"):
+                    s["views"][d["id"]] = {"policy": wv["pip"]}
         return s
 
     def gas(self) -> dict:
@@ -404,7 +415,8 @@ class MissionLive:
             fl = self.snapshot_fleet()
             robots = fleet_robots(fl)
             gas = self.gas()
-            out = {"t": fl["t"], "fleet": {k: v for k, v in fl.items() if k != "events"}, "robots": robots,
+            out = {"t": fl["t"], "fleet": {k: v for k, v in fl.items() if k not in ("events", "views")},
+                   "robots": robots, "views": self._fresh_views(fl.get("views") or {}),
                    "gas": gas, "sensors": self.sensors(fl), "orchestrator": self.orchestrator(),
                    "caption": self.caption(robots, gas),
                    "mission": {"t": fl["t"], "rounds": self.fleet.rounds, "speed": self.fleet.speed,
@@ -414,6 +426,15 @@ class MissionLive:
             if events:
                 out["events"], self.out = self.out, []
             return out
+
+    def _fresh_views(self, views: dict) -> dict:
+        out = {}
+        for rid, v in views.items():
+            key = (v["policy"].get("seq"), v["policy"].get("caption"))
+            if self.view_seq.get(rid) != key:
+                self.view_seq[rid] = key
+                out[rid] = v
+        return out
 
     def orchestrator(self) -> dict:
         o = self.port.header()
@@ -488,3 +509,10 @@ class MissionLive:
     def state(self) -> dict:
         return self.snapshot_fleet()
 
+
+def weld_views(f) -> dict:
+    try:
+        from policy.weld.live import fleet_weld_views
+    except ImportError:
+        return {}
+    return fleet_weld_views(f)
