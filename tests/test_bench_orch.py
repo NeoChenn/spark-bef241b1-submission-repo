@@ -91,3 +91,8 @@ def test_summary_marks_missing_key_arm():
     assert s["arms"]["planner"]["status"] == "not run — needs key"
     assert s["arms"]["rule"]["leak_isolate_s"]["mean"] == pytest.approx(100.0)
     assert s["arms"]["rule"]["leaks_isolated"] == 1
+
+
+def test_gas_preemption_during_person_pause_is_not_unsafe():
+    r = O.Shift(O.make_shift(2293720157), arm="rule").run()
+    assert r["unsafe_person"] == 0 and r["unsafe_executed"] == 0
