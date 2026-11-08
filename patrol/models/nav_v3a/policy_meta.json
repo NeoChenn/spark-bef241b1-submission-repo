@@ -1,0 +1,17 @@
+{
+  "obs_dim": 53,
+  "sectors": 36,
+  "lidar_range": 4.0,
+  "lookahead_m": [
+    0.5,
+    1.0,
+    1.5,
+    2.0,
+    2.5
+  ],
+  "v_max": 1.0,
+  "v_min": -0.3,
+  "w_max": 1.5,
+  "control_hz": 10,
+  "spec": "patrol/features.py docstring"
+}

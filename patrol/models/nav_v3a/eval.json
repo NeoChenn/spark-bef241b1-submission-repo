@@ -1,0 +1,22 @@
+{
+  "ppo": {
+    "episodes": 1000,
+    "goal_rate": 0.832,
+    "collision_rate": 0.096,
+    "timeout_rate": 0.072,
+    "mean_lateral_err_m": 0.10636520786769688,
+    "mean_speed_mps": 0.826398517783891
+  },
+  "pure_pursuit_baseline": {
+    "episodes": 1000,
+    "goal_rate": 0.704,
+    "collision_rate": 0.197,
+    "timeout_rate": 0.099,
+    "mean_lateral_err_m": 0.10439087788574397,
+    "mean_speed_mps": 0.5958009909474586
+  },
+  "iters": 400,
+  "envs": 4096,
+  "env_steps": 104857600,
+  "train_sec": 1042.3
+}
