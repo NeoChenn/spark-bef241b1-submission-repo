@@ -132,6 +132,25 @@ def test_record_mock_session(tmp_path):
     assert any(not c["ok"] and "own SUPV" in c["refused"] for c in agent["calls"])
     lines = [json.loads(x) for x in (tmp_path / "agent_calls.jsonl").read_text().splitlines()]
     assert len(lines) == 3 and {"reprioritise", "queue_job"} <= {n for x in lines for n in x["decision"]}
+    assert all(6 <= len(s["detectors"]) <= 10 for s in snaps)
+    d0 = snaps[0]["detectors"][0]
+    assert set(d0) >= {"id", "type", "position", "reading", "unit", "threshold", "state"} and len(d0["position"]) == 3
+    alarms = [(s["pt"], d) for s in snaps for d in s["detectors"] if d["state"] == "alarm"]
+    assert alarms and {d["id"] for _, d in alarms} == {"GD-07"}
+    pt, first = alarms[0]
+    assert 20 <= pt <= 30 and first["dispatched"] == "go2-2" and first["reading"] >= first["threshold"]
+    f = next(s["fleet"] for s in snaps if s["pt"] >= pt)
+    assert {r["id"] for r in f["robots"]} == {"unit-1", "go2-2", "go2-3"} and any(z["kind"] == "gas" for z in f["zones"])
+
+
+def test_detector_state_bands():
+    from policy.control.mock import detector_state, detectors
+    assert [detector_state(v) for v in (0.05, 0.1, 0.19, 0.2, 0.5)] == ["ok", "warn", "warn", "alarm", "alarm"]
+    ds = detectors({"GD-07": 0.31}, 0.0, {"GD-07": "go2-2"})
+    g7 = next(d for d in ds if d["id"] == "GD-07")
+    assert g7 == {"id": "GD-07", "type": "point_gas", "position": g7["position"], "reading": 0.31, "unit": "LEL",
+                  "threshold": 0.2, "state": "alarm", "dispatched": "go2-2"}
+    assert all(d["state"] == "ok" and "dispatched" not in d for d in ds if d["id"] != "GD-07")
 
 
 def test_apply_event_routes_control_events():
@@ -215,6 +234,9 @@ def test_mock_fleet_gas_control_and_three_units():
     assert snaps[-1]["gas"]["alarm"] is False
     assert set(alarm["sensors"]) == {"unit-1", "unit-2", "unit-3"}
     assert {"force_n", "gas_lel", "thermal_c", "battery", "reach"} <= set(alarm["sensors"]["unit-2"])
+    g3 = next(d for d in alarm["detectors"] if d["id"] == "GD-03")
+    assert g3["state"] == "warn" and g3["dispatched"] == "unit-2"
+    assert not any(d["state"] == "alarm" for s in snaps for d in s["detectors"])
     f = alarm["fleet"]
     assert f["schema"] == "fleet_state.v1" and [r["id"] for r in f["robots"]] == ["unit-1", "unit-2", "unit-3"]
     assert all(r["pose"]["z"] == 42.5 and r["deck"] == "top_deck" for r in f["robots"])

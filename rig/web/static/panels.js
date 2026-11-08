@@ -6,7 +6,8 @@
     accent: tok("--spark-color-accent", "#2EE6D6"), accent2: tok("--spark-color-accent-2", "#0FA3A3"), warn: tok("--spark-color-warning", "#FFB020"), stop: tok("--spark-color-stop", "#FF4D4F"), ok: tok("--spark-color-success", "#3DDC84"),
     dog1: tok("--spark-color-robot-dog-1", "#2EE6D6"), dog2: tok("--spark-color-robot-dog-2", "#FFB020"), drone: tok("--spark-color-robot-drone", "#F3F5F8"), crawler: tok("--spark-color-robot-crawler", "#A78BFA"), other: tok("--spark-color-robot-other", "#0FA3A3") };
   // One colour per robot, the same on the map, the robot lists and the camera labels.
-  // Dog-1 = Q1 / R1 / unit-1 / go2-1, Dog-2 = Q2 / R2 / unit-2 / go2-2, Drone = A*, Crawler = C*, anything else = accent-2.
+  // Dog-1 = Q1 / R1 / unit-1 / go2-1, Dog-2 = Q2 / R2 / unit-2 / go2-2, anything else = accent-2. The drone and crawler
+  // kinds stay only as harmless fallbacks for old recordings; Spark fields dogs only, so nothing visible names them.
   const rkind = (r) => {
     const id = String((r && typeof r === "object" ? r.id : r) ?? "").toLowerCase();
     if (r?.deck === "air" || r?.kind === "A" || /^a\d|drone|uav/.test(id)) return "drone";
@@ -19,7 +20,7 @@
   const fc = (f) => (f > 40 ? B.stop : f >= 36 ? B.warn : f >= 18 ? B.ok : "rgba(255,255,255,.72)");
   const COL = { stop: B.stop, warn: B.warn, ok: B.ok, act: B.accent, idle: "rgba(243,245,248,.6)" };
   const tone = (st = "") => (/PAUSE|RETREAT|FAIL|ESCALATE/.test(st) ? "stop" : /WAIT|BACK|HOLD|DOCK|GAS|BLOCK/.test(st) ? "warn" : /DONE|CHARG/.test(st) ? "ok" : /IDLE/.test(st) ? "idle" : "act");
-  const NAMES = { R1: "Unit 1 · rust", R2: "Unit 2 · gas", R3: "Unit 3", Q1: "Unit 1 · rust", Q2: "Unit 2 · gas", Q3: "Unit 3", "unit-1": "Unit 1 · rust", "unit-2": "Unit 2 · gas", "unit-3": "Unit 3", A1: "Drone A1", C1: "Crawler C1" };
+  const NAMES = { R1: "Unit 1 · rust", R2: "Unit 2 · gas", R3: "Unit 3", Q1: "Unit 1 · rust", Q2: "Unit 2 · gas", Q3: "Unit 3", "unit-1": "Unit 1 · rust", "unit-2": "Unit 2 · gas", "unit-3": "Unit 3", "go2-1": "Dog-1", "go2-2": "Dog-2", "go2-3": "Dog-3" };
   const rname = (r) => r.name || NAMES[r.id] || r.id;
   const pct = (v, d = 0) => (v == null ? "—" : (100 * v).toFixed(d) + " %");
   const STEPS = ["Patrol", "Detect", "Spray", "Soak", "Scrub", "Verify", "Paint", "Done"];
@@ -229,6 +230,7 @@
       if (z.kind === "person") { g.fillStyle = COL.warn; g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill(); }
     });
     if (H.drawRoutes) H.drawRoutes(g, { X, Y, k, deck, big, w, h }, S);
+    if (H.drawDetectors) H.drawDetectors(g, { X, Y, k, deck, big }, S, c);
     const hits = [];
     rs.forEach((r) => {
       const off = deck !== "all" && r.deck && r.deck !== deck && r.deck !== "air";

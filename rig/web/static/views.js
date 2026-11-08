@@ -7,8 +7,8 @@
   const onFocus = (el) => { if (!el._f) { el._f = 1; el.addEventListener("click", (e) => { const b = e.target.closest("[data-id]"); if (b) H.focus(b.dataset.id); }); } };
   const last = (k) => S.series[k]?.at(-1)?.[1];
   const DECKS = [["auto", "Busiest deck"], ["top_deck", "Top"], ["middle_deck", "Middle"], ["lower_deck", "Lower"], ["all", "All decks"]];
-  H.view({ id: "map", title: "Mission map", icon: "map", key: "⇧M", keys: "top down rig decks walkways plume people dock no-fly fleet",
-    desc: "Top-down rig with decks as layers: robots with heading and status, walkways, jobs, gas plume, people and docks. Click a robot to focus it.",
+  H.view({ id: "map", title: "Mission map", icon: "map", key: "⇧M", keys: "top down rig decks walkways plume people dock fixed detectors sensors fleet",
+    desc: "Top-down rig with decks as layers: robots with heading and status, the fixed gas detectors, walkways, jobs, gas plume, people and docks. Click a robot to focus it; hover a detector for its reading.",
     preview: (el) => { const x = q(el, `<canvas class="rig big" data-k="c"></canvas>`); if (now() - (el._t || 0) > 0.1) { el._t = now(); H.drawRig(x.c, S, { big: true }); } },
     render(el) {
       const x = q(el, `<div class="mm"><div class="seg" data-k="decks"></div><canvas data-k="c"></canvas></div><aside class="side" data-k="side"></aside>`);
@@ -22,7 +22,7 @@
       const d = `${DECKS.map(([k, l]) => `<button data-d="${k}" class="${(S.deck || "auto") === k ? "on" : ""}">${l}</button>`).join("")}`;
       if (x.decks._h !== d) { x.decks._h = d; x.decks.innerHTML = d; }
       const rows = (S.fleet?.robots || []).map((r) => `<div class="mrow ${r.id === S.focus ? "on" : ""}" data-id="${esc(r.id)}"><i style="background:${H.rcol(r)}"></i><b>${esc(H.rname(r))}</b><span style="${["stop", "warn"].includes(H.tone(r.job_state || r.state)) ? "color:" + H.COL[H.tone(r.job_state || r.state)] : ""}">${esc(H.nice(r.job_state || r.state))}${r.task ? " · " + esc(String(r.task).split(":").pop().replace(/_/g, " ")) : ""}</span><em class="tnum">${r.battery?.soc == null ? "" : Math.round(r.battery.soc * 100) + " %"}</em></div>`).join("")
-        + `<div class="legend col"><span><i class="lg r"></i>robot · heading</span><span><i class="lg t"></i>drone</span><span><i class="lg g"></i>gas plume</span><span><i class="lg p"></i>person · 3 m</span><span><i class="lg d"></i>dock</span><span><i class="lg n"></i>no-fly zone</span></div>`;
+        + `<div class="legend col"><span><i class="lg r"></i>robot · heading</span><span><i class="lg s"></i>fixed detector</span><span><i class="lg s a"></i>detector alarm</span><span><i class="lg g"></i>gas plume</span><span><i class="lg p"></i>person · 3 m</span><span><i class="lg d"></i>dock</span></div>`;
       if (x.side._h !== rows) { x.side._h = rows; x.side.innerHTML = (S.fleet ? "" : `<p class="none">No fleet snapshot yet</p>`) + rows; }
     } });
   const KIND = { fpv: ["Camera", "cam"], rgb: ["Camera", "cam"], policy: ["Policy input", "target"], det: ["Detector boxes", "target"], ogi: ["OGI gas", "wind"], gas: ["OGI gas", "wind"], bev: ["Lidar BEV", "map"], lidar: ["Lidar BEV", "map"], belief: ["Gas belief", "wind"], obs: ["Scrub obs", "target"], depth: ["Depth", "layers"], thermal: ["Thermal", "sun"] };

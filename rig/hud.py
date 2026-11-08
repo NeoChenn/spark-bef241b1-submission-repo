@@ -383,6 +383,7 @@ def mock_rig(robots: list[dict], evs: dict, t: float, gas: dict) -> dict:
 
 
 def mock_fleet(pt0: float, t_start: float, dt: float = 0.5, length: float = 24.0) -> list[dict]:
+    from policy.control.mock import detectors
     from rig.camera import look_at, unproject_ground
     cam = look_at(**FLEET_CAM)
     snaps, prev = [], {}
@@ -406,7 +407,9 @@ def mock_fleet(pt0: float, t_start: float, dt: float = 0.5, length: float = 24.0
                       "caption": robots[0]["caption"], "robots": robots, "camera": cam, "events": events,
                       "gas": mock_gas(gas), "control": mock_control(mock_gas(gas)), "sensors": mock_sensors(robots, evs, t),
                       "orchestrator": mock_orchestrator({r["id"]: r["state"] for r in robots}, mock_gas(gas)),
-                      "fleet": mock_rig(robots, evs, t, mock_gas(gas))})
+                      "fleet": mock_rig(robots, evs, t, mock_gas(gas)),
+                      "detectors": detectors({"GD-03": gas, "GD-02": 0.4 * gas}, t,
+                                             {"GD-03": "unit-2" if gas >= 0.1 else None})})
     return snaps
 
 
