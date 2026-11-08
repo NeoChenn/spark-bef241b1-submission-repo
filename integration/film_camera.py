@@ -19,7 +19,8 @@ CONTROL_ROOM = {"prim": "/World/Rig/module_n83_40_module_white", "windows": "/Wo
                 "window_y": 21.1, "window_rows_z": ((32.75, 33.9), (35.95, 37.1), (39.15, 40.3)),
                 "north_windows": (((-19.8, 21.08, 39.15), (-18.2, 21.08, 40.3)),
                                   ((-16.8, 21.08, 39.15), (-15.2, 21.08, 40.3))),
-                "interior_eye": (-16.2, 12.6, 39.7), "window_target": (-16.2, 21.1, 39.5)}
+                "interior_eye": (-16.2, 12.6, 39.7), "window_target": (-16.2, 21.1, 39.5),
+                "windows_center": (-17.5, 21.1, 39.7), "push_end": (-17.5, 30.0, 40.6)}
 
 
 @dataclass(frozen=True)
@@ -87,10 +88,9 @@ def rig_orbit(u: float) -> tuple[Vec3, Vec3, float]:
 
 
 def control_push(u: float) -> tuple[Vec3, Vec3, float]:
-    room = CONTROL_ROOM["window_target"]
     s = ease(u)
-    eye = _lerp((-13.5, 45.0, 43.5), (-15.6, 25.0, 40.0), s)
-    return eye, _lerp((-15.0, 18.0, 38.0), room, s), 28.0 + 7.0 * s
+    eye = _lerp((-13.5, 45.0, 43.5), CONTROL_ROOM["push_end"], s)
+    return eye, _lerp((-15.0, 18.0, 38.0), CONTROL_ROOM["windows_center"], s), 26.0 + 2.0 * s
 
 
 def control_room(u: float) -> tuple[Vec3, Vec3, float]:
@@ -114,19 +114,16 @@ def unit1_job(scene: FilmScene = DEFAULT_FILM_SCENE) -> tuple[Vec3, Vec3, float]
     n = np.asarray(s.patch_normal)
     w = s.unit1_work
     pts = _body(w) + [(w[0] + 0.35, w[1], w[2] + 0.2), _up(w, 1.1), s.patch, tuple(np.asarray(s.patch) + 0.2 * n)]
-    return _fit(pts, 45.0, 20.0, 33.0, margin=45.0, target=_lerp(s.patch, (w[0], w[1], 42.9), 0.5))
+    return _fit(pts, 45.0, 22.0, 21.0, margin=42.0, target=_lerp(s.patch, (w[0], w[1], 42.9), 0.5))
 
 
-BIRD = (-110.0, 62.0, 24.0, 12.0)
+WALK_HOME = {"unit1": (-75.0, 55.0, 8.5, 24.0), "unit2": (-135.0, 55.0, 8.5, 24.0)}
 
 
-def birdseye(a: Vec3, b: Vec3) -> tuple[Vec3, Vec3, float]:
-    az, el, focal, near = BIRD
-    target = (0.5 * (a[0] + b[0]), 0.5 * (a[1] + b[1]), 42.9)
-    eye, _, _ = _fit(bodies(a, b), az, el, focal, margin=60.0, target=target)
-    if math.dist(eye, target) < near:
-        eye = spherical(target, near, az, el)
-    return eye, target, focal
+def walk_home(robot: str, p: Vec3) -> tuple[Vec3, Vec3, float]:
+    az, el, d, focal = WALK_HOME[robot]
+    target = (p[0], p[1], 42.9)
+    return spherical(target, d, az, el), target, focal
 
 
 def conclusion(u: float) -> tuple[Vec3, Vec3, float]:
