@@ -35,6 +35,7 @@ def collect(u, env, steps, log):
     picker = ScriptedPicker(N, dev, dt=u.ctrl_dt, scale=u.cfg.action_scale)
     u.sense_geometry()
     O, A, D, S = [], [], [], []
+    noise = (torch.rand(N, device=dev) < 0.5).float() * 0.3
     t0 = time.time()
     for step in range(steps):
         if step % 100 == 0:
@@ -42,7 +43,9 @@ def collect(u, env, steps, log):
         with torch.inference_mode():
             o = u.geo_obs()
             a = picker.act(u._tip()[0], u.p_tgt, u.geom_grasp(), u.sealed, u._robot.data.joint_pos[:, u.lift_id])
-            _, _, term, trunc, _ = env.step(a)
+            noisy = a.clone()
+            noisy[:, :3] += noise[:, None] * torch.randn_like(a[:, :3])
+            _, _, term, trunc, _ = env.step(noisy.clamp(-1.0, 1.0))
         done = (term | trunc).bool()
         succ = torch.zeros(N, dtype=torch.bool, device=dev)
         if done.any():
@@ -105,7 +108,7 @@ def evaluate(u, env, policy_fn, replan, max_steps, log, name):
         env.reset(seed=u.cfg.seed)
         u.sense_geometry()
     done_once = torch.zeros(N, dtype=torch.bool, device=dev)
-    eps, last, plan, k = [], None, None, 0
+    eps, last, plan, k = [], getattr(u, "last_episode_stats", None), None, 0
     lat = []
     for step in range(max_steps):
         with torch.inference_mode():
@@ -155,10 +158,10 @@ def latency(model, obs_dim, dev, n_steps):
 
 def main(argv):
     p = argparse.ArgumentParser()
-    p.add_argument("--collect_envs", type=int, default=512)
+    p.add_argument("--collect_envs", type=int, default=768)
     p.add_argument("--collect_steps", type=int, default=1000)
-    p.add_argument("--diff_min", type=float, default=10.0)
-    p.add_argument("--mlp_min", type=float, default=3.0)
+    p.add_argument("--diff_min", type=float, default=15.0)
+    p.add_argument("--mlp_min", type=float, default=5.0)
     p.add_argument("--ddim", type=int, default=8)
     p.add_argument("--replan", type=int, default=4)
     p.add_argument("--out", default="runs/pickup/learn")

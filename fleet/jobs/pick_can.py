@@ -4,7 +4,8 @@ import random
 
 from fleet.contract import Finding, Job, JobResult, JobStatus, Level, Robot, RobotKind, World, register
 
-SUCCESS_P = 0.875
+SUCCESS_P = 0.883
+POLICY = "scripted"
 TIME_S = 11.3
 RETRIES = 1
 FORCE_N = 18.0
@@ -58,7 +59,8 @@ class PickCanJob:
         t0 = world.t
         t1 = t0 + max(float(r["time_s"]), 1.0)
         ph = [tuple(x) for x in r["phases"]]
-        ev = {"can": r.get("can"), "attempts": r["attempts"], "max_contact_force": r["max_contact_force"]}
+        ev = {"can": r.get("can"), "attempts": r["attempts"], "max_contact_force": r["max_contact_force"],
+              "policy": r.get("policy", POLICY)}
         log = [f"{p[0]:.1f} s {p[1]}: {p[2]}" for p in ph]
         where = job.position
         if r["outcome"] == "DONE":
