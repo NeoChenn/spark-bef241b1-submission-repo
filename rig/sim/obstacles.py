@@ -19,6 +19,8 @@ CORAL = (1.1, 0.27, 0.11)
 GHOST = (0.32, 0.35, 0.4)
 CLOSED = (1.4, 0.05, 0.03)
 ROBOT_GLOW = [(0.6, 2.2, 9.0), (0.8, 7.0, 2.0), (9.0, 6.0, 0.8), (7.0, 1.2, 6.0)]
+GLOW_SCALE = 0.3
+BEACON_W = 15000.0
 ROBOT_USD = OUTPUT / "robot" / "go2_ur3_lift" / "go2_ur3_lift.usda"
 ROBOT_Z = 0.45
 LIFT = 0.1
@@ -166,7 +168,7 @@ class ObstacleScene:
                 vs = body.GetPrim().GetVariantSets()
                 if vs.HasVariantSet("Physics"):
                     vs.GetVariantSet("Physics").SetVariantSelection("none")
-            glow, _ = _emissive(self.stage, f"obst_robot_{rid}", ROBOT_GLOW[k % len(ROBOT_GLOW)])
+            glow, _ = _emissive(self.stage, f"obst_robot_{rid}", ROBOT_GLOW[k % len(ROBOT_GLOW)], GLOW_SCALE)
             ring = UsdGeom.Cylinder.Define(self.stage, f"{root}/halo")
             ring.CreateAxisAttr("Z")
             ring.CreateRadiusAttr(max(0.75, 6 * self.radius))
@@ -175,7 +177,7 @@ class ObstacleScene:
             _bind(ring.GetPrim(), glow)
             light = UsdLux.SphereLight.Define(self.stage, f"{root}/beacon")
             light.CreateRadiusAttr(0.15)
-            light.CreateIntensityAttr(60000.0)
+            light.CreateIntensityAttr(BEACON_W)
             light.CreateColorAttr(Gf.Vec3f(*(c / max(ROBOT_GLOW[k % len(ROBOT_GLOW)]) for c in ROBOT_GLOW[k % len(ROBOT_GLOW)])))
             UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(0, 0, 1.2))
             self.robots[rid] = {"ops": ops.GetOrderedXformOps()}
