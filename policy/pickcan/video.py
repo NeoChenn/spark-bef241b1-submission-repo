@@ -277,8 +277,14 @@ def main(argv):
         if phase not in keys or (phase == "LIFT" and lift_dz > 0.1 and "LIFT_hi" not in keys):
             keys["LIFT_hi" if phase == "LIFT" and phase in keys else phase] = frame
             Image.fromarray(frame).save(os.path.join(args.out_dir, f"key_{len(keys):02d}_{phase.lower()}.png"))
+        cs = u._can.data
+        hp = u.geom_pts[0][u.geom_hit[0]].cpu().numpy()[:160]
         log.append({"t": t, "phase": phase, "sealed": sealed, "lift_dz": lift_dz, "force": float(u.tool_force[0]),
-                    "can": can_p.round(4).tolist(), "dets": len(dets)})
+                    "can": can_p.round(4).tolist(), "dets": len(dets),
+                    "can_quat": (cs.root_quat_w[0]).cpu().numpy().round(4).tolist(),
+                    "q": u._robot.data.joint_pos[0].cpu().numpy().round(4).tolist(),
+                    "tip": u._tip()[0][0].cpu().numpy().round(4).tolist(),
+                    "depth_eye": u.geom_eye[0].cpu().numpy().round(4).tolist(), "depth_points": hp.round(4).tolist()})
         if args.still and step > 5:
             break
     writer.close()
@@ -288,6 +294,11 @@ def main(argv):
     print("[video] RESULT " + json.dumps(res), flush=True)
     with open(os.path.join(args.out_dir, "log.json"), "w") as f:
         json.dump({"result": res, "frames": log}, f)
+    meta = {"task": "Rig-PickCan-Go2UR3Lift-v0", "policy": args.policy, "fps": args.fps, "frame": "env (robot base at origin, deck z=0)",
+            "robot_deck_xy": ROBOT_XY, "joint_names": list(u._robot.joint_names), "can": {"name": name, "radius": can_r, "length": can_h},
+            "tote_center": list(core.TOTE_CENTER), "result": res}
+    with open(os.path.join(args.out_dir, "rollout.json"), "w") as f:
+        json.dump({"meta": meta, "frames": log}, f)
     sys.stdout.flush()
     os._exit(0)
 
