@@ -39,3 +39,9 @@ def test_orbit_target_and_vec_parsing():
 def test_cinematic_preset_flag():
     assert parse_args(["--cinematic", "night"]).cinematic == "night"
     assert parse_args([]).cinematic == ""
+
+
+def test_merged_flags():
+    a = parse_args(["--cinematic", "night", "--merged", "--merged-hold", "0", "--merged-start", "2.5"])
+    assert a.merged and a.merged_hold == 0.0 and a.merged_start == 2.5
+    assert not parse_args([]).merged and parse_args([]).merged_hold == 8.0

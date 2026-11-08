@@ -75,7 +75,8 @@ def rust_rgba(level: np.ndarray, tex: np.ndarray, noise: np.ndarray, edge: tuple
 def rig_translation(meta: dict, env_origin=(0.0, 0.0, 0.0)) -> np.ndarray:
     tf = meta["env_to_world"]
     assert abs(tf["yaw"]) < 1e-9, "only the unrotated env frame is supported"
-    return np.asarray(env_origin, np.float64) - np.asarray(tf["translation"], np.float64)
+    zone = (meta.get("zone_to_world") or {}).get("translation", (0.0, 0.0, 0.0))
+    return np.asarray(env_origin, np.float64) - np.asarray(tf["translation"], np.float64) - np.asarray(zone, np.float64)
 
 
 def camera_path(keys, t: float):
