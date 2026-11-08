@@ -69,7 +69,7 @@ tr.crit td{background:rgba(240,122,58,.13)}
   <div style="max-width:660px">
     <h2 style="margin:0"><small>Agentverse 2026 · Robotics</small></h2>
     <h1>Rig Robot</h1>
-    <p style="font-size:30px">One quadruped, two jobs on an offshore rig: <span class="acc">rust repair</span> and <span class="gas">gas-leak response</span>. It knows when to call a human.</p>
+    <p style="font-size:30px">Two quadrupeds and <b>Argon</b>, the rig's control centre: <span class="acc">rust repair</span> and <span class="gas">gas-leak response</span>. They know when to call a human.</p>
   </div>
 </section>
 
@@ -84,19 +84,36 @@ tr.crit td{background:rgba(240,122,58,.13)}
 </section>
 
 <section class="slide">
-  <h2><small>What we built</small>Go2 + 0–0.45 m lift mast + UR3 arm, one brain</h2>
-  <p class="mute" style="margin:0">On a full offshore rig in Isaac Sim 6.2, rendered on an NVIDIA GB10 and streamed live with a HUD.</p>
-  <div class="strip r"><b>RUST</b><span>DETECT</span><i>→</i><span>SPRAY</span><i>→</i><span>SOAK 30 s</span><i>→</i><span>SCRUB · PPO</span><i>→</i><span>VERIFY · detector + Gemini</span><i>→</i><span>PAINT</span></div>
-  <div class="strip g"><b>LEAK</b><span>GAS_CHECK</span><i>→</i><span>LEAK_APPROACH</span><i>→</i><span>LEAK_INSPECT</span><i>→</i><span>RETORQUE</span><i>→</i><span>LEAK_VERIFY</span><i>→</i><span>resume</span></div>
-  <div class="strip"><b>ANY</b><span>GAS_RETREAT</span><span>BACK_OFF</span><span>SECOND_VIEW</span><span>HOLD</span><span>PAUSE_PERSON</span><span>ESCALATE_TO_HUMAN</span></div>
-  <p class="foot">The gas check runs at every patrol stop and before every step: <b style="color:var(--ink)">gas pre-empts everything</b>. One state machine, one camera, one arm, one decision log.</p>
+  <h2><small>What we built</small>A two-robot fleet, coordinated by Argon</h2>
+  <p class="mute" style="margin:0 0 18px">On a full offshore rig in Isaac Sim, rendered on an NVIDIA GB10. Both robots and every fixed gas detector report to Argon.</p>
+  <div class="row" style="gap:22px">
+    <div class="card r" style="padding:18px 20px"><img class="shot" src="img/fleet_unit1_walk.png" alt="Unit 1 walking on the rig deck in Isaac Sim" style="width:100%;margin-bottom:12px"><h3 style="color:var(--blue);font-size:24px">Unit 1 · Scrubber</h3><p style="font-size:18px">Go2 + lift mast + UR3, brush pad, spray and paint nozzle, gas sniffer. Spray → soak → scrub (PPO) → verify → paint.</p></div>
+    <div class="card g" style="padding:18px 20px"><img class="shot" src="img/fleet_f5_unit2.png" alt="Unit 2's arm at flange F5 after the fix; the detector LED is green" style="width:100%;margin-bottom:12px"><h3 class="gas" style="font-size:24px">Unit 2 · Fixer</h3><p style="font-size:18px">Go2 + lift mast + UR3 with socket tool, gas sensors. Lidar walk-in → sniff → inspect bolts → re-torque → verify → dock.</p></div>
+    <div class="card" style="padding:18px 20px;flex:.9"><h3 class="acc" style="font-size:24px">Argon · gemini-4-argon</h3><ul style="padding-left:20px"><li>Fuses each fixed detector with the nearest robot's sniffer</li><li>Sends the robot whose tools fit the job</li><li>Holds hot work near gas</li><li>Files tickets for a human; never approves its own repair</li></ul></div>
+  </div>
+  <p class="foot" style="margin-top:14px">Fixed detectors sit on every flange: green · amber · red · grey for a faulty head. Safety rules act locally and at once; Gemini's replies are checked before anything moves.</p>
 </section>
 
-<section class="slide" style="justify-content:center;align-items:center;text-align:center;background:linear-gradient(rgba(15,23,32,.82),rgba(15,23,32,.82)),url('img/hud_mock_backoff.png') center/cover">
+<section class="slide" style="justify-content:center;align-items:center;text-align:center;background:linear-gradient(rgba(15,23,32,.82),rgba(15,23,32,.82)),url('img/fleet_f5_unit2.png') center/cover">
   <h2 style="font-size:26px;color:var(--accent);letter-spacing:3px;text-transform:uppercase">Demo · one take · ≤ 60 s</h2>
   <div class="big">▶ Play video</div>
-  <p style="margin-top:26px">Watch the HUD: detector mask → target grid · unannounced mid-run change → RE-PLAN / leak fix / resume · BACK_OFF · HOLD · PAUSE</p>
-  <p class="mute" style="font-size:19px">File: <span class="tbd">TBD</span> (~/Downloads/rig-videos/) · fallback: rig.zeecloud.org, or the mock replay at /?mock=1</p>
+  <p style="margin-top:26px;max-width:1040px">Unit 1 sprays and scrubs → a bolt loosens at F5 (scripted, not announced) → detector amber: spark rule holds Unit 1 → Argon sends Unit 2 → leak confirmed → re-torque → green → Argon resumes Unit 1 → paint</p>
+  <p style="font-size:21px;max-width:1040px">Also in the run: a stuck detector gets a ticket, not a repair · Argon's premature “resume” is refused while the leak is open</p>
+  <p class="mute" style="font-size:19px">File: <span class="tbd">TBD</span> (runs/fleet/fleet_video.mp4) · fallback: the fleet HUD replay of the live Argon run</p>
+</section>
+
+<section class="slide">
+  <h2><small>Argon · the control centre</small>Two sensors, one verdict</h2>
+  <table style="font-size:20px">
+    <tr><th>Fixed detector</th><th>Robot sniffer</th><th>Verdict</th><th>Argon</th></tr>
+    <tr><td>High</td><td>High</td><td><b>LEAK_CONFIRMED</b></td><td>Unit 2 fixes the flange</td></tr>
+    <tr><td>High</td><td>Clean, beside it for 3 s</td><td><b>PIPE_SENSOR_FAULT</b></td><td>Ticket to a human, no repair</td></tr>
+    <tr><td>Clean</td><td>High</td><td><b>LEAK_UNSEEN_BY_FIXED</b></td><td>Inspect, flag the detector</td></tr>
+    <tr><td>High</td><td>Too far away to tell</td><td><b>UNVERIFIED</b></td><td>Send Unit 2 to check</td></tr>
+    <tr><td>Clean</td><td>Clean</td><td><b>OK</b></td><td>Carry on</td></tr>
+  </table>
+  <div class="stat"><div><b>18/18</b>scenario evals correct</div><div><b>4/4</b>valid live calls in the demo run</div><div><b>4–9 s</b>per call, non-blocking</div><div><b>≈ $0.003</b>per call</div></div>
+  <p class="foot"><b style="color:var(--ink)">Hazard first:</b> ≥ 20 %LEL is always real gas. <b style="color:var(--ink)">Spark rule:</b> hot work stops within 6 m of an amber or red detector. Link cut, timeout or a bad reply → the same rules decide locally.</p>
 </section>
 
 <section class="slide">
@@ -122,24 +139,26 @@ tr.crit td{background:rgba(240,122,58,.13)}
 </section>
 
 <section class="slide">
-  <h2><small>Gas-leak job</small>Loose bolt, or crack? The camera decides</h2>
+  <h2><small>Gas-leak job · Unit 2</small>Loose bolt, or crack? The camera decides</h2>
   <img class="shot" src="leak/crack_check.png" alt="Crack check on a clean flange, a cracked flange and a cracked flange through a dirty lens" style="height:250px;width:auto;align-self:center">
   <div class="row" style="margin-top:20px">
     <div class="card g"><h3 class="good" style="font-size:24px">Loose bolts 1 and 5</h3><p>Re-torque, stripe aligned, gas clears → DONE</p></div>
     <div class="card g"><h3 class="bad" style="font-size:24px">Cracked flange</h3><p>Back off 3 m, critical alert → ESCALATE</p></div>
     <div class="card g"><h3 class="acc" style="font-size:24px">Dirty lens</h3><p>“No crack” not trusted → 2 extra views → ESCALATE</p></div>
-    <div class="card g"><h3 class="good" style="font-size:24px">Leak mid-scrub</h3><p>Pause, fix bolt 2, resume the scrub → DONE</p></div>
+    <div class="card g"><h3 class="good" style="font-size:24px">Leak near hot work</h3><p>Unit 1 holds, Unit 2 re-torques, Argon resumes Unit 1 → DONE</p></div>
   </div>
 </section>
 
 <section class="slide">
   <h2><small>Critical failure modes</small>The most severe hazard always wins</h2>
   <div class="row" style="align-items:flex-start">
-    <table style="font-size:19px;flex:1.25">
+    <table style="font-size:17px;flex:1.25">
       <tr class="crit"><td><b>Paint over rust</b></td><td>&lt; 5 % rust, ≥ 80 % visible · Gemini veto · 3 cycles → ESCALATE</td></tr>
       <tr class="crit"><td><b>Wrench on a crack</b></td><td>crack possible → no bolt touched · back off 3 m</td></tr>
-      <tr><td>Gas ≥ 0.20 LEL · sensor fault</td><td><b>GAS_RETREAT</b> (fail-safe)</td></tr>
-      <tr><td>Gas during rust work</td><td>pause → fix leak → resume</td></tr>
+      <tr><td>Gas ≥ 20 %LEL · robot sensor fault</td><td><b>GAS_RETREAT</b> (fail-safe)</td></tr>
+      <tr><td>Detector amber within 6 m of hot work</td><td>Spark rule: <b>HOLD</b> Unit 1 at once · Unit 2 fixes · resume</td></tr>
+      <tr><td>Gemini says “resume” with the leak open</td><td>Refused and logged (happened in the live run)</td></tr>
+      <tr><td>Link to Argon cut</td><td>Same rules decide locally</td></tr>
       <tr><td>Force &gt; 40 N</td><td><b>BACK_OFF</b>: retract 5 cm, × 0.7</td></tr>
       <tr><td>Person &lt; 3 m · lens blocked</td><td><b>PAUSE_PERSON</b> · <b>HOLD</b></td></tr>
     </table>
@@ -154,18 +173,18 @@ tr.crit td{background:rgba(240,122,58,.13)}
 <section class="slide">
   <h2><small>Edge autonomy · what's next</small>The fast loop never leaves the robot</h2>
   <div class="row">
-    <div class="zone" style="border-color:var(--accent)"><h3 class="acc">On the robot · CPU</h3><ul><li>Rust detector: 1.1 ms</li><li>Scrub policy: 0.012 ms*</li><li>Leak check: ~90 ms / frame*</li><li>GB10 TensorRT: <span class="tbd">TBD</span></li></ul></div>
-    <div class="zone"><h3>Cloud · optional</h3><ul><li>Gemini rust second opinion</li><li>Asynchronous · latency <span class="tbd">TBD</span></li><li>Offline → unchanged behaviour</li></ul></div>
+    <div class="zone" style="border-color:var(--accent)"><h3 class="acc">On the robot · CPU</h3><ul><li>Rust detector: 1.1 ms</li><li>Scrub policy: 0.012 ms*</li><li>Leak check: ~90 ms / frame*</li><li>Lidar navigation · safety rules</li><li>GB10 TensorRT: <span class="tbd">TBD</span></li></ul></div>
+    <div class="zone"><h3>Cloud · Argon</h3><ul><li>gemini-4-argon fleet decisions</li><li>Non-blocking · 4–9 s per call</li><li>Gemini rust second opinion</li><li>Offline → edge rules make the safe call</li></ul></div>
     <div class="zone"><h3>Training only</h3><ul><li>Modal A10G · L40S</li><li>GB10: PPO + RTX render + stream</li></ul></div>
   </div>
-  <div class="card g" style="margin-top:22px;flex:none"><h3 class="gas" style="font-size:22px">Coming <span class="tbd">TBD</span></h3><p>Unit 2 “gas” robot: methane %LEL, H₂S, OGI-style camera, acoustic sensor, cast-and-surge source localisation · 3D plume with orifice leak rate · fleet planner with gas pre-emption · storm adaptation · Go2 walking</p></div>
+  <div class="card g" style="margin-top:22px;flex:none"><h3 class="gas" style="font-size:22px">Next</h3><p>Trained PPO lidar navigation on both units (the demo uses the pure-pursuit fallback) · 3D gas plume with orifice leak rate · storm adaptation · more units and jobs under Argon</p></div>
   <p class="foot">*measured on a laptop CPU, batch 1.</p>
 </section>
 
 <section class="slide hero">
   <div style="max-width:700px">
     <h1>Find it. Fix it. Prove it.<br><span class="acc">Ask when unsure.</span></h1>
-    <p class="mute" style="font-size:20px;max-width:600px">Limits: simulation only · robot posed kinematically · brush force is a spring model, bolt torque not simulated · gas thresholds illustrative · leak checks not yet re-tested on Isaac frames</p>
+    <p class="mute" style="font-size:20px;max-width:600px">Limits: simulation only · robots replayed kinematically from the logged run · brush force is a spring model, bolt torque not simulated · the leak is scripted at a fixed time, not announced · gas thresholds illustrative · navigation uses the pure-pursuit fallback · leak checks not yet re-tested on Isaac frames</p>
     <p class="mute" style="font-size:20px">rig.zeecloud.org · docs/technical_summary.pdf</p>
   </div>
 </section>
