@@ -81,6 +81,7 @@ def parse_args(argv=None):
     p.add_argument("--shots", default="", help="comma-separated shot names to render (film mode)")
     p.add_argument("--half-shots", default="", help="film: shots rendered at half rate with duplicated frames")
     p.add_argument("--f5-fill", type=float, default=2.5e4, help="film: soft fill light intensity at F5")
+    p.add_argument("--scrub-cache", default="", help="film: npz of precomputed scrub_motion samples")
     p.add_argument("--colors", action="store_true", help="unit paint colours (on in film mode)")
     p.add_argument("--control-room", default="", help="x,y,z,w,d,h[,yaw] bare lit interior")
     return p.parse_args(argv)
@@ -538,6 +539,39 @@ def control_room_parts(center, size, yaw: float = 0.0, sill: float = 0.9, head: 
                           (pw if lx > ly else t, pw if ly >= lx else t, head - sill)))
     c, s = math.cos(yaw), math.sin(yaw)
     return [(n, (cx + c * x - s * y, cy + s * x + c * y, cz + z), sz) for n, (x, y, z), sz in parts]
+
+
+def scrub_cache_write(job, path, dt: float = 1 / 60) -> int:
+    t = np.arange(job.plan_.t[0], job.plan_.t[-1] + 1e-9, dt)
+    S = [job.at(float(x)) for x in t]
+    keys = list(S[0]["q"])
+    np.savez_compressed(
+        path, t=t, keys=np.array(keys), q=np.array([[s["q"][k] for k in keys] for s in S], np.float32),
+        base=np.array([s["base"] for s in S], np.float64), force=np.array([s["brush_contact"]["force_N"] for s in S]),
+        nxyz=np.array([s["nozzle"]["xyz"] for s in S]), ndir=np.array([s["nozzle"]["dir"] for s in S]),
+        non=np.array([s["nozzle"]["on"] for s in S]), nlen=np.array([s["nozzle"]["length"] for s in S]),
+        phase=np.array([s["phase"] for s in S]), rust=np.array([np.round(s["rust"] * 255) for s in S], np.uint8),
+        sprayed=np.array([s["sprayed"] > 0.5 for s in S]), painted=np.array([s["painted"] > 0.5 for s in S]),
+        rust_fraction=np.array([s["rust_fraction"] for s in S]))
+    return len(t)
+
+
+class ScrubCache:
+    def __init__(self, path):
+        d = np.load(path)
+        self.d = {k: d[k] for k in d.files}
+        self.keys = [str(k) for k in self.d["keys"]]
+        self.plan_ = argparse.Namespace(t=self.d["t"])
+
+    def at(self, t: float) -> dict:
+        d = self.d
+        k = int(np.clip(np.searchsorted(d["t"], t), 0, len(d["t"]) - 1))
+        return {"t": float(t), "phase": str(d["phase"][k]), "q": dict(zip(self.keys, map(float, d["q"][k]))),
+                "base": d["base"][k].copy(), "brush_contact": {"force_N": float(d["force"][k])},
+                "nozzle": {"xyz": d["nxyz"][k].tolist(), "dir": d["ndir"][k].tolist(), "on": bool(d["non"][k]),
+                           "length": float(d["nlen"][k])},
+                "rust": d["rust"][k] / 255.0, "sprayed": d["sprayed"][k].astype(float),
+                "painted": d["painted"][k].astype(float), "rust_fraction": float(d["rust_fraction"][k])}
 
 
 def gait(stand: dict, phase: float, amp: float) -> dict:
@@ -1393,14 +1427,16 @@ def main(argv=None):
             from integration import scrub_motion as smo
 
             w_ = smo.windows_from_timeline(scn.rows)
-            if hasattr(smo, "film_job"):
+            if args.scrub_cache and resolve(args.scrub_cache).exists():
+                sjob = ScrubCache(resolve(args.scrub_cache))
+            elif hasattr(smo, "film_job"):
                 sjob = smo.film_job(str(resolve(tl)))
             else:
                 p_ = scn.pose("unit1", w_.get("spray", w_.get("deploy", 0.0)))
                 sjob = smo.ScrubJob(patch=smo.first_rust_grid(scn.rows), scrub_pose=(p_[0], p_[1], 0.0))
                 sjob.plan(t_deploy=w_["deploy"], t_spray=w_["spray"], t_soak=w_["soak"], t_scrub=w_["scrub"],
                           t_verify=w_["verify"], t_paint=w_["paint"], t_done=w_["stow"])
-            if sjob.plan_ is None:
+            if getattr(sjob, "plan_", None) is None:
                 sjob.plan()
             if brush is not None:
                 from policy.brush_squish import BrushPad
