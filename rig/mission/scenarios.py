@@ -8,7 +8,7 @@ import numpy as np
 from policy.fleet.jobs import SETUP_S
 from policy.fleet.reservations import Reservations
 from policy.fleet.scenario import JUDGES_ROBOTS, JUDGES_RUST, JUDGES_WELD, CHECK_DEADLINE_S, nearest_node
-from rig.mission.gas import ALARM_LEL, FLOW_GS, GasLeak
+from rig.mission.gas import ALARM_LEL, FLOW_GS, METHODS, GasLeak
 
 IDS = ("gas", "patrol", "repair", "flyby")
 NAMES = {"gas": "Gas leak", "patrol": "Deck patrol", "repair": "Pipe repair", "flyby": "Fly-by"}
@@ -98,6 +98,7 @@ class Gas(Script):
     def setup(self) -> None:
         m = self.m
         m.valve_by, m.wait_isolation, m.flow_gs = "R1", True, GAS_FLOW_GS
+        m.leak.method = "infotaxis"
         m.valves = {self.flange: self.valve_xyz, self.second: [27.0, -9.0, 42.5]}
         tr = m.fleet.jobs.get("weld", "crack")
         start = next((s[0] for s in tr.segments if s[1] == "WELD"), 0.0)
@@ -321,13 +322,13 @@ class Repair(Script):
     robots = (("R1", [9.0, -4.5, 42.5], 0.95), ("R2", [-21.0, 4.0, 31.25], 0.9), ("R3", [10.0, 12.0, 20.0], 0.8))
 
     def setup(self) -> None:
-        self.rust = self.task("rust", self.poi, severity=0.9, exposure=1.0, only="R1", scenario="rust")
+        self.rust = self.task("rust", self.poi, severity=0.9, exposure=1.0, only="R1", scenario="repair")
         self.task("leak_check", "F1", only="R2", deadline=CHECK_DEADLINE_S)
         self.task("rust", JUDGES_RUST[2][0], JUDGES_RUST[2][1], severity=0.5, exposure=0.9, only="R3")
         self.paint_job = None
         self.weld = None
         self.gust_wait = False
-        tr = self.m.fleet.jobs.get("rust", "rust")
+        tr = self.m.fleet.jobs.get("rust", "repair")
         p = next((s[0] for s in tr.segments if s[1] == "PAINT"), None)
         self.paint_at = None if p is None else SETUP_S["rust"] + p
         self.m.note("Detector", "RUST", f"rust patch confirmed at {self.poi} -> repair queued for Unit 1")
@@ -381,7 +382,7 @@ class Repair(Script):
         if st in ("SPRAY", "SOAK", "SCRUB", "BACK_OFF"):
             return 2
         if st == "DETECT":
-            return 0
+            return 0 if self.i <= 1 else self.i
         if self.rust.status == "assigned" or w is not None:
             return 5 if w is not None and self.rust.status == "done" else 1
         return 0
@@ -402,8 +403,9 @@ class Repair(Script):
                     j["status"] = "CANCELLED"
                 self.paint_job = None
             else:
-                self.rust = self.task("rust", self.poi, severity=0.9, exposure=1.0, only="R1", scenario="rust")
+                self.rust = self.task("rust", self.poi, severity=0.9, exposure=1.0, only="R1", scenario="repair")
                 self.paint_job = None
+            self.i = 0
             m.note("Detector", "RUST_RETURNS", f"rust back at {self.poi} -> re-detect and re-scrub")
             return "Rust reappears", f" at {self.poi} — Unit 1 re-detects and re-scrubs"
         if did == "gust":
@@ -480,6 +482,7 @@ class Scenarios:
         self.selected = s.main or None
         self.camera = {"mode": "flyby" if sid == "flyby" else "wide", "robot": None}
         self.last_i = None
+        self.alerts = []
         m.note("Operator", "SCENARIO", f"{s.name} started")
         if sid != "flyby":
             m.flash(s.name, f" — {s.steps[0]}", "act", "SCENARIO", prio=3)
@@ -582,7 +585,7 @@ class Scenarios:
             cloud = m._budget_ok() and getattr(m.control, "agent", None) is not None
             return {1: "Argon reads the fixed sensors" if cloud else "Argon offline — edge rules read the fixed sensors",
                     2: "fleet coordinator pre-empts Unit 2",
-                    3: "cast-and-surge upwind on the trunk and arm-tip sensors",
+                    3: f"{METHODS[m.leak.method]} on the trunk and arm-tip sensors",
                     4: "approve the valve isolation in the inbox", 5: "Unit 1 walks to the valve upstream",
                     6: "weld frozen while gas is above 10 %LEL", 7: "hot-work gate released"}.get(s.i, "")
         if s.id == "patrol":
