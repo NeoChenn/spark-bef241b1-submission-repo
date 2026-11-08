@@ -29,6 +29,7 @@ MAT = {
     "stainless": f"{WL}/topside_insulated",
     "grey": f"{WL}/topside_vessel_grey",
     "gauge": f"{WL}/gauge_body",
+    "steel_rust": f"{WL}/topside_steel_rust",
 }
 X_TO_Z = tuple(tf.segment_pose((0, 0, 0), (0, 0, 1))[1])
 X_TO_Y = tuple(tf.segment_pose((0, 0, 0), (0, 1, 0))[1])
@@ -113,7 +114,24 @@ def link():
     return mesh_data(m["points"], m["counts"], m["indices"], m["uvs"], m["normals"])
 
 
-PROTOS = {"hex": lambda: prism(6), "torus": lambda: torus(0.04), "ubolt": ubolt, "wheel": handwheel, "link": link}
+def ramp():
+    pts = [(-0.5, -0.5, 0), (-0.5, 0.5, 0), (-0.5, 0.2, 1), (-0.5, -0.2, 1), (0.5, -0.5, 0), (0.5, 0.5, 0), (0.5, 0.2, 1), (0.5, -0.2, 1)]
+    quads = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 4, 7, 3), (3, 7, 6, 2), (2, 6, 5, 1), (1, 5, 4, 0)]
+    return mesh_data(pts, [4] * 6, [i for q in quads for i in q])
+
+
+def wedge():
+    pts = [(-0.5, -0.5, 0), (0.5, -0.5, 0), (0.5, -0.5, 1), (-0.5, 0.5, 0), (0.5, 0.5, 0), (0.5, 0.5, 1)]
+    faces = [(0, 2, 1), (3, 4, 5), (0, 3, 5, 2), (1, 2, 5, 4), (0, 1, 4, 3)]
+    return mesh_data(pts, [len(f) for f in faces], [i for f in faces for i in f])
+
+
+def zrot(deg):
+    a = math.radians(deg) / 2
+    return (math.cos(a), 0.0, 0.0, math.sin(a))
+
+
+PROTOS = {"ramp": ramp, "wedge": wedge, "hex": lambda: prism(6), "torus": lambda: torus(0.04), "ubolt": ubolt, "wheel": handwheel, "link": link}
 
 
 def write_mesh(path, m, material=None, double=False):
@@ -685,6 +703,226 @@ def id_boards(kit):
             kit.seg(MAT["black"], "cyl", (px + nx * 0.4, py + ny * 0.4, z + h / 2 + 0.35), (px + nx * 0.1, py + ny * 0.1, z + h / 2 + 0.1), 0.05)
 
 
+def oil_quad(path, x, y, size, rot, look, q=0, z=0.004):
+    quarters = (((0, 0.5), (0.5, 1)), ((0.5, 0.5), (1, 1)), ((0, 0), (0.5, 0.5)), ((0.5, 0), (1, 0.5)))
+    a = math.radians(rot)
+    write_mesh(path, quad_mesh((x, y, z), (math.cos(a), math.sin(a), 0), (-math.sin(a), math.cos(a), 0), size / 2, size / 2,
+                               quarters[q % 4]), look)
+
+
+def cables_and_protectors(kit, root):
+    for k, (look, r, ctrl) in enumerate(g.CABLES):
+        pts = dg.spline(np.array([(x, y, r) for x, y in ctrl]), 12)
+        write_mesh(f"{root}/deck_cable_{k}", tube_part(pts, r, 8), f"{LOOKS}/{look}")
+    for (x, y), rot in g.PROTECTORS:
+        for seg in (-0.45, 0.45):
+            a = math.radians(rot)
+            c = (x + math.cos(a) * seg, y + math.sin(a) * seg, 0.0)
+            kit.add(MAT["yellow"], "ramp", c, zrot(rot), (0.88, 0.52, 0.055))
+            kit.add(MAT["black"], "box", (c[0], c[1], 0.056), zrot(rot), (0.86, 0.17, 0.006))
+
+
+def drip_trays(kit, root, oil):
+    for k, ((x, y), rot) in enumerate(g.DRIP_TRAYS):
+        kit.box(MAT["galv"], (x, y, 0.005), (0.72, 0.5, 0.01))
+        for dx, dy, sx, sy in ((0.36, 0, 0.012, 0.5), (-0.36, 0, 0.012, 0.5), (0, 0.25, 0.72, 0.012), (0, -0.25, 0.72, 0.012)):
+            kit.box(MAT["galv"], (x + dx, y + dy, 0.035), (sx, sy, 0.06))
+        oil_quad(f"{root}/tray_oil_{k}", x, y, 0.62, 15 * k, oil, k, 0.012)
+        oil_quad(f"{root}/tray_spill_{k}", x + 0.5, y - 0.15, 0.55, 40 + 25 * k, oil, k + 1)
+
+
+def gas_rack(kit, root):
+    x, y = g.GAS_RACK
+    kit.box(MAT["galv"], (x, y, 0.01), (1.5, 0.45, 0.02))
+    for dx in (-0.7, 0.7):
+        kit.box(MAT["yellow"], (x + dx, y - 0.15, 0.7), (0.06, 0.06, 1.4))
+        kit.box(MAT["yellow"], (x + dx, y + 0.18, 0.55), (0.06, 0.06, 1.1))
+    for z in (0.45, 1.05):
+        kit.box(MAT["yellow"], (x, y - 0.15, z), (1.46, 0.05, 0.05))
+    kit.box(MAT["yellow"], (x, y + 0.18, 1.08), (1.46, 0.05, 0.04))
+    looks = [f"{LOOKS}/gas_{c}" for c in ("maroon", "black", "grey", "blue", "maroon")]
+    for k, dx in enumerate((-0.52, -0.26, 0.0, 0.26, 0.52)):
+        c = (x + dx, y, 0.0)
+        kit.seg(looks[k], "cyl", c, (c[0], c[1], 1.28), 0.23)
+        kit.add(looks[k], "sphere", (c[0], c[1], 1.28), IDENT, (0.115, 0.115, 0.09))
+        kit.seg(MAT["galv"], "cyl", (c[0], c[1], 1.34), (c[0], c[1], 1.47), 0.09)
+        kit.seg(MAT["black"], "cyl", (c[0], c[1], 1.0), (c[0], c[1], 1.05), 0.235)
+    for z in (0.75, 1.15):
+        pts = dg.sag((x - 0.68, y + 0.13, z), (x + 0.68, y + 0.13, z), 0.04, 30)
+        for cc, b in dg.chain_links(pts, 0.05):
+            q = Gf.Matrix3d(*b.T.reshape(-1).tolist()).ExtractRotation().GetQuat()
+            kit.add(MAT["steel"], "link", cc, (q.GetReal(), *q.GetImaginary()), (0.8, 0.8, 0.8))
+
+
+def pallet_and_tarp(kit, root, tarp, wood):
+    x, y = g.PALLET
+    for dy in (-0.45, 0.0, 0.45):
+        kit.box(wood, (x, y + dy, 0.05), (1.2, 0.1, 0.1))
+    for dx in np.linspace(-0.54, 0.54, 7):
+        kit.box(wood, (x + dx, y, 0.12), (0.11, 1.0, 0.022))
+    boxes = [((x - 0.55, y - 0.48), (x + 0.1, y + 0.48), 0.75), ((x + 0.12, y - 0.4), (x + 0.58, y + 0.3), 0.55)]
+    for (bx0, by0), (bx1, by1), top in boxes:
+        kit.box(f"{LOOKS}/cardboard", ((bx0 + bx1) / 2, (by0 + by1) / 2, (0.13 + top) / 2), (bx1 - bx0, by1 - by0, top - 0.13))
+    res = 30
+    xs, ys, zs = dg.drape(boxes, (x - 0.85, y - 0.7, x + 0.85, y + 0.7), 0.0, res, seed=5, fall=0.3)
+    pts = np.stack([xs, ys, zs], -1).reshape(-1, 3)
+    i, j = np.meshgrid(np.arange(res - 1), np.arange(res - 1), indexing="ij")
+    a = i * res + j
+    quads = np.stack([a, a + res, a + res + 1, a + 1], -1).reshape(-1)
+    write_mesh(f"{root}/tarp", mesh_data(pts, np.full(len(quads) // 4, 4), quads, np.stack([xs, ys], -1).reshape(-1, 2)), tarp,
+               double=True)
+    for n, dy in enumerate((-0.3, 0.3)):
+        strap = np.array([(x - 0.9, y + dy, 0.13), (x - 0.6, y + dy, 0.78), (x + 0.1, y + dy, 0.79), (x + 0.6, y + dy, 0.6),
+                          (x + 0.9, y + dy, 0.13)])
+        write_mesh(f"{root}/strap_{n}", tube_part(dg.spline(strap, 6), 0.008, 5), f"{LOOKS}/cable_orange")
+
+
+def scaffold(kit, wood):
+    x, y = g.SCAFFOLD
+    for dx in (-0.9, 0.0, 0.9):
+        kit.box(wood, (x + dx, y, 0.04), (0.1, 0.62, 0.08))
+    for layer in range(3):
+        for col in (-0.13, 0.13):
+            jitter = 0.03 * ((layer * 3 + int(col * 10)) % 3 - 1)
+            kit.box(wood, (x + jitter, y + col, 0.1 + layer * 0.04), (2.4, 0.225, 0.038))
+    for k in range(7):
+        dz = 0.03 + 0.048 * (k // 4)
+        kit.seg(MAT["galv"], "cyl", (x - 1.5, y + 0.42 + 0.05 * (k % 4), dz), (x + 1.5 + 0.1 * (k % 3), y + 0.42 + 0.05 * (k % 4), dz),
+                0.048)
+    for k in range(4):
+        kit.box(MAT["steel"], (x + 1.2 + 0.12 * k, y + 0.75, 0.03), (0.09, 0.07, 0.06))
+
+
+def barrier(kit, root, plastic):
+    (x0, y0), (x1, y1) = g.BARRIER
+    corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+    for cx, cy in corners:
+        kit.seg(MAT["black"], "cyl", (cx, cy, 0.0), (cx, cy, 0.04), 0.3)
+        kit.seg(MAT["red"], "cyl", (cx, cy, 0.04), (cx, cy, 0.95), 0.045)
+        kit.seg(MAT["white"], "cyl", (cx, cy, 0.55), (cx, cy, 0.7), 0.047)
+    for p, q in zip(corners, corners[1:] + corners[:1]):
+        pts = dg.sag((p[0], p[1], 0.9), (q[0], q[1], 0.9), 0.12, 40)
+        for k, (cc, b) in enumerate(dg.chain_links(pts, 0.07)):
+            qq = Gf.Matrix3d(*b.T.reshape(-1).tolist()).ExtractRotation().GetQuat()
+            kit.add(plastic[k % 2], "link", cc, (qq.GetReal(), *qq.GetImaginary()), (1.4, 1.4, 1.4))
+    cx = (x0 + x1) / 2
+    write_mesh(f"{root}/tag", atlased(quad_mesh((cx, y0 - 0.01, 0.7), (-1, 0, 0), (0, 0, 1), 0.075, 0.075), "tag"), atlas_look())
+    write_mesh(f"{root}/tag_back", atlased(quad_mesh((cx, y0 + 0.01, 0.7), (1, 0, 0), (0, 0, 1), 0.075, 0.075), "tag"), atlas_look())
+    kit.seg(MAT["black"], "cyl", (cx, y0, 0.775), (cx, y0, 0.84), 0.004)
+    mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+    kit.box(MAT["black"], (mx, my, 0.002), (0.6, 0.6, 0.004))
+    kit.box(MAT["galv"], (mx, my, 0.008), (0.7, 0.7, 0.004))
+    kit.box(MAT["black"], (mx, my, 0.011), (0.58, 0.58, 0.004))
+    kit.add(MAT["galv"], "box", (mx + 0.38, my, 0.28), (math.cos(math.radians(-35)), 0.0, math.sin(math.radians(-35)), 0.0),
+            (0.62, 0.62, 0.012))
+
+
+def small_debris(kit, root, rope, oil):
+    for k, (x, y) in enumerate(g.ROPES):
+        for layer in range(2):
+            pts = dg.coil((x, y, 0.0), 0.12 + layer * 0.016, 0.3 - layer * 0.032, 5.0 - layer * 1.5, 0.016 * (1 + 1.9 * layer))
+            write_mesh(f"{root}/rope_{k}_{layer}", tube_part(pts, 0.016, 7), rope)
+        tail = dg.spline(np.array([(x + 0.3, y, 0.016), (x + 0.7, y - 0.25, 0.016), (x + 1.0, y - 0.1, 0.016)]), 8)
+        write_mesh(f"{root}/rope_{k}_tail", tube_part(tail, 0.016, 7), rope)
+    for x, y, rot in g.CHOCKS:
+        kit.add(f"{LOOKS}/wood", "wedge", (x, y, 0.0), zrot(rot), (0.25, 0.14, 0.11))
+    for k, ((x, y), radius, seed) in enumerate(g.SCATTER):
+        rng = np.random.default_rng(100 + seed)
+        for j in range(14):
+            px, py = x + rng.uniform(-radius, radius), y + rng.uniform(-radius, radius)
+            yaw = rng.uniform(0, 180)
+            kind = j % 5
+            if kind == 0:
+                kit.seg(MAT["steel"], "hex", (px, py, 0.0), (px, py, 0.014), 0.03)
+            elif kind == 1:
+                a = math.radians(yaw)
+                kit.seg(MAT["steel"], "cyl", (px, py, 0.008), (px + 0.07 * math.cos(a), py + 0.07 * math.sin(a), 0.008), 0.014)
+            elif kind == 2:
+                kit.add(MAT["white"] if j % 2 else MAT["black"], "box", (px, py, 0.002), zrot(yaw), (0.12, 0.006, 0.002))
+            elif kind == 3:
+                kit.add(MAT["galv"], "torus", (px, py, 0.002), X_TO_Z, (0.016, 0.016, 0.016))
+            else:
+                kit.add(MAT["steel_rust"], "box", (px, py, 0.003), zrot(yaw), (0.05, 0.03, 0.004))
+        oil_quad(f"{root}/scatter_stain_{k}", x, y, 0.7, 30 * k, oil, k + 2, 0.003)
+    for x, y in g.TINS:
+        kit.seg(MAT["red"], "cyl", (x, y, 0.0), (x, y, 0.06), 0.09)
+        kit.seg(MAT["galv"], "cyl", (x, y, 0.06), (x, y, 0.068), 0.095)
+        for j in range(3):
+            a = 2.1 * j
+            kit.seg(f"{LOOKS}/cardboard", "cyl", (x + 0.07 * math.cos(a), y + 0.07 * math.sin(a), 0.006),
+                    (x + 0.1 * math.cos(a + 0.4), y + 0.1 * math.sin(a + 0.4), 0.006), 0.011)
+    for x, y, rot in g.GLOVE_SPOTS:
+        a = math.radians(rot)
+        kit.add(f"{LOOKS}/glove", "sphere", (x, y, 0.012), zrot(rot), (0.11, 0.05, 0.014))
+        kit.add(f"{LOOKS}/glove", "sphere", (x + 0.1 * math.cos(a), y + 0.1 * math.sin(a), 0.012), zrot(rot), (0.04, 0.045, 0.012))
+
+
+def grit(kit, root, grit_look):
+    spots = [(x, y, 0.15) for x, y in g.COLUMNS] + [(x, y, 0.25) for x, y in g.GRIT_SUPPORTS]
+    spots += [(x, g.LINES[line][0], 0.1) for line in ("grey", "orange", "rusty") for x in g.SUPPORTS[line]]
+    for k, (x, y, half) in enumerate(spots):
+        oil_quad(f"{root}/grit_{k:02d}", x, y, 2 * half + 0.55, 47 * k, grit_look, k, 0.0035 + 0.0002 * k)
+        rng = np.random.default_rng(200 + k)
+        for j in range(10):
+            a = rng.uniform(0, 2 * math.pi)
+            d = half + rng.uniform(0.0, 0.25)
+            kit.add(MAT["steel_rust"], "box", (x + d * math.cos(a), y + d * math.sin(a), 0.002), zrot(rng.uniform(0, 180)),
+                    (rng.uniform(0.015, 0.04), rng.uniform(0.01, 0.025), 0.003))
+
+
+def clutter(kit):
+    root = f"{g.ZONE_ROOT}/Clutter"
+    UsdGeom.Scope.Define(S(), root)
+    oil = f"{LOOKS}/oil"
+    tarp = paint_look("tarp_green", (0.06, 0.14, 0.08), chip=0.0, grime_amount=0.6, scale=1.2)
+    wood = str(paint_look("wood", (0.33, 0.23, 0.13), chip=0.0, grime_amount=0.75, scale=0.4).GetPath())
+    paint_look("cardboard", (0.42, 0.3, 0.17), chip=0.0, grime_amount=0.6, scale=0.5)
+    for name, color in (("maroon", (0.3, 0.04, 0.04)), ("black", (0.03, 0.03, 0.03)), ("grey", (0.38, 0.4, 0.41)),
+                        ("blue", (0.05, 0.13, 0.32))):
+        paint_look(f"gas_{name}", color, chip=0.35, rust=0.1, scale=0.5)
+    plastic = [paint_look("chain_red", (0.55, 0.05, 0.03), chip=0.0, scale=0.3), paint_look("chain_white", (0.7, 0.7, 0.68), chip=0.0, scale=0.3)]
+    grit_look = decal_look("grit", None, ASSETS / "decals" / "AsphaltDamageSet002" / "opacity.jpg", roughness=0.8,
+                           tint=(0.17, 0.08, 0.035), strength=0.85)
+    rope = texture_material(S(), f"{LOOKS}/rope", ASSETS / "textures" / "Rope002", tile=1.0, to_asset_path=rel)
+    cables_and_protectors(kit, root)
+    drip_trays(kit, root, oil)
+    gas_rack(kit, root)
+    pallet_and_tarp(kit, root, tarp, wood)
+    scaffold(kit, wood)
+    barrier(kit, root, [str(m.GetPath()) for m in plastic])
+    small_debris(kit, root, rope, oil)
+    grit(kit, root, grit_look)
+
+
+def vents(kit):
+    root = f"{g.ROOT}/Topside/Vents"
+    UsdGeom.Scope.Define(S(), root)
+    for (x, y, z), base in g.VENT_BASES.items():
+        top = z - 0.35
+        kit.seg(MAT["grey"], "cyl", (x, y, base), (x, y, top), 0.4)
+        kit.seg(MAT["grey"], "cyl", (x, y, base), (x, y, base + 0.04), 0.62)
+        if top - base > 3:
+            for zz in g.stations(base + 1.5, top - 0.6, 2.5):
+                kit.seg(MAT["grey"], "cyl", (x, y, zz), (x, y, zz + 0.05), 0.5)
+            for a in (0.4, 2.5, 4.6):
+                kit.seg(MAT["galv"], "cyl", (x, y, top - 1.2), (x + 2.2 * math.cos(a), y + 2.2 * math.sin(a), base), 0.03)
+        kit.box(MAT["galv"], (x, y, top + 0.15), (0.62, 0.62, 0.3))
+        for face in ("+x", "-x", "+y", "-y"):
+            nx, ny = g.facing(face)
+            for k in range(4):
+                zz = top + 0.05 + 0.065 * k
+                kit.add(MAT["black"], "box", (x + nx * 0.315, y + ny * 0.315, zz), IDENT,
+                        (0.012 if nx else 0.5, 0.012 if ny else 0.5, 0.022))
+        kit.box(MAT["galv"], (x, y, top + 0.32), (0.78, 0.78, 0.025))
+    ex, ey, ez, h = 32.0, 22.0, 42.5, 10.0
+    for zz in (ez + 2.5, ez + 5.0, ez + 7.5):
+        kit.seg(MAT["steel_rust"], "cyl", (ex, ey, zz), (ex, ey, zz + 0.08), 1.95)
+    kit.seg(MAT["black"], "cyl", (ex, ey, ez + h - 0.1), (ex, ey, ez + h + 0.25), 2.05)
+    for a in (0.3, 2.4, 4.5):
+        kit.seg(MAT["galv"], "cyl", (ex + 0.9 * math.cos(a), ey + 0.9 * math.sin(a), ez + h - 1.5),
+                (ex + 5.0 * math.cos(a), ey + 5.0 * math.sin(a), ez), 0.025)
+
+
 def build_looks():
     UsdGeom.Scope.Define(S(), LOOKS)
     paint_look("cable_black", (0.025, 0.025, 0.028), chip=0.0, scale=0.3)
@@ -718,6 +956,7 @@ def build(path=g.LAYER) -> dict:
     stripes(stripe_look)
     drains(kit)
     debris(kit)
+    clutter(kit)
     UsdGeom.Xform.Define(stage, g.OFFLINE)
     offzone = UsdGeom.Xform.Define(stage, f"{g.OFFLINE}/Zone")
     offzone.AddTranslateOp().Set(Gf.Vec3d(*g.ZONE_T))
@@ -730,6 +969,7 @@ def build(path=g.LAYER) -> dict:
     topside_racks(top_live, top_off)
     fascia(top_live)
     id_boards(top_live)
+    vents(top_live)
     counts = {"zone_instances": kit.write(), "tray_instances": trays.write(), "topside_instances": top_live.write(),
               "topside_offline": top_off.write()}
     counts["prims"] = sum(1 for _ in Usd.PrimRange(stage.GetPrimAtPath(g.ROOT)))

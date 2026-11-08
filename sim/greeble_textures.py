@@ -192,6 +192,18 @@ def label(name: str, direction: int):
     return img, None
 
 
+def tag():
+    img = Image.new("RGB", (512, 512), WHITE)
+    d = ImageDraw.Draw(img)
+    d.rectangle((0, 0, 512, 170), fill=RED)
+    centred(d, (256, 88), "DANGER", 96, WHITE, 3)
+    centred(d, (256, 250), "DO NOT", 72, BLACK, 2)
+    centred(d, (256, 330), "ENTER", 72, BLACK, 2)
+    centred(d, (256, 420), "OPEN DRAIN - PTW 0417", 34, BLACK, 1)
+    d.ellipse((236, 470, 276, 510), outline=BLACK, width=6)
+    return img, None
+
+
 def id_board():
     w, h = 2048, 512
     img = Image.new("RGB", (w, h), (14, 30, 62))
@@ -210,7 +222,7 @@ def id_board():
 def build() -> dict:
     TEXTURES.mkdir(parents=True, exist_ok=True)
     items = {"no_smoking": no_smoking(), "ppe": ppe(), "hazard_flammable": hazard_flammable(), "muster": muster(),
-             "h2s": h2s(), "dial_a": dial(0.38, 4), "dial_b": dial(0.62, 9)}
+             "h2s": h2s(), "dial_a": dial(0.38, 4), "dial_b": dial(0.62, 9), "tag": tag()}
     for name in LABELS:
         for direction in (1, -1):
             items[f"label_{name}_{'f' if direction > 0 else 'r'}"] = label(name, direction)
