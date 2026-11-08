@@ -478,8 +478,8 @@ def plume_puffs(origin, jet, strength: float, t: float, n: int = 16, wind=(0.0, 
         ph = (t / life + k / n) % 1.0
         p = o + j * 0.35 * ph ** 0.5 + w * life * 0.45 * ph + np.array([0.0, 0.0, 0.5 * ph ** 1.2])
         p = p + 0.06 * ph * np.array([math.sin(2.3 * k + 1.7 * t), math.cos(1.9 * k + 1.3 * t), 0.0])
-        r = 0.025 + 0.32 * ph
-        a = strength * 0.5 * min(ph * 8.0, 1.0) * (1.0 - ph) ** 1.3
+        r = 0.02 + 0.23 * ph
+        a = strength * 0.3 * min(ph * 8.0, 1.0) * (1.0 - ph) ** 1.3
         out.append((p, r, a))
     return out
 

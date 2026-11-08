@@ -145,3 +145,22 @@ def test_leak_crate_and_push_helpers():
     pushes = R.push_list(s)
     assert pushes == [(40.0, [0.0, 0.4])] and R.push_roll(pushes, 39.0, 0.0) == 0
     assert abs(R.push_roll(pushes, 40.3, 0.0)) > 0.05 and abs(R.push_roll(pushes, 42.0, 0.0)) == 0
+
+
+def test_fx_hides_the_lidar_fan_and_gas_when_off():
+    from pxr import Usd, UsdGeom
+
+    stage = Usd.Stage.CreateInMemory()
+    leak = {"t_on": 18.0, "t_off": 66.1, "tau": 2.5, "flange": "F5", "bolt": 3}
+    crate = {"xyz": [25.897, -9.68, 42.5], "size": [0.5] * 3, "yaw": 0.0, "t_drop": 30.0, "t_clear": 34.2}
+    fx = R.FleetFx(stage, FLANGES, leak, crate, 42.5)
+    vis = lambda name: UsdGeom.Imageable(stage.GetPrimAtPath(f"{fx.root}/{name}")).ComputeVisibility()
+    stop = (crate["xyz"][0] + 1.4, crate["xyz"][1], math.pi)
+    assert fx.update(10.0, stop, False)["lidar_fan"] is False and vis("lidar") == "invisible" and vis("gas") == "invisible"
+    on = fx.update(32.0, stop, False)
+    assert on["lidar_fan"] and vis("lidar") == "inherited"
+    assert vis("gas") == "inherited"
+    off = fx.update(38.5, stop, False)
+    assert off["lidar_fan"] is False and off["crate_z"] is None and vis("lidar") == "invisible"
+    assert fx.update(32.0, stop, True)["lidar_fan"] is False and vis("lidar") == "invisible"
+    assert max(r for _, r, _ in R.plume_puffs([0, 0, 0], [0, 0, 1], 1.0, 1.0)) <= 0.25
