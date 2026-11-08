@@ -29,6 +29,7 @@ ap.add_argument("--rain", type=float, default=None)
 ap.add_argument("--look", default="offline")
 ap.add_argument("--weather", default="")
 ap.add_argument("--weather-at", type=float, default=0.0)
+ap.add_argument("--set-time", default="")
 args = ap.parse_args()
 os.environ["RIG_QUALITY"] = args.quality
 
@@ -166,13 +167,17 @@ def tick(t):
         atm.update(t)
 
 
+if args.set_time:
+    t_switch = time.monotonic()
+    cinematic.set_time(stage, args.set_time, atm)
+    print(f"SET_TIME {args.set_time} {time.monotonic() - t_switch:.2f}s", flush=True)
 times = [float(x) for x in args.times.split(",") if x] or [args.t]
 for t0 in times:
     tsuf = f"_t{t0:g}" if len(times) > 1 else ""
     for name in filter(None, args.views.split(",")):
         start = time.monotonic()
         eye, target, focal = VIEWS[name]
-        vl = look.view_look(name, float(np.linalg.norm(np.subtract(target, eye))), atm is not None, args.preset)
+        vl = look.view_look(name, float(np.linalg.norm(np.subtract(target, eye))), atm is not None, cinematic.CURRENT["time"])
         use_look(looks[0], vl["ev"], eye, target, vl["fstop"])
         aim(*VIEWS[name])
         for i in range(args.warm):
@@ -188,8 +193,9 @@ for t0 in times:
             if atm is not None:
                 rgb = atm.post(rgb, header(), t0, args.lens)
             if lk != "none":
-                rgb = shafts.add(rgb, shafts.layer(header(), beams, t0))
-            rgb = look.grade(rgb, lk, t0)
+                depth = np.asarray(dist_ann.get_data()) if dist_ann is not None else None
+                rgb = shafts.add(rgb, shafts.layer(header(), beams, t0, depth=depth))
+            rgb = look.grade(rgb, lk, t0, cinematic.CURRENT["time"])
             suffix = f"_{lk}" if len(looks) > 1 else ""
             Image.fromarray(np.ascontiguousarray(rgb)).save(out / f"{args.tag}{tsuf}_{name}{suffix}.png")
             lum = rgb.mean(-1)

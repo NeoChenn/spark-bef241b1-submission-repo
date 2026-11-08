@@ -13,7 +13,7 @@ PUDDLE_ATTR = "rig:puddle"
 LAYER = OUTPUT / "photoreal.usda"
 ROOTS = ("/World/Looks", "/World/RepairZone/Looks")
 KINDS = ("paint", "textured", "tread", "grating", "concrete", "brushed")
-PRESET_RAIN = {"night": 0.55, "storm": 1.0, "golden": 0.0}
+PRESET_RAIN = {"night": 0.55, "storm": 1.0, "golden": 0.0, "dusk": 0.5}
 OFFLINE_SCOPE = "/World/Photoreal/Offline"
 WEATHER_SHADERS = ("rig_weathered", "rig_brushed", "rig_decal")
 

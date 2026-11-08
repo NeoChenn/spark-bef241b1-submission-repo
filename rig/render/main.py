@@ -16,6 +16,7 @@ class Post:
         import cinematic
 
         self.grade = self.atm = None
+        self.stage, self.cinematic = stage, cinematic
         self.beams, self.weather, self.lens = [], None, bool(scene.get("lens"))
         tier = scene.get("look") or "none"
         if tier != "none":
@@ -26,7 +27,7 @@ class Post:
             st = carb.settings.get_settings()
             for key, value in look.rtx_settings(tier).items():
                 st.set(key, value)
-            self.grade = lambda rgb, t: look.grade(rgb, tier, t)
+            self.grade = lambda rgb, t: look.grade(rgb, tier, t, cinematic.CURRENT["time"])
             if cinematic.PRESETS[scene["cinematic"]]["lights"] > 0:
                 self.beams = shafts.specs(cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS, cinematic.DECK_FLOODS, tier)
             self.shafts = shafts
@@ -36,6 +37,9 @@ class Post:
             self.atm = Atmosphere(stage, scene["cinematic"], scene["atmos"], None, cam_path=CAMERA)
 
     def tick(self, head: dict) -> None:
+        tm = head.get("time")
+        if tm in self.cinematic.PRESETS and tm != self.cinematic.CURRENT["time"]:
+            self.cinematic.set_time(self.stage, tm, self.atm)
         if self.atm is None:
             return
         w = head.get("weather")

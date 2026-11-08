@@ -402,6 +402,7 @@ def main() -> None:
     camera_header = make_camera_header(stage, cam_path, args.width, args.height)
     grade = None
     if args.cinematic and args.look != "none":
+        import cinematic
         import look
 
         for key, value in look.rtx_settings(args.look).items():
@@ -409,13 +410,12 @@ def main() -> None:
 
         def expose(t: float) -> None:
             eye, target = getattr(cine_update, "eye_target", ((0.0, 0.0, 0.0), (0.0, 0.0, 30.0)))
-            ev = look.view_look(None, float(np.linalg.norm(np.subtract(target, eye))), bool(args.atmos), args.cinematic)["ev"]
+            ev = look.view_look(None, float(np.linalg.norm(np.subtract(target, eye))), bool(args.atmos), cinematic.CURRENT["time"])["ev"]
             for key, value in look.exposure(ev).items():
                 settings.set(key, value)
 
         tickers.append(expose)
         grade = look.grade
-        import cinematic
         import shafts
 
         beams = (shafts.specs(cinematic.AREA_LIGHTS, cinematic.SEA_FLOODS, cinematic.DECK_FLOODS, args.look) if cinematic.PRESETS[args.cinematic]["lights"] > 0 else [])
@@ -486,7 +486,7 @@ def main() -> None:
             if atm is not None:
                 rgb = atm.post(rgb, camera_header(), t, args.lens)
             if grade is not None:
-                rgb = grade(shafts.add(rgb, shafts.layer(camera_header(), beams, t)) if beams else rgb, args.look, t)
+                rgb = grade(shafts.add(rgb, shafts.layer(camera_header(), beams, t)) if beams else rgb, args.look, t, cinematic.CURRENT["time"])
             mean = float(rgb.mean())
             buf = io.BytesIO()
             Image.fromarray(rgb).save(buf, "JPEG", quality=args.quality)
