@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import hmac
 import json
 import os
 from collections import deque
@@ -13,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from rig.frames import encode, read_message_async
 from rig.hud import check_event
+from rig.render.state import StateLog, split
 
 STATIC = Path(__file__).parent / "static"
 REPO = Path(__file__).resolve().parents[2]
@@ -26,6 +28,7 @@ REPLAY_EVENTS = 20
 FPS_WINDOW_S = 2.0
 STALE_AFTER_S = 2.0
 BLACK_MEAN = 3.0
+HELLO_TIMEOUT_S = 5.0
 
 
 class FrameHub:
@@ -40,6 +43,10 @@ class FrameHub:
         self.log: list[dict] = []
         self.log_base = 0
         self.fleet: dict | None = None
+        self.meta: dict = {}
+        self.version = 0
+        self._state_event = asyncio.Event()
+        self.latency_ms: float | None = None
 
     @property
     def fps(self) -> float:
@@ -53,16 +60,40 @@ class FrameHub:
         self.frames += 1
         self.last_frame_at = now
         self.latest = (self._seq, jpeg, header)
+        if "state_ts" in header:
+            self.latency_ms = round((time.time() - header["state_ts"]) * 1000, 1)
+        self._absorb(header)
+        self._times = [t for t in self._times if now - t <= FPS_WINDOW_S]
+        self._times.append(now)
+        event, self._event = self._event, asyncio.Event()
+        event.set()
+        self._bump()
+
+    def publish_meta(self, meta: dict) -> None:
+        self._absorb(meta)
+        self.meta = {k: v for k, v in meta.items() if k != "events"}
+        self._bump()
+
+    def _absorb(self, header: dict) -> None:
         self.log.extend(header.get("events") or [])
         if isinstance(header.get("fleet"), dict):
             self.fleet = header["fleet"]
         if len(self.log) > LOG_KEEP:
             self.log_base += len(self.log) - LOG_KEEP
             self.log = self.log[-LOG_KEEP:]
-        self._times = [t for t in self._times if now - t <= FPS_WINDOW_S]
-        self._times.append(now)
-        event, self._event = self._event, asyncio.Event()
+
+    def _bump(self) -> None:
+        self.version += 1
+        event, self._state_event = self._state_event, asyncio.Event()
         event.set()
+
+    def header(self) -> dict:
+        return {**self.meta, **(self.latest[2] if self.latest else {})}
+
+    async def wait_state(self, version: int) -> tuple[int, dict]:
+        while self.version <= version:
+            await self._state_event.wait()
+        return self.version, self.header()
 
     async def wait_newer(self, seq: int) -> tuple[int, bytes, dict]:
         while self.latest is None or self.latest[0] <= seq:
@@ -74,19 +105,45 @@ class FrameHub:
         return end, self.log[max(0, idx - self.log_base):]
 
 
+class RenderClient:
+    def __init__(self, writer: asyncio.StreamWriter) -> None:
+        self.writer = writer
+        self.log = StateLog()
+        self.wake = asyncio.Event()
+        self.fresh = True
+
+
 def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Path = MOCK_PATH,
-               fleet_dirs=FLEET_DIRS, root: Path = REPO) -> FastAPI:
+               fleet_dirs=FLEET_DIRS, root: Path = REPO, lan_host: str | None = None, lan_port: int | None = None,
+               token: str | None = None) -> FastAPI:
     root = Path(root).resolve()
     hub = FrameHub()
     current: dict[str, asyncio.StreamWriter | None] = {"writer": None}
     pending: deque = deque()
+    renders: set[RenderClient] = set()
+    scene_log = StateLog()
+
+    def push_state(scene: dict) -> None:
+        scene_log.merge(scene)
+        for client in renders:
+            client.log.merge(scene)
+            client.wake.set()
 
     def flush() -> None:
         writer = current["writer"]
         while writer is not None and pending:
             writer.write(encode({"type": "event", **pending.popleft()}))
 
-    async def handle_sim(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    def on_sim_message(header: dict, payload: bytes) -> None:
+        kind = header.get("type")
+        if kind == "frame":
+            hub.publish(payload, header)
+        elif kind == "state":
+            scene, meta = split(header)
+            hub.publish_meta(meta)
+            push_state(scene)
+
+    async def handle_sim(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, first=None) -> None:
         previous = current["writer"]
         current["writer"] = writer
         if previous is not None:
@@ -94,11 +151,11 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
         hub.sim_connected = True
         flush()
         try:
+            if first is not None:
+                on_sim_message(*first)
             while True:
-                header, payload = await read_message_async(reader)
-                if header.get("type") == "frame":
-                    hub.publish(payload, header)
-        except (ConnectionError, OSError):
+                on_sim_message(*await read_message_async(reader))
+        except (ConnectionError, OSError, ValueError):
             pass
         finally:
             if current["writer"] is writer:
@@ -106,14 +163,72 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
                 hub.sim_connected = False
             writer.close()
 
+    async def pump(client: RenderClient) -> None:
+        while True:
+            await client.wake.wait()
+            client.wake.clear()
+            if client.fresh:
+                client.fresh = False
+                client.log = StateLog()
+                msg = scene_log.message(True)
+            else:
+                msg = client.log.take()
+            client.writer.write(encode(msg))
+            await client.writer.drain()
+
+    async def handle_render(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        client = RenderClient(writer)
+        renders.add(client)
+        if scene_log.head:
+            client.wake.set()
+        task = asyncio.create_task(pump(client))
+        try:
+            while True:
+                header, payload = await read_message_async(reader)
+                if header.get("type") == "frame":
+                    hub.publish(payload, {**header, "source": "render"})
+        except (ConnectionError, OSError, ValueError):
+            pass
+        finally:
+            renders.discard(client)
+            task.cancel()
+            writer.close()
+
+    async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, lan: bool) -> None:
+        try:
+            first = await asyncio.wait_for(read_message_async(reader), HELLO_TIMEOUT_S if lan else None)
+        except (ConnectionError, OSError, ValueError, asyncio.TimeoutError):
+            writer.close()
+            return
+        header = first[0]
+        hello = header.get("type") == "hello"
+        if lan and not (hello and token and hmac.compare_digest(str(header.get("token", "")), token)):
+            writer.close()
+            return
+        if hello and header.get("role") == "render":
+            await handle_render(reader, writer)
+        else:
+            await handle_sim(reader, writer, None if hello else first)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        server = await asyncio.start_server(handle_sim, sim_host, sim_port)
+        server = await asyncio.start_server(lambda r, w: handle(r, w, False), sim_host, sim_port)
         app.state.sim_port = server.sockets[0].getsockname()[1]
+        servers = [server]
+        if lan_host and token:
+            lan = await asyncio.start_server(lambda r, w: handle(r, w, True), lan_host,
+                                             app.state.sim_port if lan_port is None else lan_port)
+            app.state.lan_port = lan.sockets[0].getsockname()[1]
+            servers.append(lan)
+        elif lan_host:
+            print(f"rig web: {lan_host} ingest disabled, INGEST_TOKEN is empty", flush=True)
         try:
             yield
         finally:
-            server.close()
+            for s in servers:
+                s.close()
+            for client in list(renders):
+                client.writer.close()
             if current["writer"] is not None:
                 current["writer"].close()
             with contextlib.suppress(Exception):
@@ -149,6 +264,9 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             "w": header.get("w"),
             "h": header.get("h"),
             "events_pending": len(pending),
+            "render_connected": bool(renders),
+            "source": header.get("source", "sim"),
+            "latency_ms": hub.latency_ms,
         }
 
     @app.post("/api/event")
@@ -242,11 +360,11 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
     @app.websocket("/ws/state")
     async def ws_state(ws: WebSocket) -> None:
         await ws.accept()
-        seq = 0
+        version = 0
         idx = max(0, hub.log_base + len(hub.log) - REPLAY_EVENTS)
         try:
             while True:
-                seq, _, header = await hub.wait_newer(seq)
+                version, header = await hub.wait_state(version)
                 idx, events = hub.events_since(idx)
                 await ws.send_json({**header, "events": events})
                 await asyncio.sleep(0.08)
@@ -256,4 +374,5 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
     return app
 
 
-app = create_app(os.environ.get("SIM_HOST", "127.0.0.1"), int(os.environ.get("SIM_PORT", "9000")))
+app = create_app(os.environ.get("SIM_HOST", "127.0.0.1"), int(os.environ.get("SIM_PORT", "9000")),
+                 lan_host=os.environ.get("SIM_HOST_LAN") or None, token=os.environ.get("INGEST_TOKEN") or None)

@@ -153,6 +153,98 @@ def make_camera_header(stage, cam_path: str, w: int, h: int):
     return header
 
 
+def scene_info(args) -> dict:
+    return {"cinematic": args.cinematic, "merged": bool(args.merged), "scene": args.scene, "env": args.env,
+            "sea_level": args.sea_level}
+
+
+def make_view(stage, cam_path: str):
+    from pxr import Usd, UsdGeom
+
+    cam = UsdGeom.Camera(stage.GetPrimAtPath(cam_path))
+
+    def view() -> dict:
+        m = cam.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+        return {"m": [round(float(m[i][j]), 6) for i in range(4) for j in range(4)],
+                "focal": float(cam.GetFocalLengthAttr().Get()), "hap": float(cam.GetHorizontalApertureAttr().Get()),
+                "vap": float(cam.GetVerticalApertureAttr().Get()), "clip": list(cam.GetClippingRangeAttr().Get())}
+
+    return view
+
+
+def disable_viewport() -> None:
+    try:
+        from omni.kit.viewport.utility import get_active_viewport
+
+        vp = get_active_viewport()
+        if vp is not None:
+            vp.updates_enabled = False
+    except Exception as exc:
+        print(f"rig sim: viewport left on ({exc})", flush=True)
+
+
+def run_remote(app, args, stage, cam_path: str, tickers: list) -> None:
+    import json
+
+    from rig.render.usdsync import StageCapture
+    from rig.sim.sender import FrameSender
+
+    disable_viewport()
+    omni_timeline().play()
+    for _ in range(WARMUP_UPDATES):
+        app.update()
+    capture = StageCapture(stage)
+    view = make_view(stage, cam_path)
+    scene = scene_info(args)
+    host, port = args.sim.rsplit(":", 1)
+    sender = FrameSender(host, int(port)).start()
+    period = 1.0 / args.fps
+    start = next_tick = time.monotonic()
+    stats_at = start + STATS_EVERY_S
+    seq = steps = 0
+    connects = -1
+    nbytes = nattrs = 0
+    print(f"rig sim: remote render mode, publishing scene state at {args.fps:.0f} Hz -> {args.sim}", flush=True)
+    while app.is_running():
+        now = time.monotonic()
+        t = now - start
+        for tick in tickers:
+            tick(t)
+        app.update()
+        delta = capture.collect()
+        if sender.connects != connects:
+            connects = sender.connects
+            delta = capture.keyframe()
+        msg = {"type": "state", "seq": seq, "t": t, "ts": time.time(), "scene": scene, "view": view(), **delta}
+        sender.send(msg, b"")
+        seq += 1
+        steps += 1
+        nattrs += len(delta["attrs"])
+        if now >= stats_at:
+            nbytes = len(json.dumps(msg, separators=(",", ":")))
+            span = now - stats_at + STATS_EVERY_S
+            print(f"t={t:.0f}s state_hz={steps / span:.1f} attrs/msg={nattrs / max(steps, 1):.0f} msg={nbytes / 1024:.1f}KB "
+                  f"sent={sender.sent} dropped={sender.dropped} connected={sender.connected.is_set()} skipped={capture.dropped}",
+                  flush=True)
+            stats_at, steps, nattrs = now + STATS_EVERY_S, 0, 0
+        if args.duration and t >= args.duration:
+            break
+        next_tick += period
+        delay = next_tick - time.monotonic()
+        if delay > 0:
+            time.sleep(delay)
+        else:
+            next_tick = time.monotonic()
+    sender.stop()
+    os._exit(0)
+
+
+def omni_timeline():
+    import omni.timeline
+
+    return omni.timeline.get_timeline_interface()
+
+
 def main() -> None:
     args = parse_args()
 
@@ -197,6 +289,8 @@ def main() -> None:
     env = load_environment(stage, args.env, args.sea_level)
     if env is not None:
         tickers.append(lambda t: env.update(t, camera=cam_path))
+    if args.render_mode == "remote":
+        run_remote(app, args, stage, cam_path, tickers)
 
     rp = rep.create.render_product(cam_path, (args.width, args.height))
     ann = rep.AnnotatorRegistry.get_annotator("rgb")

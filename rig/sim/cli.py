@@ -34,6 +34,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--duration", type=float, default=0.0, help="seconds to run; 0 = forever")
     p.add_argument("--snapshot", default="", help="save frames as PNG here (first good frame, then every --snapshot-every s)")
     p.add_argument("--snapshot-every", type=float, default=0.0)
+    p.add_argument("--render-mode", choices=("local", "remote"), default=os.environ.get("RENDER_MODE") or "local",
+                   help="remote: skip the main view render and publish scene state for rig.render on another box")
     return p.parse_args(argv)
 
 
