@@ -1,6 +1,6 @@
 {
- "control": "live",
- "t_end": 129.7,
+ "control": "replay",
+ "t_end": 136.6,
  "beats": {
   "leak_start": 4.0,
   "calm_end": 4.0,
@@ -22,15 +22,16 @@
   "paint": 109.5,
   "paint_done": 113.6,
   "u1_return": 114.8,
-  "u2_return": 54.7,
+  "u2_standby": 54.7,
+  "u2_return": 114.8,
   "u1_docked": 129.6,
-  "u2_docked": 76.4,
-  "both_docked": 129.6
+  "u2_docked": 136.5,
+  "both_docked": 136.5
  },
  "argon": {
-  "model": "gemini-4-argon",
+  "model": "gemini-4-argon (replay)",
   "prompt": "integration.argon_fleet_prompt",
-  "mode": "live",
+  "mode": "replay",
   "calls": 3,
   "ok": 3,
   "latency_ms": {
@@ -63,8 +64,8 @@
    "cost_usd": 0.002776,
    "tokens_in": 938,
    "tokens_out": 90,
-   "model": "gemini-4-argon",
-   "live": true,
+   "model": "gemini-4-argon (replay)",
+   "live": false,
    "t_reply": 18.24,
    "commands": [
     "go_check:unit2:F5"
@@ -78,8 +79,8 @@
    "cost_usd": 0.002742,
    "tokens_in": 941,
    "tokens_out": 86,
-   "model": "gemini-4-argon",
-   "live": true,
+   "model": "gemini-4-argon (replay)",
+   "live": false,
    "t_reply": 41.05,
    "commands": [
     "fix_leak:unit2:F5"
@@ -93,8 +94,8 @@
    "cost_usd": 0.002446,
    "tokens_in": 898,
    "tokens_out": 65,
-   "model": "gemini-4-argon",
-   "live": true,
+   "model": "gemini-4-argon (replay)",
+   "live": false,
    "t_reply": 63.19,
    "commands": [
     "resume_rust:unit1:"
@@ -106,5 +107,6 @@
   -7.5,
   0.0
  ],
- "board_modelled": "pressure, temperature, flow, wind, sea state, corrosion index and coating are modelled values consistent with the scripted run; gas readings, battery, robot states and decisions come from the run"
+ "board_modelled": "pressure, temperature, flow, wind, sea state, corrosion index and coating are modelled values consistent with the scripted run; gas readings, battery, robot states and decisions come from the run",
+ "argon_source": "replay of the live gemini-4-argon calls recorded in runs_sample/film at commit 3605823: same keys, replies, latencies and costs"
 }
