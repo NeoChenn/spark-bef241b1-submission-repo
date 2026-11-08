@@ -163,11 +163,15 @@ inside the 15\,s episode.\par\vspace{1pt}
 before RL & random     & 0.0\%  & 0.0\%  & ---   & 68.4\% & 0.021\,ms & 0 \\
           & greedy script & 32.0\% & 32.0\% & 10.96 & 46.5\% & 0.008\,ms & 0 \\
 after RL  & PPO v2     & \textbf{95.3\%} & \textbf{97.0\%} & \textbf{7.05} & \textbf{1.9\%} & 0.013\,ms & 0 \\
-LLM       & Argon, unlimited & \multicolumn{4}{c}{\textcolor{note}{\textit{running (geminibench)}}} & $\approx$10--12\,s & \textit{tbd} \\
-          & Argon, real time & \multicolumn{4}{c}{\textcolor{note}{\textit{running (geminibench)}}} & $\approx$10--12\,s & \textit{tbd} \\
+LLM       & Argon, unlimited & not run & 36.7\%$^\ast$ & 11.49$^\ast$ & 63.3\%$^{\ast\dagger}$ & 8.5\,s & \$0.081 \\
+          & Argon, real time & not run & 0.0\%$^\ast$  & ---   & 40.0\%$^{\ast\dagger}$ & 8.0\,s & \$0.006 \\
 \bottomrule
 \end{tabular}}\par
 {\scriptsize Isaac columns: 256 ep; CPU column: 200 ep kinematic mock (its $>$40\,N rates are higher, e.g.\ PPO 19.5\%).
+$^\ast$\texttt{gemini-4-argon} (thinking low), $n{=}30$ seeded CPU-mock ep, 95\% CI: unlimited 36.7\% [21.9, 54.5],
+real time 0.0\% [0.0, 11.3] (PPO v2 on the same 30: 93.3\% [78.7, 98.2]). Unlimited = sim paused per call
+(27.7 calls/ep, 298\,s wall per 15\,s episode); real time = sim runs during the call (2.2 calls/ep, 3\% rust removed).
+$^\dagger$CPU-mock force, not Isaac. Decision = median API latency; total spend \$2.61.
 Decision latency is CPU, batch 1. The policy acts every 33\,ms, so a 10\,s LLM call is $\sim$300 control steps.}
 
 \vspace{3pt}
@@ -214,7 +218,7 @@ F1 0.977 is published in \texttt{detection/RESULTS.md}, not re-measured here (th
 scores 12/13 on held-out renders). (ii) Scrub legs are fixed in training (gravity off on the base); the trunk does not
 sway except via the storm model. (iii) Walking and scrubbing are separate policies; some fleet demos move robots
 kinematically. (iv) Gas results are a CPU mock with modelled sensor lags; the plume solver is validated against a
-Gaussian plume (reported $\leq$4.5\% centreline error, 2--9\,m) but not against field data. (v) Gemini latency/cost are
-estimates until the geminibench numbers land; no Gemini action is ever executed without an edge rule and envelope check.
+Gaussian plume (reported $\leq$4.5\% centreline error, 2--9\,m) but not against field data. (v) Gemini scrub numbers are $n{=}30$ on the CPU mock only (not
+Isaac); no Gemini action is ever executed without an edge rule and envelope check.
 \end{multicols}
 \end{document}

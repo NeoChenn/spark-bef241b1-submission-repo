@@ -47,3 +47,8 @@ Same GeminiVerifier "rust" prompt; score = confidence if rust, 1-confidence if c
 | gemini-robotics-er-2-preview | 0.62 (n=12) | 0.86 | 0.59 (n=46) | 0.93 | 25% / 15% | 3.5 s API | 15 of 73 calls failed |
 
 Gemini ranks well (AUROC 0.93-0.97) but abstains often ("cannot_tell"), which pulls F1 down; the on-robot MNv4 is better on both sets and ~3,000x faster. The deployed LoRA checkpoint was not available here (published: real-photo F1 0.977, 13/13 held-out sim).
+
+## Model id check (2026-11-08)
+
+The live Gemini model list (`bench/gemini.list_models`) contains `gemini-4-argon` (the only argon-like id), the same id `policy/control/backend.py` MODEL and `bench/gemini.py` ARGON use. The scrub numbers above were not re-run for the report: `docs/policy_report/policy_report.tex` now quotes them (n=30 per arm, CPU mock).
+
