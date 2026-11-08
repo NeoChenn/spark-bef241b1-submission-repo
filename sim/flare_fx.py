@@ -452,7 +452,7 @@ def _smoke(stage, t, wind, eye, full):
 def halo_fade(centre, eye) -> float:
     d = np.asarray(eye, float) - np.asarray(centre, float)
     elev = d[2] / max(np.linalg.norm(d), 1e-6)
-    return float(np.clip((0.3 - elev) / 0.2, 0.0, 1.0))
+    return float(np.clip((0.02 - elev) / 0.08, 0.0, 1.0))
 
 
 def _halo(stage, line, rows, eye, level, shown):

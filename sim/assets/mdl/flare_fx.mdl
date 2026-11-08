@@ -19,6 +19,10 @@ float4 tile(uniform texture_2d atlas, float frame, float cols, float rows) {
     return tex::lookup_float4(atlas, st, tex::wrap_clamp, tex::wrap_clamp);
 }
 
+float cut(float a, float floor_) {
+    return a < floor_ ? 0.0 : math::min(a, 1.0);
+}
+
 export material flare_card(
     uniform texture_2d atlas = texture_2d(),
     float frame = 0.0,
@@ -37,7 +41,7 @@ export material flare_card(
     backface: material_surface(
         emission: material_emission(emission: df::diffuse_edf(), intensity: e * math::PI, mode: intensity_radiant_exitance)
     ),
-    geometry: material_geometry(cutout_opacity: math::clamp(t.w * alpha_gain, 0.0, 1.0))
+    geometry: material_geometry(cutout_opacity: cut(t.w * alpha_gain, 0.02))
 );
 
 export material smoke_card(
@@ -54,5 +58,5 @@ export material smoke_card(
         scattering: df::diffuse_reflection_bsdf(tint: tint * color(t.x, t.y, t.z)),
         emission: material_emission(emission: df::diffuse_edf(), intensity: e, mode: intensity_radiant_exitance)
     ),
-    geometry: material_geometry(cutout_opacity: math::clamp(t.w * alpha_gain, 0.0, 1.0))
+    geometry: material_geometry(cutout_opacity: cut(t.w * alpha_gain, 0.05))
 );
