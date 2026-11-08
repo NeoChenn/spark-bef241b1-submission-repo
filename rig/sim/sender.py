@@ -1,7 +1,8 @@
+import queue
 import socket
 import threading
 
-from rig.frames import encode
+from rig.frames import encode, read_message
 
 
 class FrameSender:
@@ -14,6 +15,7 @@ class FrameSender:
         self._ready = threading.Event()
         self._stop = threading.Event()
         self._slot: tuple[dict, bytes] | None = None
+        self.inbox: queue.Queue = queue.Queue()
         self._thread = threading.Thread(target=self._run, name="frame-sender", daemon=True)
 
     def start(self) -> "FrameSender":
@@ -24,6 +26,9 @@ class FrameSender:
         with self._lock:
             if self._slot is not None:
                 self.dropped += 1
+                lost = self._slot[0].get("events")
+                if lost:
+                    header = {**header, "events": lost + list(header.get("events") or [])}
             self._slot = (header, payload)
         self._ready.set()
 
@@ -45,8 +50,10 @@ class FrameSender:
             except OSError:
                 self._stop.wait(self.retry_s)
                 continue
+            sock.settimeout(None)
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             self.connected.set()
+            threading.Thread(target=self._listen, args=(sock,), name="frame-sender-rx", daemon=True).start()
             try:
                 while not self._stop.is_set():
                     if not self._ready.wait(0.5):
@@ -61,3 +68,12 @@ class FrameSender:
                 self.connected.clear()
                 sock.close()
             self._stop.wait(self.retry_s)
+
+    def _listen(self, sock: socket.socket) -> None:
+        try:
+            while True:
+                header, _ = read_message(sock)
+                if header.get("type") == "event":
+                    self.inbox.put({"name": header.get("name"), "args": header.get("args") or {}})
+        except (ConnectionError, OSError, ValueError):
+            pass

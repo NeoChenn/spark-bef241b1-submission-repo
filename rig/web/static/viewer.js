@@ -1,4 +1,5 @@
 (() => {
+  if (new URLSearchParams(location.search).has("mock")) return;
   const canvas = document.getElementById("view");
   const ctx = canvas.getContext("2d");
   const statusEl = document.getElementById("status");
@@ -30,6 +31,7 @@
       ctx.drawImage(bmp, 0, 0);
       bmp.close();
       drawn.push(performance.now());
+      canvas.classList.add("on");
     } catch (e) {
       console.warn("decode failed", e);
     } finally {
