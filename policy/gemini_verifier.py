@@ -231,6 +231,48 @@ class GeminiVerifier:
         return verdict is not None and verdict.verdict != "cannot_tell" and verdict.confidence >= self.min_confidence
 
 
+def post_json(url: str, body: dict, api_key: str, timeout: float = 60.0, method: str = "POST") -> dict:
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method, headers={
+        "Content-Type": "application/json", "x-goog-api-key": api_key})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def pick_text_model(api_key: str, transport=None) -> str:
+    """GEMINI_TEXT_MODEL if set, else the newest 'pro' (then 'flash') model the key can call generateContent on.
+    Asking the API avoids hard-coding a model name that may have been retired."""
+    if os.environ.get("GEMINI_TEXT_MODEL"):
+        return os.environ["GEMINI_TEXT_MODEL"]
+    listing = (transport or (lambda url: post_json(url, None, api_key, 30.0, "GET")))(f"{API_ROOT}/models?pageSize=200")
+    names = [m["name"].split("/", 1)[-1] for m in listing.get("models", [])
+             if "generateContent" in m.get("supportedGenerationMethods", [])]
+
+    def version(name):
+        m = re.search(r"gemini-(\d+(?:\.\d+)?)", name)
+        return float(m.group(1)) if m else 0.0
+
+    for tier in ("pro", "flash"):
+        pool = [n for n in names if n.startswith("gemini-") and tier in n and "lite" not in n
+                and not any(k in n for k in ("tts", "image", "audio", "live", "embedding", "robotics"))]
+        if pool:
+            return max(pool, key=lambda n: (version(n), "preview" not in n and "exp" not in n, n))
+    raise RuntimeError("no Gemini text model with generateContent is available to this key")
+
+
+def generate_json(prompt: str, schema: dict, api_key: str, model: str, timeout: float = 120.0, transport=None,
+                  temperature: float = 0.4) -> dict:
+    """One text-only generateContent call that must return JSON matching `schema`."""
+    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"responseMimeType": "application/json", "responseSchema": schema,
+                                 "temperature": temperature}}
+    url = f"{API_ROOT}/models/{model}:generateContent"
+    reply = (transport or (lambda u, b: post_json(u, b, api_key, timeout)))(url, body)
+    text = _extract_text(reply)
+    m = re.search(r"[\[{].*[\]}]", text, re.S)
+    return json.loads(m.group(0) if m else text)
+
+
 def _main(argv=None) -> int:
     import argparse
     from PIL import Image

@@ -209,7 +209,7 @@ def main() -> None:
             continue
         if prev == S.SPRAY and "patch" not in fired:
             fired.add("patch")
-            th_new, z_new = theta + 0.28, 0.12
+            th_new, z_new = theta - 0.3, 0.12      # inside the arm's reach map (theta 0.3-1.2 at this stance)
             bridge.schedule(now + 12.0, f"NEW rust patch at theta={th_new:.2f}, z={z_new:+.2f}",
                             lambda: bridge.spawn_patch(th_new, z_new, size=0.035, level=0.85))
         if orch.state == S.SCRUB and "bead" not in fired:
