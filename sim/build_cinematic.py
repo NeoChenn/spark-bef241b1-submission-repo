@@ -9,6 +9,7 @@ sim/output/cinematic.usda and sim/output/cine_<preset>_<camera>.png.
 from __future__ import annotations
 
 import argparse
+import os
 
 parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
 parser.add_argument("--preset", default="night", help="night, storm, golden or all")
@@ -80,13 +81,17 @@ for preset in names:
         product = rep.create.render_product(path, (args.width, args.height))
         annotator = rep.AnnotatorRegistry.get_annotator("rgb")
         annotator.attach(product)
-        for _ in range(4):
+        data = np.zeros(0)
+        for _ in range(12):
             rep.orchestrator.step(rt_subframes=24, delta_time=0.0)
-        data = np.asarray(annotator.get_data())
-        out = OUTPUT / f"cine_{preset}_{camera}.png"
-        Image.fromarray(data[:, :, :3].astype("uint8")).save(out)
-        print(f"PREVIEW_WRITTEN {out.name} mean={data[:, :, :3].mean():.1f}")
+            data = np.asarray(annotator.get_data())
+            if data.ndim == 3 and data[:, :, :3].mean() > 1:
+                break
+        if data.ndim == 3:
+            out = OUTPUT / f"cine_{preset}_{camera}.png"
+            Image.fromarray(data[:, :, :3].astype("uint8")).save(out)
+            print(f"PREVIEW_WRITTEN {out.name} mean={data[:, :, :3].mean():.1f}")
         annotator.detach(product)
         product.destroy()
 rep.orchestrator.wait_until_complete()
-simulation_app.close()
+os._exit(0)

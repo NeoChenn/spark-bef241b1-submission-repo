@@ -80,13 +80,24 @@
   H.panel({ id: "log", title: "Decisions", icon: "list", key: "l", edge: "bottom", phases: ["PAUSE_PERSON", "PAUSED"], priority: 45, keys: "log history events reasons why",
     desc: "Every state change and the reason the planner gave.", hint: (S) => (S.log.length ? S.log.length + " recent" : ""),
     render(el, S) { const x = q(el, `<ol class="log" data-k="l"></ol>`); if (el._n !== S.logN) { el._n = S.logN; x.l.innerHTML = H.logRows(S, 4); } } });
-  const gasRows = (S) => (S.gas?.sensors || []).map((s) => { const v = (s.lel || 0) * 100, c = v >= 20 ? "stop" : v >= 10 ? "warn" : ""; return `<div class="gas-row ${c}"><span>${esc(s.id)}</span><span class="dim">${esc(s.at || "")}</span><i><s style="width:${Math.min(100, v * 2)}%"></s></i><b class="tnum">${v.toFixed(1)}</b></div>`; }).join("");
+  const gasRows = (S) => (S.gas?.sensors || []).map((s) => { const v = (s.lel || 0) * 100, c = v >= 20 ? "stop" : v >= 10 ? "warn" : ""; return `<div class="gas-row ${c}"><span>${esc(s.id)}</span><span class="dim">${esc(s.at || "")}${s.ppm != null ? " · " + Math.round(s.ppm) + " ppm" : ""}</span><i><s style="width:${Math.min(100, v * 2)}%"></s></i><b class="tnum">${v.toFixed(1)}</b></div>`; }).join("");
+  const gasMore = (g) => {
+    if (!g) return "";
+    const a = g.acoustic, src = g.source, out = [];
+    if (g.h2s_ppm != null) out.push(`H2S ${g.h2s_ppm.toFixed(1)} ppm`);
+    if (a) out.push(`US ${Math.round(a.db)} dB${a.snr_db > 0 ? ` (+${Math.round(a.snr_db)})` : ""}${a.bearing_deg != null ? ` → ${Math.round(a.bearing_deg)}°` : ""}`);
+    if (src) out.push(`source ${src.x.toFixed(1)}, ${src.y.toFixed(1)} ±${src.sigma_m.toFixed(1)} m`);
+    if (g.flow_gs != null) out.push(`flow ${g.flow_gs.toFixed(1)} g/s`);
+    if (g.mode) out.push(String(g.mode).toLowerCase());
+    return out.join(" · ");
+  };
   H.panel({ id: "gas", title: "Gas sensors", meta: "% LEL", icon: "wind", key: "g", edge: "left", priority: 80, keys: "leak lel h2s detector methane",
     phases: (S) => S.gasAlarm && (!S.control || now() - S.gasAt < 6 / S.speed), desc: "Fixed and on-robot gas detectors. Alarm at 10 % LEL, retreat at 20 %.",
     hint: (S) => (S.gas ? (S.gasMax ? pct(S.gasMax, 1) + " LEL" : S.gasAlarm ? "Alarm" : "Clear") : ""),
     render(el, S) {
-      const x = q(el, `<div data-k="rows"></div><canvas class="gas-chart" data-k="c"></canvas>`), rows = gasRows(S) || `<p class="none">No gas sensors reporting</p>`;
+      const x = q(el, `<div data-k="rows"></div><p class="why" data-k="more"></p><canvas class="gas-chart" data-k="c"></canvas>`), rows = gasRows(S) || `<p class="none">No gas sensors reporting</p>`;
       if (x.rows._h !== rows) { x.rows._h = rows; x.rows.innerHTML = rows; }
+      set(x.more, gasMore(S.gas));
       spark(x.c, S.series.gas, { min: 0, max: 30, color: S.gasAlarm ? "#F85149" : "rgba(255,255,255,.7)", refs: [[10, "rgba(227,179,65,.5)"], [20, "rgba(248,81,73,.5)"]] });
     } });
   function drawPlume(c, S) {
