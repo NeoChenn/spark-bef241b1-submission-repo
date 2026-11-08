@@ -167,7 +167,8 @@ def apply_event(bridge, event: dict, control=None) -> None:
         theta, z = bridge.ee_theta_z()
         args.setdefault("theta", float(theta) + PATCH_OFFSET[0])
         args.setdefault("z", float(z) + PATCH_OFFSET[1])
-    getattr(bridge, name)(**args)
+    # the 'camera' event picks the video shot; bridge.camera() is the perception camera model
+    getattr(bridge, "set_shot" if name == "camera" else name)(**args)
 
 
 def playback_times(snaps: list[dict]) -> list[float]:
