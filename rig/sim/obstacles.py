@@ -1,3 +1,4 @@
+import os
 import math
 import sys
 import time
@@ -70,6 +71,9 @@ def _truncate(path, frac):
     return out
 
 
+OVERLAYS = os.environ.get("RIG_OVERLAYS", "0") == "1"
+
+
 class ObstacleScene:
     def __init__(self, stage, wave=None, radius=0.06, robot_model=True):
         self.stage, self.wave, self.radius, self.robot_model = stage, wave if wave is not None else {}, radius, robot_model
@@ -137,7 +141,7 @@ class ObstacleScene:
                             "t": self.now, "from": pr.get("at", tuple(o["xyz"]))}
         drums = {o["id"] for o in hz.get("obstacles", []) if o.get("kind") == "barrel"}
         key = tuple((tuple(c["a"]), tuple(c["b"])) for c in hz.get("closed", []) if c.get("why") not in drums)
-        if key != self.closed_key:
+        if OVERLAYS and key != self.closed_key:
             self.closed_key = key
             self.stage.RemovePrim(f"{ROOT}/Closed")
             UsdGeom.Scope.Define(self.stage, f"{ROOT}/Closed")
@@ -146,7 +150,8 @@ class ObstacleScene:
                     self._cyl(f"{ROOT}/Closed/{self._id('d')}", p, q, self.radius * 1.6, self.red, LIFT + 0.05)
         for k, r in enumerate(state.get("robots", [])):
             self._robot(k, r)
-            self._path(k, r)
+            if OVERLAYS:
+                self._path(k, r)
 
     def _cyl(self, path, a, b, radius, mat, lift=LIFT):
         a, b = (a[0], a[1], a[2] + lift), (b[0], b[1], b[2] + lift)
@@ -183,11 +188,12 @@ class ObstacleScene:
                 vs = body.GetPrim().GetVariantSets()
                 if vs.HasVariantSet("Physics"):
                     vs.GetVariantSet("Physics").SetVariantSelection("none")
-            light = UsdLux.SphereLight.Define(self.stage, f"{root}/beacon")
-            light.CreateRadiusAttr(0.15)
-            light.CreateIntensityAttr(BEACON_W)
-            light.CreateColorAttr(Gf.Vec3f(*(c / max(ROBOT_GLOW[k % len(ROBOT_GLOW)]) for c in ROBOT_GLOW[k % len(ROBOT_GLOW)])))
-            UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(0, 0, 1.2))
+            if OVERLAYS:
+                light = UsdLux.SphereLight.Define(self.stage, f"{root}/beacon")
+                light.CreateRadiusAttr(0.15)
+                light.CreateIntensityAttr(BEACON_W)
+                light.CreateColorAttr(Gf.Vec3f(*(c / max(ROBOT_GLOW[k % len(ROBOT_GLOW)]) for c in ROBOT_GLOW[k % len(ROBOT_GLOW)])))
+                UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(0, 0, 1.2))
             self.robots[rid] = {"ops": ops.GetOrderedXformOps()}
             if rid in GRIP_ROBOTS and self.robot_model and ROBOT_USD.exists():
                 self._grip(root)
