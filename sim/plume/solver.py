@@ -163,9 +163,9 @@ class Plume:
             self._launch(K.add_jet, 1, [*self.vel, wp.vec3i(*self.jet_cell), _vec(acc), dt])
         self._apply_solid(dt, wind)
         self._project(self.iters)
-        self._speed = self._max_speed()
+        self._speed = max(self.cap, float(np.linalg.norm(wind)))
 
-    def step(self, dt: float) -> dict:
+    def step(self, dt: float, stats: bool = True) -> dict | None:
         wind = self.wind.at(self.t + dt)
         if not self.static:
             self._flow_step(dt, wind)
@@ -181,7 +181,7 @@ class Plume:
         self.steps += 1
         self._field = None
         self.substeps = nsub
-        return self.stats()
+        return self.stats() if stats else None
 
     def set_rate(self, rate: float) -> None:
         self.rate = float(max(0.0, rate))
@@ -204,7 +204,7 @@ class Plume:
         rho = self.release.gas.density()
         return {"t": round(self.t, 3), "mass_kg": float(s[0] * v * rho), "gas_m3": float(s[0] * v),
                 "vol_10lel_m3": float(s[1] * v), "vol_50lel_m3": float(s[2] * v),
-                "max_lel_pct": float(s[3] / self.lel * 100.0), "max_speed_m_s": float(self._speed)}
+                "max_lel_pct": float(s[3] / self.lel * 100.0), "max_speed_m_s": self._max_speed()}
 
     def flow_rate(self) -> dict:
         out = self.release.to_json()

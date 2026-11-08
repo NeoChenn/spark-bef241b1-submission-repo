@@ -135,9 +135,11 @@ class LeakStream:
         if dt <= 0:
             return
         t0 = time.perf_counter()
-        self.stats = self.plume.step(dt)
         self.ticks += 1
-        if self.ticks % self.args.leak_vis_every == 0:
+        due = self.ticks % self.args.leak_vis_every == 0
+        st = self.plume.step(dt, stats=due)
+        if due:
+            self.stats = st
             self.visual.update()
         self.sim_ms = 0.9 * self.sim_ms + 0.1 * (time.perf_counter() - t0) * 1e3
 
