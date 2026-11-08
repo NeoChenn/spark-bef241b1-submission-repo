@@ -81,27 +81,7 @@ over "World"
                 }
             }
 
-            def Xform "nv_air_compressor_a01_04"
-            {
-                float xformOp:rotateZ = 0
-                float3 xformOp:scale = (1.5, 1.5, 1.5)
-                double3 xformOp:translate = (10.9, -12, 42.5)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Equipment_AirCompressor_A01/sm_equipment_airCompressor_a01_01.usd@
-                    variants = {
-                        string PhysX = "Disabled"
-                    }
-                    prepend variantSets = "PhysX"
-                )
-                {
-                    double3 xformOp:translate = (-0.08910000000000001, -0, -0)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
-            def Xform "fuel_pump_skid_05"
+            def Xform "fuel_pump_skid_04"
             {
                 float xformOp:rotateZ = 0
                 float3 xformOp:scale = (1.5, 1.5, 1.5)
@@ -118,7 +98,7 @@ over "World"
                 }
             }
 
-            def Xform "fuel_pump_skid_06"
+            def Xform "fuel_pump_skid_05"
             {
                 float xformOp:rotateZ = 0
                 float3 xformOp:scale = (1.5, 1.5, 1.5)
@@ -135,7 +115,7 @@ over "World"
                 }
             }
 
-            def Xform "nv_ibc_steel_a01_07"
+            def Xform "nv_ibc_steel_a01_06"
             {
                 float xformOp:rotateZ = 6
                 float3 xformOp:scale = (1, 1, 1)
@@ -155,7 +135,7 @@ over "World"
                 }
             }
 
-            def Xform "nv_ibc_steel_a01_08"
+            def Xform "nv_ibc_steel_a01_07"
             {
                 float xformOp:rotateZ = -3
                 float3 xformOp:scale = (1, 1, 1)
@@ -175,7 +155,7 @@ over "World"
                 }
             }
 
-            def Xform "nv_stillage_d01_09"
+            def Xform "nv_stillage_d01_08"
             {
                 float xformOp:rotateZ = 90
                 float3 xformOp:scale = (1, 1, 1)
@@ -195,7 +175,7 @@ over "World"
                 }
             }
 
-            def Xform "fuel_cable_spool_10"
+            def Xform "fuel_cable_spool_09"
             {
                 float xformOp:rotateZ = 20
                 float3 xformOp:scale = (1, 1, 1)
@@ -212,7 +192,7 @@ over "World"
                 }
             }
 
-            def Xform "nv_pipe_bundle_b08_11"
+            def Xform "nv_pipe_bundle_b08_10"
             {
                 float xformOp:rotateZ = 0
                 float3 xformOp:scale = (1, 1, 1)
@@ -232,7 +212,7 @@ over "World"
                 }
             }
 
-            def Xform "nv_hopper_blue_a04_12"
+            def Xform "nv_hopper_blue_a04_11"
             {
                 float xformOp:rotateZ = 0
                 float3 xformOp:scale = (1, 1, 1)
@@ -252,7 +232,7 @@ over "World"
                 }
             }
 
-            def Xform "nv_scaffold_a01_13"
+            def Xform "nv_scaffold_a01_12"
             {
                 float xformOp:rotateZ = 90
                 float3 xformOp:scale = (1, 1, 1)

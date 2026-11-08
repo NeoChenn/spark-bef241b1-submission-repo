@@ -18,7 +18,6 @@ PLACE = [
     ("nv_tripod_light", 22.7, -7.3, 230.0, 1.0),
     ("fuel_gate_valve", 13.3, -11.45, 180.0, 1.0),
     ("fuel_gate_valve", 14.4, -11.45, 180.0, 1.0),
-    ("nv_air_compressor_a01", 10.9, -12.0, 0.0, 1.5),
     ("fuel_pump_skid", 8.6, -14.6, 0.0, 1.5),
     ("fuel_pump_skid", 10.0, -14.6, 0.0, 1.5),
     ("nv_ibc_steel_a01", 11.9, -14.2, 6.0, 1.0),
