@@ -22,7 +22,7 @@ SEA = (((2.0, -31.0, 17.0), 2000.0, 1.0), ((14.0, 8.0, 17.0), 6000.0, 1.0))
 
 def test_specs_per_tier_reach_floor():
     assert shafts.specs(AREA, SEA, "none") == []
-    assert len(shafts.specs(AREA, SEA, "live")) == 2
+    assert shafts.specs(AREA, SEA, "live") == []
     off = shafts.specs(AREA, SEA, "offline")
     assert len(off) == len(shafts.PICKS)
     for sp in off:

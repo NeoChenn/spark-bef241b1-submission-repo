@@ -349,7 +349,7 @@ def main() -> None:
             if atm is not None:
                 rgb = atm.post(rgb, camera_header(), t, args.lens)
             if grade is not None:
-                rgb = grade(shafts.add(rgb, shafts.layer(camera_header(), beams, t)), args.look, t)
+                rgb = grade(shafts.add(rgb, shafts.layer(camera_header(), beams, t)) if beams else rgb, args.look, t)
             mean = float(rgb.mean())
             buf = io.BytesIO()
             Image.fromarray(rgb).save(buf, "JPEG", quality=args.quality)
