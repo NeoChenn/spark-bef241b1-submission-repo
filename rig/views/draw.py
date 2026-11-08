@@ -74,9 +74,9 @@ def draw_boxes(im: Image.Image, bs, scale: float = 1.0, color=STOP) -> Image.Ima
     return im
 
 
-def agc(rgb, target: float = 215.0, gamma: float = 0.8) -> np.ndarray:
+def agc(rgb, target: float = 215.0, gamma: float = 0.8, max_gain: float = 5.0) -> np.ndarray:
     p = np.asarray(rgb, np.float32)[..., :3]
-    hi = max(float(np.percentile(p.max(-1), 99)), 1.0)
+    hi = max(float(np.percentile(p.max(-1), 99)), target / max_gain)
     return (np.clip(p / hi, 0, 1) ** gamma * target).astype(np.uint8)
 
 

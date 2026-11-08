@@ -72,3 +72,9 @@ def test_targets_projected_into_fpv():
     v = robot_views("R1", "rust", rgb, depth, cam, (0.0, 0.0, 20.0, 0.0), bev=Bev(),
                     targets=[((5.0, 0.0, 20.2), "damage"), ((-5.0, 0.0, 20.0), "behind")])
     assert v["info"]["targets"] == ["damage"]
+
+
+def test_agc_gain_is_capped_on_near_black_frames():
+    from rig.views.draw import agc
+    black = np.full((48, 64, 3), 3, np.uint8)
+    assert agc(black).max() < 40
