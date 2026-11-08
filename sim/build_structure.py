@@ -33,6 +33,18 @@ RISERS = (
     ((-100.0, 0.4), (-84.0, 0.3), (75.0, 0.32)),
     ((60.0, 0.4), (105.0, 0.32), (30.0, 0.55)),
 )
+KELVINS = (3200, 4300, 2700, 5000)
+LOWER, MIDDLE, TOP = 20.0, 31.25, 42.5
+STAIRS = (((6.0, -39.75), LOWER, MIDDLE, "x"), ((25.2, 8.0), LOWER, MIDDLE, "y"), ((2.0, -29.8), MIDDLE, TOP, "x"))
+LADDERS = (((37.75, -30.0), MIDDLE, 40.0, 0.0), ((37.75, 19.0), MIDDLE, 41.2, 0.0), ((14.0, -37.8), LOWER, MIDDLE, -90.0))
+EDGES = (
+    ((0.3, -37.5), (37.5, -37.5), 30.0, 1.25, (0.0, -1.0)),
+    ((37.5, -37.5), (37.5, 25.0), 30.0, 1.25, (1.0, 0.0)),
+    ((0.3, -27.64), (37.5, -27.64), 41.25, 1.25, (0.0, -1.0)),
+    ((37.5, -27.64), (37.5, 27.36), 41.25, 1.25, (1.0, 0.0)),
+)
+TOP_UNDERSIDE = ((0.3, -27.6), (25.3, -14.2), 41.25)
+FLOODS_CALM = ((190000.0, 2400), (130000.0, 4500), (75000.0, 3400))
 LIGHT_SPOTS = ((0.0, -17.5), (0.0, 17.5), (-17.5, 0.0), (17.5, 0.0), (-9.0, -9.0), (9.0, 9.0), (9.0, -26.0), (-9.0, 9.0))
 
 
@@ -57,14 +69,22 @@ def make_looks(stage) -> dict:
     looks["drip"] = bind_mdl(stage, f"{s.LOOKS}/drip", "rig_decal",
                              {"mask": s.DRIP_TEX, "tint": (0.17, 0.07, 0.025), "oil": 0.0, "roughness": 0.6,
                               "strength": 1.1, "wetness": 0.0, "use_color_tex": False}, define=True)
-    lamp = UsdShade.Material.Define(stage, f"{s.LOOKS}/lamp")
-    shader = UsdShade.Shader.Define(stage, f"{s.LOOKS}/lamp/surface")
-    shader.CreateIdAttr("UsdPreviewSurface")
-    shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.1, 0.1, 0.1))
-    shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*(c * 40 for c in tf.kelvin_rgb(2200))))
-    lamp.CreateSurfaceOutput().ConnectToSource(shader.CreateOutput("surface", Sdf.ValueTypeNames.Token))
-    looks["lamp"] = lamp
+    looks["lamp"] = emissive(stage, "lamp", tuple(c * 25 for c in tf.kelvin_rgb(3600)))
+    looks["lamp_green"] = emissive(stage, "lamp_green", (0.4, 14.0, 1.5))
+    looks["lamp_yellow"] = emissive(stage, "lamp_yellow", (16.0, 11.0, 0.6))
+    looks["window"] = emissive(stage, "window", (0.02, 0.025, 0.03))
     return looks
+
+
+def emissive(stage, name, color):
+    material = UsdShade.Material.Define(stage, f"{s.LOOKS}/{name}")
+    shader = UsdShade.Shader.Define(stage, f"{s.LOOKS}/{name}/surface")
+    shader.CreateIdAttr("UsdPreviewSurface")
+    shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.02, 0.02, 0.02))
+    shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.2)
+    shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*color))
+    material.CreateSurfaceOutput().ConnectToSource(shader.CreateOutput("surface", Sdf.ValueTypeNames.Token))
+    return material
 
 
 def write_mesh(stage, path, m, material, double=False):
@@ -81,6 +101,65 @@ def write_mesh(stage, path, m, material, double=False):
     if material is not None:
         UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material)
     return mesh
+
+
+def add_light(stage, path, pos, intensity, kelvin, cone, softness=0.5):
+    light = UsdLux.SphereLight.Define(stage, path)
+    UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(*map(float, pos)))
+    light.CreateRadiusAttr(0.25)
+    light.CreateIntensityAttr(intensity)
+    light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(kelvin)))
+    if cone is not None:
+        shaping = UsdLux.ShapingAPI.Apply(light.GetPrim())
+        shaping.CreateShapingConeAngleAttr(cone)
+        shaping.CreateShapingConeSoftnessAttr(softness)
+    return light
+
+
+def sphere_cap(radius, rows=6, seg=12):
+    a = np.linspace(0.0, math.pi / 2, rows + 1)
+    t = np.linspace(0.0, math.tau, seg + 1)
+    points = np.array([(radius * math.cos(v) * math.cos(u), radius * math.cos(v) * math.sin(u), 0.8 * radius * math.sin(v))
+                       for v in a for u in t])
+    normals = points / np.maximum(np.linalg.norm(points, axis=1, keepdims=True), 1e-9)
+    row = seg + 1
+    idx = [k for i in range(rows) for j in range(seg) for k in (i * row + j, i * row + j + 1, (i + 1) * row + j + 1, (i + 1) * row + j)]
+    return {"points": points, "normals": normals, "uvs": points[:, :2], "counts": [4] * (rows * seg), "indices": idx}
+
+
+def retire_old(stage):
+    hidden = ["/World/Cinematic/Flare/boom_001", "/World/Cinematic/Flare/brace_002", "/World/Topside/lifeboat",
+              "/World/Details/helideck_circle", "/World/Details/helideck_h_001", "/World/Details/helideck_h_002",
+              "/World/Details/helideck_h_003"]
+    for path in hidden:
+        UsdGeom.Imageable(stage.OverridePrim(path)).CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
+    cx, cy = HELI_C
+    edge = sg.perimeter_points([tuple(v) for v in sg.hexagon(HELI_C, HELI_R - 0.25, HELI_Z + 0.15)], HELI_R * 6 / 16)
+    for k in range(16):
+        prim = stage.OverridePrim(f"/World/Cinematic/Lamps/lamp_{930 + k}")
+        prim.CreateAttribute("xformOp:translate", Sdf.ValueTypeNames.Double3).Set(Gf.Vec3d(*map(float, edge[k])))
+        set_lamp(stage, f"/World/Cinematic/Lamps/lamp_{930 + k}/light", 2500.0)
+    for k in range(12):
+        a = math.tau * k / 12
+        prim = stage.OverridePrim(f"/World/Cinematic/Lamps/lamp_{950 + k}")
+        prim.CreateAttribute("xformOp:translate", Sdf.ValueTypeNames.Double3).Set(
+            Gf.Vec3d(cx + 6.9 * math.cos(a), cy + 6.9 * math.sin(a), HELI_Z + 0.12))
+        set_lamp(stage, f"/World/Cinematic/Lamps/lamp_{950 + k}/light", 600.0)
+
+
+def set_lamp(stage, path, intensity):
+    prim = stage.OverridePrim(path)
+    prim.CreateAttribute("inputs:intensity", Sdf.ValueTypeNames.Float).Set(intensity)
+    prim.CreateAttribute("spark:baseIntensity", Sdf.ValueTypeNames.Float, custom=True).Set(intensity)
+
+
+def calm_floods(stage):
+    for n, (intensity, kelvin) in enumerate(FLOODS_CALM):
+        prim = stage.OverridePrim(f"/World/Cinematic/Lamps/lamp_{320 + n}/light")
+        light = UsdLux.SphereLight(prim)
+        light.CreateIntensityAttr(intensity)
+        prim.CreateAttribute("spark:baseIntensity", Sdf.ValueTypeNames.Float, custom=True).Set(intensity)
+        light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(kelvin)))
 
 
 def light_path(kind, n, live):
@@ -239,11 +318,7 @@ def build_landing(stage, looks, kit, leg):
         if n == 0:
             kit.tube("landing", pos - (0, 0, dz - 4.8), pos + (0, 0, 0.35), 0.05)
         kit.add("lamp", "box", pos, zquat(LANDING_ANGLE), (0.45, 0.45, 0.04))
-        light = UsdLux.SphereLight.Define(stage, light_path("landing", n, n == 0))
-        UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(*(pos + u * 0.6 - (0, 0, 0.3))))
-        light.CreateRadiusAttr(0.25)
-        light.CreateIntensityAttr(320000.0)
-        light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(kelvin)))
+        add_light(stage, light_path("landing", n, n == 0), pos + u * 0.6 - (0, 0, 0.3), 170000.0, kelvin, 85.0)
     for side in (-3.6, 0.0, 3.6):
         kit.add("landing", "box", bl["deck"] + t * side - (0, 0, 0.18), zquat(LANDING_ANGLE), (3.0, 0.14, 0.26))
 
@@ -277,11 +352,7 @@ def build_overhang(stage, looks, kit):
     for n, (x, y) in enumerate(((31.25, -30.0), (31.25, -12.0), (31.25, 6.0), (31.25, 20.0))):
         kit.add("steel", "box", (x, y, z - 1.75), scale=(0.7, 0.35, 0.22))
         kit.add("lamp", "box", (x, y, z - 1.87), scale=(0.6, 0.28, 0.03))
-        light = UsdLux.SphereLight.Define(stage, light_path("overhang", n, n == 1))
-        UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(x, y, z - 2.2))
-        light.CreateRadiusAttr(0.25)
-        light.CreateIntensityAttr(200000.0)
-        light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(2300 if n % 2 else 4000)))
+        add_light(stage, light_path("overhang", n, n == 1), (x, y, z - 2.2), 110000.0, KELVINS[n % len(KELVINS)], None)
 
 
 def build_underside(stage, looks, kit, legs):
@@ -343,11 +414,178 @@ def build_underside(stage, looks, kit, legs):
         zl = z - 2.35 if (abs(abs(x) - 17.5) < 0.1 or abs(abs(y) - 17.5) < 0.1) else z - 0.9
         kit.add("steel", "box", (x, y, zl + 0.12), scale=(0.7, 0.35, 0.22))
         kit.add("lamp", "box", (x, y, zl), scale=(0.6, 0.28, 0.03))
-        light = UsdLux.SphereLight.Define(stage, light_path("under", n, n < 4))
-        UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(x, y, zl - 0.35))
-        light.CreateRadiusAttr(0.25)
-        light.CreateIntensityAttr(260000.0)
-        light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(2300 if n % 3 else 4000)))
+        add_light(stage, light_path("under", n, n < 4), (x, y, zl - 0.35), 140000.0, KELVINS[n % len(KELVINS)], None)
+
+
+def add_stair(kit, origin, z0, z1, axis):
+    st = tf.stair_tower(origin, z0, z1, axis=axis)
+    for centre, size in st["steps"] + st["landings"]:
+        kit.add("grating", "box", centre, scale=size)
+    for a, b in st["stringers"]:
+        kit.member("landing", "box", a, b, (0.02, 0.25))
+        kit.member("landing", "cyl", (a[0], a[1], a[2] + 1.0), (b[0], b[1], b[2] + 1.0), (0.05, 0.05))
+    f = st["frame"]
+    for p, q in f["columns"]:
+        kit.member("landing", "ibeam", p, q, (0.16, 0.16))
+    for p, q in f["beams"]:
+        kit.member("landing", "ibeam", p, q, (0.11, 0.16))
+    for p, q in f["braces"]:
+        kit.member("landing", "cyl", p, q, (0.08, 0.08))
+
+
+def add_ladder(kit, base, z0, z1, angle):
+    lad = sg.caged_ladder(base, z0, z1, angle)
+    for p, q in lad["rails"] + lad["straps"]:
+        kit.tube("landing", p, q, 0.03)
+    for p, q in lad["rungs"]:
+        kit.tube("landing", p, q, 0.02)
+    for pos, a in lad["hoops"]:
+        kit.add("landing", "hoop", pos, zquat(a))
+
+
+def build_access(kit):
+    for origin, z0, z1, axis in STAIRS:
+        add_stair(kit, origin, z0, z1, axis)
+    for base, z0, z1, angle in LADDERS:
+        add_ladder(kit, base, z0, z1, angle)
+
+
+def build_edges(kit):
+    for p, q, z0, height, out in EDGES:
+        e = sg.edge_detail(p, q, z0, height, out)
+        for pos, angle in e["ribs"]:
+            kit.add("steel", "box", pos, zquat(angle), e["size"])
+        kit.member("seam", "box", e["strip"][0], e["strip"][1], (0.12, 0.1))
+
+
+def build_top_underside(stage, kit):
+    (x0, y0), (x1, y1), z = TOP_UNDERSIDE
+    for x in sg.clear_stations(x0, x1, 3.1):
+        kit.member("steel", "ibeam", (x, y0 + 0.2, z - 0.35), (x, y1 - 0.2, z - 0.35), (0.3, 0.7))
+    for y in (y0 + 0.3, y1 - 0.3):
+        kit.member("steel", "ibeam", (x0, y, z - 0.6), (x1, y, z - 0.6), (0.5, 1.2))
+    for y, r, look in ((-21.0, 0.2, "pipe_grey"), (-20.4, 0.12, "pipe_yellow"), (-18.0, 0.16, "pipe_green")):
+        kit.tube(look, (x0 + 0.5, y, z - 1.0), (x1 - 0.5, y, z - 1.0), r)
+        for x in np.arange(x0 + 1.5, x1 - 1.0, 4.0):
+            kit.tube("galv", (x, y, z - 1.0 + r), (x, y, z - 0.7), 0.025)
+    for n, x in enumerate((7.0, 18.0)):
+        kit.add("steel", "box", (x, -24.0, z - 0.95), scale=(0.7, 0.35, 0.22))
+        kit.add("lamp", "box", (x, -24.0, z - 1.07), scale=(0.6, 0.28, 0.03))
+        add_light(stage, light_path("top", n, False), (x, -24.0, z - 1.4), 90000.0, KELVINS[n + 1], None)
+
+
+FLARE_BASE, FLARE_END = np.array((-26.0, 8.0, 42.0)), np.array((-57.2, 8.0, 69.4))
+FLARE_STRUT = ((-26.0, 8.0, 31.0), (-46.0, 8.0, 59.5))
+HELI_C, HELI_R, HELI_Z = (-22.5, -22.5), 14.43, 51.25
+LIFEBOATS = ((-19.0, -40.6, 27.4), (-9.0, -40.6, 27.4))
+
+
+def heat_look(f):
+    return "flare_steel" if f < 0.55 else ("heat" if f < 0.8 else "soot")
+
+
+def build_flare(stage, kit):
+    b = sg.lattice_boom(FLARE_BASE, FLARE_END, 3.2, 1.6)
+    for p, q, f in b["chords"]:
+        kit.tube(heat_look(f), p, q, 0.15)
+    for p, q, f in b["struts"]:
+        kit.tube(heat_look(f), p, q, 0.08)
+    for p, q, f in b["diagonals"]:
+        kit.tube(heat_look(f), p, q, 0.065)
+    side, up = b["side"], b["up"]
+    walk = b["walk"]
+    for (p, f0), (q, f1) in zip(walk, walk[1:]):
+        if f1 > 0.92:
+            break
+        mid, quat, length = tf.segment_pose(p, q)
+        kit.add("grating", "box", mid, quat, (length, 0.8, 0.05))
+        for sgn in (-1, 1):
+            for h in (0.55, 1.1):
+                kit.tube(heat_look(f0), p + side * sgn * 0.42 + (0, 0, h), q + side * sgn * 0.42 + (0, 0, h), 0.025)
+            kit.tube(heat_look(f0), p + side * sgn * 0.42, p + side * sgn * 0.42 + (0, 0, 1.1), 0.025)
+    for k, off in enumerate((-0.35, 0.0, 0.35)):
+        pts = [FLARE_BASE + side * off - up * 0.4, FLARE_END + side * off - up * 0.2]
+        for f0, f1 in ((0.0, 0.55), (0.55, 0.8), (0.8, 1.0)):
+            a0 = pts[0] + (pts[1] - pts[0]) * f0
+            a1 = pts[0] + (pts[1] - pts[0]) * f1
+            kit.tube(heat_look((f0 + f1) / 2), a0, a1, 0.05 - 0.01 * k)
+        kit.tube("soot", pts[1], np.array((-58.3 + 0.25 * off, 8.0 + off, 71.0)), 0.04)
+    kit.tube("soot", FLARE_END - (0, 0, 0.6), np.array((-58.4, 8.0, 71.3)), 0.6)
+    kit.add("soot", "shroud", (-58.4, 8.0, 70.6))
+    kit.tube("soot", np.array((-58.4, 8.0, 69.5)), np.array((-58.4, 8.0, 69.9)), 0.95)
+    kit.add("flare_steel", "box", FLARE_BASE - (0, 0, 0.4), scale=(2.2, 3.8, 0.8))
+    for dy in (-1.3, 1.3):
+        kit.add("flare_steel", "box", FLARE_BASE + (0.6, dy, 0.6), scale=(0.9, 0.12, 1.4))
+    p, q = np.array(FLARE_STRUT[0]), np.array(FLARE_STRUT[1])
+    kit.tube("flare_steel", p, q, 0.38)
+    kit.tube("seam", p, p + (q - p) * 0.06, 0.5)
+    kit.add("flare_steel", "box", (-24.6, 8.0, 41.2), scale=(1.4, 1.0, 1.6))
+
+
+def build_helideck(stage, looks, kit):
+    z = HELI_Z + 0.04
+    hexv = sg.hexagon(HELI_C, HELI_R, z)
+    surface = {"points": np.vstack(([HELI_C[0], HELI_C[1], z], hexv)), "normals": np.tile((0.0, 0.0, 1.0), (7, 1)),
+               "uvs": np.vstack(([HELI_C], hexv[:, :2])), "counts": [3] * 6,
+               "indices": sum(([0, 1 + k, 1 + (k + 1) % 6] for k in range(6)), [])}
+    write_mesh(stage, f"{s.ROOT}/Helideck/surface", surface, looks["helideck"])
+    write_mesh(stage, f"{s.ROOT}/Helideck/edge_line", sg.hex_ring(HELI_C, HELI_R - 0.3, HELI_R - 1.3, z + 0.01),
+               looks["mark_white"])
+    write_mesh(stage, f"{s.ROOT}/Helideck/tdpm", sg.disc_ring(HELI_C, 5.4, 6.4, z + 0.01), looks["mark_yellow"])
+    write_mesh(stage, f"{s.ROOT}/Helideck/hcircle", sg.disc_ring(HELI_C, 3.3, 3.6, z + 0.01), looks["mark_white"])
+    cx, cy = HELI_C
+    for dx, dy, sx, sy in ((-1.1, 0.0, 0.75, 4.0), (1.1, 0.0, 0.75, 4.0), (0.0, 0.0, 1.45, 0.75)):
+        kit.add("mark_white", "box", (cx + dx, cy + dy, z + 0.012), scale=(sx, sy, 0.02))
+    apothem = HELI_R * math.cos(math.pi / 6)
+    for k in range(6):
+        a0, a1 = hexv[k], hexv[(k + 1) % 6]
+        mid = (a0 + a1) / 2
+        out = (mid[:2] - np.array(HELI_C)) / np.linalg.norm(mid[:2] - np.array(HELI_C))
+        o3 = np.array((out[0], out[1], 0.0))
+        angle = math.degrees(math.atan2(a1[1] - a0[1], a1[0] - a0[0]))
+        net = {"points": np.array([a0 + o3 * 0.15 - (0, 0, 0.12), a1 + o3 * 0.15 - (0, 0, 0.12),
+                                   a1 + o3 * 1.7 - (0, 0, 0.35), a0 + o3 * 1.7 - (0, 0, 0.35)]),
+               "normals": np.tile((0.0, 0.0, 1.0), (4, 1)), "counts": [4], "indices": [0, 1, 2, 3]}
+        net["uvs"] = net["points"][:, :2] / 1.2
+        write_mesh(stage, f"{s.ROOT}/Helideck/net_{k}", net, looks["net"], double=True)
+        kit.member("galv", "box", a0 + o3 * 0.12 - (0, 0, 0.25), a1 + o3 * 0.12 - (0, 0, 0.25), (0.3, 0.25))
+        kit.member("galv", "cyl", a0 + o3 * 1.72 - (0, 0, 0.35), a1 + o3 * 1.72 - (0, 0, 0.35), (0.06, 0.06))
+        for f in np.linspace(0.0, 1.0, 6):
+            p = a0 + (a1 - a0) * f
+            kit.member("galv", "box", p - (0, 0, 0.15), p + o3 * 1.72 - (0, 0, 0.38), (0.05, 0.05))
+        kit.member("steel", "ibeam", np.array((cx, cy, z - 0.6)), (a0[0], a0[1], z - 0.6), (0.4, 0.8))
+        kit.member("steel", "ibeam", a0 - (0, 0, 0.6), a1 - (0, 0, 0.6), (0.4, 0.8))
+        inner = np.array((cx, cy, 0.0)) + (a0 - np.array((cx, cy, a0[2]))) * 0.45
+        kit.tube("steel", a0 * (1, 1, 0) + (0, 0, z - 1.0), inner * (1, 1, 0) + (0, 0, 44.2), 0.22)
+    for p in sg.perimeter_points([tuple(v) for v in hexv], 2.4):
+        kit.add("lamp_green", "dome", p + (0, 0, 0.02))
+    for k in range(6):
+        v = hexv[k]
+        d = np.array(HELI_C + (z,)) - v
+        d[2] = 0
+        d /= np.linalg.norm(d)
+        pos = v + (0, 0, 0.25)
+        ang = math.degrees(math.atan2(d[1], d[0]))
+        kit.add("steel", "box", pos + (0, 0, 0.05), zquat(ang), (0.35, 0.5, 0.25))
+        kit.add("lamp_yellow", "box", pos + d * 0.18 + (0, 0, 0.05), zquat(ang), (0.02, 0.42, 0.18))
+
+
+def build_lifeboats(stage, looks, kit):
+    hull = sg.lifeboat(8.0, 2.8, 1.0, 1.55)
+    for n, (x, y, z) in enumerate(LIFEBOATS):
+        m = dict(hull)
+        m["points"] = hull["points"] + (x, y, z)
+        write_mesh(stage, f"{s.ROOT}/Lifeboats/boat_{n}", m, looks["lifeboat"])
+        for dx in np.arange(-2.4, 2.5, 0.8):
+            for side in (-1, 1):
+                kit.add("window", "box", (x + dx, y + side * 1.12, z + 0.85), scale=(0.5, 0.06, 0.28))
+        kit.add("lifeboat_white", "box", (x - 0.4, y, z + 1.56), scale=(2.6, 1.0, 0.1))
+        kit.add("lifeboat_white", "box", (x + 2.6, y, z + 1.45), scale=(0.9, 0.8, 0.22))
+        kit.tube("rubber", (x - 3.6, y - 1.38, z + 0.05), (x + 3.6, y - 1.38, z + 0.05), 0.08)
+        kit.tube("rubber", (x - 3.6, y + 1.38, z + 0.05), (x + 3.6, y + 1.38, z + 0.05), 0.08)
+        for dx in (-2.6, 2.6):
+            kit.tube("cable", (x + dx, y, z + 3.6), (x + dx * 0.9, y, z + 1.7), 0.03)
+            kit.add("landing", "box", (x + dx * 0.9, y, z + 1.75), scale=(0.25, 0.25, 0.3))
 
 
 def build_drips(stage, looks, legs, seed=7):
@@ -388,7 +626,7 @@ def build() -> Path:
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     stage.OverridePrim("/World")
-    for group in ("", "/Looks", "/Columns", "/Underside", "/Lights", "/Inst", "/Offline", "/Offline/Drips", "/Offline/Lights"):
+    for group in ("", "/Looks", "/Columns", "/Underside", "/Lights", "/Inst", "/Offline", "/Offline/Drips", "/Offline/Lights", "/Helideck", "/Lifeboats"):
         UsdGeom.Scope.Define(stage, f"{s.ROOT}{group}")
     looks = make_looks(stage)
     for name in ("galv", "black", "pipe_grey", "pipe_green", "pipe_yellow", "pipe_red"):
@@ -398,13 +636,22 @@ def build() -> Path:
     kit = Instances(stage, looks, f"{s.ROOT}/Inst")
     kit.meshes.update(stiff=sg.ring_mesh(leg_radius(legs) - 0.05, leg_radius(legs) + 0.38, 0.32, SIDES),
                       seam=sg.ring_mesh(leg_radius(legs) - 0.02, leg_radius(legs) + 0.03, 0.05, SIDES),
-                      wedge=wedge_mesh(), hoop=hoop_mesh())
+                      wedge=wedge_mesh(), hoop=hoop_mesh(), shroud=sg.ring_mesh(0.95, 1.02, 1.6, 32),
+                      dome=sphere_cap(0.16))
     build_columns(stage, looks, kit, legs)
     landing_leg = max(legs, key=lambda l: l["top"][0] - l["top"][1])
     build_landing(stage, looks, kit, landing_leg)
     build_braces(kit, legs)
     build_underside(stage, looks, kit, legs)
     build_overhang(stage, looks, kit)
+    build_access(kit)
+    build_edges(kit)
+    build_top_underside(stage, kit)
+    calm_floods(stage)
+    build_flare(stage, kit)
+    build_helideck(stage, looks, kit)
+    build_lifeboats(stage, looks, kit)
+    retire_old(stage)
     drips = build_drips(stage, looks, legs)
     total = kit.write()
     stage.OverridePrim(LEGS_MESH).SetActive(False)

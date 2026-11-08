@@ -15,8 +15,10 @@ MDL = SIM_DIR / "assets" / "mdl" / "flare_fx.mdl"
 HALO_TEX = TEX_DIR / "flare_halo.png"
 ROOT = "/World/FlareFx"
 LIGHT = "/World/Cinematic/Lamps/lamp_400"
+LIGHT_RADIUS, LIGHT_POWER = 6.0, 0.15
+LIGHT_SCALE = LIGHT_POWER * (3.0 / LIGHT_RADIUS) ** 2
 CAMERAS = ("/World/Judge/Cam", "/World/Cinematic/Cameras/stream")
-TIP = (-58.6, 8.0, 70.5)
+TIP = (-58.4, 8.0, 71.6)
 JET = (-0.75, 0.0, 0.66)
 COLS, ROWS, TILE_W, TILE_H = 8, 4, 256, 512
 FRAMES = COLS * ROWS
@@ -265,6 +267,8 @@ def build_layer(path: Path = LAYER) -> Path:
     for i in range(5):
         stage.OverridePrim(f"/World/Cinematic/Flare/flame_{i}").CreateAttribute(
             "visibility", Sdf.ValueTypeNames.Token, custom=False).Set("invisible")
+    stage.OverridePrim(f"{LIGHT}/light").CreateAttribute("inputs:radius", Sdf.ValueTypeNames.Float,
+                                                          custom=False).Set(LIGHT_RADIUS)
     UsdGeom.Xform.Define(stage, ROOT)
     UsdGeom.Scope.Define(stage, f"{ROOT}/Looks")
     rows = SEGMENTS + 1
@@ -396,7 +400,7 @@ def update(stage, t: float, wind=WIND) -> None:
         light = stage.GetPrimAtPath(f"{LIGHT}/light")
         base = light.GetAttribute("spark:baseIntensity") if light else None
         if base and base.IsValid() and base.Get():
-            light.GetAttribute("inputs:intensity").Set(float(base.Get()) * level)
+            light.GetAttribute("inputs:intensity").Set(float(base.Get()) * LIGHT_SCALE * level)
 
 
 if __name__ == "__main__":
