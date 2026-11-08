@@ -37,7 +37,7 @@ SMOKE_N, SMOKE_LIFE, SMOKE_LEVELS = 110, 12.0, 8
 SMOKE_TINT, SMOKE_ALPHA, SMOKE_GLOW = (0.055, 0.045, 0.036), 0.42, (1.0, 0.42, 0.12)
 HALO_SIZE, HALO_GAIN, HALO_ALPHA = 46.0, EMISSION * 0.08, 0.35
 SIDE_GAIN = 0.8
-PARTS = {"offline": "flame,side,smoke,halo,anim", "live": "flame,smoke,anim"}
+PARTS = {"offline": "flame,side,smoke,halo,anim", "live": "flame,anim"}
 LIVE_SMOKE = 18
 STOPS = (
     (0.0, (0.7, 0.1, 0.01)),
@@ -442,6 +442,12 @@ def _smoke(stage, t, wind, eye, full):
     inst.GetOrientationsAttr().Set(Vt.QuathArray([Gf.Quath(*map(float, q)) for q in billboard_quats(pos, eye, roll)]))
 
 
+def halo_fade(centre, eye) -> float:
+    d = np.asarray(eye, float) - np.asarray(centre, float)
+    elev = d[2] / max(np.linalg.norm(d), 1e-6)
+    return float(np.clip((0.3 - elev) / 0.2, 0.0, 1.0))
+
+
 def _halo(stage, line, rows, eye, level, shown):
     from pxr import UsdGeom, UsdShade, Vt
 
@@ -454,8 +460,9 @@ def _halo(stage, line, rows, eye, level, shown):
     base = centre - toward * 8.0
     quad = np.array([base - right - up, base + right - up, base + right + up, base - right + up])
     UsdGeom.Mesh(stage.GetPrimAtPath(f"{ROOT}/halo")).GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(quad.astype(np.float32)))
-    UsdShade.Shader.Get(stage, f"{ROOT}/Looks/halo/shader").GetInput("gain").Set(
-        HALO_GAIN * level * (0.4 if shown == "invisible" else 1.0))
+    sh = UsdShade.Shader.Get(stage, f"{ROOT}/Looks/halo/shader")
+    sh.GetInput("gain").Set(HALO_GAIN * level * (0.4 if shown == "invisible" else 1.0))
+    _put(sh.GetInput("alpha_gain").GetAttr(), HALO_ALPHA * halo_fade(centre, eye))
 
 
 def _light(stage, line, rows, level):
