@@ -18,6 +18,7 @@ Every upgrade is opt-in. Defaults, interfaces, the live stream and the existing 
 - **Pick-up:** Gemini Robotics-ER points at the grasp spot on bottles, boxes and cans it has never seen, landing on the target 97% of the time against 7% for the colour detector.
 - **Fleet / Argon:** Before a Gemini plan is applied, the robots rehearse it in a fast simulation and veto any step that delays leak isolation, so plausible-but-harmful plans cost 31 s less per leak.
 - **Perception:** The rust detector re-tunes itself to rain and glare on the fly, recovering F1 from 0.47 to 0.95 in heavy weather while leaving clear-weather frames untouched.
+- **Walking:** The Go2 works out from one second of its own joint history where its payload sits and how the deck is moving, cutting velocity-tracking error by 18% on a rolling, heaving deck with up to 5 kg of payload and no rise in falls.
 
 ## Details
 
@@ -37,4 +38,10 @@ Every upgrade is opt-in. Defaults, interfaces, the live stream and the existing 
   - Plain always-on BN-adapt would cost clear-weather F1 (0.993 → 0.940); the gate removes that cost.
   - The deployed ONNX path is untouched.
   - Code: `detection/tta.py`. Bench: `bench/tta.py`. Chart: `tta/chart.png`.
-- **Walking:** The Go2 works out from one second of its own joint history where its payload sits and how the deck is moving, cutting velocity-tracking error by 18% on a rolling, heaving deck with up to 5 kg of payload and no rise in falls.
+- **Walking.**
+  - Benchmark: 1024 robots × 30 s, seed 42. Payload 0–5 kg with COM ±5 cm; arm deployed with p = 0.5; deck roll/pitch ±0.1 rad plus heave ±1.5 m/s².
+  - Method: a privileged teacher encodes payload and deck state into a latent; a 1-D-conv student regresses that latent from 1 s of proprioceptive history; the fine-tuned policy consumes it.
+  - Teacher upper bound: 0.062 m/s, 5.71 falls/km. Zeroing the latent gives 0.073 m/s and 7.90 falls/km, so the policy uses it.
+  - Estimator R²: COM y 0.84, COM x 0.78, heave 0.47, mass 0.24.
+  - The fall rate is unchanged, and no fall reduction is claimed.
+  - Code: `policy/walk/rma.py`, `policy/walk/train_rma.py`. ONNX: `walk/policy_rma.onnx`. Chart: `walk/chart.png`.
