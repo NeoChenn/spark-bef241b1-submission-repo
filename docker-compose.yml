@@ -41,10 +41,13 @@ services:
       RIG_ATMOS: ${RIG_ATMOS:-}
       RIG_WEATHER: ${RIG_WEATHER:-}
       RENDER_MODE: ${RENDER_MODE:-local}
+      RIG_VIEWS: ${RIG_VIEWS:-0}
+      RIG_VIEWS_RATE: ${RIG_VIEWS_RATE:-2}
+      RIG_VIEWS_MODE: ${RIG_VIEWS_MODE:-RaytracedLighting}
     command:
       - /rig/rig/sim/main.py
       - --sim=127.0.0.1:9000
-      - --cinematic=${RIG_CINEMATIC:-night}
+      - --cinematic=${RIG_CINEMATIC:-dusk}
       - --renderer=RealTimePathTracing
       - --width=1280
       - --height=720

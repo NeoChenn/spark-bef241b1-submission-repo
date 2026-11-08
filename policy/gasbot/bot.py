@@ -8,6 +8,7 @@ from typing import Optional
 import numpy as np
 
 from policy.gasbot import deck
+from policy.gasbot.infotaxis import Infotaxis, ParticleFilter
 from policy.gasbot.locate import CastSurge, SeekConfig, SourceEstimator, acoustic_flow, flow_estimate, unit
 from policy.gasbot.plume import PlumeField
 from policy.gasbot.sensors import SensorSuite
@@ -35,6 +36,8 @@ class GasBotConfig:
     snap_m: float = 1.5
     h2s_stop: float = 20.0
     deconv: float = 0.7
+    search: str = "cast_surge"
+    particles: int = 2000
 
 
 class FastReading:
@@ -158,6 +161,7 @@ class GasBotOrchestrator(RigOrchestrator):
         self.fixed_t = None
         self.found_err = None
         self.est_track: list = []
+        self.belief_track: list = []
         self.handoffs: list = []
         self.seeker: Optional[CastSurge] = None
         self.est: Optional[SourceEstimator] = None
@@ -222,9 +226,15 @@ class GasBotOrchestrator(RigOrchestrator):
     def _start_seek(self) -> None:
         self.detect_t = self.detect_t if self.detect_t is not None else self.t
         self.seek_t0 = self.t
-        self.seeker = CastSurge(self.seek_cfg)
-        self.est = SourceEstimator(deck.BOUNDS[0], (-0.4, 3.4))
-        self.est.prior([s.geom.center for f, s in self.bridge.leak_world.flanges.items() if f not in self.resolved])
+        pts = [s.geom.center for f, s in self.bridge.leak_world.flanges.items() if f not in self.resolved]
+        if self.gcfg.search == "infotaxis":
+            self.est = ParticleFilter(deck.BOUNDS[0], (-0.4, 3.4), n=self.gcfg.particles, seed=len(self.handoffs))
+            self.est.prior(pts)
+            self.seeker = Infotaxis(self.est)
+        else:
+            self.seeker = CastSurge(self.seek_cfg)
+            self.est = SourceEstimator(deck.BOUNDS[0], (-0.4, 3.4))
+            self.est.prior(pts)
         self.leak_resume = S.PATROL
 
     def _s_gas_seek(self):
@@ -232,17 +242,24 @@ class GasBotOrchestrator(RigOrchestrator):
         s = self.bridge.sense()
         self.sensed = s
         hit = self.seeker.hit(s["lel_trunk"], s["lel_tip"])
-        self.est.observe(s["pos"], s["wind"], hit)
         ac = s["acoustic"]
+        a = self.bridge.suite.acoustic
+        if isinstance(self.est, ParticleFilter):
+            self.est.observe([(s["samples"][0][0], s["lel_trunk"]), (s["samples"][1][0], s["lel_tip"])], s["wind"],
+                             self.bridge.wind.u)
+            if math.isfinite(a.min_snr_db) and a.expected_db(s["pos"]) - a.background_db < 3.0:
+                self.est.level(s["pos"], ac.db, ac.background_db, a.l1m_db, a.absorb_db_m)
+        else:
+            self.est.observe(s["pos"], s["wind"], hit)
         if ac.bearing is not None and self.t >= self.next_bearing and not self._machinery_bearing(s["pos"], ac):
             self.est.bearing(s["pos"], ac.bearing, ac.bearing_sigma)
             self.next_bearing = self.t + 1.0
         self.estimate = self.est.estimate()
         mean, sigma, _ = self.estimate
         self.est_track.append((self.t, float(mean[0]), float(mean[1]), sigma))
+        self.belief_track.append((self.t, self.est.ellipse_area()))
         self.samples.extend(s["samples"])
         self.flow_conc = flow_estimate(list(self.samples), mean, s["wind"], self.bridge.wind.u, 1.0)
-        a = self.bridge.suite.acoustic
         if ac.snr_db >= 3.0:
             self.ac_flows.append((s["pos"].copy(), ac.db, ac.background_db))
         qs = [acoustic_flow(db, bg, float(np.linalg.norm(mean - p)), a.l1m_db, a.absorb_db_m)
@@ -317,6 +334,7 @@ class GasBotOrchestrator(RigOrchestrator):
             src = {"x": round(float(m[0]), 2), "y": round(float(m[1]), 2), "sigma_m": round(sig, 2)}
         mode = self.seeker.mode if self.seeker is not None and self.state == S.GAS_SEEK else self.state.value
         x, y = b.base_xy()
+        extra = {"belief": self.est.belief(0)} if isinstance(self.est, ParticleFilter) else {}
         level = self.alarm_level()
         sensors = [{"id": sid, "at": at, "kind": r.kind, "lel": round(r.lel, 4), "ppm": round(r.reading),
                     "sat": r.saturated} for r, sid, at in ((s.trunk, "IR-T", "Unit 2 trunk IR"), (s.tip, "CAT-A", "Unit 2 arm tip"))]
@@ -333,7 +351,7 @@ class GasBotOrchestrator(RigOrchestrator):
                           "yaw_deg": round(math.degrees(b.base_yaw()), 1)},
                 "flange": self.flange_id, "ogi": b.ogi_stats,
                 "limits": {"seek": self.seek_cfg.hit_lel, "alarm": self.gcfg.alarm_lel, "stop": self.lcfg.gas_stop,
-                           "h2s_stop_ppm": self.gcfg.h2s_stop}}
+                           "h2s_stop_ppm": self.gcfg.h2s_stop}, **extra}
 
     def overlay_text(self) -> list[str]:
         s = self.bridge.suite
