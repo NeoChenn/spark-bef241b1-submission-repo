@@ -17,6 +17,7 @@ SKIP = ("/World/Looks/HeroRustOverlay", "/World/RepairZone/Looks/rust_coarse_01"
 ATM_EVERY_S = 0.25
 ROLL_EVERY_S = 0.25
 RAIN_ROOT = "/World/Weather/rain"
+RAIN_LOCAL = (f"{RAIN_ROOT}/streaks", f"{RAIN_ROOT}/look")
 RAIN_COUNT, RAIN_BOX, RAIN_STREAK, RAIN_WIDTH, RAIN_SPEED, RAIN_BELOW = 2600, (14.0, 24.0), 0.55, 0.007, 9.0, 14.0
 RAIN_CLEAR = 3.5
 
@@ -144,7 +145,7 @@ class Controller:
         self.args, self.now, self.atm_at, self.live = {}, 0.0, -1.0, False
         self.fog_base = self._fog_base()
         self.mixed = mix(level=PRESET_LEVEL.get(preset, 0.0))
-        self.curtain, self.roll_at = None, -1.0
+        self.curtain, self.roll_at = rain_curtain(stage), -1.0
         start = self._target(self.mixed, None, None)
         self.ramp = Ramp(start, 0.0)
 
@@ -183,10 +184,6 @@ class Controller:
     def _rain(self, t: float, amount: float) -> None:
         from pxr import Gf, Usd, UsdGeom
 
-        if self.curtain is None:
-            if amount < 0.1:
-                return
-            self.curtain = rain_curtain(self.stage)
         vis = "inherited" if amount >= 0.1 else "invisible"
         if self.curtain["vis"] != vis:
             self.curtain["vis"] = vis
@@ -248,6 +245,8 @@ def rain_curtain(stage, count: int = RAIN_COUNT, seed: int = 5) -> dict:
     from pxr import Gf, Sdf, UsdGeom, UsdShade, Vt
 
     rng = np.random.default_rng(seed)
+    if stage.GetPrimAtPath(RAIN_ROOT):
+        stage.RemovePrim(RAIN_ROOT)
     root = UsdGeom.Xform.Define(stage, RAIN_ROOT)
     op = root.AddTranslateOp()
     curves = UsdGeom.BasisCurves.Define(stage, f"{RAIN_ROOT}/streaks")
@@ -268,7 +267,8 @@ def rain_curtain(stage, count: int = RAIN_COUNT, seed: int = 5) -> dict:
     sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.2)
     mat.CreateSurfaceOutput().ConnectToSource(sh.CreateOutput("surface", Sdf.ValueTypeNames.Token))
     UsdShade.MaterialBindingAPI.Apply(curves.GetPrim()).Bind(mat)
-    return {"prim": root.GetPrim(), "op": op, "vis": "inherited"}
+    UsdGeom.Imageable(root).CreateVisibilityAttr().Set("invisible")
+    return {"prim": root.GetPrim(), "op": op, "vis": "invisible"}
 
 
 def shell(rng, count: int, half: float = RAIN_BOX[0], height: float = RAIN_BOX[1], clear: float = RAIN_CLEAR):

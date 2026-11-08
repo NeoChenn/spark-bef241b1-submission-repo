@@ -18,6 +18,9 @@ class Post:
         self.grade = self.atm = None
         self.stage, self.cinematic = stage, cinematic
         self.beams, self.weather, self.lens = [], None, bool(scene.get("lens"))
+        import weather
+
+        weather.rain_curtain(stage)
         tier = scene.get("look") or "none"
         if tier != "none":
             import carb
@@ -237,6 +240,49 @@ def run_live(args) -> None:
     seq = frames = stale = 0
     acc = {"apply": 0.0, "render": 0.0, "encode": 0.0, "kb": 0.0, "lat": 0.0}
     snap_at = start if args.snapshot else None
+    import threading
+
+    import numpy as np
+
+    from rig.render.state import Latest
+
+    outbox = Latest()
+    pub = {"seq": 0, "frames": 0, "snap": snap_at}
+
+    def publish() -> None:
+        while True:
+            item = outbox.get(1.0)
+            if item is None:
+                continue
+            rgb, depth, hd, at, render_ms = item
+            t2 = time.perf_counter()
+            if post is not None:
+                cam = camera_header(hd["view"], rgb.shape[1], rgb.shape[0]) if hd.get("view") else None
+                rgb = post(rgb, cam, hd.get("t", 0.0), depth)
+            mean = float(rgb[::8, ::8].mean())
+            jpeg = encode(rgb)
+            t3 = time.perf_counter()
+            header = {"type": "frame", "w": rgb.shape[1], "h": rgb.shape[0], "seq": pub["seq"], "t": hd.get("t", 0.0),
+                      "mean": round(mean, 1), "state_seq": hd.get("seq"), "state_ts": hd.get("ts"),
+                      "render_ms": round(render_ms, 1), "encode_ms": round((t3 - t2) * 1000, 1), "renderer": args.renderer}
+            if hd.get("view"):
+                header["camera"] = camera_header(hd["view"], rgb.shape[1], rgb.shape[0])
+            sender.send(header, jpeg)
+            pub["seq"] += 1
+            pub["frames"] += 1
+            acc["encode"] += t3 - t2
+            acc["kb"] += len(jpeg) / 1024
+            if hd.get("ts"):
+                acc["lat"] += time.time() - hd["ts"]
+            if pub["snap"] is not None and at >= pub["snap"] and mean > 3:
+                from PIL import Image
+
+                path = args.snapshot if not args.snapshot_every else args.snapshot.replace(".png", f"_{int(at - start):04d}.png")
+                Image.fromarray(rgb).save(path)
+                print(f"snapshot saved to {path}", flush=True)
+                pub["snap"] = at + args.snapshot_every if args.snapshot_every else None
+
+    threading.Thread(target=publish, daemon=True).start()
     print(f"rig render: {args.renderer} {args.width}x{args.height} spp={args.spp} subframes={args.subframes} -> {args.relay}", flush=True)
     while app.is_running():
         now = time.monotonic()
@@ -257,47 +303,24 @@ def run_live(args) -> None:
         if msg is not None or now - last_render >= args.keepalive:
             t1 = time.perf_counter()
             rgb = renderer.frame(args.wait_render)
-            if rgb is not None and post is not None:
-                cam = camera_header(head["view"], rgb.shape[1], rgb.shape[0]) if head.get("view") else None
-                rgb = post(rgb, cam, head.get("t", 0.0), renderer.depth())
+            depth = np.array(renderer.depth()) if (rgb is not None and post is not None) else None
             t2 = time.perf_counter()
             if rgb is not None:
-                mean = float(rgb[::8, ::8].mean())
-                jpeg = encode(rgb)
-                t3 = time.perf_counter()
-                header = {"type": "frame", "w": rgb.shape[1], "h": rgb.shape[0], "seq": seq, "t": head.get("t", 0.0),
-                          "mean": round(mean, 1), "state_seq": head.get("seq"), "state_ts": head.get("ts"),
-                          "render_ms": round((t2 - t1) * 1000, 1), "encode_ms": round((t3 - t2) * 1000, 1),
-                          "renderer": args.renderer}
-                if head.get("view"):
-                    header["camera"] = camera_header(head["view"], rgb.shape[1], rgb.shape[0])
-                sender.send(header, jpeg)
-                seq += 1
-                frames += 1
+                outbox.put((rgb, depth, head, now, (t2 - t1) * 1000))
                 acc["render"] += t2 - t1
-                acc["encode"] += t3 - t2
-                acc["kb"] += len(jpeg) / 1024
-                if head.get("ts"):
-                    acc["lat"] += time.time() - head["ts"]
-                if snap_at is not None and now >= snap_at and mean > 3:
-                    from PIL import Image
-
-                    path = args.snapshot if not args.snapshot_every else args.snapshot.replace(".png", f"_{int(now - start):04d}.png")
-                    Image.fromarray(rgb).save(path)
-                    print(f"snapshot saved to {path}", flush=True)
-                    snap_at = now + args.snapshot_every if args.snapshot_every else None
             last_render = now
         else:
             stale += 1
         if now >= stats_at:
             span = now - stats_at + STATS_EVERY_S
+            frames = pub["frames"]
             n = max(frames, 1)
             print(f"t={now - start:.0f}s fps={frames / span:.1f} render={acc['render'] / n * 1000:.1f}ms "
                   f"encode={acc['encode'] / n * 1000:.1f}ms apply={acc['apply'] / n * 1000:.1f}ms jpeg={acc['kb'] / n:.0f}KB "
                   f"state_to_send={acc['lat'] / n * 1000:.0f}ms states={inbox.received} applied={applier.applied} "
                   f"failed={applier.failed} sent={sender.sent} dropped={sender.dropped} connected={sender.connected.is_set()}",
                   flush=True)
-            stats_at, frames = now + STATS_EVERY_S, 0
+            stats_at, pub["frames"] = now + STATS_EVERY_S, 0
             acc = dict.fromkeys(acc, 0.0)
         if args.duration and now - start >= args.duration:
             break

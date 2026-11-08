@@ -683,7 +683,7 @@ class MissionLive:
     def for_sim(self) -> dict:
         s = self.snapshot_fleet()
         return {"t": s["t"], "hazards": s["hazards"],
-                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state")}
+                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state", "task", "job_state")}
                            for r in s["robots"]]}
 
     def state(self) -> dict:

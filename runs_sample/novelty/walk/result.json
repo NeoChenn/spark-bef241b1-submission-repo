@@ -1,0 +1,196 @@
+{
+ "method": "RMA-style teacher-student: privileged payload+deck extrinsics -> history adapter (1-D conv, 1 s)",
+ "benchmark": {
+  "num_envs": 1024,
+  "track_s": 30.0,
+  "seed": 42,
+  "payload_mass_kg": [
+   0.0,
+   5.0
+  ],
+  "arm_deployed_p": 0.5,
+  "deck_max_tilt_rad": 0.1,
+  "deck_max_heave_mps2": 1.5
+ },
+ "policies": {
+  "base": {
+   "vel_err_xy_mps": 0.0764676079902778,
+   "yaw_rate_err_radps": 0.07385249813297134,
+   "dist_km": 17.531117468357085,
+   "falls": 120,
+   "falls_per_km": 6.844971532282232
+  },
+  "rma": {
+   "vel_err_xy_mps": 0.06286689725150088,
+   "yaw_rate_err_radps": 0.07201864269106513,
+   "dist_km": 17.725445264935495,
+   "falls": 120,
+   "falls_per_km": 6.769928665057808,
+   "latent_r2": {
+    "payload_mass_kg": 0.24117594957351685,
+    "com_x_m": 0.781312108039856,
+    "com_y_m": 0.8374268412590027,
+    "com_z_m": -0.007964372634887695,
+    "deck_ax": 0.24286770820617676,
+    "deck_ay": 0.35761213302612305,
+    "deck_az": 0.4676264524459839
+   }
+  },
+  "oracle": {
+   "vel_err_xy_mps": 0.06166349464008568,
+   "yaw_rate_err_radps": 0.07211210718848249,
+   "dist_km": 17.35103214776516,
+   "falls": 99,
+   "falls_per_km": 5.705712441593935
+  },
+  "no_latent": {
+   "vel_err_xy_mps": 0.07288217287546232,
+   "yaw_rate_err_radps": 0.07351641092178128,
+   "dist_km": 17.4655286052227,
+   "falls": 138,
+   "falls_per_km": 7.901278175957067
+  }
+ },
+ "headline": {
+  "falls_per_km": [
+   6.844971532282232,
+   6.769928665057808
+  ],
+  "vel_err_xy_mps": [
+   0.0764676079902778,
+   0.06286689725150088
+  ],
+  "latent_r2": {
+   "payload_mass_kg": 0.24117594957351685,
+   "com_x_m": 0.781312108039856,
+   "com_y_m": 0.8374268412590027,
+   "com_z_m": -0.007964372634887695,
+   "deck_ax": 0.24286770820617676,
+   "deck_ay": 0.35761213302612305,
+   "deck_az": 0.4676264524459839
+  }
+ },
+ "teacher_finetune": {
+  "init": "walk_best model_1499, 7 zero-init latent inputs",
+  "iters": 60,
+  "num_envs": 2048,
+  "lr": 0.0001,
+  "schedule": "fixed"
+ },
+ "adapter": {
+  "history_steps": 50,
+  "history_s": 1.0,
+  "proprio_dims": 49,
+  "train_steps": 1500,
+  "num_envs": 2048,
+  "dagger_after_step": 500
+ },
+ "onnx": "runs_sample/novelty/walk/policy_rma.onnx (inputs obs[236], history[50,49]; opt-in via policy.walk.rma.RMARuntime)",
+ "small_benchmark_512x15s": {
+  "benchmark": {
+   "num_envs": 512,
+   "track_s": 15.0,
+   "seed": 42,
+   "payload_mass_kg": [
+    0.0,
+    5.0
+   ],
+   "arm_deployed_p": 0.5,
+   "deck_max_tilt_rad": 0.1,
+   "deck_max_heave_mps2": 1.5
+  },
+  "policies": {
+   "base": {
+    "vel_err_xy_mps": 0.0744693595800274,
+    "yaw_rate_err_radps": 0.07282943370961008,
+    "dist_km": 4.4432537720203396,
+    "falls": 27,
+    "falls_per_km": 6.076627936495995
+   },
+   "rma": {
+    "vel_err_xy_mps": 0.06140353718666215,
+    "yaw_rate_err_radps": 0.07068055927054515,
+    "dist_km": 4.429587570220232,
+    "falls": 19,
+    "falls_per_km": 4.289338386204509,
+    "latent_r2": {
+     "payload_mass_kg": 0.1977061629295349,
+     "com_x_m": 0.7992218136787415,
+     "com_y_m": 0.8439844846725464,
+     "com_z_m": -0.0054662227630615234,
+     "deck_ax": 0.12055456638336182,
+     "deck_ay": 0.23499363660812378,
+     "deck_az": 0.4578539729118347
+    }
+   },
+   "oracle": {
+    "vel_err_xy_mps": 0.06483696982940404,
+    "yaw_rate_err_radps": 0.06949268856977966,
+    "dist_km": 4.3925595983862875,
+    "falls": 13,
+    "falls_per_km": 2.9595500547735
+   },
+   "no_latent": {
+    "vel_err_xy_mps": 0.07174782921390019,
+    "yaw_rate_err_radps": 0.07287848189220789,
+    "dist_km": 4.4445408774018285,
+    "falls": 33,
+    "falls_per_km": 7.42483890018602
+   }
+  }
+ },
+ "ablation_teacher_lr1e-3": {
+  "benchmark": {
+   "num_envs": 1024,
+   "track_s": 30.0,
+   "seed": 42,
+   "payload_mass_kg": [
+    0.0,
+    5.0
+   ],
+   "arm_deployed_p": 0.5,
+   "deck_max_tilt_rad": 0.1,
+   "deck_max_heave_mps2": 1.5
+  },
+  "policies": {
+   "base": {
+    "vel_err_xy_mps": 0.0764676079902778,
+    "yaw_rate_err_radps": 0.07385249813297134,
+    "dist_km": 17.531117468357085,
+    "falls": 120,
+    "falls_per_km": 6.844971532282232
+   },
+   "rma": {
+    "vel_err_xy_mps": 0.07551202594950115,
+    "yaw_rate_err_radps": 0.08739078821852123,
+    "dist_km": 17.20909362947941,
+    "falls": 128,
+    "falls_per_km": 7.437928037112558,
+    "latent_r2": {
+     "payload_mass_kg": 0.25426316261291504,
+     "com_x_m": 0.7368128895759583,
+     "com_y_m": 0.8320509791374207,
+     "com_z_m": -0.005467891693115234,
+     "deck_ax": 0.26689350605010986,
+     "deck_ay": 0.40822452306747437,
+     "deck_az": 0.46133261919021606
+    }
+   },
+   "oracle": {
+    "vel_err_xy_mps": 0.07240415273081341,
+    "yaw_rate_err_radps": 0.0856809713622935,
+    "dist_km": 17.0331510694623,
+    "falls": 139,
+    "falls_per_km": 8.160556988730326
+   },
+   "no_latent": {
+    "vel_err_xy_mps": 0.08771723610392872,
+    "yaw_rate_err_radps": 0.08920188428966601,
+    "dist_km": 17.193249306917192,
+    "falls": 208,
+    "falls_per_km": 12.09777141522152
+   }
+  }
+ },
+ "default": "off (opt-in); default walk_best ONNX unchanged"
+}

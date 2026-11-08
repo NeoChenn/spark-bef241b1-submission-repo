@@ -33,6 +33,8 @@ class ViewStore:
                             self.fpv[str(rid)] = v
                     else:
                         stub[kind] = v
+                if "boxes" in stub:
+                    stub["policy"] = stub["boxes"]
         if not self.stubs:
             return header
         out = {**header, "views": self.stubs}

@@ -1,0 +1,39 @@
+event: interaction.created
+data: {"interaction":{"object":"interaction","model":"gemini-4-argon"},"event_type":"interaction.created"}
+
+event: interaction.status_update
+data: {"status":"in_progress","event_type":"interaction.status_update"}
+
+event: step.start
+data: {"index":0,"step":{"type":"thought"},"event_type":"step.start"}
+
+event: step.delta
+data: {"index":0,"delta":{"signature":"REDACTED","type":"thought_signature"},"event_type":"step.delta"}
+
+event: step.stop
+data: {"index":0,"event_type":"step.stop"}
+
+event: step.start
+data: {"index":1,"step":{"id":"call_17938926207860222677","type":"function_call","name":"require_operator","arguments":{}},"event_type":"step.start"}
+
+event: step.delta
+data: {"index":1,"delta":{"arguments":"{\"why\":\"Reserving paint jobs for human operator approval as requested.\",\"kind\":\"paint\"}","type":"arguments_delta"},"event_type":"step.delta"}
+
+event: step.stop
+data: {"index":1,"event_type":"step.stop"}
+
+event: step.start
+data: {"index":2,"step":{"id":"call_17938926207860221120","type":"function_call","name":"queue_job","arguments":{}},"event_type":"step.start"}
+
+event: step.delta
+data: {"index":2,"delta":{"arguments":"{\"target\":\"F3\",\"kind\":\"valve_isolate\",\"level\":\"SUPV\",\"why\":\"Isolating critical 14 %LEL gas leak detected at flange F3.\",\"priority\":1}","type":"arguments_delta"},"event_type":"step.delta"}
+
+event: step.stop
+data: {"index":2,"event_type":"step.stop"}
+
+event: interaction.completed
+data: {"interaction":{"status":"requires_action","usage":{"total_tokens":1231,"total_input_tokens":1078,"input_tokens_by_modality":[{"modality":"text","tokens":1078}],"total_cached_tokens":0,"total_output_tokens":98,"output_tokens_by_modality":[{"modality":"text","tokens":98}],"total_tool_use_tokens":0,"total_thought_tokens":55,"initial_input_tokens":1078},"created":"2026-11-08T12:40:13Z","updated":"2026-11-08T12:40:13Z","service_tier":"standard","object":"interaction","model":"gemini-4-argon"},"event_type":"interaction.completed"}
+
+event: done
+data: [DONE]
+

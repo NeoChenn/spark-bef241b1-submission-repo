@@ -103,5 +103,5 @@ class FleetLive:
     def for_sim(self) -> dict:
         s = self.state()
         return {"t": s["t"], "hazards": s["hazards"],
-                "robots": [{k: r[k] for k in ("id", "pose", "path", "prev_path", "reroute_t", "state")}
+                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state", "task", "job_state")}
                            for r in s["robots"]]}
