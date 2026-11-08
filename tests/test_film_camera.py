@@ -120,7 +120,7 @@ def test_work_shots_frame_the_bolt_the_patch_and_the_arms():
     s = DEFAULT_FILM_SCENE
     w = s.unit1_work
     unit1 = [s.patch, (w[0], w[1], w[2] + 1.1), (w[0] - 0.35, w[1], 42.5), (w[0] + 0.35, w[1], 42.5)]
-    for name, pts, far, lead in (("unit2_job", [s.bolt, s.flange], 2.0, 1.6), ("unit1_spray", unit1, 4.0, 1.3),
+    for name, pts, far, lead in (("unit2_job", [s.bolt, s.flange], 3.0, 1.6), ("unit1_spray", unit1, 4.0, 1.3),
                                  ("unit1_soak", unit1, 4.0, 0.0), ("unit1_paint", unit1, 4.0, 0.0)):
         shot = next(x for x in SHOTS if x.name == name)
         end = {"unit1_paint": shot.film[1] - 2.5, "unit2_job": shot.film[0] + 6.5}.get(name, shot.film[1] - 0.01)
@@ -142,14 +142,16 @@ def test_the_socket_view_is_side_on_and_fills_the_frame():
     for t in np.linspace(shot.film[0] + 1.6, shot.film[0] + 6.5, 5):
         e, g, f, _ = camera_at_film(t, SHOTS)
         v = np.subtract(e, s.bolt)
-        assert 1.5 <= np.linalg.norm(v) <= 2.0 and 50.0 <= f <= 60.0
+        assert 2.2 <= np.linalg.norm(v) <= 3.0 and 40.0 <= f <= 55.0
         assert 75.0 <= np.degrees(np.arccos(abs(v @ axis) / np.linalg.norm(v))) <= 105.0
         cam = view(e, g, f)
         side = np.cross(axis, (0.0, 0.0, 1.0))
-        rim = [np.asarray(s.flange) + 0.17 * (np.cos(a) * side + np.sin(a) * np.array([0.0, 0.0, 1.0]))
+        rim = [np.asarray(s.flange) + s.flange_radius * (np.cos(a) * side + np.sin(a) * np.array([0.0, 0.0, 1.0]))
                for a in np.linspace(0, 2 * np.pi, 16)]
         vs = [project(cam, p)[1] for p in rim]
-        assert 0.3 <= (max(vs) - min(vs)) / cam["h"] <= 0.8
+        assert 0.5 <= (max(vs) - min(vs)) / cam["h"] <= 0.85
+        hu, hv, hz = project(cam, s.bolt)
+        assert abs(hu - cam["w"] / 2) < 5 and abs(hv - cam["h"] / 2) < 5
     e0 = camera_at_film(shot.film[0] + 6.5, SHOTS)
     e1 = camera_at_film(shot.film[1] - 1e-3, SHOTS)
     assert np.linalg.norm(np.subtract(e1[0], s.bolt)) > np.linalg.norm(np.subtract(e0[0], s.bolt)) + 0.5
@@ -160,7 +162,10 @@ def test_the_socket_sightline_clears_the_fixer_arm():
     if not timeline.exists():
         pytest.skip("no film timeline")
     rm = pytest.importorskip("integration.retorque_motion")
-    m = rm.from_timeline(timeline)
+    ff = pytest.importorskip("integration.film_flange")
+    marks = rm.timeline_marks(timeline)
+    m = rm.fit(marks["engaged"], marks["torque_done"], marks.get("leave"), ff.geometry(), ff.LEAK_BOLT,
+               base=ff.work_base())
     s = DEFAULT_FILM_SCENE
     shot = next(x for x in SHOTS if x.name == "unit2_job")
     links = ("ur3_shoulder_link", "ur3_upper_arm_link", "ur3_forearm_link", "ur3_wrist_1_link", "ur3_wrist_2_link")

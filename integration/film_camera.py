@@ -11,7 +11,16 @@ from rig.camera import look_at, project
 from rig.sim.zoom import ease, spherical
 
 Vec3 = tuple[float, float, float]
-BOLT3_HEAD = (20.572, -10.59747, 43.29747)
+try:
+    from integration import film_flange as FF
+except ImportError:
+    FF = None
+if FF is not None:
+    BOLT3 = (tuple(map(float, FF.bolt_head(FF.LEAK_BOLT))), tuple(map(float, -FF.axis())),
+             tuple(map(float, FF.radial(FF.LEAK_BOLT))), tuple(map(float, FF.face_center())), float(FF.FLANGE_OUTER))
+else:
+    BOLT3 = ((20.572, -10.5409, 43.2409), (-1.0, 0.0, 0.0), (0.0, 0.70710678, -0.70710678), (20.56, -10.70, 43.40),
+             0.265)
 TRUNK_Z = 42.82
 RIG_CENTER = (5.0, 0.0, 44.0)
 CONTROL_ROOM = {"prim": "/World/Rig/module_n83_40_module_white", "windows": "/World/Details/windows_module_n83_40",
@@ -32,10 +41,11 @@ class FilmScene:
     patch_normal: Vec3 = (0.0, 0.6212, 0.7836)
     unit2_dock: Vec3 = (*DOCK["unit2"][:2], TRUNK_Z)
     unit2_work: Vec3 = (21.012, -10.27, TRUNK_Z)
-    bolt: Vec3 = BOLT3_HEAD
-    bolt_axis: Vec3 = (-1.0, 0.0, 0.0)
-    bolt_radial: Vec3 = (0.0, 0.70710678, -0.70710678)
-    flange: Vec3 = (20.56, -10.70, 43.40)
+    bolt: Vec3 = BOLT3[0]
+    bolt_axis: Vec3 = BOLT3[1]
+    bolt_radial: Vec3 = BOLT3[2]
+    flange: Vec3 = BOLT3[3]
+    flange_radius: float = BOLT3[4]
 
 
 DEFAULT_FILM_SCENE = FilmScene()
@@ -113,7 +123,7 @@ def unit2_job(scene: FilmScene = DEFAULT_FILM_SCENE) -> tuple[Vec3, Vec3, float]
 
 
 CLOSE_UP = (1.0, 1.0, 62.0)
-SOCKET_VIEW = {"elevation": 20.0, "distance": 2.0, "focal": 50.0, "pull_m": 0.9, "pull_focal": 40.0}
+SOCKET_VIEW = {"elevation": 20.0, "distance": 2.6, "focal": 45.0, "pull_m": 1.0, "pull_focal": 36.0}
 
 
 def socket_view(scene: FilmScene = DEFAULT_FILM_SCENE, pull: float = 0.0) -> tuple[Vec3, Vec3, float]:
