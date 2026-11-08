@@ -100,7 +100,7 @@
   function panel(p) {
     p = { edge: "right", priority: 0, icon: "grid", ...p };
     P.set(p.id, p);
-    command({ id: p.id, group: "Panels", label: p.title, icon: p.icon, key: p.key, keys: p.keys, desc: p.desc, hint: p.hint, panel: p, active: () => pins.has(p.id), run: (from) => togglePin(p.id, from) });
+    command({ id: p.id, group: "Panels", label: p.title, icon: p.icon, key: p.key, keys: p.keys, desc: p.desc, hint: p.hint, panel: p, active: () => pins.has(p.id), run: (from) => { if (sheet.id && !pins.has(p.id)) openView(null); togglePin(p.id, from); } });
     if (booted && pins.has(p.id)) show(p.id);
     return p;
   }
@@ -448,7 +448,6 @@
     S.started = true;
     shot(REPLAY ? 1 : 2);
     if (SIM) { playT0 = now(); if (offset && session) seek(offset); }
-    if (REPLAY && !Q.has("view")) openView("map");
   }
   function liveState() {
     const ws = new WebSocket((location.protocol === "https:" ? "wss:" : "ws:") + "//" + location.host + "/ws/state");

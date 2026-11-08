@@ -47,11 +47,12 @@
     desc: "What the on-board detector sees, with the rust mask outlined. In a replay it shows the recorded Isaac render nearest the replay clock.", hint: (S) => (S.inspection ? "Live" : H.simcam ? H.simcam(S).label || "" : ""),
     render(el, S) {
       const x = q(el, PIP), j = S.inspection?.jpg, sc = !j && H.simcam ? H.simcam(S) : null, src = j ? "data:image/jpeg;base64," + j : sc?.img;
-      if (src && x.img._j !== src) { x.img._j = src; x.img.src = src; }
+      if (src && x.img._want !== src) { x.img._want = src; const im = new Image(); im.onload = () => { if (x.img._want === src) x.img.src = src; }; im.src = src; }
+      const shown = !!src && x.img.naturalWidth > 0;
       const vid = sc?.video, pip = x.img.parentNode;
       if (vid && vid.videoWidth) { const c = x.cv, w = c.clientWidth * 2, h = c.clientHeight * 2; if (c.width !== w) { c.width = w; c.height = h; } const k = Math.max(w / vid.videoWidth, h / vid.videoHeight); c.getContext("2d").drawImage(vid, (w - vid.videoWidth * k) / 2, (h - vid.videoHeight * k) / 2, vid.videoWidth * k, vid.videoHeight * k); }
-      pip.classList.toggle("on", !!src || !!vid); pip.classList.toggle("vid", !!vid);
-      set(x.none, sc?.none || "Waiting for the first look"); set(x.lab, sc?.label || (j ? "On-board detector" : ""));
+      pip.classList.toggle("on", shown || !!vid); pip.classList.toggle("vid", !!vid);
+      set(x.none, shown || vid ? "" : src ? "Loading the camera…" : sc?.none || "Waiting for the first look"); set(x.lab, sc?.label || (j ? "On-board detector" : ""));
       x.img.classList.toggle("mist", !!S.mist);
     } });
   const GEM = `<div class="g-top"><span class="chip" data-k="v">No call yet</span><span class="tnum dim" data-k="lat"></span></div><div class="bar"><span data-k="bar"></span></div><div class="thumb"><img data-k="img" alt=""><svg data-k="pts"></svg></div><p class="why" data-k="why"></p>`;
