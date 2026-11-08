@@ -26,7 +26,8 @@ REPLAY_EVENTS = 20
 FPS_WINDOW_S = 2.0
 STALE_AFTER_S = 2.0
 BLACK_MEAN = 3.0
-HEADER_FILES = ("headers.jsonl", "header.jsonl", "hud.jsonl", "frames.jsonl")
+HEADER_FILES = ("headers.jsonl", "header.jsonl", "hud.jsonl", "frames.jsonl", "live_hud.jsonl", "live_hud_1hz.jsonl")
+TIMELINE_FILES = ("timeline.jsonl", "live_timeline.jsonl")
 TIMELINE_TYPES = ("finding", "argon_request", "argon_call", "command", "ticket", "vetoed")
 
 
@@ -40,8 +41,9 @@ def fleet_session(p: Path) -> dict | None:
     heads = [h for h in rows if "event" not in h and h.get("type") in (None, "frame", "header")]
     if not any("robots" in h or "argon" in h for h in heads):
         return None
-    tl = d / "timeline.jsonl"
-    extra = load_timeline(tl) if tl.is_file() and tl != hp else []
+    live = hp.name.startswith("live_")
+    tl = next((d / n for n in sorted(TIMELINE_FILES, key=lambda n: n.startswith("live_") != live) if (d / n).is_file()), None)
+    extra = load_timeline(tl) if tl is not None and tl != hp else []
     marks = sorted((r for r in rows + extra if r.get("type") in TIMELINE_TYPES), key=lambda r: float(r["t"]))
     heads.sort(key=lambda h: float(h["t"]))
     t0, k = float(heads[0]["t"]), 0
