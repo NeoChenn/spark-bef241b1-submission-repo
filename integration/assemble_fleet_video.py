@@ -27,6 +27,8 @@ TITLE_S = 1.5
 END_S = 3.5
 BUDGET_S = 60.0
 SPEEDS = (4.0, 6.0, 8.0, 12.0, 16.0)
+TIERS = ((4.0, 1.0), (5.0, 1.0), (6.0, 1.0), (4.0, 2.0), (5.0, 2.0), (6.0, 2.0), (6.0, 3.0), (8.0, 3.0), (12.0, 3.0),
+         (16.0, 3.0))
 PAD_S = 0.5
 SOAK = ("SOAK",)
 WALKS = ("TRANSIT", "RETURN", "TO_DOCK")
@@ -34,7 +36,13 @@ WALK_MIN_S = 6.0
 KEEP = ("PAINT", "RETORQUE")
 RAMP_S = 0.5
 TEASER_S = 10.0
-BEAT_ROWS = ("command", "ticket", "vetoed")
+BEAT_ROWS = ("command", "ticket", "vetoed", "object_report")
+SCENARIO_BEATS = ("object_dropped", "object_cleared", "push")
+HELD_SPANS = ((("command", "hold_for_crew"), (("scenario", "object_cleared"), ("nav_event", "cleared"))),
+              (("scenario", "push"), (("nav_event", "recovered"),)))
+CALLOUTS = {"hold_for_crew": "Hold for crew · object on walkway (edge rule)"}
+PLUME = ("leak_start", "gas_clear")
+PLUME_CAP = 4.0
 TEXT = (238, 242, 246)
 DIM = (150, 160, 172)
 ACCENT = (255, 184, 64)
@@ -88,8 +96,35 @@ def waits_from_timeline(rows: list[dict]) -> list[tuple[float, float]]:
     return sorted(spans)
 
 
+def _key(r: dict) -> tuple:
+    return r.get("type"), r.get("name") or r.get("event") or r.get("kind")
+
+
 def beats_from_timeline(rows: list[dict]) -> list[float]:
-    return sorted(float(r["t"]) for r in rows if r.get("type") in BEAT_ROWS and float(r.get("t", -1)) >= 0)
+    return sorted(float(r["t"]) for r in rows if float(r.get("t", -1)) >= 0 and (
+        r.get("type") in BEAT_ROWS or (r.get("type") == "scenario" and r.get("name") in SCENARIO_BEATS)))
+
+
+def held_spans(rows: list[dict]) -> list[tuple[float, float, str]]:
+    out = []
+    for start, ends in HELD_SPANS:
+        for r in rows:
+            if _key(r) == start:
+                t0 = float(r["t"])
+                t1 = next((float(e["t"]) for e in rows if _key(e) in ends and float(e["t"]) > t0), t0 + 3.0)
+                out.append((t0, t1, start[1]))
+    return sorted(out)
+
+
+def callouts(rows: list[dict]) -> list[tuple[float, float, str]]:
+    return [(a, b, CALLOUTS[k]) for a, b, k in held_spans(rows) if k in CALLOUTS]
+
+
+def plume_span(rows: list[dict]) -> Optional[tuple[float, float]]:
+    t0 = next((float(r["t"]) for r in rows if _key(r) == ("scenario", PLUME[0])), None)
+    if t0 is None:
+        return None
+    return t0, next((float(r["t"]) for r in rows if _key(r) == ("scenario", PLUME[1]) and r["t"] > t0), float("inf"))
 
 
 def _robots(h: dict) -> list:
@@ -213,6 +248,7 @@ class Plan:
     fast: np.ndarray
     beats: np.ndarray
     seconds: float = 0.0
+    cap: Optional[np.ndarray] = None
     why: dict = field(default_factory=dict)
     notes: list = field(default_factory=list)
 
@@ -225,18 +261,31 @@ def plan(headers: list[dict], fps_in: float = FPS, timeline: Optional[list[dict]
     waits = wait_mask(headers, ts, waits_from_timeline(rows))
     soak, walks = any_state(headers, SOAK), long_walks(headers, ts)
     beats = beat_mask(ts, beats_from_headers(headers), beats_from_timeline(rows), pad_s) | any_state(headers, KEEP)
+    for a, b, _ in held_spans(rows):
+        beats |= (ts >= a - pad_s) & (ts <= b + pad_s)
+    pl = plume_span(rows)
+    plume = np.zeros(len(ts), bool) if pl is None else (ts >= pl[0]) & (ts < pl[1])
     room = budget_s - title_s - end_s
     ramp_n = int(round(ramp_s * fps_in))
     best = None
-    for mode, fast in (("lapse", (waits | soak | walks) & ~beats), ("idle", ~beats)):
-        for top in speeds:
-            sp = np.where(fast, ramp(fast, top, ramp_n), 1.0)
-            idx = schedule(sp, fps_in)
-            best = Plan(idx, sp, top, mode, fast, beats, len(idx) / FPS,
-                        why={"wait": int((fast & waits).sum()), "soak": int((fast & soak).sum()),
-                             "walk": int((fast & walks).sum())})
-            if best.seconds <= room:
-                return best
+    cand = (waits | soak | walks) & ~beats
+    rest = ~beats & ~cand
+    why = {"wait": int((cand & waits).sum()), "soak": int((cand & soak).sum()), "walk": int((cand & walks).sum())}
+    tiers = [(t, r) for t, r in TIERS if t in speeds] + [(t, t) for t in speeds]
+    for top, slow in tiers:
+        cap = np.where(plume, min(top, PLUME_CAP), top)
+        sp = np.where(cand, np.minimum(ramp(cand, top, ramp_n), cap), 1.0)
+        label = np.where(cand, cap, 1.0)
+        if slow > 1.0:
+            low = np.minimum(slow, cap)
+            sp = np.where(rest, np.minimum(ramp(rest, slow, ramp_n), low), sp)
+            label = np.where(rest, low, label)
+        idx = schedule(sp, fps_in)
+        mode = "lapse" if slow <= 1.0 else f"lapse+rest x{slow:g}"
+        best = Plan(idx, sp, top, mode, cand | (rest if slow > 1.0 else False), beats, len(idx) / FPS, label,
+                    why=dict(why, rest=int(rest.sum()) if slow > 1.0 else 0, rest_speed=slow))
+        if best.seconds <= room:
+            return best
     best.notes.append(f"over budget: {best.seconds:.1f}s of footage > {room:.1f}s")
     return best
 
@@ -431,6 +480,23 @@ def badge(img: np.ndarray, top: float, alpha: float) -> np.ndarray:
     return np.asarray(Image.alpha_composite(im, layer).convert("RGB"))
 
 
+def callout(img: np.ndarray, text: str) -> np.ndarray:
+    h, w = img.shape[:2]
+    s = h / 720
+    im = Image.fromarray(img).convert("RGBA")
+    layer = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    f = font("sans", int(20 * s), "Semibold")
+    tw = d.textlength(text, font=f)
+    bw, bh = tw + 48 * s, 38 * s
+    x0, y0 = (w - bw) / 2, h - 96 * s - bh
+    d.rounded_rectangle([x0, y0, x0 + bw, y0 + bh], radius=bh / 2, fill=(12, 16, 22, 215), outline=ACCENT + (255,),
+                        width=max(1, int(2 * s)))
+    d.ellipse([x0 + 16 * s, y0 + bh / 2 - 5 * s, x0 + 26 * s, y0 + bh / 2 + 5 * s], fill=ACCENT + (255,))
+    d.text((x0 + 34 * s, y0 + bh / 2), text, font=f, fill=TEXT + (255,), anchor="lm")
+    return np.asarray(Image.alpha_composite(im, layer).convert("RGB"))
+
+
 def _backdrop(frame: np.ndarray, dim: float) -> Image.Image:
     im = Image.fromarray(frame).filter(ImageFilter.GaussianBlur(frame.shape[0] / 90))
     return Image.blend(im, Image.new("RGB", im.size, (6, 9, 14)), dim)
@@ -563,6 +629,7 @@ def assemble(raw, headers_path, out, timeline_path=None, fps_in: Optional[float]
     w, h = size[0] - size[0] % 2, size[1] - size[1] % 2
     enc = writer(out, w, h)
     stats = key_numbers(timeline, headers)
+    notes = callouts(timeline)
     n_title, n_end = int(round(TITLE_S * FPS)), int(round(END_S * FPS))
     last = None
     written = 0
@@ -572,7 +639,11 @@ def assemble(raw, headers_path, out, timeline_path=None, fps_in: Optional[float]
         hd_ = dict(headers[i], timelapse=round(float(p.speed[i]), 2))
         g = draw(f.copy(), for_overlay(hd_), labels_for(label_fn, hd_, (w, h))) if draw else f
         g = np.ascontiguousarray(np.asarray(g, np.uint8)[:h, :w, :3])
-        g = badge(g, p.top, (p.speed[i] - 1.0) / max(p.top - 1.0, 1e-6))
+        top = float(p.cap[i]) if p.cap is not None else p.top
+        g = badge(g, top, (p.speed[i] - 1.0) / max(top - 1.0, 1e-6))
+        note = next((c for a, b, c in notes if a <= float(headers[i].get("t", 0.0)) < b), None)
+        if note:
+            g = callout(g, note)
         if last is None:
             for j in range(n_title):
                 k_ = min(1.0, (n_title - j) / (0.4 * FPS))

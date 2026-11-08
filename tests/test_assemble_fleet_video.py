@@ -91,7 +91,8 @@ def test_budget_escalates_speed_then_compresses_idle():
     p = av.plan(headers, 30, rows, budget_s=52.0)
     assert p.mode == "lapse" and p.top > 4.0 and p.seconds + av.TITLE_S + av.END_S <= 52.0
     p = av.plan(headers, 30, rows, budget_s=45.0)
-    assert p.mode == "idle" and p.seconds + av.TITLE_S + av.END_S <= 45.0
+    assert p.mode.startswith("lapse+rest") and p.seconds + av.TITLE_S + av.END_S <= 45.0
+    assert p.top <= 6.0 and p.speed[int(5 * 30)] == p.why["rest_speed"] <= 3.0
     assert all(p.speed[int(t * 30)] == 1.0 for t in (10.0, 22.0, 41.0, 67.0))
 
 
@@ -277,3 +278,19 @@ def test_off_frame_robots_get_no_label():
          "isaac": {"robots": {"unit1": {"pos": [18.0, -5.0]}, "unit2": {"pos": [60.0, 30.0]},
                               "unit3": {"pos": [0.0, -40.0]}}}}
     assert set(av.camera_labels()(h, (1280, 720))) <= {"unit1", "G-F5"}
+
+
+def test_hold_for_crew_and_push_spans_stay_at_one_x_with_a_callout_and_the_plume_is_capped():
+    headers, rows = scenario(dur=72.0)
+    rows += [{"type": "scenario", "name": "leak_start", "t": 8.0}, {"type": "scenario", "name": "gas_clear", "t": 70.0},
+             {"type": "command", "kind": "hold_for_crew", "robot": "unit2", "t": 24.0},
+             {"type": "scenario", "name": "object_cleared", "t": 28.0},
+             {"type": "scenario", "name": "push", "t": 29.0}, {"type": "nav_event", "event": "recovered", "t": 31.0}]
+    rows.sort(key=lambda r: r["t"])
+    assert av.held_spans(rows) == [(24.0, 28.0, "hold_for_crew"), (29.0, 31.0, "push")]
+    assert av.callouts(rows) == [(24.0, 28.0, "Hold for crew · object on walkway (edge rule)")]
+    p = av.plan(headers, 30, rows, budget_s=48.0)
+    assert all(p.speed[int(t * 30)] == 1.0 for t in (24.0, 26.0, 27.9, 29.5, 30.9))
+    assert p.speed.max() <= av.PLUME_CAP and p.cap.max() <= av.PLUME_CAP
+    img = av.callout(np.zeros((720, 1280, 3), np.uint8), "Hold for crew")
+    assert img[560:640, 400:880].max() > 0
