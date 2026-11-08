@@ -367,8 +367,8 @@ def update(stage, t: float, wind=WIND) -> None:
     level = flicker(t)
     for k, (yaw, ws, hs, phase, rate) in enumerate(CARDS):
         v = np.linspace(0, 1, rows)
-        sub = centerline(0.03 * abs(np.sign(yaw)) + v * hs, t + phase, wind)
-        sub = sub + np.outer(0.4 + 1.6 * v, facing_right(line[rows // 3], eye)) * np.sign(yaw)
+        sub = centerline(v * hs, t + phase, wind)
+        sub = sub + np.outer(1.8 * v**1.5, facing_right(line[rows // 3], eye)) * np.sign(yaw)
         pts = card_points(sub, facing_right(line[rows // 3], eye, yaw), WIDTH * ws * (0.96 + 0.06 * level))
         UsdGeom.Mesh(stage.GetPrimAtPath(f"{ROOT}/flame_{k}")).GetPointsAttr().Set(
             Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))

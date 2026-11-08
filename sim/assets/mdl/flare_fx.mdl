@@ -46,8 +46,15 @@ export material smoke_card(
     float alpha_gain = 1.0
 ) = let {
     float4 t = tile(puff, 0.0, 1.0, 1.0);
+    float a = math::clamp(t.w * alpha_gain, 0.0, 1.0);
+    bsdf body = df::weighted_layer(
+        weight: a,
+        layer: df::diffuse_reflection_bsdf(tint: tint * color(t.x, t.y, t.z)),
+        base: df::specular_bsdf(tint: color(1.0), mode: df::scatter_transmit));
 } in material(
     thin_walled: true,
-    surface: material_surface(scattering: df::diffuse_reflection_bsdf(tint: tint * color(t.x, t.y, t.z))),
-    geometry: material_geometry(cutout_opacity: math::clamp(t.w * alpha_gain, 0.0, 1.0))
+    ior: color(1.0),
+    surface: material_surface(scattering: body),
+    backface: material_surface(scattering: body),
+    geometry: material_geometry(cutout_opacity: a > 0.004 ? 1.0 : 0.0)
 );
