@@ -138,6 +138,21 @@ def make_orbit_camera(stage, src_path: str, args):
     return ORBIT_CAMERA, update
 
 
+def make_camera_header(stage, cam_path: str, w: int, h: int):
+    from pxr import Usd, UsdGeom
+
+    from rig.camera import from_usd
+
+    cam = UsdGeom.Camera(stage.GetPrimAtPath(cam_path))
+
+    def header() -> dict:
+        m = cam.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+        return from_usd([list(m.GetRow(i)) for i in range(4)], cam.GetFocalLengthAttr().Get(),
+                        cam.GetHorizontalApertureAttr().Get(), w, h)
+
+    return header
+
+
 def main() -> None:
     args = parse_args()
 
@@ -178,6 +193,7 @@ def main() -> None:
     if args.orbit:
         cam_path, orbit_update = make_orbit_camera(stage, cam_path, args)
         tickers.append(orbit_update)
+    camera_header = make_camera_header(stage, cam_path, args.width, args.height)
     env = load_environment(stage, args.env, args.sea_level)
     if env is not None:
         tickers.append(lambda t: env.update(t, camera=cam_path))
@@ -225,7 +241,8 @@ def main() -> None:
             buf = io.BytesIO()
             Image.fromarray(rgb).save(buf, "JPEG", quality=args.quality)
             jpeg_kb = buf.tell() / 1024
-            sender.send({"type": "frame", "w": rgb.shape[1], "h": rgb.shape[0], "seq": seq, "t": t, "mean": round(mean, 1)}, buf.getvalue())
+            sender.send({"type": "frame", "w": rgb.shape[1], "h": rgb.shape[0], "seq": seq, "t": t, "mean": round(mean, 1),
+                         "camera": camera_header()}, buf.getvalue())
             seq += 1
             if snap_at is not None and now >= snap_at and mean > 3:
                 path = args.snapshot if not args.snapshot_every else args.snapshot.replace(".png", f"_{int(t):04d}.png")

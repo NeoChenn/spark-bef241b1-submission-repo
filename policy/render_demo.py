@@ -163,7 +163,9 @@ def worker(argv):
     from policy.envs import scrub_env_cfg as C
     from policy.envs.scrub_env_cfg import ScrubPPORunnerCfg
     from policy.play_scrub import apply_meta
+    from policy.caption_video import demo_robot
     from policy.rust_overlay import camera_path, rig_translation
+    from rig.overlay import burn
 
     task, cfg_name = TASKS[args.robot]
     env_cfg = getattr(C, cfg_name)()
@@ -287,7 +289,7 @@ def worker(argv):
                      f"t = {t:4.1f} s     policy: PPO scrub (Isaac Lab)"]
             info.append({"t": round(t, 3), "frac": frac, "force": force, "state": state[0]})
             if rgb is not None and rgb.size and k > 0:
-                frames.append(draw_hud(rgb, lines, font, small))
+                frames.append(burn(draw_hud(rgb, lines, font, small), [demo_robot(info[-1])]))
             k += 1
         wall = time.time() - t0
         frames = [f for f in frames if f.mean() > 3]

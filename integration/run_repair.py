@@ -65,6 +65,9 @@ from integration.isaac_bridge import Frames, IsaacRigBridge
 from policy.demo_mock import GreedyScrub, MockRustWorld
 from policy.gemini_verifier import GeminiVerifier
 from policy.orchestrator import Orchestrator, OrchestratorConfig, S, draw_hud
+from rig.camera import from_usd
+from rig.hud import HudFeed
+from rig.overlay import burn
 
 OUT = Path(args.out)
 FRAMES = OUT / "frames"
@@ -147,10 +150,10 @@ def main() -> None:
     pipe = rs.read_pipe(rs.find_main_pipe(stage))
     world = make_world(pipe, theta)
 
-    state = {"orch": None, "frame": 0, "shot": 2, "feed": None}
+    state = {"orch": None, "frame": 0, "shot": 2, "feed": None, "captions": None}
     sender = None
     if args.stream:
-        from rig.hud import HudFeed, apply_event
+        from rig.hud import apply_event
         from rig.sim.sender import FrameSender
         host, port = args.stream.rsplit(":", 1)
         sender = FrameSender(host, int(port)).start()
@@ -170,6 +173,8 @@ def main() -> None:
         mask = orch.last.result.mask if orch is not None and orch.last is not None else None
         frame = inset(rgb, bridge.last_inspection, mask, "inspection camera + detector mask")
         frame = draw_hud(frame, hud) if hud else frame
+        if state["captions"] is not None:
+            frame = burn(frame, [state["captions"].robot()], top=14 * len(hud) + 22)
         Image.fromarray(frame).save(FRAMES / f"{state['frame']:05d}.jpg", quality=92)
         state["frame"] += 1
         if sender is not None and state["feed"] is not None:
@@ -222,8 +227,15 @@ def main() -> None:
                         OrchestratorConfig(log_path=str(OUT / "decisions.jsonl"), scrub_steps=200,
                                            scrub_redetect_every=40), advisor=advisor)
     state["orch"] = orch
+
+    def view_camera():
+        on_inspection = bridge.state.shot == 3 and bridge.last_inspection is not None
+        cam, (w, h) = (bridge.inspection, INSPECTION_SIZE) if on_inspection else (hero, (hero_w, hero_h))
+        return from_usd(cam.world_matrix(), cam.focal, cam.aperture, w, h)
+
+    state["captions"] = HudFeed(orch, pose=lambda: bridge.state.base[:3, 3], camera=view_camera)
     if sender is not None:
-        state["feed"] = HudFeed(orch)
+        state["feed"] = state["captions"]
     if args.glare:
         bridge.set_glare(True)
         original = bridge.request_view
