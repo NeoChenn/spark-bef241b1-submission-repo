@@ -6,13 +6,17 @@ import json
 import math
 import pkgutil
 import time
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 import fleet.jobs
 from fleet.contract import REGISTRY, REPO, Finding, Job, JobResult, JobStatus, Level, Robot, RobotKind, World
 from fleet.coordinator import Coordinator, offline_explanation
+from fleet.rigplanner import RigPlanner
 from fleet.sim import TOP_DECK_Z, FleetSim, WalkwayPlanner, Walkways, new_job, patrol_route, walk
+from fleet.state import snapshot
+from policy.fleet.rigmap import DECKS, DOCK_XY
 
 Q, C, A = RobotKind.QUADRUPED, RobotKind.CRAWLER, RobotKind.AERIAL
 D = TOP_DECK_Z
@@ -23,6 +27,12 @@ LEAK = {"id": "leak_01", "source": "flange near valve_05", "position": (21.0, -1
         "t0": 205.0, "alarm_after_s": 60.0}
 AERIAL_TARGETS = [("flare_tip", (30.0, 22.0, 70.0)), ("crane_boom", (-28.0, -12.0, 58.0)),
                   ("leg_splash_zone_ne", (34.0, 24.0, 6.0))]
+LOWER_TARGETS = [("valve_lower_east", (20.0, 6.0, 21.0)), ("valve_middle_west", (-21.0, 8.0, 32.25))]
+LOOSE_FLANGES = {"F3": "loose"}
+RIG_DOCK = (DOCK_XY[0], DOCK_XY[1], DECKS["top_deck"])
+OUT = REPO / "runs/fleet"
+RENDER_KIND = {"gas_survey": "gas", "valve_isolate": "gas", "leak_repair_prep": "gas", "rust_repair": "rust",
+               "flange_leak_check": "leak_check", "flange_retorque": "crack", "flange_replace": "crack"}
 CRAWLER_TARGETS = [("separator_V101", (-8.0, -2.0, 44.5)), ("riser_R2", (18.0, -6.5, 43.0))]
 
 
@@ -153,7 +163,8 @@ class GeminiExplainer:
             return offline_explanation(ctx), False
 
 
-def build(offline: bool = True, timeline_path=None, approve_delay_s: float = 40.0):
+def build(offline: bool = True, timeline_path=None, approve_delay_s: float = 40.0, planner: str = "rig",
+          states_path=None):
     executors, loaded, stubbed = load_executors()
     world = World.from_rig_meta()
     robots = [
@@ -162,10 +173,12 @@ def build(offline: bool = True, timeline_path=None, approve_delay_s: float = 40.
         Robot("A1", A, {"camera", "thermal", "gas_sensor"}, (-25.0, -25.0, 47.0), battery=0.45, speed_mps=4.0),
         Robot("C1", C, {"ut_probe", "camera"}, (-3.0, -6.5, D), battery=0.8, speed_mps=0.3),
     ]
-    planner = WalkwayPlanner(Walkways(patrol_route()))
-    c = Coordinator(robots, world, executors, planner, auto_approve=False,
+    rig = planner == "rig"
+    plan = RigPlanner() if rig else WalkwayPlanner(Walkways(patrol_route()))
+    docks = {"Q1": RIG_DOCK, "Q2": RIG_DOCK} if rig else None
+    c = Coordinator(robots, world, executors, plan, auto_approve=False, docks=docks,
                     explainer=None if offline else GeminiExplainer())
-    sim = FleetSim(c, timeline_path=timeline_path)
+    sim = FleetSim(c, timeline_path=timeline_path, states_path=states_path)
 
     pending: dict[str, float] = {}
     original = c.on_event
@@ -194,6 +207,12 @@ def build(offline: bool = True, timeline_path=None, approve_delay_s: float = 40.
     for name, p in CRAWLER_TARGETS:
         c.submit(new_job(c, "crawler_ut", name, p, Level.AUTO, priority=4, est_duration_s=90.0,
                          params={"standoff": 0.0}))
+    if rig:
+        world.state["flanges"] = dict(LOOSE_FLANGES)
+        for fid, xyz in sorted(plan.rm.flanges.items()):
+            c.submit(new_job(c, "flange_leak_check", fid, xyz, Level.AUTO, priority=4, est_duration_s=20.0))
+        for name, p in LOWER_TARGETS:
+            c.submit(new_job(c, "valve_check", name, p, Level.AUTO, priority=5, est_duration_s=30.0))
     rust = new_job(c, "rust_repair", RUST_SITE[0], RUST_SITE[1], Level.SUPV, priority=3, est_duration_s=180.0,
                    params={"scenario": {"seed": 1}, "standoff": 0.8})
     c.submit(rust)
@@ -237,14 +256,28 @@ def summarize(c: Coordinator) -> list[dict]:
     return rows
 
 
+def render_safe(snap: dict) -> dict:
+    out = dict(snap)
+    out["tasks"] = [{**t, "kind": RENDER_KIND.get(t["kind"], "inspect")} for t in snap["tasks"]
+                    if t["deck"] != "stairs" and t["status"] != "cancelled"]
+    out["alarms"] = [{**a, "flange": a.get("source") or a["id"],
+                      "outcome": None if a["outcome"] == "reported" else a["outcome"]} for a in snap["alarms"]]
+    return out
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description='15-minute offshore shift with four robots')
     ap.add_argument("--minutes", type=float, default=15.0)
     ap.add_argument("--offline", action="store_true", help="never call Gemini (template explanations)")
     ap.add_argument("--quiet", action="store_true", help="summary only")
+    ap.add_argument("--planner", choices=["rig", "walkway"], default="rig")
+    ap.add_argument("--snap-t", type=float, default=340.0)
+    ap.add_argument("--sample-dir", default="")
     args = ap.parse_args(argv)
     wall = time.perf_counter()
-    sim, loaded, stubbed = build(offline=args.offline, timeline_path=REPO / "runs/fleet/timeline.jsonl")
+    shift = OUT / "shift"
+    sim, loaded, stubbed = build(offline=args.offline, timeline_path=OUT / "timeline.jsonl", planner=args.planner,
+                                 states_path=shift / "fleet_states.jsonl")
     print(f"job modules loaded: {', '.join(loaded) or 'none'}; stub executors for: {', '.join(stubbed) or 'none'}")
     sim.run(args.minutes * 60.0)
     c = sim.c
@@ -255,22 +288,53 @@ def main(argv=None) -> int:
                 print(fmt(e))
     rows = summarize(c)
     print("\nJOBS")
-    print(f"{'job':<26}{'kind':<18}{'target':<20}{'level':<7}{'pri':<4}{'robot':<6}{'status':<17}findings")
+    print(f"{'job':<30}{'kind':<20}{'target':<20}{'level':<7}{'pri':<4}{'robot':<6}{'status':<17}findings")
     for r in sorted(rows, key=lambda r: (r["priority"], r["job"])):
-        print(f"{r['job']:<26}{r['kind']:<18}{r['target']:<20}{r['level']:<7}{r['priority']:<4}{r['robot']:<6}"
+        print(f"{r['job']:<30}{r['kind']:<20}{r['target']:<20}{r['level']:<7}{r['priority']:<4}{r['robot']:<6}"
               f"{r['status']:<17}{r['findings']}")
     counts = c.counts()
+    final = snapshot(c)
+    m = final["metrics"]
     print("\nSTATUS COUNTS: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
     print("ROBOTS: " + ", ".join(f"{rt.robot.id} {rt.state} battery={rt.robot.battery:.2f}" for rt in c.rt.values()))
     print(f"priority changes: {sum(e['event'] == 'priority_change' for e in c.timeline)}, "
           f"person pauses: {sum(e['event'] == 'person_pause' for e in c.timeline)}, "
           f"segment waits: {sum(e['event'] == 'segment_wait' for e in c.timeline)}, "
+          f"gas holds: {sum(e['event'] == 'gas_zone_hold' for e in c.timeline)}, "
           f"used_gemini={c.used_gemini}, waiting approval: {c.approvals or 'none'}, crew: {len(c.crew)} jobs")
-    out = REPO / "runs/fleet/summary.json"
-    out.write_text(json.dumps({"counts": counts, "jobs": rows, "used_gemini": c.used_gemini,
-                               "modules": loaded, "stubbed": stubbed}, indent=1), encoding="utf-8")
-    print(f"timeline: {sim.path} ({len(sim.lines)} lines); summary: {out}; wall {time.perf_counter() - wall:.1f} s")
+    keys = ["jobs_done", "jobs_escalated", "open_tasks", "gas_response_mean_s", "gas_resolve_mean_s", "idle_pct",
+            "energy_used_wh", "energy_charged_wh", "distance_m", "preemptions", "replans", "reservation_wait_s",
+            "corridor_conflicts", "approvals_pending", "crew_jobs"]
+    print("METRICS: " + "  ".join(f"{k}={m[k]}" for k in keys))
+    shift.mkdir(parents=True, exist_ok=True)
+    keep = next((x for x in sim.states if x["t"] >= args.snap_t), final)
+    summary = {"counts": counts, "jobs": rows, "used_gemini": c.used_gemini, "modules": loaded, "stubbed": stubbed,
+               "metrics": m, "planner": args.planner, "wall_s": round(time.perf_counter() - wall, 2)}
+    (shift / "summary.json").write_text(json.dumps(summary, indent=1), encoding="utf-8")
+    (shift / "fleet_state.json").write_text(json.dumps(keep, indent=1), encoding="utf-8")
+    if args.planner == "rig":
+        from policy.fleet.render import render_png
+        map_json = c.planner.to_json()
+        (shift / "fleet_map.json").write_text(json.dumps(map_json, indent=1), encoding="utf-8")
+        render_png(map_json, render_safe(keep), str(shift / "fleet_map.png"))
+    if args.sample_dir:
+        write_sample(sim, shift, Path(args.sample_dir))
+    print(f"timeline: {sim.path} ({len(sim.lines)} lines); states: {sim.states_path} ({len(sim.states)}); "
+          f"summary: {shift / 'summary.json'}; wall {time.perf_counter() - wall:.1f} s")
     return 0
+
+
+def write_sample(sim: FleetSim, shift: Path, dst: Path):
+    dst.mkdir(parents=True, exist_ok=True)
+    for name in ("summary.json", "fleet_state.json", "fleet_map.png"):
+        if (shift / name).exists():
+            (dst / name).write_bytes((shift / name).read_bytes())
+    lines = [json.dumps(l) for l in sim.lines]
+    events = [json.dumps(l) for l in sim.lines if "event" in l and l["event"] != "segment_clear"]
+    robots = [json.dumps(l) for l in sim.lines if "event" not in l]
+    (dst / "timeline_head.jsonl").write_text("\n".join(robots[:8] + events[:40]) + "\n", encoding="utf-8")
+    (dst / "timeline_events.jsonl").write_text("\n".join(events) + "\n", encoding="utf-8")
+    del lines
 
 
 if __name__ == "__main__":

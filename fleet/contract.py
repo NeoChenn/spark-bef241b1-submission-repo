@@ -33,6 +33,7 @@ class JobStatus(str, Enum):
     FINDING = "FINDING"
     HANDED_TO_HUMAN = "HANDED_TO_HUMAN"
     FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
 
 
 @dataclass
@@ -83,6 +84,7 @@ class JobResult:
     findings: list[Finding] = field(default_factory=list)
     log: list[str] = field(default_factory=list)
     used_gemini: bool = False
+    phases: list[tuple[float, str, str]] = field(default_factory=list)
 
     def to_json(self) -> dict:
         d = asdict(self)

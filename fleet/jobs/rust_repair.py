@@ -22,6 +22,7 @@ class RustRepairJob:
         sc = dict(job.params.get("scenario", {}))
         sc.setdefault("id", job.id)
         r = self.runner()(sc)
+        ph = [tuple(x) for x in r.get("phases", [])]
         t0 = world.t
         t1 = t0 + max(float(r.get("sim_time_s", 0.0)), 1.0)
         label = r.get("label", "")
@@ -40,14 +41,14 @@ class RustRepairJob:
                        "timeout": "UNSAFE: repair did not finish within the step budget"}.get(label, f"UNSAFE: {label}")
             f = Finding("unsafe_repair_outcome", "critical", summary, where, evidence,
                         [crew("rust_reinspect", summary)])
-            return JobResult(job.id, robot.id, JobStatus.FAILED, t0, t1, [f], log)
+            return JobResult(job.id, robot.id, JobStatus.FAILED, t0, t1, [f], log, phases=ph)
         if r.get("outcome") == "ESCALATE_TO_HUMAN":
             f = Finding("corrosion_needs_crew", "warning", f"repair escalated: {r.get('final_reason', '')}", where,
                         evidence, [crew("rust_repair_manual", r.get("final_reason", ""))])
-            return JobResult(job.id, robot.id, JobStatus.HANDED_TO_HUMAN, t0, t1, [f], log)
+            return JobResult(job.id, robot.id, JobStatus.HANDED_TO_HUMAN, t0, t1, [f], log, phases=ph)
         f = Finding("corrosion_repaired", "info",
                     f"rust removed and painted, {float(r.get('true_rust_left') or 0):.1%} left", where, evidence)
-        return JobResult(job.id, robot.id, JobStatus.DONE, t0, t1, [f], log)
+        return JobResult(job.id, robot.id, JobStatus.DONE, t0, t1, [f], log, phases=ph)
 
 
 register(RustRepairJob())

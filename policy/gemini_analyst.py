@@ -372,7 +372,7 @@ def main(argv=None) -> int:
     sources["analysis"] = src
     with (out / "results.jsonl").open("w", encoding="utf-8") as f:
         for r in results:
-            f.write(json.dumps(r, default=float) + "\n")
+            f.write(json.dumps({k: v for k, v in r.items() if k != "phases"}, default=float) + "\n")
     (out / "analysis.json").write_text(json.dumps({"stats": s, "analysis": analysis, "sources": sources},
                                                   indent=2, default=float), encoding="utf-8")
     (out / "gemini_log.json").write_text(json.dumps(gemini.log, indent=2), encoding="utf-8")

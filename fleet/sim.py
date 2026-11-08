@@ -128,6 +128,29 @@ class Walkways:
         return legs
 
 
+def air_route(start: Vec, goal: Vec) -> Route:
+    g = (goal[0], goal[1], goal[2] + DRONE_STANDOFF_Z)
+    alt = max(CRUISE_Z, start[2], g[2])
+    pts = [start, (start[0], start[1], alt), (g[0], g[1], alt), g]
+    return Route([Leg(a, b, kind="fly") for a, b in zip(pts, pts[1:]) if dist(a, b) > 1e-6])
+
+
+def sea_route(start: Vec, goal: Vec) -> Route:
+    g = (goal[0], goal[1], min(goal[2], ROV_MAX_Z))
+    s = (start[0], start[1], min(start[2], ROV_MAX_Z))
+    pts = [start, s, g]
+    return Route([Leg(a, b, kind="swim") for a, b in zip(pts, pts[1:]) if dist(a, b) > 1e-6])
+
+
+def spur_end(robot: Robot, on_goal: Vec, goal: Vec, standoff: float) -> Vec:
+    end = (goal[0], goal[1], on_goal[2]) if robot.kind == RobotKind.QUADRUPED else goal
+    spur = dist(on_goal, end)
+    if standoff and spur > standoff:
+        f = (spur - standoff) / spur
+        end = tuple(a + (b - a) * f for a, b in zip(on_goal, end))
+    return end
+
+
 class WalkwayPlanner:
     def __init__(self, walkways: Walkways, deck_z: float = TOP_DECK_Z):
         self.w = walkways
@@ -137,25 +160,12 @@ class WalkwayPlanner:
         start = tuple(float(v) for v in robot.position)
         goal = tuple(float(v) for v in goal)
         if robot.kind == RobotKind.AERIAL:
-            g = (goal[0], goal[1], goal[2] + DRONE_STANDOFF_Z)
-            alt = max(CRUISE_Z, start[2], g[2])
-            pts = [start, (start[0], start[1], alt), (g[0], g[1], alt), g]
-            return Route([Leg(a, b) for a, b in zip(pts, pts[1:]) if dist(a, b) > 1e-6])
+            return air_route(start, goal)
         if robot.kind == RobotKind.ROV:
-            g = (goal[0], goal[1], min(goal[2], ROV_MAX_Z))
-            s = (start[0], start[1], min(start[2], ROV_MAX_Z))
-            pts = [start, s, g]
-            return Route([Leg(a, b) for a, b in zip(pts, pts[1:]) if dist(a, b) > 1e-6])
+            return sea_route(start, goal)
         on_start, _ = self.w.snap(start)
         on_goal, _ = self.w.snap(goal)
-        if robot.kind == RobotKind.QUADRUPED:
-            end = (goal[0], goal[1], on_goal[2])
-        else:
-            end = goal
-        spur = dist(on_goal, end)
-        if standoff and spur > standoff:
-            f = (spur - standoff) / spur
-            end = tuple(a + (b - a) * f for a, b in zip(on_goal, end))
+        end = spur_end(robot, on_goal, goal, standoff)
         legs = [Leg(start, on_start)] + self.w.path(on_start, on_goal) + [Leg(on_goal, end)]
         return Route([l for l in legs if l.length > 1e-6])
 
@@ -163,8 +173,13 @@ class WalkwayPlanner:
 class FleetSim:
 
     def __init__(self, coordinator: Coordinator, timeline_path: Optional[Path] = TIMELINE,
-                 gas_sense_radius_m: float = 6.0):
+                 gas_sense_radius_m: float = 6.0, states_path: Optional[Path] = None, state_every_s: float = 1.0):
+        from fleet.state import Snapshotter
         self.c = coordinator
+        self.states_path = Path(states_path) if states_path else None
+        self.state_every_s = state_every_s
+        self.snapshot = Snapshotter(coordinator)
+        self.states: list[dict] = []
         self.world: World = coordinator.world
         self.path = Path(timeline_path) if timeline_path else None
         self.lines: list[dict] = []
@@ -211,6 +226,8 @@ class FleetSim:
                                "position": [round(float(v), 3) for v in r.position],
                                "yaw": round(rt.yaw, 4), "state": rt.state, "job": rt.job})
         self.c.tick(dt)
+        if self.states_path and (self.world.t + 1e-9) % self.state_every_s < dt:
+            self.states.append(self.snapshot())
 
     def run(self, duration_s: float, dt: float = 1.0):
         end = self.world.t + duration_s
@@ -219,12 +236,12 @@ class FleetSim:
         self.write()
 
     def write(self):
-        if not self.path:
-            return
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("w", encoding="utf-8") as fh:
-            for line in self.lines:
-                fh.write(json.dumps(line) + "\n")
+        for path, rows in ((self.path, self.lines), (self.states_path, self.states)):
+            if path:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with path.open("w", encoding="utf-8") as fh:
+                    for row in rows:
+                        fh.write(json.dumps(row) + "\n")
 
 
 def walk(points: list[Vec], t0: float, speed: float = 0.8, linger_s: float = 0.0) -> Callable[[float], Optional[Vec]]:

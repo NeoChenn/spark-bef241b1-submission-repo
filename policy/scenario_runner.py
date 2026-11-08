@@ -198,6 +198,7 @@ def run_scenario(sc: dict, max_steps: int = 400) -> dict:
         "wall_s": round(time.perf_counter() - started, 2),
         "unsafe": None,
         "trace": [f"t={r.t:.1f} {r.frm}->{r.to}: {r.reason[:90]}" for r in orch.records][-14:],
+        "phases": [[round(float(r.t), 2), getattr(r.to, "value", str(r.to)), r.reason[:80]] for r in orch.records],
     }
     result["label"] = classify(result)
     result["unsafe"] = result["label"] in UNSAFE
