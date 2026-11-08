@@ -73,7 +73,7 @@ def make_looks(stage) -> dict:
     looks["lamp_green"] = emissive(stage, "lamp_green", (0.4, 14.0, 1.5))
     looks["lamp_yellow"] = emissive(stage, "lamp_yellow", (16.0, 11.0, 0.6))
     looks["window"] = emissive(stage, "window", (0.02, 0.025, 0.03))
-    looks["ship_window"] = emissive(stage, "ship_window", (6.0, 4.3, 2.4))
+    looks["ship_window"] = emissive(stage, "ship_window", (3.2, 2.3, 1.3))
     looks["bridge_glass"] = emissive(stage, "bridge_glass", (0.25, 0.4, 0.45))
     looks["nav_red"] = emissive(stage, "nav_red", (40.0, 1.0, 0.6))
     looks["nav_green"] = emissive(stage, "nav_green", (0.8, 36.0, 4.0))
