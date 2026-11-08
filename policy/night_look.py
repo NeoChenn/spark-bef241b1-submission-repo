@@ -149,21 +149,24 @@ def paint_robot(stage, robot_root, color="graphite"):
     return n
 
 
-def apply(stage, deck_root, work, dome=220.0, moon=25.0, lamp_gain=1.0, robot_root=None, robot_color="graphite"):
+def apply(stage, zone_root, work, full=False, dome=220.0, moon=25.0, lamp_gain=1.0, robot_root=None,
+          robot_color="graphite"):
     import carb.settings
     from pxr import Gf, Sdf, UsdGeom, UsdLux, UsdShade
 
-    env = deck_root + "/Environment"
-    sky = UsdLux.DomeLight(stage.GetPrimAtPath(env + "/sky"))
-    sky.GetTextureFileAttr().Set(Sdf.AssetPath(SKY))
-    sky.GetIntensityAttr().Set(dome)
-    UsdGeom.XformCommonAPI(sky.GetPrim()).SetRotate(Gf.Vec3f(0, 0, 40.0))
-    sun = UsdLux.DistantLight(stage.GetPrimAtPath(env + "/sun"))
-    sun.GetIntensityAttr().Set(moon)
-    sun.GetColorAttr().Set(Gf.Vec3f(*LED))
-    sea = UsdShade.Shader.Get(stage, deck_root + "/Looks/sea/surface")
-    sea.GetInput("diffuseColor").Set(Gf.Vec3f(0.001, 0.006, 0.009))
-    sea.GetInput("roughness").Set(0.07)
+    deck_root = zone_root
+    if not full:
+        env = deck_root + "/Environment"
+        sky = UsdLux.DomeLight(stage.GetPrimAtPath(env + "/sky"))
+        sky.GetTextureFileAttr().Set(Sdf.AssetPath(SKY))
+        sky.GetIntensityAttr().Set(dome)
+        UsdGeom.XformCommonAPI(sky.GetPrim()).SetRotate(Gf.Vec3f(0, 0, 40.0))
+        sun = UsdLux.DistantLight(stage.GetPrimAtPath(env + "/sun"))
+        sun.GetIntensityAttr().Set(moon)
+        sun.GetColorAttr().Set(Gf.Vec3f(*LED))
+        sea = UsdShade.Shader.Get(stage, deck_root + "/Looks/sea/surface")
+        sea.GetInput("diffuseColor").Set(Gf.Vec3f(0.001, 0.006, 0.009))
+        sea.GetInput("roughness").Set(0.07)
     wet_down(stage, deck_root, sea_path=deck_root + "/Looks/sea")
 
     base = deck_root + "/NightLook"
@@ -176,6 +179,21 @@ def apply(stage, deck_root, work, dome=220.0, moon=25.0, lamp_gain=1.0, robot_ro
                            emissive=tuple(c * 40 for c in AMBER))
     for k, (x, y) in enumerate(((-3.5, -2.5), (-3.5, 2.5), (3.5, -2.5), (3.5, 2.5))):
         _lamp(stage, f"{base}/cage_{k}", (x, y, 3.42), AMBER, 0.06, 2.5e4 * lamp_gain, bulb=0.045, emissive=bulb_amber)
+    s = carb.settings.get_settings()
+    s.set_bool("/rtx/fog/enabled", True)
+    s.set_bool("/rtx/fog/fogZup/enabled", True)
+    s.set_float_array("/rtx/fog/fogColor", [0.003, 0.009, 0.013])
+    s.set_float("/rtx/fog/fogColorIntensity", 1.0)
+    s.set_float("/rtx/fog/fogStartDist", 40.0 if full else 12.0)
+    s.set_float("/rtx/fog/fogEndDist", 900.0)
+    s.set_float("/rtx/fog/fogDistanceDensity", 0.6 if full else 0.9)
+    s.set_float("/rtx/fog/fogHeightDensity", 0.0)
+    s.set_bool("/rtx/post/lensFlares/enabled", True)
+    s.set_bool("/rtx/post/lensFlares/physicalSettings", False)
+    s.set_float("/rtx/post/lensFlares/flareScale", 0.05)
+    n = paint_robot(stage, robot_root, robot_color) if robot_root else {}
+    if full:
+        return n
     mats = {c: _material(stage, f"/World/Looks/night_safety_{c}", (0.02, 0.02, 0.02), 0.5,
                          emissive=tuple(v * 60 for v in rgb)) for c, rgb in SAFETY.items()}
     for k, (c, pos) in enumerate(safety_lights()):
@@ -187,17 +205,4 @@ def apply(stage, deck_root, work, dome=220.0, moon=25.0, lamp_gain=1.0, robot_ro
         UsdGeom.Xformable(b).AddTranslateOp().Set(Gf.Vec3d(x, y, -19.0))
         UsdShade.MaterialBindingAPI.Apply(b.GetPrim()).Bind(ship)
 
-    s = carb.settings.get_settings()
-    s.set_bool("/rtx/fog/enabled", True)
-    s.set_bool("/rtx/fog/fogZup/enabled", True)
-    s.set_float_array("/rtx/fog/fogColor", [0.003, 0.009, 0.013])
-    s.set_float("/rtx/fog/fogColorIntensity", 1.0)
-    s.set_float("/rtx/fog/fogStartDist", 12.0)
-    s.set_float("/rtx/fog/fogEndDist", 900.0)
-    s.set_float("/rtx/fog/fogDistanceDensity", 0.9)
-    s.set_float("/rtx/fog/fogHeightDensity", 0.0)
-    s.set_bool("/rtx/post/lensFlares/enabled", True)
-    s.set_bool("/rtx/post/lensFlares/physicalSettings", False)
-    s.set_float("/rtx/post/lensFlares/flareScale", 0.05)
-    if robot_root:
-        return paint_robot(stage, robot_root, robot_color)
+    return n

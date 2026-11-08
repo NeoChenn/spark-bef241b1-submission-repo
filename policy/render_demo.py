@@ -176,6 +176,28 @@ def worker(argv):
     agent_cfg = ScrubPPORunnerCfg()
     agent_cfg.device = "cuda:0"
 
+    from policy.envs import scrub_env as SE
+
+    full = "zone_to_world" in meta and meta["zone_to_world"] is not None
+    work = tuple(np.asarray(meta["env_to_world"]["translation"]) + np.array([0.0, -0.42, 1.2]))
+    setup_scene = SE.ScrubEnv._setup_scene
+
+    def setup_with_look(self):
+        setup_scene(self)
+        st = omni.usd.get_context().get_stage()
+        for path in ("/World/Backdrop/Pipes/damage_patch", "/World/Backdrop/Robots"):
+            prim = st.GetPrimAtPath(path)
+            if prim.IsValid():
+                prim.SetActive(False)
+        if args.look == "night":
+            from policy import night_look
+
+            zone = "/World/Backdrop/RepairZone" if full else "/World/Backdrop"
+            print("[demo] night look", night_look.apply(st, zone, work, full=full, dome=args.dome, moon=args.moon,
+                                                         lamp_gain=args.lamp_gain, robot_root="/World/envs/env_0/Robot",
+                                                         robot_color=args.robot_color), flush=True)
+
+    SE.ScrubEnv._setup_scene = setup_with_look
     env = gym.make(task, cfg=env_cfg, render_mode="rgb_array")
     base = env.unwrapped
     print("[demo] env origin", base.scene.env_origins[0].tolist(), "backdrop", env_cfg.backdrop_translation, flush=True)
@@ -193,23 +215,12 @@ def worker(argv):
     base._get_dones = no_terminate
 
     stage = omni.usd.get_context().get_stage()
-    for path in ("/World/Backdrop/Pipes/damage_patch",):
-        prim = stage.GetPrimAtPath(path)
-        if prim.IsValid():
-            prim.SetActive(False)
     tex_dir = os.path.join(ROOT, "sim/assets/third_party/textures/rust_coarse_01")
     painter = RustPainter(build_overlay(stage, base, tex_dir), tex_dir, flip_v=not args.no_flip_v)
     cam = stage.GetPrimAtPath(env_cfg.viewer.cam_prim_path)
     settings = carb.settings.get_settings()
     for key, val in env_cfg.sim.render.carb_settings.items():
         settings.set(key, val)
-    if args.look == "night":
-        from policy import night_look
-
-        work = np.asarray(meta["env_to_world"]["translation"]) + np.array([0.0, -0.42, 1.2])
-        print("[demo] night look", night_look.apply(stage, "/World/Backdrop", tuple(work), dome=args.dome, moon=args.moon,
-                                                     lamp_gain=args.lamp_gain, robot_root="/World/envs/env_0/Robot",
-                                                     robot_color=args.robot_color), flush=True)
     origin = base.scene.env_origins[0].cpu().numpy()
     os.makedirs(args.out_dir, exist_ok=True)
     zero = torch.zeros(1, 4, device=base.device)
