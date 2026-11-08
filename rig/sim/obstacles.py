@@ -1,5 +1,6 @@
 import math
 import sys
+import time
 from pathlib import Path
 
 SIM = Path(__file__).resolve().parents[2] / "sim"
@@ -92,6 +93,7 @@ class ObstacleScene:
         self.selected = None
         self.motion = {"gait": self.gait.source} if self.gait else {}
         self.clips = TaskMotion.load().clips if self.gait else {}
+        self.anim_ms = 0.0
 
     def _roots(self):
         UsdGeom.Scope.Define(self.stage, ROOT)
@@ -209,6 +211,7 @@ class ObstacleScene:
         self.selected = rid
 
     def _animate(self, t: float) -> None:
+        t0 = time.perf_counter()
         motion = {"gait": self.gait.source} if self.gait else {}
         for rid, rb in self.robots.items():
             if "walker" not in rb:
@@ -226,6 +229,7 @@ class ObstacleScene:
             if rid == self.selected and arm.source:
                 motion[rid] = arm.source
         self.motion = motion
+        self.anim_ms += ((time.perf_counter() - t0) * 1e3 - self.anim_ms) * 0.05
 
     def _path(self, k, r):
         rid = r["id"]
