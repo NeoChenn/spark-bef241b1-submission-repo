@@ -45,8 +45,8 @@ def sun_direction(rotate_xyz) -> tuple:
 
 
 INSCATTER = {
-    "dusk": {"color": (1.0, 0.6, 0.32), "density": 1.0 / 260.0, "height": 45.0, "g": 0.72, "sun": 1.0, "ambient": 0.38,
-             "max": 0.8, "sky": 1500.0, "scale": 4},
+    "dusk": {"color": (1.0, 0.7, 0.45), "density": 1.0 / 90.0, "height": 30.0, "g": 0.72, "sun": 1.0, "ambient": 0.3,
+             "max": 0.5, "sky": 1500.0, "scale": 4},
 }
 
 
