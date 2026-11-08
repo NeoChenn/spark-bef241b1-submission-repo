@@ -41,11 +41,15 @@ parser.add_argument("--job", default="rust", choices=["rust", "leak"],
                     help="rust: unit 1 rust repair; leak: unit 2 gas bot patrols, localises and fixes a flange leak")
 parser.add_argument("--leak", default="loose", choices=["loose", "crack", "big"])
 parser.add_argument("--leak-flange", default="M3")
-parser.add_argument("--wind-dir", type=float, default=100.0, help="degrees, direction the wind blows toward")
+parser.add_argument("--wind-dir", type=float, default=20.0, help="degrees, direction the wind blows toward")
 parser.add_argument("--wind-speed", type=float, default=3.0)
 parser.add_argument("--h2s-ratio", type=float, default=2e-4)
-parser.add_argument("--seed", type=int, default=3)
-parser.add_argument("--start", type=float, nargs=2, default=[-3.6, 1.25])
+parser.add_argument("--seed", type=int, default=10)
+parser.add_argument("--start", type=float, nargs=2, default=[6.6, 1.25])
+parser.add_argument("--plume", default="gauss", choices=["gauss", "solver"],
+                    help="gauss: Gaussian stand-in; solver: sim.plume Warp advection-diffusion solver (gas-plume)")
+parser.add_argument("--hole-mm", type=float, default=2.0)
+parser.add_argument("--bar", type=float, default=10.0)
 parser.add_argument("--max-sim-s", type=float, default=90.0)
 parser.add_argument("--no-gemini", action="store_true",
                     help="skip the Gemini second opinion even if GEMINI_API_KEY is set")

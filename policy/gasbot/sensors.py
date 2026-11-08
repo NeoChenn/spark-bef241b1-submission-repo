@@ -153,7 +153,7 @@ def column_density(plume, origins: np.ndarray, dirs: np.ndarray, max_range: floa
     return np.maximum(ppm, 0.0).sum(1) * (max_range / n)
 
 
-OGI_RAMP = np.array([[0, 0, 0], [70, 10, 120], [200, 40, 60], [255, 150, 20], [255, 245, 200]], np.float32)
+OGI_RAMP = np.array([[40, 0, 80], [70, 10, 120], [200, 40, 60], [255, 150, 20], [255, 245, 200]], np.float32)
 
 
 def ogi_colour(column: np.ndarray, threshold: float, top: float) -> tuple[np.ndarray, np.ndarray]:

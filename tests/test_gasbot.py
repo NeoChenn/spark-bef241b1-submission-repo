@@ -203,3 +203,29 @@ def test_hud_header_carries_gas_fields():
     g = feed.header()["gas"]
     assert {"sensors", "lel_max", "alarm", "source", "acoustic", "flow_gs", "h2s_ppm", "wind", "robot"} <= set(g)
     assert [s["id"] for s in g["sensors"]] == ["trunk_ir", "tip_cat"]
+
+
+def test_solver_field_adapts_a_rate_scaled_plume():
+    from policy.gasbot.plume import SolverField
+
+    class Rel:
+        mass_flow = 0.004
+
+    class Fake:
+        release, source, rate = Rel(), np.array([1.0, 0.5, 1.0]), 1.0
+
+        def set_rate(self, r):
+            self.rate = r
+
+        def step(self, dt):
+            pass
+
+        def sample(self, pts):
+            return np.full(len(pts), 100.0 * self.rate)
+
+    f = SolverField(Fake(), "M3", still_wind())
+    assert f.leaks() == [] and f.sample([[0, 0, 0]])[0] == pytest.approx(f.background)
+    f.set_flow("M3", 2.0)
+    f.set_flow("M1", 9.0)
+    f.step(0.1)
+    assert f.plume.rate == pytest.approx(0.5) and f.flow_rate() == 2.0 and len(f.leaks()) == 1

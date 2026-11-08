@@ -55,10 +55,11 @@ class FastReading:
 
 class GasBotMixin:
     def gas_init(self, leak_world, wind, seed: int = 0, flow_full: Optional[dict] = None, h2s_ratio: float = 0.0,
-                 t0: float = 0.0, machinery_err_db: float = 0.0) -> None:
+                 t0: float = 0.0, machinery_err_db: float = 0.0, field=None) -> None:
         self.leak_world = leak_world
         self.wind = wind
-        self.field = PlumeField(wind, {f: deck.leak_point(s.geom) for f, s in leak_world.flanges.items()}, seed)
+        self.field = field or PlumeField(wind, {f: deck.leak_point(s.geom) for f, s in leak_world.flanges.items()},
+                                         seed)
         self.flow_full = flow_full or {f: 2.0 for f in leak_world.flanges}
         self.suite = SensorSuite(seed=seed, h2s_ratio=h2s_ratio, machinery=deck.MACHINERY,
                                  machinery_err_db=machinery_err_db)

@@ -52,7 +52,7 @@ def _m4(R, t, s=(1.0, 1.0, 1.0)) -> Gf.Matrix4d:
 
 class IsaacGasBot(GasBotMixin, IsaacRigBridge):
     def __init__(self, stage, world, frames, leak_world, prims, wind, seed=0, flow_full=None, h2s_ratio=0.0,
-                 start=(-5.5, 1.25), inspection_size=(640, 360), frame_dt=1 / 12, gas_stop=0.20):
+                 start=(-5.5, 1.25), inspection_size=(640, 360), frame_dt=1 / 12, gas_stop=0.20, field=None):
         IsaacRigBridge.__init__(self, stage, world, frames, inspection_size=inspection_size)
         self.leak_prims = prims
         self.frame_dt = frame_dt
@@ -66,7 +66,7 @@ class IsaacGasBot(GasBotMixin, IsaacRigBridge):
         self.leak_views: list = []
         self.phase = 0.0
         self.path = [np.asarray(start, float)]
-        self.gas_init(leak_world, wind, seed, flow_full, h2s_ratio)
+        self.gas_init(leak_world, wind, seed, flow_full, h2s_ratio, field=field)
         self.ogi = rs.Camera(stage, OGI_CAMERA, focal=14.0, aperture=20.955)
         self.detector, self.det_op = _part(stage, "detector", "Cube", (0.95, 0.75, 0.05), Size=1.0)
         self.boom, self.boom_op = _part(stage, "boom", "Cylinder", (0.15, 0.15, 0.16), Radius=1.0, Height=1.0,

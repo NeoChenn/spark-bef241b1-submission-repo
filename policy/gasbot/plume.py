@@ -122,3 +122,31 @@ class PlumeField:
 
     def leaks(self) -> list[tuple[np.ndarray, float]]:
         return [(p.source, p.flow_rate()) for p in self.plumes.values() if p.flow_rate() > 0]
+
+
+class SolverField:
+    def __init__(self, plume, key, wind: Wind, background_ppm: float = BACKGROUND_PPM):
+        self.plume, self.key, self.wind, self.background = plume, key, wind, background_ppm
+        self.q1 = float(plume.release.mass_flow) * 1000.0
+        self.q = 0.0
+        self.t = 0.0
+        plume.set_rate(0.0)
+
+    def set_flow(self, key, q: float) -> None:
+        if key == self.key:
+            self.q = max(0.0, float(q))
+            self.plume.set_rate(self.q / self.q1 if self.q1 > 0 else 0.0)
+
+    def step(self, dt: float) -> None:
+        self.t += dt
+        self.wind.step(dt)
+        self.plume.step(dt)
+
+    def flow_rate(self) -> float:
+        return self.q
+
+    def sample(self, points) -> np.ndarray:
+        return self.background + np.asarray(self.plume.sample(np.atleast_2d(np.asarray(points, float))), float)
+
+    def leaks(self) -> list[tuple[np.ndarray, float]]:
+        return [(np.asarray(self.plume.source, float), self.q)] if self.q > 0 else []

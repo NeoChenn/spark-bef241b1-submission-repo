@@ -18,8 +18,8 @@ from policy.demo_mock import GreedyScrub, MockRustWorld
 from policy.gasbot import deck
 from policy.gasbot.bot import GasBotOrchestrator
 from policy.gasbot.mock import make_leak
-from policy.gasbot.plume import Wind
-from policy.gasbot.sensors import column_density, ogi_colour, ogi_view
+from policy.gasbot.plume import SolverField, Wind
+from policy.gasbot.sensors import OGI_RAMP, column_density, ogi_view
 from policy.interfaces import camera_from_usd
 from policy.leak.geometry import project
 from policy.leak.job import LeakConfig, LeakJob
@@ -86,6 +86,43 @@ def bolts_overlay(rgb: np.ndarray, reading, tol: float) -> np.ndarray:
     return np.asarray(im)
 
 
+def plume_tint(rgb: np.ndarray, col: np.ndarray, threshold: float, top: float) -> np.ndarray:
+    u = np.clip((np.log10(np.maximum(col, 1e-9)) - math.log10(threshold)) / math.log10(top / threshold), 0, 1)
+    ramp = OGI_RAMP[1:]
+    x = u * (len(ramp) - 1)
+    k = np.minimum(x.astype(int), len(ramp) - 2)
+    f = (x - k)[..., None]
+    colour = ramp[k] * (1 - f) + ramp[k + 1] * f
+    a = np.where(col >= threshold, 0.18 + 0.42 * u, 0.0)[..., None]
+    return (rgb.astype(np.float32) * (1 - a) + colour * a).clip(0, 255).astype(np.uint8)
+
+
+def solver_field(stage, lw, fid: str, wind: Wind, args):
+    from sim.plume.release import orifice
+    from sim.plume.solver import Plume
+    from sim.plume.solver import Wind as SolverWind
+    from sim.plume.solver import leak_direction
+    g = lw.flanges[fid].geom
+    sw = SolverWind(args.wind_speed, args.wind_dir, 0.0)
+    jet = leak_direction(g.normal, sw)
+    src = g.center + jet * g.outer_radius
+    dx, shape = 0.1, (120, 38, 26)
+    origin = np.array([-2.5, -0.5, -0.2])
+    solid = np.zeros(shape, bool)
+    solid[:, :, :2] = True
+    try:
+        from sim.plume.voxelize import obstacles_for
+        vox = obstacles_for(stage, origin, shape, dx)
+        if vox is not None:
+            solid |= vox.astype(bool)
+    except Exception as e:
+        print(f"PLUME obstacles skipped: {e}", flush=True)
+    plume = Plume(origin, shape, dx, src, orifice(args.hole_mm, args.bar), sw, jet_dir=jet, solid=solid)
+    print(f"PLUME solver {shape} dx={dx} source={np.round(src, 2).tolist()} "
+          f"q1={plume.release.mass_flow * 1000:.2f} g/s solid={int(solid.sum())}", flush=True)
+    return SolverField(plume, fid, wind)
+
+
 def run(app, rep, stage, args, out: Path, hero, hero_size, encode) -> None:
     frames_dir = out / "frames"
     prims = add_deck_flanges(stage)
@@ -112,11 +149,11 @@ def run(app, rep, stage, args, out: Path, hero, hero_size, encode) -> None:
         p = b.base_xy()
         if b.at_flange:
             g = b.flange(b.at_flange)
-            look = g.center + np.array([0.0, 0.25, -0.3])
-            eye = np.array([g.center[0] - 1.9, 2.75, 1.95])
+            look = g.center + np.array([0.3, 0.45, -0.35])
+            eye = np.array([g.center[0] - 2.4, 2.9, 2.3])
         else:
-            look = np.array([p[0] + 0.9, 1.0, 0.55])
-            eye = np.array([p[0] - 2.6, 2.85, 2.0])
+            look = np.array([p[0] + 1.2, 0.9, 0.5])
+            eye = np.array([p[0] - 4.2, 2.95, 2.7])
         k = 1.0 if cam["eye"] is None else 0.12
         cam["eye"] = eye if cam["eye"] is None else cam["eye"] + k * (eye - cam["eye"])
         cam["look"] = look if cam["look"] is None else cam["look"] + k * (look - cam["look"])
@@ -145,10 +182,7 @@ def run(app, rep, stage, args, out: Path, hero, hero_size, encode) -> None:
         col = column_density(b.field, np.broadcast_to(o, dirs.shape)[gy][:, gx].reshape(-1, 3),
                              dirs[gy][:, gx].reshape(-1, 3), 14.0, 24).reshape(72, 128)
         up = np.asarray(Image.fromarray(col.astype(np.float32), mode="F").resize((W, H), Image.BILINEAR))
-        colour, mask = ogi_colour(up, 1500.0, 40000.0)
-        a = np.where(mask, 0.45, 0.0)[..., None]
-        frame = (rgb.astype(np.float32) * (1 - a) + colour * a).clip(0, 255).astype(np.uint8)
-        im = Image.fromarray(frame)
+        im = Image.fromarray(plume_tint(rgb, up, 2500.0, 60000.0))
         d = ImageDraw.Draw(im, "RGBA")
         if orch.estimate is not None and orch.state in (S.GAS_SEEK, S.LEAK_APPROACH):
             m, sig, _ = orch.estimate
@@ -163,7 +197,7 @@ def run(app, rep, stage, args, out: Path, hero, hero_size, encode) -> None:
         gas_panel(im, orch.gas_telemetry())
         imgs = st.get("images", {})
         if imgs.get("ogi") is not None:
-            ogi, stats = ogi_view(imgs["ogi"], b.ogi_camera(*OGI_SIZE), b.field, threshold=1500.0)
+            ogi, stats = ogi_view(imgs["ogi"], b.ogi_camera(*OGI_SIZE), b.field, threshold=2500.0)
             b.ogi_stats = stats
             paste(im, ogi, "left", "unit 2 OGI camera (gas false colour)", W // 4)
         if b.leak_mode and b.last_inspection is not None:
@@ -172,9 +206,10 @@ def run(app, rep, stage, args, out: Path, hero, hero_size, encode) -> None:
         im.save(frames_dir / f"{st['frame']:05d}.jpg", quality=90)
         st["frame"] += 1
 
+    field = solver_field(stage, lw, args.leak_flange, wind, args) if args.plume == "solver" else None
     bridge = IsaacGasBot(stage, world, Frames(render, record), lw, prims, wind, seed=args.seed, flow_full=flow_full,
                          h2s_ratio=args.h2s_ratio, start=tuple(args.start), inspection_size=INSPECTION_SIZE,
-                         frame_dt=1.0 / args.fps)
+                         frame_dt=1.0 / args.fps, field=field)
     st["bridge"] = bridge
     for _ in range(20):
         app.update()
