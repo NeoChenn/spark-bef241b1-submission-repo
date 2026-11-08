@@ -4,13 +4,10 @@ import random
 import threading
 
 from policy.fleet import barrel
-from policy.fleet.fleet import Event
 from policy.fleet.jobs import JobLibrary, JobTrace, run_orchestrator
-from policy.fleet.tasks import OPEN
 from policy.fleet.scenario import SCENARIOS
 
 LOG_KEEP = 300
-INCIDENTS = ("gas_leak", "battery_fault")
 BARREL_EVERY_S = 60.0
 QUICK = {"rust": [(0, "DETECT", "rust confirmed"), (6, "SPRAY", "spray converter"), (14, "SOAK", "soak 30 s"),
                   (44, "SCRUB", "scrub, force-limited"), (90, "VERIFY", "on-board + second opinion"),
@@ -20,7 +17,9 @@ QUICK = {"rust": [(0, "DETECT", "rust confirmed"), (6, "SPRAY", "spray converter
          "inspect": [(0, "DETECT", "read gauge"), (15, "DONE", "gauge in range")],
          "gas": [(0, "LEAK_APPROACH", "approach leak"), (10, "LEAK_INSPECT", "localise leak"),
                  (30, "RETORQUE", "re-torque bolts"), (55, "DONE", "leak stopped")],
-         "crack": [(0, "LEAK_INSPECT", "inspect crack"), (25, "ESCALATE_TO_HUMAN", "crack -> human crew")]}
+         "crack": [(0, "LEAK_INSPECT", "inspect crack"), (25, "ESCALATE_TO_HUMAN", "crack -> human crew")],
+         "weld": [(0, "INSPECT", "eddy + laser seam scan"), (16, "GRIND", "grind out crack"),
+                  (37, "WELD", "seam-tracked weld"), (68, "INSPECT_WELD", "verify weld"), (77, "DONE", "weld verified")]}
 
 
 def quick_run(kind: str, scenario: str) -> JobTrace:
@@ -52,36 +51,6 @@ class FleetLive:
             self.f.event(name, **(args or {}))
             self.snap = self.f.snapshot()
             return {"t": self.f.t, "log": self.f.event_log[n:]}
-
-    def incident(self, name: str, args: dict | None = None) -> dict:
-        args = args or {}
-        with self.lock:
-            f = self.f
-            n = len(f.event_log)
-            if name == "gas_leak":
-                fid = str(args.get("flange") or "F2")
-                live = any(t.kind == "gas" and t.poi == fid and t.status in OPEN for t in f.tasks.values())
-                if not args.get("on", True):
-                    f._log("gas_isolated", f"leak at flange {fid} isolated")
-                elif not live:
-                    f._apply(Event(f.t, "gas_alarm", {"flange": fid}))
-            elif name == "battery_fault":
-                ids = {r.id for r in f.robots if not r.failed}
-                rank = sorted((r for r in f.robots if not r.failed),
-                              key=lambda r: (r.task is None, r.task is not None and r.task.kind == "gas", r.id))
-                rid = args.get("robot") if args.get("robot") in ids else rank[0].id
-                r = f._robot(rid)
-                b = r.battery
-                b.wh = min(b.wh, 0.8 * b.return_frac * b.capacity_wh)
-                job = r.task.id if r.task is not None and r.task.kind != "gas" else None
-                if r.task is None or job:
-                    f._send_dock(r, True)
-                f._log("battery_fault", f"{rid} battery fault -> {b.soc:.0%}, heads to the dock"
-                       + (f", {job} back to the queue" if job else ""), robot=rid)
-            else:
-                raise ValueError(f"unknown incident {name!r}; expected one of {INCIDENTS}")
-            self.snap = f.snapshot()
-            return {"t": f.t, "log": f.event_log[n:]}
 
     def advance(self, wall_dt: float) -> dict:
         with self.lock:

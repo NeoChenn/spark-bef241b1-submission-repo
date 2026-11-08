@@ -41,12 +41,13 @@ def nearest_edge(rm, xyz) -> tuple[int, int, float]:
     p = np.asarray(xyz, float)
     best = None
     for a, b, e in rm.edges():
-        if e.kind == "stairs" or abs(rm.pos[a][2] - p[2]) > 1.5:
+        if e.kind == "stairs":
             continue
         pa, d = rm.pos[a], rm.pos[b] - rm.pos[a]
         L2 = max(float(np.dot(d, d)), 1e-12)
         s = float(np.clip(np.dot(p - pa, d) / L2, 0.0, 1.0))
-        dist = float(np.linalg.norm((pa + s * d - p)[:2]))
+        q = pa + s * d - p
+        dist = float(np.hypot(np.linalg.norm(q[:2]), 3.0 * q[2]))
         if best is None or dist < best[0]:
             best = (dist, a, b, s * math.sqrt(L2))
     if best is None:

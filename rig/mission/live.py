@@ -1,0 +1,490 @@
+from __future__ import annotations
+
+import copy
+import math
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date
+
+import numpy as np
+
+from policy.fleet.fleet import Event
+from rig.captions import caption, fleet_robots
+from rig.mission.gas import ALARM_LEL, FLOW_GS, SUB_S, WALK_MS, GasLeak, wind_from_weather
+from rig.mission.jobs import MissionPort
+
+FLEET_EVENTS = ("drop_obstacle", "close_walkway", "close_stairs", "clear", "set_weather", "drop_can")
+ROLE = {"rust": "rust", "gas": "gas", "leak_check": "leak check", "inspect": "inspection", "crack": "crack"}
+RUST = ("DETECT", "SPRAY", "SOAK", "SCRUB", "VERIFY", "PAINT", "APPROACH", "BACK_OFF")
+GAS = ("LEAK_APPROACH", "LEAK_INSPECT", "RETORQUE", "LEAK_VERIFY", "GAS_CHECK")
+RANK = {"stop": 4, "warn": 3, "act": 2, "ok": 1}
+DEFAULT_FLANGE = "F2"
+FAULT_SOC = 0.12
+PERSON_M = 2.0
+ISOLATE_S = 6.0
+LOG_KEEP = 300
+HOLD_MARGIN = 1.0
+SEEK_SPEED = 1.5
+DECK_TOL = 1.5
+
+
+def unit_name(rid: str) -> str:
+    d = "".join(c for c in str(rid) if c.isdigit())
+    return f"Unit {d}" if d else str(rid)
+
+
+def robot_id(rid, ids) -> str | None:
+    if rid in ids:
+        return rid
+    d = "".join(c for c in str(rid or "") if c.isdigit())
+    return next((i for i in ids if "".join(c for c in i if c.isdigit()) == d), None) if d else None
+
+
+def _ev(t, who, what, why) -> dict:
+    return {"t": round(float(t), 2), "from": who, "to": what, "reason": why}
+
+
+class MissionLive:
+    def __init__(self, fleet=None, control=None, scenario: str = "judges", speed: float = 4.0, seed: int = 0,
+                 field=None, today=date.today):
+        if fleet is None:
+            from policy.fleet.live import FleetLive
+            fleet = FleetLive(scenario, speed)
+        self.fleet, self.today = fleet, today
+        self.port = MissionPort(fleet)
+        self.control = control(self.port) if callable(control) else control
+        m = fleet.map
+        self.leak = GasLeak({x["id"]: x["xyz"] for x in m["flanges"]}, m.get("bounds"), seed, field)
+        self.lock = threading.RLock()
+        self.pool = ThreadPoolExecutor(1, thread_name_prefix="mission")
+        self.override: dict[str, dict] = {}
+        self.out: list[dict] = []
+        self.seen = len(fleet.f.event_log)
+        self.last_t = fleet.f.t
+        self.isolate_at = None
+        self.valve_job = None
+        self.ctl: dict | None = None
+        self.notes: list[dict] = []
+        self.busy = False
+        self.sim_flange = lambda: None
+
+    @property
+    def t(self) -> float:
+        return float(self.fleet.f.t)
+
+    def ids(self) -> list[str]:
+        return [r.id for r in self.fleet.f.robots]
+
+    def note(self, who, what, why) -> None:
+        e = _ev(self.t, who, what, why)
+        self.out.append(e)
+        self.notes = (self.notes + [e])[-LOG_KEEP:]
+
+    def advance(self, wall_dt: float) -> None:
+        with self.lock:
+            self.fleet.advance(wall_dt)
+            dt = max(0.0, self.t - self.last_t)
+            self.last_t = self.t
+            w = (self.fleet.state().get("hazards") or {}).get("weather")
+            self.leak.set_wind(*wind_from_weather(w))
+            gdt = dt if self.leak.seek is None or self.leak.seek.done else min(dt, wall_dt * SEEK_SPEED)
+            n = int(math.ceil(gdt / SUB_S)) if gdt > 0 else 0
+            for _ in range(n):
+                self.leak.step(gdt / n)
+                self._walk_back(gdt / n)
+            self._gas_logic()
+            self.port.sync()
+            self._fleet_events()
+
+    def _fleet_events(self) -> None:
+        log = self.fleet.f.event_log
+        if len(log) < self.seen:
+            self.seen = 0
+        for e in log[self.seen:]:
+            self.out.append(_ev(e["t"], unit_name(e["robot"]) if e.get("robot") else "Fleet",
+                                e["kind"].upper(), e["message"]))
+        self.seen = len(log)
+
+    def _robot(self, rid):
+        return next((r for r in self.fleet.f.robots if r.id == rid), None)
+
+    def _gas_task(self):
+        if self.leak.fid is None:
+            return None
+        return next((t for t in self.fleet.f.tasks.values() if t.kind == "gas" and t.poi == self.leak.fid
+                     and t.status in ("pending", "assigned", "active")), None)
+
+    def _hold(self) -> float:
+        tr = self.fleet.jobs.get("gas", "loose")
+        segs = [s[0] for s in tr.segments if s[0] > 0]
+        return max(0.0, (segs[0] if segs else 10.0) - HOLD_MARGIN)
+
+    def _gas_logic(self) -> None:
+        lk = self.leak
+        f = self.fleet.f
+        task = self._gas_task()
+        if lk.on and lk.found is None and task is not None and task.robot:
+            r = self._robot(task.robot)
+            src = lk.source()
+            if lk.seek is None and r is not None and abs(r.pos[2] - (src[2] - 1.1)) < DECK_TOL and \
+                    (float(np.linalg.norm(r.pos[:2] - src[:2])) < 11.0 or r.state == "WORK"):
+                lk.begin_seek(r.id, r.pos, float(r.pos[2]))
+                self.note(unit_name(r.id), "GAS_SEEK", f"gas on the trunk sensor near {lk.fid} -> cast-and-surge upwind")
+            if lk.seek is not None:
+                with self.fleet.lock:
+                    task.progress = min(task.progress, self._hold())
+        sk = lk.seek
+        if sk is not None and lk.robot_id:
+            r = self._robot(lk.robot_id)
+            if not sk.done:
+                self.override[lk.robot_id] = {"xy": sk.pos.copy(), "yaw": sk.yaw, "z": float(r.pos[2]) if r else sk.deck_z,
+                                              "mode": sk.mode}
+            elif self.override.get(lk.robot_id, {}).get("mode") not in (None, "RETURN"):
+                fd = lk.found
+                self.override[lk.robot_id]["mode"] = "RETURN"
+                self.note(unit_name(lk.robot_id), "LEAK_FOUND",
+                          f"leak localised at {fd['flange']} in {fd['seek_s']:.0f} s, {fd['err_m']:.1f} m from the flange "
+                          f"-> read bolts and re-torque")
+                self.valve_job = self.port.queue("valve_isolate", lk.fid, "SUPV", 1, by="coordinator",
+                                                 why=f"Close the isolation valve upstream of {lk.fid} to starve the leak; "
+                                                     f"{unit_name(lk.robot_id)} re-torques meanwhile. Needs your approval.")
+                self._finding()
+        if lk.on and lk.found is not None and task is None:
+            lk.stop("fixed")
+            self.note("Fleet", "LEAK_FIXED", f"{lk.fid} re-torqued, gas falling back to background")
+            self._close_valve_job("DONE")
+        if self.isolate_at is not None and self.t >= self.isolate_at:
+            self.isolate_at = None
+            if lk.on:
+                lk.stop("isolated")
+                self.note("Operator", "ISOLATED", f"valve upstream of {lk.fid} closed, leak starved")
+            self._close_valve_job("DONE")
+
+    def _close_valve_job(self, status: str) -> None:
+        j = self.port.extra.get(self.valve_job or "")
+        if j is not None and j["status"] in ("QUEUED", "RUNNING", "WAITING_APPROVAL", "ASSIGNED"):
+            j["status"] = status if j["status"] != "WAITING_APPROVAL" else "CANCELLED"
+
+    def _walk_back(self, dt: float) -> None:
+        for rid, o in list(self.override.items()):
+            if o.get("mode") != "RETURN":
+                continue
+            r = self._robot(rid)
+            if r is None:
+                del self.override[rid]
+                continue
+            d = r.pos[:2] - o["xy"]
+            n = float(np.linalg.norm(d))
+            if n < WALK_MS * dt + 1e-6:
+                del self.override[rid]
+                continue
+            o["xy"] = o["xy"] + d / n * WALK_MS * dt
+            o["yaw"] = math.atan2(d[1], d[0])
+
+    def _finding(self) -> None:
+        c = self.control
+        if c is None or getattr(c, "agent", None) is None or not self._budget_ok():
+            return
+        fd = dict(self.leak.found or {})
+        self._agent(lambda: c.finding({"kind": "gas_leak", "severity": "critical", "target": fd.get("flange"),
+                                       "zone": fd.get("flange"), "detail": fd}, now=self.t))
+
+    def _budget_ok(self) -> bool:
+        c = self.control
+        return c is not None and c.cloud and not c.link_cut and c.budget.allows(self.today())
+
+    def _agent(self, fn) -> bool:
+        if self.busy:
+            return False
+        self.busy = True
+
+        def run():
+            try:
+                rec = fn()
+                if rec and rec.get("cost_usd"):
+                    self.control.budget.spend(float(rec["cost_usd"]), self.today())
+            finally:
+                self.busy = False
+        self.pool.submit(run)
+        return True
+
+    def event(self, name: str, args: dict | None = None) -> dict:
+        args = dict(args or {})
+        with self.lock:
+            out = self._event(name, args)
+            self._fleet_events()
+            return out
+
+    def _event(self, name, args) -> dict:
+        f, ids = self.fleet, self.ids()
+        if name in FLEET_EVENTS or (name == "person_at" and any(k in args for k in ("xy", "xyz", "at"))):
+            return {"fleet": f.event(name, args)}
+        if name == "person_at":
+            if args.get("on") is False or ("distance" in args and args["distance"] is None):
+                with f.lock:
+                    f.f.persons.clear()
+                    f.f._event_tick = True
+                self.note("Judge", "PERSON_LEFT", "person left the deck -> robots resume")
+                return {"person": None}
+            rid = self._pick(args.get("robot"), ids)
+            r = self._robot(rid)
+            d = float(args.get("distance") or PERSON_M)
+            with f.lock:
+                try:
+                    xyz = f.f._ahead(r, d)
+                except ValueError:
+                    xyz = [float(r.pos[0]) + d, float(r.pos[1]), float(r.pos[2])]
+            with f.lock:
+                f.f._apply(Event(f.f.t, "person", {"xyz": xyz, "duration": float(args.get("duration", 90))}))
+                f.snap = f.f.snapshot()
+            self.note("Judge", "PERSON", f"worker {d:.1f} m from {unit_name(rid)} -> it pauses until clear")
+            return {"person": {"robot": rid, "xyz": xyz}}
+        if name == "gas_leak":
+            if args.get("on", True) is False:
+                if self.leak.on:
+                    self.leak.stop("isolated")
+                    self.note("Judge", "LEAK_OFF", f"{self.leak.fid} leak stopped")
+                return {"leak": None}
+            fid = args.get("flange") or args.get("fid") or self.sim_flange() or DEFAULT_FLANGE
+            if self.leak.on and self.leak.fid == fid:
+                return {"leak": fid}
+            self.leak.start(fid, float(args.get("flow_gs") or 0) or self.leak_flow())
+            self.override.clear()
+            with f.lock:
+                f.f.schedule(f.f.t, "gas_alarm", flange=fid, scenario="loose")
+            self.note("Judge", "GAS_LEAK", f"flange {fid} leaking -> detectors rising, nearest unit pre-empted")
+            return {"leak": fid}
+        if name == "battery_fault":
+            rid = self._pick(args.get("robot"), ids)
+            r = self._robot(rid)
+            with f.lock:
+                r.battery.wh = min(r.battery.wh, FAULT_SOC * r.battery.capacity_wh)
+                f.f._event_tick = True
+            self.note("Judge", "BATTERY_FAULT", f"{unit_name(rid)} battery fault at {r.battery.soc:.0%} -> dock, job back to the queue")
+            return {"battery_fault": rid}
+        if name in ("approve", "reject"):
+            jid = str(args.get("job") or args.get("job_id") or "")
+            ok = self.port.approve_request(jid, "operator", "approved by the operator in the HUD") if name == "approve" \
+                else self.port.reject(jid)
+            if ok and name == "approve" and jid == self.valve_job:
+                self.isolate_at = self.t + ISOLATE_S
+                self.port.extra[jid]["status"] = "RUNNING"
+            if ok:
+                self.note("Operator", name.upper(), jid)
+            return {name: jid, "ok": ok}
+        if name == "cut_link":
+            if self.control is not None:
+                self.control.cut_link(bool(args.get("on", True)))
+            self.note("Operator", "LINK_CUT" if args.get("on", True) else "LINK_UP",
+                      "Gemini link cut -> edge rules only" if args.get("on", True) else "Gemini link restored")
+            return {"link": "CUT" if args.get("on", True) else "UP"}
+        if name == "intent":
+            text = str(args.get("text") or "")
+            self.note("Operator", "INTENT", text)
+            c = self.control
+            if c is None or getattr(c, "agent", None) is None:
+                return {"intent": "no planner"}
+            if not self._budget_ok():
+                if c.cloud and not c.link_cut:
+                    c.agent.last = {**c.agent.last, "intent": text, "status": "capped"}
+                else:
+                    c.intent(text, now=self.t)
+                return {"intent": "edge"}
+            return {"intent": "planning" if self._agent(lambda: c.intent(text, now=self.t)) else "busy"}
+        return {}
+
+    def leak_flow(self) -> float:
+        return FLOW_GS
+
+    def _pick(self, rid, ids) -> str:
+        if rid in (None, ""):
+            return self._busiest()
+        out = robot_id(rid, ids)
+        if out is None:
+            raise ValueError(f"unknown robot {rid!r}; expected one of {ids}")
+        return out
+
+    def _busiest(self) -> str:
+        rs = [r for r in self.fleet.f.robots if not r.failed]
+        return max(rs, key=lambda r: (r.state == "WORK", r.task is not None)).id
+
+    def _jobinfo(self, r) -> dict:
+        t = r.task
+        if t is None:
+            return {}
+        tr = self.fleet.jobs.get(t.kind, t.scenario)
+        starts = [s[0] for s in tr.segments] + [tr.total_s]
+        i = max(0, sum(1 for s in starts[:-1] if s <= t.progress) - 1)
+        span = max(starts[i + 1] - starts[i], 1e-6)
+        return {"kind": t.kind, "u": min(1.0, (t.progress - starts[i]) / span), "left": starts[i + 1] - t.progress,
+                "poi": t.poi}
+
+    def _evidence(self, r, state: str, info: dict, gas: float | None) -> dict:
+        u, tt = info.get("u", 0.0), self.t
+        ev = {"job": "gas" if info.get("kind") in ("gas", "leak_check") else info.get("kind")}
+        if state == "SCRUB":
+            ev.update(force=round(30.5 + 2.5 * math.sin(3.1 * tt), 1), rust_fraction=round(max(0.04, 0.62 * (1 - u)), 3))
+        elif state == "SOAK":
+            ev["soak_left"] = round(info.get("left", 0.0), 1)
+        elif state == "DETECT":
+            ev["detector_conf"] = 0.88
+        elif state == "VERIFY":
+            ev["rust_fraction"] = 0.03
+        elif state == "SPRAY":
+            ev["patches"] = 1
+        if state in GAS or info.get("kind") in ("gas", "leak_check"):
+            ev.update(gas=None if gas is None else round(gas, 3), flange=info.get("poi"), bolt=3)
+        if self.fleet.f.persons:
+            d = min(float(np.linalg.norm(r.pos[:2] - p["xyz"][:2])) for p in self.fleet.f.persons)
+            if d < 6.0:
+                ev["person_m"] = round(d, 1)
+        return ev
+
+    def _robot_gas(self, rid, xyz) -> float | None:
+        sk = self.leak.seek
+        if sk is not None and self.leak.robot_id == rid and not sk.done:
+            return float(sk.trunk.lel)
+        if self.leak.plume is None:
+            return None
+        return float(self.leak.lel_at([[xyz[0], xyz[1], xyz[2] + 0.45]])[0])
+
+    def snapshot_fleet(self) -> dict:
+        with self.fleet.lock:
+            s = copy.deepcopy(self.fleet.snap)
+            info = {r.id: (self._jobinfo(r), r) for r in self.fleet.f.robots}
+        for d in s.get("robots") or []:
+            inf, r = info.get(d["id"], ({}, None))
+            o = self.override.get(d["id"])
+            if o is not None:
+                d["pose"] = {"x": round(float(o["xy"][0]), 2), "y": round(float(o["xy"][1]), 2), "z": round(o["z"], 2),
+                             "yaw": round(float(o["yaw"]), 3)}
+                d["path"] = [[d["pose"]["x"], d["pose"]["y"], d["pose"]["z"]]]
+                if o["mode"] != "RETURN":
+                    d["job_state"] = "LEAK_APPROACH"
+                    d["seek"] = o["mode"]
+            role = ROLE.get(inf.get("kind"), "dock" if d["state"] in ("CHARGING", "DOCKED", "TO_DOCK", "DOCK_QUEUE")
+                            else "standby")
+            d["name"] = f"{unit_name(d['id'])} · {role}"
+            p = d["pose"]
+            g = self._robot_gas(d["id"], (p["x"], p["y"], p["z"]))
+            st = d.get("job_state") or d["state"]
+            d["evidence"] = self._evidence(r, st, inf, g) if r is not None else {}
+            d["gas_lel"] = g
+        return s
+
+    def gas(self) -> dict:
+        lk = self.leak
+        det = lk.detectors()
+        sensors = [{k: x[k] for k in ("id", "at", "lel", "ppm")} for x in det]
+        sk = lk.seek
+        out = {}
+        if sk is not None and lk.robot_id:
+            name = unit_name(lk.robot_id)
+            sensors += [{"id": "IR-T", "at": f"{name} trunk IR", "lel": round(sk.trunk.lel, 4), "ppm": round(sk.trunk.reading)},
+                        {"id": "CAT-A", "at": f"{name} arm tip", "lel": round(sk.tip.lel, 4), "ppm": round(sk.tip.reading)}]
+            m, sig = sk.estimate if sk.estimate is not None else (sk.pos, 9.9)
+            out.update(unit=lk.robot_id, mode=sk.mode, robot={"x": round(float(sk.pos[0]), 2), "y": round(float(sk.pos[1]), 2),
+                                                              "yaw_deg": round(math.degrees(sk.yaw), 1)},
+                       source={"x": round(float(m[0]), 2), "y": round(float(m[1]), 2), "sigma_m": round(float(sig), 2)},
+                       track=sk.path[-80:], hits=sk.hits)
+        mx = max(s["lel"] for s in sensors)
+        level = "RETREAT" if mx >= 0.20 else "ALARM" if mx >= ALARM_LEL or lk.on else "CLEAR"
+        out.update(sensors=sensors, max=round(mx, 4), alarm=bool(lk.on or mx >= ALARM_LEL), level=level,
+                   wind={"dir_deg": round((lk.toward + 180.0) % 360.0, 1), "speed_ms": round(lk.speed, 1)},
+                   flange=lk.fid if (lk.found or lk.on) else None, leak=lk.on, found=lk.found,
+                   isolated=lk.isolated)
+        if lk.on and lk.plume is not None:
+            out["flow_gs"] = round(lk.plume.q, 2)
+            out["flow_kg_h"] = round(lk.plume.q * 3.6, 2)
+        return out
+
+    def header(self, events: bool = True) -> dict:
+        with self.lock:
+            fl = self.snapshot_fleet()
+            robots = fleet_robots(fl)
+            gas = self.gas()
+            out = {"t": fl["t"], "fleet": {k: v for k, v in fl.items() if k != "events"}, "robots": robots,
+                   "gas": gas, "sensors": self.sensors(fl), "orchestrator": self.orchestrator(),
+                   "caption": self.caption(robots, gas),
+                   "mission": {"t": fl["t"], "rounds": self.fleet.rounds, "speed": self.fleet.speed,
+                               "leak": {"on": self.leak.on, "flange": self.leak.fid, "found": self.leak.found}}}
+            if self.ctl is not None:
+                out["control"] = self.ctl
+            if events:
+                out["events"], self.out = self.out, []
+            return out
+
+    def orchestrator(self) -> dict:
+        o = self.port.header()
+        c = self.control
+        o["planner"] = c.agent.summary() if c is not None and getattr(c, "agent", None) is not None else None
+        return o
+
+    def sensors(self, fl: dict) -> dict:
+        out = {}
+        for k, d in enumerate(fl.get("robots") or []):
+            ev = d.get("evidence") or {}
+            st = d.get("job_state") or d["state"]
+            out[d["id"]] = {"force_n": round(float(ev.get("force") or 0.0), 1),
+                            "gas_lel": round(float(d.get("gas_lel") or 0.0), 3),
+                            "thermal_c": round(31.0 + 4 * k + 0.6 * math.sin(0.7 * self.t + k) + (6.0 if st == "SCRUB" else 0.0), 1),
+                            "battery": round(float((d.get("battery") or {}).get("soc") or 0.0), 3),
+                            "reach": round(0.35 + 0.3 * float(st in ("SCRUB", "RETORQUE", "SPRAY", "PAINT")), 2)}
+        return out
+
+    def caption(self, robots: list[dict], gas: dict) -> dict | None:
+        if not robots:
+            return None
+
+        def rank(r):
+            c = r.get("caption") or {}
+            hot = 2.5 if gas.get("alarm") and any(k in r["state"] for k in ("GAS", "LEAK", "RETORQUE")) else 0.0
+            return RANK.get(c.get("tone"), 0) + hot - (1.5 if any(k in r["state"] for k in ("DOCK", "CHARG")) else 0.0) \
+                + (0.5 if r["state"] in RUST else 0.0)
+        r = max(robots, key=rank)
+        c = dict(r["caption"])
+        c["lead"] = f"{unit_name(r['id'])} · {c['lead']}"
+        c["text"] = c["lead"] + c["rest"]
+        c["robot"] = r["id"]
+        return c
+
+    def control_input(self) -> dict:
+        fl = self.snapshot_fleet()
+        robots = []
+        for d in fl.get("robots") or []:
+            ev = d.get("evidence") or {}
+            st = d.get("job_state") or d["state"]
+            robots.append({"id": d["id"], "state": st, "caption": caption(st, ev)["text"], "pose": d["pose"],
+                           "battery": d.get("battery"), "task": d.get("task"), "zone": ev.get("flange") or d.get("deck") or "",
+                           "force_n": ev.get("force"), "person_m": ev.get("person_m")})
+        gas = self.gas()
+        det = [s for s in gas["sensors"] if s["id"].startswith("GD-")]
+        g = {"sensors": [{"id": s["id"], "at": s["id"][3:], "lel": s["lel"]} for s in det], "wind": gas["wind"]}
+        if gas.get("found"):
+            g["flange"], g["flow_kg_h"] = gas["found"]["flange"], gas.get("flow_kg_h")
+            g["source"] = {"x": gas["found"]["x"], "y": gas["found"]["y"], "sigma_m": gas["found"]["sigma_m"]}
+        jobs = [{**j, "zone": j.get("target")} for j in self.port.jobs() if j["status"] in
+                ("QUEUED", "WAITING_APPROVAL", "ASSIGNED", "RUNNING", "BLOCKED")][:12]
+        w = (fl.get("hazards") or {}).get("weather") or {}
+        return {"t": fl["t"], "robots": robots, "gas": g, "tasks": jobs, "events": self.notes[-6:],
+                "storm_level": float(w.get("intensity") or 0.0)}
+
+    def control_tick(self, now: float | None = None) -> dict | None:
+        if self.control is None:
+            return None
+        from policy.control.adapters import from_header
+        with self.lock:
+            h = self.control_input()
+        self.ctl = self.control.tick(from_header(h), now=now if now is not None else time.monotonic())
+        return self.ctl
+
+    def for_sim(self) -> dict:
+        s = self.snapshot_fleet()
+        return {"t": s["t"], "hazards": s["hazards"],
+                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state")}
+                           for r in s["robots"]]}
+
+    def state(self) -> dict:
+        return self.snapshot_fleet()
+

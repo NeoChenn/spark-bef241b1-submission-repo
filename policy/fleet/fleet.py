@@ -18,6 +18,9 @@ from policy.fleet.rigmap import DECKS, DOCK_PADS, RigMap
 from policy.fleet.tasks import OPEN, Task, priority
 
 GAS_ZONE_M = 8.0
+HOT_WORK_M = 15.0
+HOT_WORK = {"weld"}
+JOB_EVENTS = ("weld_job",)
 PERSON_RADIUS_M = 3.0
 CREW_HOLD_S = 300.0
 W_PRIO = 30.0
@@ -144,12 +147,16 @@ class Fleet:
             t = self.add_task("gas", fid, scenario=d.get("scenario", "loose"))
             self.alarms[t.id] = {"flange": fid, "t": self.t, "responder": None, "response_s": None,
                                  "resolved_s": None, "outcome": None}
-            self._log("gas_alarm", f"GAS ALARM at flange {fid} -> pre-empt nearest robot, stop hot work within "
-                      f"{self.gas_zone_m:.0f} m", task=t.id)
+            self._log("gas_alarm", f"GAS ALARM at flange {fid} -> pre-empt nearest robot, clear "
+                      f"{self.gas_zone_m:.0f} m, stop hot work within {HOT_WORK_M:.0f} m", task=t.id)
         elif ev.kind == "crack":
             self._supersede(d["flange"])
             t = self.add_task("crack", d["flange"], scenario="crack")
             self._log("crack", f"crack suspected at flange {d['flange']} -> queued above rust", task=t.id)
+        elif ev.kind == "weld_job":
+            t = self.add_task("weld", d["poi"], d.get("xyz"), scenario=d.get("scenario", "crack"))
+            self._log("weld_job", f"weld repair requested at {d['poi']} -> hot work, blocked within "
+                      f"{HOT_WORK_M:.0f} m of gas", task=t.id)
         elif ev.kind == "robot_failure":
             r = next(x for x in self.robots if x.id == d["robot"])
             self._fail(r)
@@ -164,8 +171,8 @@ class Fleet:
             self._hazard(ev.kind, d)
 
     def event(self, name: str, /, **args) -> None:
-        if name not in HAZARD_EVENTS:
-            raise ValueError(f"unknown fleet event {name!r}; expected one of {HAZARD_EVENTS}")
+        if name not in HAZARD_EVENTS + JOB_EVENTS:
+            raise ValueError(f"unknown fleet event {name!r}; expected one of {HAZARD_EVENTS + JOB_EVENTS}")
         self._apply(Event(self.t, name, args))
 
     def _hazard(self, kind: str, d: dict) -> None:
@@ -194,7 +201,11 @@ class Fleet:
                 at = d.get("at") if d.get("at") is not None else self.robots[0].id
                 rid = at if isinstance(at, str) else at.get("robot") if isinstance(at, dict) else None
                 rob = next((r for r in self.robots if r.id == rid), None)
-                barrel.start(self.rm, h, None if rob is None else rob.pos, barrel.wind_xy(self.hz.weather))
+                try:
+                    barrel.start(self.rm, h, None if rob is None else rob.pos, barrel.wind_xy(self.hz.weather))
+                except ValueError:
+                    del self.hz.obstacles[h["id"]]
+                    raise
                 h["auto"] = bool(d.get("auto"))
                 self._rolled[h["id"]] = list(h["xyz"])
                 msg = (f"{'gust knocks an oil drum loose' if h['auto'] else 'oil drum'} {h['id']} at "
@@ -412,14 +423,17 @@ class Fleet:
         return [np.asarray(self.rm.flanges[t.poi]) for t in self.tasks.values() if t.kind == "gas"
                 and (t.status in OPEN or (t.status == "escalated" and self.t < t.finished + CREW_HOLD_S))]
 
-    def _in_gas(self, node: int) -> bool:
-        p = self.rm.pos[node]
-        return any(np.linalg.norm(p[:2] - z[:2]) < self.gas_zone_m and abs(p[2] - z[2]) < 5.0
+    def _zone_m(self, kind: str) -> float:
+        return HOT_WORK_M if kind in HOT_WORK else self.gas_zone_m
+
+    def _in_gas(self, node: int, m: Optional[float] = None) -> bool:
+        p, m = self.rm.pos[node], m or self.gas_zone_m
+        return any(np.linalg.norm(p[:2] - z[:2]) < m and abs(p[2] - z[2]) < 5.0
                    for z in self._gas_zones())
 
     def _assignable(self, t: Task) -> bool:
         return (t.status == "pending" and t.node not in self._blocked
-                and (t.kind == "gas" or not self._in_gas(t.node)))
+                and (t.kind == "gas" or not self._in_gas(t.node, self._zone_m(t.kind))))
 
     def _mid(self, r: Robot) -> Optional[Leg]:
         return next((lg for lg in r.legs if lg.t0 <= self.t < lg.t1), None)
@@ -570,10 +584,11 @@ class Fleet:
 
     def _suspend_gas_zone(self) -> None:
         for r in self.robots:
-            if r.task is not None and r.task.kind != "gas" and self._in_gas(r.task.node):
-                tid = r.task.id
+            if r.task is not None and r.task.kind != "gas" and self._in_gas(r.task.node, self._zone_m(r.task.kind)):
+                tid, hot = r.task.id, r.task.kind in HOT_WORK
                 self._release(r)
-                self._log("suspend", f"{r.id} stopped {tid}: inside gas zone -> re-queued until gas clears",
+                why = f"hot work within {HOT_WORK_M:.0f} m of gas, arc off" if hot else "inside gas zone"
+                self._log("suspend", f"{r.id} stopped {tid}: {why} -> re-queued until gas clears",
                           robot=r.id, task=tid)
 
     def _battery_checks(self, dd, ds) -> None:

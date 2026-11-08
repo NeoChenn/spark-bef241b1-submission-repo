@@ -50,6 +50,7 @@ def build_default(n_robots: int = 3, jobs=None, rm=None) -> Fleet:
 JUDGES_ROBOTS = [("R1", [-12.0, 9.4, 42.5], 0.9), ("R2", [-21.0, 4.0, 31.25], 0.9), ("R3", [10.0, 12.0, 20.0], 0.9)]
 JUDGES_RUST = [("rust_mid_west", [-21.8, 8.0, 32.0], 0.4, 0.6), ("rust_mid_east", [12.0, -6.8, 32.0], 0.6, 0.6),
                ("rust_low_east", [20.8, 6.0, 21.0], 0.5, 0.9), ("rust_low_splash", [-10.0, -4.8, 21.0], 0.7, 0.95)]
+JUDGES_WELD = ("weld_riser_east", [10.0, -8.0, 42.5], "crack")
 JUDGES_EVENTS = [(6.0, "drop_obstacle", {"kind": "crate", "at": "R1"}),
                  (55.0, "set_weather", {"level": "storm", "wind_dir": 90.0}),
                  (200.0, "set_weather", {"level": "calm"}),
@@ -64,6 +65,7 @@ def build_judges(n_robots: int = 3, jobs=None, rm=None, disturb: bool = True) ->
     f.add_task("leak_check", "F5", deadline=CHECK_DEADLINE_S)
     for poi, xyz, sev, exp in JUDGES_RUST:
         f.add_task("rust", poi, xyz, severity=sev, exposure=exp)
+    f.add_task("weld", JUDGES_WELD[0], JUDGES_WELD[1], scenario=JUDGES_WELD[2])
     for t, kind, data in JUDGES_EVENTS if disturb else []:
         f.schedule(t, kind, **data)
     return f

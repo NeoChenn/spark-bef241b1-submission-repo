@@ -179,20 +179,6 @@ def test_interactive_page_is_served_and_judge_redirects():
         assert c.get("/judge", follow_redirects=False).headers["location"] == "/interactive"
 
 
-def test_live_incidents_raise_a_gas_alarm_and_send_a_faulty_robot_to_dock():
-    live = FleetLive("judges", speed=20.0, jobs=stub_jobs(15.0))
-    live.advance(1.0)
-    out = live.incident("battery_fault", {"robot": "unit-1"})
-    assert out["log"][0]["kind"] == "battery_fault"
-    r = by_id(live.f, out["log"][0]["robot"])
-    for _ in range(4):
-        live.advance(0.5)
-    assert r.to_dock and r.task is None
-    out = live.incident("gas_leak", {"on": True})
-    assert out["log"][0]["kind"] == "gas_alarm"
-    assert live.incident("gas_leak", {"on": True})["log"] == []
-
-
 def test_puddle_is_a_soft_cost_not_a_block():
     f, rm = walking_r1()
     f.event("drop_obstacle", kind="puddle", at="R1")
