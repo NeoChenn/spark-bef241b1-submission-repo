@@ -11,6 +11,8 @@ services:
     environment:
       SIM_HOST: "127.0.0.1"
       SIM_PORT: "9000"
+      SIM_HOST_LAN: ${SIM_HOST_LAN:-}
+      INGEST_TOKEN: ${INGEST_TOKEN:-}
     restart: unless-stopped
 
   sim:
@@ -31,6 +33,7 @@ services:
       RIG_MERGED_HOLD: ${RIG_MERGED_HOLD:-8}
       RIG_ATMOS: ${RIG_ATMOS:-}
       RIG_WEATHER: ${RIG_WEATHER:-}
+      RENDER_MODE: ${RENDER_MODE:-local}
     command:
       - /rig/rig/sim/main.py
       - --sim=127.0.0.1:9000

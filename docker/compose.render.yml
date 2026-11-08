@@ -1,0 +1,48 @@
+name: rig-render
+
+services:
+  render:
+    init: true
+    image: rig-sim:6.2.0
+    devices:
+      - nvidia.com/gpu=all
+    network_mode: host
+    mem_limit: ${RENDER_MEMORY:-40g}
+    environment:
+      ACCEPT_EULA: "Y"
+      PRIVACY_CONSENT: "Y"
+      NVIDIA_DRIVER_CAPABILITIES: all
+      INGEST_TOKEN: ${INGEST_TOKEN:?set INGEST_TOKEN in .env}
+      RENDER_RELAY: ${RENDER_RELAY:-192.168.1.190:9000}
+    command:
+      - /rig/rig/render/main.py
+      - --renderer=${RENDER_RENDERER:-RealTimePathTracing}
+      - --width=${RENDER_WIDTH:-1920}
+      - --height=${RENDER_HEIGHT:-1080}
+      - --spp=${RENDER_SPP:-1}
+      - --subframes=${RENDER_SUBFRAMES:-1}
+      - --bounces=6
+      - --set=/rtx/rtpt/maxSpecularAndTransmissionBounces=6
+      - --set=/rtx/post/dlss/execMode=${RENDER_DLSS:-2}
+      - --fps=${RENDER_FPS:-30}
+      - --quality=${RENDER_QUALITY:-85}
+      - --record=${RENDER_RECORD:-}
+    volumes:
+      - ../rig:/rig/rig:ro
+      - ../sim:/rig/sim:ro
+      - ../.work/render:/out
+      - rig-render-cache-main:/isaac-sim/.cache
+      - rig-render-cache-compute:/isaac-sim/.nv/ComputeCache
+      - rig-render-cache-kit:/isaac-sim/kit/cache
+      - rig-render-cache-data:/isaac-sim/.local/share/ov/data
+    restart: unless-stopped
+
+volumes:
+  rig-render-cache-main:
+    name: rig-render-cache-main
+  rig-render-cache-compute:
+    name: rig-render-cache-compute
+  rig-render-cache-kit:
+    name: rig-render-cache-kit
+  rig-render-cache-data:
+    name: rig-render-cache-data
