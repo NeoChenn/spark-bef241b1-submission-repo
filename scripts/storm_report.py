@@ -63,7 +63,7 @@ def main():
         ax.set_axisbelow(True)
         for s in ("top", "right"):
             ax.spines[s].set_visible(False)
-    fig.suptitle("Scrub policy under storm (gusts on arm, deck sway/heave, wet pipe), rig geometry, 1024 episodes each",
+    fig.suptitle("Scrub policy under storm (gusts on arm, deck sway/heave, wet pipe), rig geometry, 1024 episodes each; +gate = orchestrator retract-and-wait rule, success capped by the 15 s episode",
                  fontsize=11, x=0.01, ha="left")
     fig.tight_layout()
     fig.savefig(ROOT / "storm_eval.png", dpi=150)
