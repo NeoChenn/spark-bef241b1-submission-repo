@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import re
 
 import numpy as np
 
@@ -172,129 +171,111 @@ def soft_texture(size: int, seed: int = 0, octaves: int = 5) -> np.ndarray:
     return (np.clip(acc * 1.3 - 0.05, 0, 1) * edge * 255).astype(np.uint8)
 
 
-FIRE_MAP = ("[(0.012, 0.012, 0.012, 0.0), (0.03, 0.028, 0.026, 0.55), (0.05, 0.045, 0.04, 0.6), (1.0, 0.16, 0.013, 0.8), "
-            "(13.5, 3.0, 0.13, 0.8), (78.0, 39.0, 6.1, 0.7)]", "[0, 0.05, 0.15, 0.6, 0.85, 1]")
-STEAM_MAP = ("[(0.5, 0.52, 0.55, 0.0), (0.7, 0.72, 0.75, 0.25), (0.8, 0.82, 0.85, 0.45), (0.85, 0.86, 0.88, 0.5)]",
-             "[0, 0.2, 0.6, 1]")
+FIRE_MAP = ([(0.0154, 0.0177, 0.0154, 0.0049), (0.036, 0.034, 0.032, 0.5), (0.04, 0.038, 0.035, 0.5), (1.0, 0.16, 0.013, 0.8),
+             (13.5, 3.0, 0.126, 0.8), (78.0, 39.0, 6.1, 0.7)], [0, 0.05, 0.15, 0.6, 0.85, 1])
+STEAM_MAP = ([(0.6, 0.62, 0.65, 0.0), (0.75, 0.77, 0.8, 0.22), (0.85, 0.86, 0.88, 0.4), (0.9, 0.9, 0.92, 0.45)], [0, 0.2, 0.6, 1])
 
 
-def _vec(v) -> str:
-    return ", ".join(f"{float(c):g}" for c in v)
+def _usd(v) -> str:
+    if isinstance(v, bool):
+        return str(int(v))
+    if isinstance(v, (list, tuple)) and v and isinstance(v[0], (list, tuple)):
+        return "[" + ", ".join(_usd(x) for x in v) + "]"
+    if isinstance(v, (list, tuple)):
+        return ("[" if isinstance(v, list) else "(") + ", ".join(f"{float(x):g}" for x in v) + ("]" if isinstance(v, list) else ")")
+    return f"{v:g}" if isinstance(v, float) else str(v)
 
 
-def _emitter(name, pos, radius, layer, velocity, fuel=0.0, temp=0.0, smoke=0.0) -> str:
-    return f"""    def FlowEmitterSphere "{name}"
-    {{
-        float coupleRateFuel = 2
-        float coupleRateSmoke = 2
-        float coupleRateTemperature = 10
-        float coupleRateVelocity = 2
-        float fuel = {fuel:g}
-        int layer = {layer}
-        float3 position = ({_vec(pos)})
-        float radius = {radius:g}
-        bool radiusIsWorldSpace = 1
-        float smoke = {smoke:g}
-        float temperature = {temp:g}
-        float3 velocity = ({_vec(velocity)})
-        bool velocityIsWorldSpace = 1
-    }}
-"""
+def _kind(v) -> str:
+    if isinstance(v, list):
+        return "float4[]" if isinstance(v[0], (list, tuple)) else "float[]"
+    if isinstance(v, tuple):
+        return f"float{len(v)}"
+    return {bool: "bool", int: "int", float: "float"}[type(v)]
+
+
+def _prim(kind: str, name: str, attrs: dict, children: str = "", pad: str = "    ") -> str:
+    body = "".join(f"{pad}    {'uint' if k in UINTS else _kind(v)} {k} = {_usd(v)}\n" for k, v in attrs.items())
+    return f'{pad}def {kind} "{name}"\n{pad}{{\n{body}{children}{pad}}}\n'
+
+
+UINTS = {"numSubSteps", "maxStepsPerSimulate", "velocitySubSteps", "blockMinLifetime", "resolution", "numSteps"}
+
+
+def _emitter(name, layer, pos, radius, velocity, fuel=0.0, temp=0.0, smoke=0.0, couple=2.0) -> str:
+    return _prim("FlowEmitterSphere", name, {
+        "allocationScale": 1.0, "applyPostPressure": False, "burn": 0.0, "coupleRateBurn": 0.0, "coupleRateDivergence": 0.0,
+        "coupleRateFuel": couple, "coupleRateSmoke": couple, "coupleRateTemperature": 10.0, "coupleRateVelocity": couple,
+        "divergence": 0.0, "enabled": True, "fuel": fuel, "layer": layer, "multisample": False, "numSubSteps": 1,
+        "physicsVelocityScale": 0.0, "position": tuple(map(float, pos)), "radius": float(radius), "radiusIsWorldSpace": True,
+        "smoke": smoke, "temperature": temp, "velocity": tuple(map(float, velocity)), "velocityIsWorldSpace": True})
 
 
 def _wind(layer, wind, centre) -> str:
-    return f"""    def FlowEmitterBox "wind_{layer}"
-    {{
-        float allocationScale = 0
-        float coupleRateVelocity = 0.4
-        float coupleRateTemperature = 0
-        float coupleRateFuel = 0
-        float coupleRateSmoke = 0
-        float3 halfSize = (400, 400, 200)
-        int layer = {layer}
-        float3 position = ({_vec(centre)})
-        float3 velocity = ({_vec((wind[0], wind[1], 0.0))})
-    }}
-"""
+    return _prim("FlowEmitterBox", f"wind_{layer}", {
+        "allocationScale": 0.0, "coupleRateBurn": 0.0, "coupleRateDivergence": 0.0, "coupleRateFuel": 0.0,
+        "coupleRateSmoke": 0.0, "coupleRateTemperature": 0.0, "coupleRateVelocity": 0.6, "enabled": True,
+        "halfSize": (400.0, 400.0, 200.0), "layer": layer, "position": tuple(map(float, centre)),
+        "velocity": (float(wind[0]), float(wind[1]), 0.0)})
 
 
-def _layer(layer, cell, rgba, xs, combustion, fade, buoyancy) -> str:
-    return f"""    def FlowSimulate "sim_{layer}"
-    {{
-        float densityCellSize = {cell:g}
-        int layer = {layer}
-        float stepsPerSecond = 30
-        uint maxStepsPerSimulate = 2
-        def FlowAdvectionCombustionParams "advection"
-        {{
-            float buoyancyPerTemp = {buoyancy:g}
-            float buoyancyPerSmoke = {0.0 if combustion else 0.6:g}
-            float burnPerTemp = 4
-            bool combustionEnabled = {int(combustion)}
-            float coolingRate = 1.0
-            float fuelPerBurn = 0.25
-            float3 gravity = (0, 0, -9.8)
-            float ignitionTemp = 0.05
-            float smokePerBurn = 4
-            float tempPerBurn = 5
-            def FlowAdvectionChannelParams "smoke" {{ float damping = 0.05
-                float fade = {fade:g} }}
-            def FlowAdvectionChannelParams "velocity" {{ float damping = 0.01
-                float fade = 1 }}
-            def FlowAdvectionChannelParams "divergence" {{}}
-            def FlowAdvectionChannelParams "temperature" {{ float damping = 0
-                float fade = 0 }}
-            def FlowAdvectionChannelParams "fuel" {{ float damping = 0
-                float fade = 0 }}
-            def FlowAdvectionChannelParams "burn" {{ float damping = 0
-                float fade = 0 }}
-        }}
-        def FlowVorticityParams "vorticity" {{ bool enabled = 1
-            float forceScale = 2.5
-            float velocityMask = 1 }}
-        def FlowPressureParams "pressure" {{ bool enabled = 1 }}
-        def FlowSummaryAllocateParams "summaryAllocate" {{ bool enableNeighborAllocation = 1
-            float smokeThreshold = 0.02
-            float speedThreshold = 1 }}
-    }}
-    def FlowOffscreen "offscreen_{layer}"
-    {{
-        int layer = {layer}
-        def FlowRayMarchColormapParams "colormap"
-        {{
-            float colorScale = 2.5
-            uint resolution = 32
-            float4[] rgbaPoints = {rgba}
-            float[] xPoints = {xs}
-        }}
-        def FlowShadowParams "shadow" {{ bool enabled = 1
-            float attenuation = 0.045
-            float minIntensity = 0.125
-            uint numSteps = 16 }}
-        def FlowDebugVolumeParams "debugVolume" {{}}
-    }}
-    def FlowRender "render_{layer}"
-    {{
-        int layer = {layer}
-        def FlowRayMarchParams "rayMarch"
-        {{
-            float attenuation = 0.05
-            float colorScale = 1
-            float stepSizeScale = 0.75
-            def FlowRayMarchCloudParams "cloud" {{}}
-        }}
-    }}
-"""
+def _channel(name, damping, fade) -> str:
+    return _prim("FlowAdvectionChannelParams", name, {"damping": damping, "fade": fade, "secondOrderBlendFactor": 0.9,
+                                                       "secondOrderBlendThreshold": 0.001}, pad="            ")
 
 
-def flow_usda(flare, vents, wind, cell: float) -> str:
-    lean = (wind[0] * 0.4, wind[1] * 0.4)
-    body = _emitter("flare", flare, 1.3, 0, (lean[0] - 2.0, lean[1], 14.0), fuel=1.0, temp=2.0)
-    body += "".join(_emitter(f"vent_{i}", p, 0.6, 1, (lean[0], lean[1], 5.0), smoke=0.8, temp=0.4)
+def _layer(layer, cell, colormap, combustion, smoke_fade, scale) -> str:
+    channels = (_channel("smoke", 0.3 if combustion else 0.1, smoke_fade) + _channel("velocity", 0.01, 1.0)
+                + _channel("divergence", 0.01, 1.0) + _channel("temperature", 0.0, 0.0) + _channel("fuel", 0.0, 0.0)
+                + _channel("burn", 0.0, 0.0))
+    advection = _prim("FlowAdvectionCombustionParams", "advection", {
+        "buoyancyMaxSmoke": 1.0, "buoyancyPerSmoke": 0.0 if combustion else 4.0 * scale, "buoyancyPerTemp": 6.0,
+        "burnPerTemp": 4.0, "combustionEnabled": combustion, "coolingRate": 1.5, "divergencePerBurn": 0.0,
+        "downsampleEnabled": True, "enabled": True, "forceFadeEnabled": False, "fuelPerBurn": 0.25, "globalFetch": False,
+        "gravity": (0.0, 0.0, -100.0 * scale), "ignitionTemp": 0.05, "smokePerBurn": 3.0, "tempPerBurn": 5.0},
+        channels, pad="        ")
+    sim = _prim("FlowSimulate", f"sim_{layer}", {
+        "blockMinLifetime": 4, "densityCellSize": float(cell), "enableLowPrecisionDensity": False,
+        "enableLowPrecisionVelocity": False, "enableSmallBlocks": False, "enableVariableTimeStep": False, "forceClear": False,
+        "forceDisableCoreSimulation": False, "forceDisableEmitters": False, "forceSimulate": False,
+        "interpolateTimeSteps": False, "layer": layer, "maxStepsPerSimulate": 1, "physicsCollisionEnabled": False,
+        "physicsConvexCollision": True, "simulateWhenPaused": False, "stepsPerSecond": 60.0, "timeScale": 1.0,
+        "velocitySubSteps": 1},
+        advection + _prim("FlowVorticityParams", "vorticity", {
+            "burnMask": 0.0, "constantMask": 0.0, "densityMask": 0.0, "enabled": True, "forceScale": 3.0, "fuelMask": 0.0,
+            "smokeMask": 0.0, "temperatureMask": 0.0, "velocityLinearMask": 0.0, "velocityLogScale": 1.0,
+            "velocityMask": 1.0}, pad="        ")
+        + _prim("FlowPressureParams", "pressure", {"enabled": True}, pad="        ")
+        + _prim("FlowSummaryAllocateParams", "summaryAllocate", {
+            "enableNeighborAllocation": True, "smokeThreshold": 0.02, "speedThreshold": scale,
+            "speedThresholdMinSmoke": 0.0}, pad="        "))
+    rgba, xs = colormap
+    off = _prim("FlowOffscreen", f"offscreen_{layer}", {"layer": layer},
+                _prim("FlowRayMarchColormapParams", "colormap", {
+                    "colorScale": 2.5, "colorScalePoints": [1.0] * len(xs), "resolution": 32, "rgbaPoints": list(rgba),
+                    "xPoints": [float(x) for x in xs]}, pad="        ")
+                + _prim("FlowShadowParams", "shadow", {
+                    "attenuation": 0.045, "coarsePropagate": True, "enabled": True, "isPointLight": False,
+                    "lightDirection": (1.0, 1.0, 1.0), "lightPosition": (0.0, 0.0, 0.0), "minIntensity": 0.125,
+                    "numSteps": 16, "stepOffsetScale": 1.0, "stepSizeScale": 0.75}, pad="        ")
+                + _prim("FlowDebugVolumeParams", "debugVolume", {
+                    "enableSpeedAsTemperature": False, "enableVelocityAsDensity": False,
+                    "velocityScale": (0.01, 0.01, 0.01)}, pad="        "))
+    ren = _prim("FlowRender", f"render_{layer}", {"layer": layer},
+                _prim("FlowRayMarchParams", "rayMarch", {
+                    "attenuation": 0.05, "colorScale": 1.0, "enableBlockWireframe": False, "enableRawMode": False,
+                    "shadowFactor": 1.0, "stepSizeScale": 0.75}, pad="        "))
+    return sim + off + ren
+
+
+def flow_usda(flare, vents, wind, cell: float, flame_radius: float = 1.2) -> str:
+    s = flame_radius / 10.0
+    lean = (wind[0] * 0.3, wind[1] * 0.3)
+    body = _emitter("flare", 0, flare, flame_radius, (lean[0], lean[1], 0.0), fuel=0.8, temp=2.0)
+    body += "".join(_emitter(f"vent_{i}", 1, p, 0.5, (lean[0], lean[1], 3.0), smoke=1.0, temp=0.0, couple=4.0)
                     for i, p in enumerate(vents))
     body += _wind(0, wind, flare) + _wind(1, wind, flare)
-    body += _layer(0, cell, *FIRE_MAP, True, 0.25, 4.0) + _layer(1, cell, *STEAM_MAP, False, 1.2, 1.5)
-    body = re.sub(r"(\S) \}$", "\\1\n}", body, flags=re.M)
+    body += _layer(0, cell, FIRE_MAP, True, 0.6, s) + _layer(1, cell, STEAM_MAP, False, 1.0, s)
     return f'#usda 1.0\n(\n    defaultPrim = "Flow"\n    metersPerUnit = 1\n    upAxis = "Z"\n)\ndef Xform "Flow"\n{{\n{body}}}\n'
 
 

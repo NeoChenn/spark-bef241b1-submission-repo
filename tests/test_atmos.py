@@ -167,7 +167,8 @@ def test_flow_usda_has_fire_steam_layers_and_wind():
     assert layer.ImportFromString(text)
     flame = layer.GetPrimAtPath("/Flow/flare")
     assert flame.typeName == "FlowEmitterSphere"
-    assert flame.attributes["layer"].default == 0
+    assert flame.attributes["layer"].default == 0 and flame.attributes["enabled"].default is True
+    assert layer.GetPrimAtPath("/Flow/sim_0/advection").attributes["enabled"].default is True
     assert [layer.GetPrimAtPath(f"/Flow/vent_{i}").attributes["layer"].default for i in range(2)] == [1, 1]
     assert layer.GetPrimAtPath("/Flow/wind_0").attributes["velocity"].default == (6.0, -2.0, 0.0)
     assert layer.GetPrimAtPath("/Flow/wind_0").attributes["allocationScale"].default == 0.0

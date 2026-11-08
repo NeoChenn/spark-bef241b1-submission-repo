@@ -39,6 +39,7 @@ def _material(stage, name, diffuse, emissive=(0.0, 0.0, 0.0), opacity=1.0, textu
         tex.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(st.CreateOutput("result", Sdf.ValueTypeNames.Float2))
         tex.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("raw")
         op.ConnectToSource(tex.CreateOutput("a", Sdf.ValueTypeNames.Float))
+        sh.CreateInput("opacityThreshold", Sdf.ValueTypeNames.Float).Set(0.01)
     if primvar_emissive:
         rd = UsdShade.Shader.Define(stage, f"{path}/glow")
         rd.CreateIdAttr("UsdPrimvarReader_float3")
