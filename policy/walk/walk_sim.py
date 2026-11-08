@@ -131,7 +131,7 @@ def eval_tracking(args):
     stats = {n: {"err": 0.0, "werr": 0.0, "steps": 0, "dist": 0.0, "falls": 0} for n in names}
     age = torch.zeros(base.num_envs, device=base.device)
     dt = base.step_dt
-    for _ in range(int(args.eval_s / dt)):
+    for _ in range(int(args.track_s / dt)):
         with torch.inference_mode():
             obs, _, dones, extras = env.step(policy(obs))
         cmd = base.command_manager.get_command("base_velocity")
@@ -416,14 +416,14 @@ def render(args, meta, full):
 
 def main(argv):
     p = argparse.ArgumentParser()
-    p.add_argument("--mode", default="eval", choices=["eval", "patrol", "render"])
+    p.add_argument("--mode", default="track", choices=["track", "patrol", "render"])
     p.add_argument("--ckpt", required=True)
     p.add_argument("--out_dir", required=True)
     p.add_argument("--meta", default=os.path.join(ROOT, "sim/output/rig_merged_meta.json"))
     p.add_argument("--full_meta", default=os.path.join(ROOT, "sim/output/full_rig_meta.json"))
     p.add_argument("--scene", default=os.path.join(ROOT, "sim/output/rig_merged.usda"))
     p.add_argument("--num_envs", type=int, default=1024)
-    p.add_argument("--eval_s", type=float, default=60.0)
+    p.add_argument("--track_s", type=float, default=60.0)
     p.add_argument("--patrol_s", type=float, default=150.0)
     p.add_argument("--v_max", type=float, default=1.0)
     p.add_argument("--start_back", type=float, default=10.0)
@@ -453,7 +453,7 @@ def main(argv):
     if args.mode == "render":
         render(args, meta, full)
     else:
-        res = eval_tracking(args) if args.mode == "eval" else eval_patrol(args, meta, full)
+        res = eval_tracking(args) if args.mode == "track" else eval_patrol(args, meta, full)
         print(f"[walk] {args.mode.upper()}", json.dumps(res), flush=True)
         with open(os.path.join(args.out_dir, f"{args.mode}.json"), "w") as f:
             json.dump({"ckpt": args.ckpt, **res}, f, indent=1)
