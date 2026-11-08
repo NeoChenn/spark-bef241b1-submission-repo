@@ -57,10 +57,24 @@ class LabWorld:
         f = torch.exp(-0.5 * ((dth / size) ** 2 + (dz / (0.8 * size)) ** 2))
         return (torch.clamp((f - 0.3) / 0.25, 0, 1) * level).unsqueeze(0)
 
+    def nearest_reachable(self, theta, z):
+        s = self.s
+        reach = s.reachable[0]
+        dth = (torch.remainder(s.theta_c.view(1, -1) - theta + math.pi, TWO_PI) - math.pi) * float(s.radius[0])
+        d = dth ** 2 + (s.z_c.view(-1, 1) - z) ** 2
+        inner = reach.clone()
+        for _ in range(3):
+            inner = inner & torch.roll(inner, 1, 0) & torch.roll(inner, -1, 0) & torch.roll(inner, 1, 1) & torch.roll(inner, -1, 1)
+        mask = inner if inner.any() else reach
+        i, j = divmod(int(torch.where(mask, d, torch.full_like(d, 1e9)).argmin()), s.W)
+        return float(s.theta_c[j]), float(s.z_c[i])
+
     def inject_patch(self, theta, z, size=0.04, level=0.8):
         s = self.s
+        theta, z = self.nearest_reachable(theta, z)
         s.rust = torch.maximum(s.rust, self.blob(theta, z, size, level) * s.reachable[:1].float())
         s.initial_total = torch.maximum(s.initial_total, s.rust.sum(dim=(1, 2)))
+        return theta, z
 
 
 class ExternalScrub:
@@ -231,6 +245,7 @@ class LabRepairBridge:
         b.p_tgt[:] = b.brush_w
         self.joint_target = None
         self.parked = False
+        self.chunk_peak = 0.0
 
     def _brush(self) -> np.ndarray:
         return (self.base.brush_w[0] + self.base.scene.env_origins[0]).cpu().numpy()
@@ -396,7 +411,9 @@ class LabRepairBridge:
         self.chunk_peak = 0.0
 
     def spawn_patch(self, theta: float, z: float, size: float = 0.04, level: float = 0.8) -> None:
-        self.world.inject_patch(theta, z, size=size, level=level)
+        th, zz = self.world.inject_patch(theta, z, size=size, level=level)
+        self.pending_events.append({"t": round(self.t, 3), "type": "spawn_patch", "theta": round(th, 3), "z": round(zz, 3),
+                                    "cells": int((self.world.s.rust[0] > 0.1).sum())})
 
     def occlude_camera(self, on: bool) -> None:
         img = rs.UsdGeom.Imageable(self.lens_mist)
