@@ -1,0 +1,357 @@
+import math
+import sys
+from pathlib import Path
+
+SIM = Path(__file__).resolve().parents[2] / "sim"
+if str(SIM) not in sys.path:
+    sys.path.insert(0, str(SIM))
+
+import carb.settings
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade
+
+from rig.sim.obstacle_math import (DROP_S, dashes, drop_offset, flame_offset, ghost_alpha, lerp, seg_frame, segments,
+                                   weather_params)
+from rig.sim.zoom import ease
+from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
+
+ROOT = "/World/Obstacles"
+CORAL = (3.2, 0.8, 0.32)
+GHOST = (0.32, 0.35, 0.4)
+CLOSED = (4.0, 0.12, 0.08)
+ROBOT_GLOW = [(0.6, 2.2, 9.0), (0.8, 7.0, 2.0), (9.0, 6.0, 0.8), (7.0, 1.2, 6.0)]
+ROBOT_USD = OUTPUT / "robot" / "go2_ur3_lift" / "go2_ur3_lift.usda"
+ROBOT_Z = 0.45
+LIFT = 0.1
+SKIES = {False: GENERATED / "sky_night.hdr", True: GENERATED / "sky_storm.hdr"}
+RAMP_S = 3.0
+REVEAL_S = 1.2
+WEATHER_KEYS = ("fog_color", "fog_height", "wave_height", "dome", "wind", "sun", "fog_dist")
+
+
+def _emissive(stage, name, color, intensity=1.0):
+    path = f"/World/Looks/{name}"
+    mat = UsdShade.Material.Define(stage, path)
+    sh = UsdShade.Shader.Define(stage, f"{path}/surface")
+    sh.CreateIdAttr("UsdPreviewSurface")
+    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.02, 0.02, 0.02))
+    sh.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*(c * intensity for c in color)))
+    mat.CreateSurfaceOutput().ConnectToSource(sh.CreateOutput("surface", Sdf.ValueTypeNames.Token))
+    return mat, sh
+
+
+def _bind(prim, mat):
+    UsdShade.MaterialBindingAPI.Apply(prim).Bind(mat)
+
+
+def _truncate(path, frac):
+    segs = segments(path)
+    total = sum(math.dist(a, b) for a, b in segs)
+    left = total * frac
+    out = [path[0]]
+    for a, b in segs:
+        L = math.dist(a, b)
+        if left >= L:
+            out.append(b)
+            left -= L
+        else:
+            out.append(lerp(tuple(a), tuple(b), left / L))
+            break
+    return out
+
+
+class ObstacleScene:
+    def __init__(self, stage, wave=None, radius=0.06, robot_model=True):
+        self.stage, self.wave, self.radius, self.robot_model = stage, wave if wave is not None else {}, radius, robot_model
+        self.b = SceneBuilder(stage)
+        UsdGeom.Scope.Define(stage, ROOT)
+        for g in ("Props", "Paths", "Closed", "Robots"):
+            UsdGeom.Scope.Define(stage, f"{ROOT}/{g}")
+        self.coral, _ = _emissive(stage, "obst_coral", CORAL)
+        self.red, _ = _emissive(stage, "obst_closed", CLOSED)
+        self.now = 0.0
+        self.props: dict[str, dict] = {}
+        self.paths: dict[str, dict] = {}
+        self.robots: dict[str, dict] = {}
+        self.closed_key = None
+        self.weather_key = None
+        self.look = None
+        self.w_from = self.w_to = weather_params("calm")
+        self.w_t0 = -1e9
+        self.flames = []
+        for k in range(8):
+            prim = stage.GetPrimAtPath(f"/World/Cinematic/Flare/flame_{k}")
+            if not prim.IsValid():
+                break
+            op = UsdGeom.Xformable(prim).GetOrderedXformOps()[0]
+            self.flames.append((op, op.Get()))
+        self.tip_z = min((p[2] for _, p in self.flames), default=0.0)
+        self.n = 0
+
+    def _id(self, s):
+        self.n += 1
+        return f"{s}_{self.n}"
+
+    def sync(self, state: dict) -> None:
+        hz = state.get("hazards") or {}
+        w = hz.get("weather")
+        if w:
+            self.set_weather(w.get("level", "calm"), w.get("wind_dir"), w.get("gust"))
+        obs = {o["id"]: o for o in hz.get("obstacles", [])}
+        for oid in [k for k in self.props if k not in obs]:
+            self.stage.RemovePrim(self.props.pop(oid)["path"])
+        for oid, o in obs.items():
+            if oid not in self.props:
+                self.props[oid] = self._spawn(o)
+        key = tuple((tuple(c["a"]), tuple(c["b"])) for c in hz.get("closed", []))
+        if key != self.closed_key:
+            self.closed_key = key
+            self.stage.RemovePrim(f"{ROOT}/Closed")
+            UsdGeom.Scope.Define(self.stage, f"{ROOT}/Closed")
+            for a, b in key:
+                for p, q in dashes(a, b, 0.7, 0.5):
+                    self._cyl(f"{ROOT}/Closed/{self._id('d')}", p, q, self.radius * 1.6, self.red, LIFT + 0.05)
+        for k, r in enumerate(state.get("robots", [])):
+            self._robot(k, r)
+            self._path(k, r)
+
+    def _cyl(self, path, a, b, radius, mat, lift=LIFT):
+        a, b = (a[0], a[1], a[2] + lift), (b[0], b[1], b[2] + lift)
+        c = UsdGeom.Cylinder.Define(self.stage, path)
+        c.CreateAxisAttr("X")
+        c.CreateRadiusAttr(radius)
+        ops = UsdGeom.Xformable(c)
+        ops.AddTranslateOp()
+        ops.AddRotateZOp()
+        ops.AddRotateYOp()
+        _bind(c.GetPrim(), mat)
+        self._place(c, a, b)
+        return c
+
+    def _place(self, c, a, b):
+        mid, L, yaw, pitch = seg_frame(a, b)
+        c.GetHeightAttr().Set(max(L, 1e-3))
+        t, rz, ry = UsdGeom.Xformable(c).GetOrderedXformOps()
+        t.Set(Gf.Vec3d(*mid))
+        rz.Set(yaw)
+        ry.Set(pitch)
+
+    def _robot(self, k, r):
+        rid, p = r["id"], r["pose"]
+        if rid not in self.robots:
+            root = f"{ROOT}/Robots/{rid}"
+            x = UsdGeom.Xform.Define(self.stage, root)
+            ops = UsdGeom.Xformable(x)
+            ops.AddTranslateOp()
+            ops.AddRotateZOp()
+            if self.robot_model and ROBOT_USD.exists():
+                body = UsdGeom.Xform.Define(self.stage, f"{root}/body")
+                body.GetPrim().GetReferences().AddReference(rel(ROBOT_USD))
+                vs = body.GetPrim().GetVariantSets()
+                if vs.HasVariantSet("Physics"):
+                    vs.GetVariantSet("Physics").SetVariantSelection("none")
+            glow, _ = _emissive(self.stage, f"obst_robot_{rid}", ROBOT_GLOW[k % len(ROBOT_GLOW)])
+            ring = UsdGeom.Cylinder.Define(self.stage, f"{root}/halo")
+            ring.CreateAxisAttr("Z")
+            ring.CreateRadiusAttr(max(0.75, 6 * self.radius))
+            ring.CreateHeightAttr(0.02)
+            UsdGeom.Xformable(ring).AddTranslateOp().Set(Gf.Vec3d(0, 0, -ROBOT_Z + 0.03))
+            _bind(ring.GetPrim(), glow)
+            light = UsdLux.SphereLight.Define(self.stage, f"{root}/beacon")
+            light.CreateRadiusAttr(0.15)
+            light.CreateIntensityAttr(60000.0)
+            light.CreateColorAttr(Gf.Vec3f(*(c / max(ROBOT_GLOW[k % len(ROBOT_GLOW)]) for c in ROBOT_GLOW[k % len(ROBOT_GLOW)])))
+            UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(0, 0, 1.2))
+            self.robots[rid] = {"ops": ops.GetOrderedXformOps()}
+        t, rz = self.robots[rid]["ops"]
+        t.Set(Gf.Vec3d(p["x"], p["y"], p["z"] + ROBOT_Z))
+        rz.Set(math.degrees(p.get("yaw", 0.0)))
+        self.robots[rid]["pose"] = (p["x"], p["y"], p["z"])
+
+    def _path(self, k, r):
+        rid = r["id"]
+        cur = self.paths.setdefault(rid, {"key": None, "prev": None, "lead": None, "reveal": -1e9, "ghost_t": -1e9})
+        path = [tuple(p) for p in r.get("path") or []]
+        prev = [tuple(p) for p in r.get("prev_path") or []] or None
+        key = tuple(path[1:])
+        root = f"{ROOT}/Paths/{rid}"
+        if prev != cur["prev"]:
+            cur["prev"] = prev
+            self.stage.RemovePrim(f"{root}/ghost")
+            if prev:
+                mat, sh = _emissive(self.stage, f"obst_ghost_{rid}", GHOST)
+                cur["ghost_sh"], cur["ghost_t"] = sh, self.now
+                UsdGeom.Scope.Define(self.stage, f"{root}/ghost")
+                for i, (a, b) in enumerate(segments(prev)):
+                    for j, (p, q) in enumerate(dashes(a, b, 0.5, 0.35)):
+                        self._cyl(f"{root}/ghost/g{i}_{j}", p, q, self.radius * 0.8, mat, LIFT + 0.02)
+        if key != cur["key"]:
+            changed = cur["key"] is not None and prev is not None
+            cur["key"], cur["path"] = key, path
+            cur["reveal"] = self.now if changed else -1e9
+            self._draw_new(rid, path, 1.0 if not changed else 0.0)
+        elif path:
+            cur["path"] = path
+            if self.now - cur["reveal"] >= REVEAL_S and cur["lead"] is not None and len(path) > 1:
+                self._place(cur["lead"], (path[0][0], path[0][1], path[0][2] + LIFT), (path[1][0], path[1][1], path[1][2] + LIFT))
+
+    def _draw_new(self, rid, path, frac):
+        root = f"{ROOT}/Paths/{rid}"
+        cur = self.paths[rid]
+        self.stage.RemovePrim(f"{root}/new")
+        cur["lead"] = None
+        if len(path) < 2:
+            return
+        UsdGeom.Scope.Define(self.stage, f"{root}/new")
+        pts = _truncate(path, ease(frac)) if frac < 1.0 else path
+        for i, (a, b) in enumerate(zip(pts, pts[1:])):
+            if math.dist(a, b) > 1e-3:
+                c = self._cyl(f"{root}/new/s{i}", a, b, self.radius, self.coral)
+                if i == 0:
+                    cur["lead"] = c
+
+    def tick(self, t: float) -> None:
+        self.now = t
+        for o in self.props.values():
+            age = t - o["t0"]
+            if age <= DROP_S + 0.1:
+                o["op"].Set(Gf.Vec3d(o["xyz"][0], o["xyz"][1], o["xyz"][2] + drop_offset(age)))
+        for rid, cur in self.paths.items():
+            age = t - cur["reveal"]
+            if 0 <= age < REVEAL_S + 0.2 and cur.get("path"):
+                self._draw_new(rid, cur["path"], min(age / REVEAL_S, 1.0))
+            if cur.get("prev"):
+                a = ghost_alpha(t - cur["ghost_t"])
+                cur["ghost_sh"].GetInput("emissiveColor").Set(Gf.Vec3f(*(c * a for c in GHOST)))
+        s = ease((t - self.w_t0) / RAMP_S)
+        w = {k: lerp(self.w_from[k], self.w_to[k], s) for k in WEATHER_KEYS}
+        self.wave["height"] = w["wave_height"]
+        look = (tuple(round(c, 3) for c in w["fog_color"]), round(w["fog_height"], 4), round(w["dome"], -1),
+                round(w["sun"]), round(w["fog_dist"], 4))
+        if look != self.look:
+            st = carb.settings.get_settings()
+            if self.look is None:
+                st.set_bool("/rtx/fog/enabled", True)
+                st.set_bool("/rtx/fog/fogZup/enabled", True)
+                st.set_float("/rtx/fog/fogHeightFalloff", 0.12)
+                st.set_float("/rtx/fog/fogStartHeight", 0.0)
+            self.look = look
+            st.set_float_array("/rtx/fog/fogColor", list(look[0]))
+            st.set_float("/rtx/fog/fogHeightDensity", look[1])
+            st.set_float("/rtx/fog/fogDistanceDensity", look[4])
+            dome = UsdLux.DomeLight(self.stage.GetPrimAtPath("/World/Environment/sky"))
+            if dome:
+                dome.GetIntensityAttr().Set(look[2])
+            sun = UsdLux.DistantLight(self.stage.GetPrimAtPath("/World/Environment/sun"))
+            if sun:
+                sun.GetIntensityAttr().Set(float(look[3]))
+        wd = self.w_to["wind_dir"]
+        sway = 1.0 + 0.25 * math.sin(t * 3.1) * min(w["wind"], 1.0)
+        for op, rest in self.flames:
+            dx, dy, dz = flame_offset((rest[2] - self.tip_z + 2.0) * sway, wd, w["wind"])
+            op.Set(Gf.Vec3d(rest[0] + dx, rest[1] + dy, rest[2] + dz))
+
+    def set_weather(self, level="calm", wind_dir=None, gust=None) -> None:
+        key = (level, wind_dir, gust)
+        if key == self.weather_key:
+            return
+        self.weather_key = key
+        cur = {k: lerp(self.w_from[k], self.w_to[k], ease((self.now - self.w_t0) / RAMP_S))
+               for k in WEATHER_KEYS}
+        self.w_from = {**self.w_to, **cur}
+        self.w_to = weather_params(level, wind_dir, gust)
+        self.w_t0 = self.now
+        dome = UsdLux.DomeLight(self.stage.GetPrimAtPath("/World/Environment/sky"))
+        if dome:
+            dome.GetTextureFileAttr().Set(rel(SKIES[self.w_to["storm_sky"]]))
+
+    def _spawn(self, o) -> dict:
+        path = f"{ROOT}/Props/{o['id']}"
+        x = UsdGeom.Xform.Define(self.stage, path)
+        op = UsdGeom.Xformable(x).AddTranslateOp()
+        op.Set(Gf.Vec3d(o["xyz"][0], o["xyz"][1], o["xyz"][2] + drop_offset(0.0)))
+        UsdGeom.Xformable(x).AddRotateZOp().Set(float(sum(map(ord, o["id"])) * 37 % 60 - 30))
+        getattr(self, f"_build_{o['kind']}", self._build_debris)(path, o)
+        return {"path": path, "op": op, "t0": self.now, "xyz": o["xyz"]}
+
+    def _mat(self, name, color, rough=0.6, metal=0.0):
+        return self.b.plain(name, color, rough, metal)
+
+    def _tex(self, name, fallback):
+        return self.b.textured(name) if (ASSETS / "textures" / name).exists() else fallback
+
+    def _asset(self, path, asset_id, pos, rz=0.0, scale=1.0):
+        if (ASSETS / "models" / asset_id).exists():
+            h = self.b.asset(path, asset_id, pos, rotate_z=rz, scale=scale)
+            for prim in Usd.PrimRange(h.GetPrim()):
+                for api in ("PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"):
+                    if prim.HasAPI(api):
+                        prim.RemoveAPI(api)
+            return h
+
+    def _build_crate(self, path, o):
+        wood = self._mat("obst_wood", (0.42, 0.27, 0.14), 0.85)
+        dark = self._mat("obst_wood_dark", (0.24, 0.15, 0.08), 0.9)
+        for i, y in enumerate((-0.45, 0.0, 0.45)):
+            self.b.box(path, "pallet_board", (0, y, 0.12), (1.2, 0.16, 0.04), wood, collide=None)
+        for x in (-0.5, 0.0, 0.5):
+            self.b.box(path, "pallet_block", (x, 0, 0.05), (0.12, 1.1, 0.1), dark, collide=None)
+        self.b.box(path, "crate", (0, 0, 0.6), (1.1, 1.0, 0.9), wood, collide=None)
+        for z in (0.25, 0.95):
+            self.b.box(path, "slat", (0, 0, z), (1.14, 1.04, 0.1), dark, collide=None)
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                self.b.box(path, "corner", (sx * 0.54, sy * 0.49, 0.6), (0.08, 0.08, 0.92), dark, collide=None)
+        self.b.box(path, "crate_top", (0.1, -0.05, 1.32), (0.8, 0.7, 0.55), wood, collide=None)
+
+    def _build_spill(self, path, o):
+        oil = self._mat("obst_oil", (0.015, 0.012, 0.01), 0.04, 0.0)
+        r = o.get("radius", 2.0) * 0.8
+        d = UsdGeom.Cylinder.Define(self.stage, f"{path}/slick")
+        d.CreateAxisAttr("Z")
+        d.CreateRadiusAttr(r)
+        d.CreateHeightAttr(0.01)
+        UsdGeom.Xformable(d).AddTranslateOp().Set(Gf.Vec3d(0, 0, 0.012))
+        UsdGeom.Xformable(d).AddScaleOp().Set(Gf.Vec3f(1.0, 0.7, 1.0))
+        _bind(d.GetPrim(), oil)
+        orange = self._mat("obst_orange", (0.95, 0.35, 0.03), 0.45)
+        white = self._mat("obst_white", (0.9, 0.9, 0.88), 0.5)
+        for k, ang in enumerate((0, 120, 240)):
+            a = math.radians(ang)
+            px, py = (r + 0.3) * math.cos(a), (r + 0.3) * 0.75 * math.sin(a)
+            self.b.tube(path, "cone", (px, py, 0.0), (px, py, 0.7), 0.12, orange, segments=12)
+            self.b.tube(path, "band", (px, py, 0.4), (px, py, 0.5), 0.125, white, segments=12)
+        self._asset(path, "WetFloorSign_01", (0.0, -(r + 0.4) * 0.75, 0.0), 0.0)
+
+    def _build_debris(self, path, o):
+        steel = self._tex("rusty_metal_02", self._mat("obst_steel", (0.35, 0.33, 0.3), 0.6, 0.8))
+        for k, (x, y, L, ang) in enumerate(((0, 0, 1.6, 20), (0.3, -0.4, 1.2, -50), (-0.5, 0.3, 0.9, 75))):
+            a = math.radians(ang)
+            self.b.tube(path, "pipe", (x - L / 2 * math.cos(a), y - L / 2 * math.sin(a), 0.1 + 0.08 * k),
+                        (x + L / 2 * math.cos(a), y + L / 2 * math.sin(a), 0.1 + 0.08 * k), 0.08, steel, segments=14)
+        self.b.box(path, "plate", (0.2, 0.3, 0.05), (0.9, 0.6, 0.04), steel, collide=None)
+
+    def _build_scaffold(self, path, o):
+        steel = self._mat("obst_galv", (0.62, 0.64, 0.66), 0.35, 0.9)
+        plank = self._mat("obst_plank", (0.55, 0.42, 0.22), 0.8)
+        h, s = 3.2, 0.75
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                self.b.tube(path, "leg", (sx * s, sy * s, 0), (sx * s, sy * s, h), 0.03, steel, segments=10)
+        for z in (0.1, 1.6, 3.1):
+            for (ax, ay), (bx, by) in (((-s, -s), (s, -s)), ((s, -s), (s, s)), ((s, s), (-s, s)), ((-s, s), (-s, -s))):
+                self.b.tube(path, "ledger", (ax, ay, z), (bx, by, z), 0.025, steel, segments=8)
+        self.b.tube(path, "brace", (-s, -s, 0.1), (s, -s, 1.6), 0.02, steel, segments=8)
+        self.b.tube(path, "brace", (s, s, 1.6), (-s, s, 3.1), 0.02, steel, segments=8)
+        self.b.box(path, "deck", (0, 0, 1.62), (1.5, 1.5, 0.05), plank, collide=None)
+        self.b.box(path, "deck", (0, 0, 3.12), (1.5, 1.5, 0.05), plank, collide=None)
+
+    def _build_hose(self, path, o):
+        rubber = self._mat("obst_hose", (0.85, 0.62, 0.05), 0.55)
+        for ring, (rad, z) in enumerate(((0.45, 0.05), (0.38, 0.13), (0.45, 0.21), (0.31, 0.29))):
+            n = 16
+            for k in range(n):
+                a0, a1 = 2 * math.pi * k / n, 2 * math.pi * (k + 1) / n
+                self.b.tube(path, "coil", (rad * math.cos(a0), rad * math.sin(a0), z),
+                            (rad * math.cos(a1), rad * math.sin(a1), z), 0.04, rubber, segments=8)
+        self.b.tube(path, "tail", (0.45, 0.0, 0.05), (1.6, 0.4, 0.04), 0.04, rubber, segments=8)
+        self.b.tube(path, "tail", (1.6, 0.4, 0.04), (2.3, -0.3, 0.04), 0.04, rubber, segments=8)
