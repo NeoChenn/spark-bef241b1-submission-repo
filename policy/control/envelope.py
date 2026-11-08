@@ -6,6 +6,9 @@ from policy.control.safety import FORCE_LIMIT_N, PERSON_MIN_M
 
 AGENT = "gemini"
 FUNCTIONS = ("queue_job", "cancel_job", "approve_request", "reprioritise", "read_fleet_state", "require_operator")
+ROBOT_FUNCTIONS = FUNCTIONS + ("hold_robot", "resume_robot")
+MOTOR_WORDS = ("motor", "joint", "torque", "velocity", "cmd_vel", "twist", "wheel", "servo", "pwm", "actuator")
+MOTOR_REFUSAL = "Argon never commands motors; it can only queue, cancel, reprioritise, hold or resume jobs"
 LEVELS = ("AUTO", "SUPV", "ASSIST", "HUMAN")
 SUPV_KINDS = {"paint", "rust_repair", "retorque", "valve_isolate", "touch_up", "spray"}
 SAFETY_KINDS = {"valve_isolate", "esd_hold", "evacuate", "gas_retreat", "gas_isolate"}
@@ -25,13 +28,15 @@ def _why(args) -> str:
 
 
 class Envelope:
-    def __init__(self, agent: str = AGENT):
-        self.agent = agent
+    def __init__(self, agent: str = AGENT, functions=FUNCTIONS):
+        self.agent, self.functions = agent, tuple(functions)
         self.reserved: set[str] = set()
 
     def _job_rules(self, kind: str, target: str, params: dict, state: dict) -> Optional[str]:
         k = kind.lower()
         keys = [str(x).lower() for x in params]
+        if any(w in k or any(w in x for x in keys) for w in MOTOR_WORDS):
+            return MOTOR_REFUSAL
         if "esd" in k or any("esd" in x for x in keys):
             return "an ESD can only be reset by a person on site"
         if "force" in k:
@@ -49,7 +54,9 @@ class Envelope:
         return None
 
     def check(self, port, name: str, args: dict) -> tuple[Optional[str], dict, str]:
-        if name not in FUNCTIONS:
+        if any(w in name.lower() for w in MOTOR_WORDS):
+            return f"{name!r} is not an allowed function: {MOTOR_REFUSAL}", args, ""
+        if name not in self.functions:
             return f"{name!r} is not an allowed function", args, ""
         if name == "read_fleet_state":
             return None, args, ""
@@ -58,6 +65,16 @@ class Envelope:
         state = port.fleet_state()
         if name == "require_operator":
             return (None, args, "") if isinstance(args.get("kind"), str) and args["kind"] else ("kind missing", args, "")
+        if name in ("hold_robot", "resume_robot"):
+            rid = str(args.get("robot") or "")
+            if rid not in {r["id"] for r in state.get("robots", [])}:
+                return f"unknown robot {rid!r}", args, ""
+            if name == "resume_robot" and rid in (state.get("person_pauses") or {}):
+                return f"{rid} is paused for a person within {PERSON_MIN_M:.0f} m; only the person moving away clears it", args, ""
+            esd = state.get("esd") or {}
+            if name == "resume_robot" and esd.get("active"):
+                return "an ESD is active; only a person on site can reset it", args, ""
+            return None, args, ""
         if name == "queue_job":
             kind, target = str(args.get("kind") or ""), str(args.get("target") or "")
             params = args.get("params") or {}
@@ -116,6 +133,12 @@ class Envelope:
             jid = port.queue(args["kind"], args["target"], args["level"], args.get("priority", 3), args["params"],
                              by=self.agent, why=why)
             out["result"] = {"job_id": jid, "status": port.job(jid)["status"]}
+        elif name in ("hold_robot", "resume_robot"):
+            fn = port.hold if name == "hold_robot" else port.resume
+            ok = fn(args["robot"], self.agent, why)
+            out["ok"], out["result"] = ok, {"robot": args["robot"], "done": ok}
+            if not ok:
+                out["refused"] = "coordinator rejected the call (robot not in a state that allows it)"
         elif name == "approve_request":
             port.log("approval_requested", args["job_id"], None, by=self.agent, why=why)
             out["result"] = {"job_id": args["job_id"], "status": port.job(args["job_id"])["status"]}

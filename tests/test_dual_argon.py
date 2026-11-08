@@ -109,3 +109,9 @@ def test_sensor_fault_raises_one_ticket_and_no_repair():
 def test_fixed_detector_reads_gas_model_in_lel_percent():
     d = FixedDetector("G-F1", "F1", (1.0, 0.0, 0.0))
     assert d.read(lambda p: 0.02 + 0.1 * float(np.linalg.norm(p))) == 12.0
+
+
+def test_detector_state_matches_gas_detector_models():
+    from integration.dual_argon import detector_state
+    from integration.gas_detectors import STATES
+    assert {detector_state(v) for v in (1.0, 6.0, 12.0)} | {detector_state(12.0, True)} == set(STATES)

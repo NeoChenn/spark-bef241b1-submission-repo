@@ -138,7 +138,7 @@ def merge(*snaps: Optional[SensorSnapshot]) -> SensorSnapshot:
         if s is None:
             continue
         out.t = max(out.t, s.t)
-        for attr in ("robots", "gas"):
+        for attr in ("robots", "gas", "fixed", "health"):
             cur = {x.id: x for x in getattr(out, attr)}
             for x in getattr(s, attr):
                 cur[x.id] = _merge_obj(cur[x.id], x) if x.id in cur else x
