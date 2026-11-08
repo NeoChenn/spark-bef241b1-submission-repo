@@ -133,17 +133,50 @@ def test_cut_link_edge_rule_makes_the_same_calls(tmp_path):
     assert b["6_link_cut"] is not None and b["3_dispatch_unit2"] and b["5_resume_rust"] and b["6_ticket"]
 
 
-def test_object_on_the_walkway_is_stopped_for_reported_and_cleared():
-    demo = FleetDemo("edge", None, drop_at=24.0)
-    s = demo.run()
-    rows = demo.timeline.rows
-    rep = [r for r in rows if r["type"] == "object_report"]
-    assert rep and rep[0]["robot"] == FIXER and rep[0]["object"] == "box"
-    assert any(r["type"] == "command" and r["kind"] in ("log_object", "reroute") for r in rows)
+DISTURB = ["6_object_dropped", "6_object_report", "6_object_decision", "6_object_cleared", "6_unit2_walks_on",
+           "6_push", "6_off_path", "6_recovered"]
+
+
+@pytest.fixture(scope="module")
+def disturbed():
+    demo = FleetDemo("edge", None, drop_at=30.0, push_at=37.5)
+    return demo, demo.run(), demo.timeline.rows
+
+
+def test_crate_and_push_variant_still_finishes_with_every_beat(disturbed):
+    demo, s, rows = disturbed
+    b = s["beats"]
+    assert not [k for k in ORDER + DISTURB if b[k] is None]
+    assert [b[k] for k in ORDER] == sorted(b[k] for k in ORDER)
+    assert [b[k] for k in DISTURB] == sorted(b[k] for k in DISTURB)
+    assert b["3_dispatch_unit2"] < b["6_object_dropped"] < b["4_unit2_sniffs"] and b["6_recovered"] < b["4_retorque"]
+    assert s["t_end"] < 95.0
+    last = ticks(rows)[-1]
+    assert last["robots"][SCRUBBER]["state"] == "DONE" and last["robots"][FIXER]["state"] == "DOCKED"
+
+
+def test_crate_is_logged_for_isaac_and_unit2_stops_short_of_it(disturbed):
+    _, s, rows = disturbed
+    drop = next(r for r in rows if r["type"] == "scenario" and r.get("name") == "object_dropped")
+    clear = next(r for r in rows if r["type"] == "scenario" and r.get("name") == "object_cleared")
+    assert drop["size_m"] == [0.5, 0.5, 0.5] and len(drop["xyz"]) == 3 and clear["t_clear"] > drop["t_drop"]
+    rep = next(r for r in rows if r["type"] == "object_report")
+    assert rep["robot"] == FIXER and rep["object"] == "box" and 0.5 <= rep["dist_m"] <= 1.6
     stopped = [r for r in ticks(rows) if r["robots"][FIXER]["nav"]["state"] in ("REPORT", "STOP_OBJECT")]
     xy = [r["robots"][FIXER]["pose"][:2] for r in stopped]
     assert stopped and max(abs(p[0] - xy[0][0]) + abs(p[1] - xy[0][1]) for p in xy) < 0.4
-    assert s["beats"]["6_ticket"] is not None and s["beats"]["5_unit2_docked"] is not None
+    assert any(r["type"] == "command" and r.get("finding") == "OBJECT_ON_WALKWAY" for r in rows)
+
+
+def test_push_shoves_unit2_off_its_path_and_it_recovers(disturbed):
+    _, s, rows = disturbed
+    push = next(r for r in rows if r["type"] == "scenario" and r.get("name") == "push")
+    assert abs((push["dxy"][0] ** 2 + push["dxy"][1] ** 2) ** 0.5 - 0.4) < 0.01
+    lat = [abs(r["robots"][FIXER]["nav"].get("lateral_m") or 0.0) for r in ticks(rows)
+           if push["t"] <= r["t"] <= s["beats"]["6_recovered"]]
+    assert max(lat) >= 0.35
+    rec = next(r for r in rows if r["type"] == "nav_event" and r.get("event") == "recovered" and r["t"] > push["t"])
+    assert abs(rec["lateral_m"]) < 0.15
 
 
 @pytest.mark.skipif(not SAMPLE.exists(), reason="no recorded live timeline")

@@ -26,6 +26,10 @@ LIDAR_RANGE, BEAMS = 4.0, 72
 V_MIN, W_MAX = -0.3, 1.5
 U1_SPAWN = np.array([18.26, -5.25])
 LEAK, STUCK = "F5", "G-F6"
+CRATE_M = 0.5
+CRATE_AHEAD_M = 2.6
+CRATE_HOLD_S = 3.0
+PUSH_M = 0.4
 NAMES = {SCRUBBER: "Unit 1 · Scrubber", FIXER: "Unit 2 · Fixer"}
 TONE_STATE = {"SNIFF": "LEAK_APPROACH", "INSPECT": "LEAK_INSPECT", "VERIFY": "LEAK_VERIFY", "RETURN": "TO_DOCK",
               "RETREAT": "GAS_RETREAT", "ESCALATE": "ESCALATE_TO_HUMAN"}
@@ -366,11 +370,20 @@ class Body:
     def nav_state(self) -> str:
         return "HOP" if self.fleet and self.hop and not self.arrived else self.state
 
-    def push(self, t: float) -> None:
+    def push(self, t: float, offset_m: float = PUSH_M) -> list:
+        side = np.array([-math.sin(self.yaw), math.cos(self.yaw)])
         if self.fleet:
-            self.w.base.push(0.0, 2.0)
+            v = side * offset_m / (0.1 / (1.0 - 0.8))
+            self.w.base.push(float(v[0]), float(v[1]))
         else:
-            self.nav.push(t)
+            self.nav.push(t, tuple(side * offset_m), 0.3)
+        return [round(float(c), 3) for c in side * offset_m]
+
+    def ahead(self, dist: float) -> np.ndarray:
+        if self.fleet and self.w.nav.ctl is not None:
+            c = self.w.nav.ctl
+            return np.asarray(c.P[min(c.progress_idx + int(round(dist / c.ds)), c.M - 1)], float)
+        return self.xy + dist * unit(self.goal - self.xy)
 
     @property
     def events(self) -> list[dict]:
@@ -387,7 +400,12 @@ class Body:
                                                        "cleared")]
 
     def status(self) -> dict:
-        return {"vx": round(self.v, 3), "wz": round(self.wz, 3), "lidar_min": self.lidar_min, "state": self.nav_state}
+        out = {"vx": round(self.v, 3), "wz": round(self.wz, 3), "lidar_min": self.lidar_min, "state": self.nav_state}
+        c = self.w.nav.ctl if self.fleet and not self.arrived and not self.hop else None
+        if c is not None and c.idx is not None:
+            i = c.progress_idx
+            out["lateral_m"] = round(float(((self.xy - c.P[i]) * c.nrm[i]).sum()), 3)
+        return out
 
 
 DWELL = {"DETECT": 0.5, "APPROACH": 1.5, "SPRAY": 3.0, "VERIFY": 1.5, "PAINT": 4.0, "VERIFY_PAINT": 1.0}
@@ -580,6 +598,7 @@ class FleetDemo:
         self.last_states: dict = {}
         self.dropped = self.pushed = False
         self.clear_at: Optional[float] = None
+        self.crate: Optional[dict] = None
         self.resume_at: dict = {}
         self.surface_key = ""
 
@@ -644,24 +663,31 @@ class FleetDemo:
         moving = not body.arrived and float(np.linalg.norm(body.goal - body.xy)) > 3.0
         if self.drop_at is not None and not self.dropped and self.t >= self.drop_at and moving:
             self.dropped = True
-            h = unit(body.goal - body.xy)
-            c = body.xy + 1.8 * h
+            c = body.ahead(CRATE_AHEAD_M)
+            r = CRATE_M / 2
             if body.fleet:
-                self.deck.add_box("box", c[0] - 0.2, c[0] + 0.2, c[1] - 0.2, c[1] + 0.2, 0.0, 0.5)
+                self.deck.add_box("box", c[0] - r, c[0] + r, c[1] - r, c[1] + r, 0.0, CRATE_M)
             else:
-                body.nav.deck.drop("box", c)
-            self.timeline.log("scenario", self.t, name="object_dropped", object="box",
-                              xy=[round(float(v), 2) for v in c], robot=FIXER)
-        if self.push_at is not None and not self.pushed and self.t >= self.push_at and moving:
+                body.nav.deck.drop("box", c, r)
+            self.crate = {"object": "box", "kind": "crate", "xyz": [round(float(c[0]), 3), round(float(c[1]), 3), DECK_Z],
+                          "size_m": [CRATE_M, CRATE_M, CRATE_M], "yaw": 0.0, "t_drop": self.t, "t_clear": None}
+            self.timeline.log("scenario", self.t, name="object_dropped", robot=FIXER, **self.crate)
+        walking = not body.arrived and float(np.linalg.norm(body.goal - body.xy)) > 1.5 \
+            and body.state in ("FOLLOW", "DRIVE") and self.clear_at is None
+        if self.push_at is not None and not self.pushed and self.t >= self.push_at and walking:
             self.pushed = True
-            body.push(self.t)
-            self.timeline.log("scenario", self.t, name="push", robot=FIXER)
+            lat = body.status().get("lateral_m") or 0.0
+            dxy = body.push(self.t, PUSH_M if lat >= 0 else -PUSH_M)
+            self.timeline.log("scenario", self.t, name="push", robot=FIXER, offset_m=PUSH_M, dxy=dxy,
+                              lateral_before_m=lat, pose=[round(v, 3) for v in body.pose])
         if self.clear_at is not None and self.t >= self.clear_at:
             self.clear_at = None
             if self.deck is not None:
                 self.deck.remove("box")
             self.fallback.objects.pop("box", None)
-            self.timeline.log("scenario", self.t, name="object_cleared", object="box", robot=FIXER)
+            if self.crate is not None:
+                self.crate["t_clear"] = self.t
+            self.timeline.log("scenario", self.t, name="object_cleared", robot=FIXER, **(self.crate or {"object": "box"}))
         for u in self.units.values():
             body, rid = u.body, u.body.unit
             for ev in body.drain():
@@ -678,11 +704,12 @@ class FleetDemo:
                     body.nav.detour(xy)
                     why, cmd = "object on the walkway: logged for the crew, detour around it", "reroute"
                 elif real:
-                    self.clear_at = self.t + 3.0
-                    why, cmd = "object on the walkway: logged for the crew, hold until it is cleared", "log_object"
+                    self.clear_at = self.t + CRATE_HOLD_S
+                    why, cmd = (f"crate on the walkway {ev.get('ahead_m', 0):.1f} m ahead of unit2: stop, report, "
+                                f"hold for the deck crew to clear it"), "hold_for_crew"
                 else:
                     why, cmd = "walkway report with nothing dropped there: logged, resume the leg", "resume_nav"
-                self.resume_at[rid] = self.t + (1.0 if cmd == "resume_nav" else 4.0)
+                self.resume_at[rid] = self.t + (1.0 if cmd == "resume_nav" else CRATE_HOLD_S + 1.0)
                 self.timeline.log("command", self.t, kind=cmd, robot=rid, target="box" if real else "walkway",
                                   source="edge", reason=why, confidence=1.0, finding="OBJECT_ON_WALKWAY")
             due = self.resume_at.get(rid)
@@ -890,7 +917,17 @@ def beats(rows: list[dict]) -> dict:
     at("6_inbox", lambda r: r["type"] == "inbox" and r.get("sensor") == STUCK, "6_ticket")
     at("6_no_repair_at_f6", lambda r: False)
     b["6_no_repair_at_f6"] = None if any(_cmd(FIX_LEAK, None, STUCK[2:])(r) for r in rows) else b["6_ticket"]
-    at("6_object_report", lambda r: r["type"] == "object_report")
+    at("6_object_dropped", lambda r: r["type"] == "scenario" and r.get("name") == "object_dropped")
+    at("6_object_report", lambda r: r["type"] == "object_report", "6_object_dropped")
+    at("6_object_decision", lambda r: r["type"] == "command" and r.get("finding") == "OBJECT_ON_WALKWAY",
+       "6_object_report")
+    at("6_object_cleared", lambda r: r["type"] == "scenario" and r.get("name") == "object_cleared", "6_object_report")
+    at("6_unit2_walks_on", lambda r: r["type"] == "nav_event" and r.get("event") == "cleared", "6_object_cleared")
+    at("6_push", lambda r: r["type"] == "scenario" and r.get("name") == "push")
+    at("6_off_path", lambda r: r["type"] == "tick" and abs(r["robots"][FIXER]["nav"].get("lateral_m") or 0.0) >= 0.25
+       and r["t"] <= (b["6_push"] or 0) + 3.0, "6_push")
+    at("6_recovered", lambda r: r["type"] == "nav_event" and r.get("event") == "recovered" and r["robot"] == FIXER,
+       "6_off_path")
     at("6_link_cut", lambda r: r["type"] == "link_cut")
     return b
 
