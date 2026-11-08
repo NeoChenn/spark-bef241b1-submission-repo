@@ -290,3 +290,17 @@ def test_edge_veto_still_blocks_a_late_resume_while_spark_is_hot():
     link.held, link.spark = True, ["G-F5"]
     assert link._issue(0.0, [command(RESUME_RUST, "", "argon", "x")]) == [] and link.held
     assert any(r["type"] == "vetoed" for r in link.timeline.rows)
+
+
+def test_argon_dispatch_survives_and_its_premature_resume_is_logged_as_vetoed():
+    reply = {"verdict": "UNVERIFIED", "situation": "s", "commands": [
+        {"command": "go_check", "robot": "unit2", "target": "F2", "confidence": 0.9, "rationale": "r"},
+        {"command": "resume_rust", "robot": "unit1", "target": "", "confidence": 0.9, "rationale": "r"}]}
+    link = ArgonLink("live", Timeline(None), SlowCaller(reply, 100.0))
+    d = det(0.15)
+    fd = fuse(d, 2.0, 4.0, robot=SCRUBBER)
+    link.tick(0.0, [fd], {}, [d], ids_for([d]), wait=True)
+    link.wait_idle()
+    out = link.tick(1.0, [fd], {}, [d], ids_for([d]))
+    assert ("go_check", "argon") in [(c.kind, c.source) for c in out] and RESUME_RUST not in [c.kind for c in out]
+    assert [r["why"] for r in link.timeline.rows if r["type"] == "vetoed"] == ["resume refused: leak open at F2"]

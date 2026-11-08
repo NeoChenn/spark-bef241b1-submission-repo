@@ -141,6 +141,12 @@ def _why(s: str) -> str:
     return s if len(s) <= WHY_MAX else s[:WHY_MAX - 1].rstrip() + "…"
 
 
+class Commands(list):
+    def __init__(self, *a):
+        super().__init__(*a)
+        self.vetoed: list[dict] = []
+
+
 def parse_reply(text: str, fd, ids: set) -> list:
     from integration.dual_argon import Command
 
@@ -153,7 +159,7 @@ def parse_reply(text: str, fd, ids: set) -> list:
     verdict = fd.kind if fd is not None else str(d.get("verdict") or "OK")
     hazard = bool(fd is not None and fd.hazard)
     flanges = {fd.flange} if fd is not None else set()
-    out = []
+    out = Commands()
     for c in d["commands"]:
         if not isinstance(c, dict):
             raise ValueError("command is not an object")
@@ -165,8 +171,10 @@ def parse_reply(text: str, fd, ids: set) -> list:
             raise ValueError(f"{kind} cannot go to {robot!r}")
         if kind in FLANGE_TARGET + (LOG_SENSOR_FAULT,) and target not in ids:
             raise ValueError(f"unknown target {target!r}")
-        if kind == RESUME_RUST and fd is not None and fd.kind in OPEN_LEAK:
-            raise ValueError(f"resume_rust refused while {fd.sensor} is {fd.kind}")
+        if kind == RESUME_RUST and fd is not None and fd.kind in OPEN_LEAK and not hazard:
+            out.vetoed.append({"kind": kind, "robot": robot, "target": target, "source": "argon",
+                               "finding": fd.kind, "why": f"resume refused: leak open at {fd.flange}"})
+            continue
         if hazard and kind in (FIX_LEAK, GO_CHECK, RESUME_RUST):
             raise ValueError(f"{kind} refused: reading at or above {STOP_LEL:.0f} %LEL")
         if fd is not None and fd.kind == "PIPE_SENSOR_FAULT" and not hazard and kind == FIX_LEAK \
@@ -179,4 +187,6 @@ def parse_reply(text: str, fd, ids: set) -> list:
     if hazard and not any(c.kind == RETREAT for c in out) and fd.robot and fd.robot_dist is not None \
             and fd.robot_dist <= NEAR_M:
         raise ValueError("hazard reading without a retreat")
+    if not out and out.vetoed:
+        raise ValueError(out.vetoed[0]["why"])
     return out

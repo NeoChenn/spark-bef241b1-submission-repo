@@ -539,6 +539,8 @@ class ArgonLink:
         self.status = "ok"
         rec["commands"] = [c.to_dict() for c in cmds]
         rec["advisory"] = p.advisory
+        for v in getattr(cmds, "vetoed", []):
+            self.timeline.log("vetoed", t, **v)
         self.calls.append(rec)
         self.timeline.log("argon_call", t, **rec)
         if p.advisory or (p.finding is not None and self.verdict.get(p.finding.sensor) != p.finding.kind):
