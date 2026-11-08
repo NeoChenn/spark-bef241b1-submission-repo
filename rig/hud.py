@@ -111,6 +111,8 @@ class HudFeed:
             "soak": {"left": round(max(0.0, o.soak_until - o.t), 2), "total": float(o.cfg.soak_s)}
             if o.state.value == "SOAK" else None,
         }
+        if hasattr(o, "gas_telemetry"):
+            out["gas"] = o.gas_telemetry()
         rob = self.robot(out)
         out["caption"] = rob["caption"]
         out["robots"] = [rob] + [p.robot() for p in self.peers]
