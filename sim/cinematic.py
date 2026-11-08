@@ -466,9 +466,9 @@ def relight(stage) -> None:
 def apply_preset(stage, name: str) -> None:
     preset = PRESETS[name]
     photoreal.apply(stage, name)
+    greebles.apply(stage)
     structure.apply(stage, name)
     hero_mat.apply(stage, name)
-    greebles.apply(stage)
     relight(stage)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))
