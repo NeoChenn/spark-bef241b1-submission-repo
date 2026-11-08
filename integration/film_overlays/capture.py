@@ -25,6 +25,8 @@ NOTE = ("scrubber", ("resume_rust",), 'Leak fixed → <i class="dot u1"></i>Unit
 DEFAULT_RUN = REPO / "runs_sample/film"
 SCRUB_TRACK = "scrub_track.json"
 SCRUB_HZ = 15
+FORCE_AVG_S = 0.5
+AVG_HZ = 50
 FALLBACK_RUN = REPO / "runs_sample/fleet_demo"
 
 
@@ -220,9 +222,15 @@ def readout_data(R: dict, stub: dict, mode: str, sim_span, span: float) -> dict:
         n = max(2, int((s1 - s0) * SCRUB_HZ) + 1)
         for i in range(n):
             sim = s0 + (s1 - s0) * i / (n - 1)
-            frac, force = scrub[1](sim)
-            out["series"].append([_u(kn, sim), round(frac, 4)])
-            out["force"].append([_u(kn, sim), round(force, 2)])
+            out["series"].append([_u(kn, sim), round(scrub[1](sim)[0], 4)])
+            fs = [scrub[1](sim - k / AVG_HZ)[1] for k in range(int(FORCE_AVG_S * AVG_HZ))]
+            out["force"].append([_u(kn, sim), round(sum(fs) / len(fs), 2)])
+    elif out["force"]:
+        sims = [float(h["t"]) for h in hs if h.get(KEYS["force"]) is not None]
+        raw = [v for _, v in out["force"]]
+        out["force"] = [[u, round(sum(w) / len(w), 2)] for (u, _), w in
+                        ((p, [raw[j] for j in range(len(raw)) if sims[i] - FORCE_AVG_S < sims[j] <= sims[i]]) for i, p in enumerate(out["force"]))]
+    out["force_avg_s"] = FORCE_AVG_S
     return out
 
 
