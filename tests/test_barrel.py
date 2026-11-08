@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from policy.fleet import barrel
-from policy.fleet.hazards import seg_dist
+from policy.fleet.hazards import seg_dist, weather_state
 from policy.fleet.live import FleetLive
 from policy.fleet.rigmap import load_rig_map
 from rig.web.server import create_app
@@ -209,6 +209,29 @@ def test_weather_carries_time_of_day():
     with pytest.raises(ValueError):
         check_event({"name": "set_weather", "args": {"level": "rain", "time": "noon"}})
     assert check_event({"name": "drop_can", "args": {"size": "small"}})["name"] == "drop_can"
+
+
+def test_large_can_into_the_hero_bay_blocks_the_walkway_then_rolls_clear():
+    f, rm = walking_r1()
+    f.event("drop_obstacle", kind="barrel", at="spur_hero_bay")
+    ob = next(o for o in f.hz.obstacles.values() if o["kind"] == "barrel")
+    assert ob["xyz"][:2] == pytest.approx([18.5, -4.8], abs=0.05) and ob["v"] != 0
+    w5 = {(a, b) for a, b, e in rm.edges() if e.kind == "walk" and seg_dist(ob["xyz"], rm.pos[a], rm.pos[b]) < 0.5}
+    assert w5 and w5 <= set(rm.closed)
+    for _ in range(60):
+        f.roll(0.25)
+    assert not ob["rolling"] and ob["xyz"][1] < -6.0 and not (w5 & set(rm.closed))
+
+
+def test_rain_and_fog_together_slow_and_blind_the_planner():
+    f, rm = walking_r1()
+    f.event("set_weather", level="rain", time="dusk", rain=1.0, fog=1.0)
+    w = f.hz.weather
+    assert w["level"] == "rain" and w["label"] == "rain+fog" and w["wet"] == 1.0 and w["fog"] == 1.0
+    assert w["perception_range_m"] < weather_state("rain")["perception_range_m"]
+    assert "rain+fog at dusk" in f.event_log[-1]["message"]
+    f.event("set_weather", level="calm", rain=0, fog=0)
+    assert f.hz.weather["label"] == "calm" and f.hz.weather["time"] == "dusk"
 
 
 def test_drum_pose_extrapolates_spins_and_faces_its_motion():

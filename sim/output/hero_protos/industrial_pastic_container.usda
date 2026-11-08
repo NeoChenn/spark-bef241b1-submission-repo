@@ -1,0 +1,67 @@
+#usda 1.0
+(
+    defaultPrim = "proto"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "proto"
+{
+    def Xform "geo" (
+        prepend references = @../../assets/third_party/models/industrial_pastic_container/industrial_pastic_container_2k.usdc@
+    )
+    {
+        double3 xformOp:translate = (-0.0006925203762316728, -0.0005103424273158463, -0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+
+        over "_materials"
+        {
+            over "industrial_pastic_container"
+            {
+                over "Image_Texture"
+                {
+                    asset inputs:file = @../../assets/third_party/models/industrial_pastic_container/textures/industrial_pastic_container_diff_2k.jpg@
+                }
+
+                over "Image_Texture_001"
+                {
+                    asset inputs:file = @../../assets/third_party/models/industrial_pastic_container/textures/industrial_pastic_container_metal_2k.exr@
+                }
+
+                over "Image_Texture_002"
+                {
+                    asset inputs:file = @../../assets/third_party/models/industrial_pastic_container/textures/industrial_pastic_container_rough_2k.exr@
+                }
+
+                over "Image_Texture_003"
+                {
+                    asset inputs:file = @../../assets/third_party/models/industrial_pastic_container/textures/industrial_pastic_container_nor_gl_2k.exr@
+                }
+
+                over "NodeGraphs"
+                {
+                    over "bnode__Image_Texture_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/industrial_pastic_container/textures/industrial_pastic_container_diff_2k.jpg@
+                    }
+
+                    over "bnode__Image_Texture_001_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/industrial_pastic_container/textures/industrial_pastic_container_metal_2k.exr@
+                    }
+
+                    over "bnode__Image_Texture_002_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/industrial_pastic_container/textures/industrial_pastic_container_rough_2k.exr@
+                    }
+
+                    over "bnode__Image_Texture_003_Color"
+                    {
+                        asset inputs:file = @../../assets/third_party/models/industrial_pastic_container/textures/industrial_pastic_container_nor_gl_2k.exr@
+                    }
+                }
+            }
+        }
+    }
+}
+

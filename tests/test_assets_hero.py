@@ -16,7 +16,7 @@ def test_layout_keeps_work_zone_route_and_eyes_clear():
 def test_every_asset_resolves_locally_or_has_remote_bounds():
     bounds = {**json.loads((ASSETS / "nv_bounds.json").read_text()), **json.loads((ASSETS / "hero_bounds.json").read_text())}
     manifest = {a["id"] for a in json.loads((ASSETS / "manifest.json").read_text())["assets"]}
-    for asset, *_ in ah.PLACE + ah.WALL + ah.HUNG + ah.REPAIR_BG:
+    for asset, *_ in ah.PLACE + ah.WALL + ah.HUNG + ah.REPAIR_BG + ah.DENSE + ah.DENSE_OFFLINE:
         assert asset in manifest
         if asset.startswith("nv_"):
             assert asset in bounds
@@ -84,3 +84,28 @@ def test_repair_background_clears_arm_reach_and_zoom_camera():
             eye, target, _ = zoom.at(t)
             eye, target = np.array(eye), np.array(target)
             assert min(dist(eye + (target - eye) * s, box) for s in np.linspace(0, 1, 60)) > 0.5
+
+
+def test_dense_props_keep_the_zoom_line_of_sight_clear():
+    import numpy as np
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    import build_assets_hero as b
+    from rig.sim.zoom import ZoomPath
+
+    meta = json.loads((ASSETS.parent / "output" / "rig_merged_meta.json").read_text())
+    close = np.array(meta["zoom"]["close_target"])
+    zoom = ZoomPath(wide_target=tuple(meta["zoom"]["wide_target"]), close_target=tuple(close))
+    boxes = []
+    for asset, x, y, _, lift in ah.DENSE + ah.DENSE_OFFLINE:
+        _, lo, hi = b.source(asset)
+        top = ah.DECK + lift + (hi[2] - lo[2]) * ah.DENSE_SCALE.get(asset, 1.0)
+        boxes.append((np.array([x - 0.6, y - 0.6, ah.DECK]), np.array([x + 0.6, y + 0.6, top + 0.3])))
+    for t in np.arange(0, zoom.period, 0.25):
+        eye, target, _ = zoom.at(t)
+        eye, target = np.array(eye), np.array(target)
+        if np.linalg.norm(target - close) > 3.0:
+            continue
+        line = eye + (target - eye) * np.linspace(0, 1, 400)[:, None]
+        for lo, hi in boxes:
+            assert np.linalg.norm(np.maximum(0, np.maximum(lo - line, line - hi)), axis=1).min() > 0.0

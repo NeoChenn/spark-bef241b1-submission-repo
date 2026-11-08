@@ -262,3 +262,9 @@ def test_route_rounds_corners():
     turn = np.degrees(np.arccos(np.clip((seg[1:] * seg[:-1]).sum(1), -1, 1)))
     assert turn.max() < 30.0
     assert np.linalg.norm(r - (0, 0, 2), axis=1).min() > 0.1
+
+
+def test_stations_along_spacing():
+    s = sg.stations_along((0.0, -36.9), (24.0, -36.9), 3.0)
+    assert len(s["points"]) == 9 and np.allclose(s["dir"], (1, 0)) and np.allclose(s["normal"], (0, 1))
+    assert math.isclose(s["angle"], 0.0) and math.isclose(s["length"], 24.0)

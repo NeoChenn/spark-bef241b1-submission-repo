@@ -2270,6 +2270,50 @@
       "path": "models/fuel_gate_valve",
       "category": "valves",
       "note": "riser with gate valve and handwheel, DAE converted with sim/tools/mesh_usd.py"
+    },
+    {
+      "id": "fuel_steel_drum",
+      "kind": "model",
+      "source": "gazebo-fuel",
+      "url": "https://app.gazebosim.org/OpenRobotics/fuel/models/55gal_Drum",
+      "licence": "CC-BY-4.0 (OpenRobotics, Gazebo Fuel)",
+      "resolution": "1k",
+      "path": "models/fuel_steel_drum",
+      "category": "drums",
+      "note": "55 gal steel drum, GLB converted with sim/tools/mesh_usd.py"
+    },
+    {
+      "id": "fuel_euro_pallet",
+      "kind": "model",
+      "source": "gazebo-fuel",
+      "url": "https://app.gazebosim.org/jfrascon/fuel/models/Euro%20pallet",
+      "licence": "CC-BY-4.0 (jfrascon, Gazebo Fuel)",
+      "resolution": "1k",
+      "path": "models/fuel_euro_pallet",
+      "category": "pallets",
+      "note": "EUR pallet, DAE converted with sim/tools/mesh_usd.py"
+    },
+    {
+      "id": "fuel_fire_hydrant",
+      "kind": "model",
+      "source": "gazebo-fuel",
+      "url": "https://app.gazebosim.org/OpenRobotics/fuel/models/Fire%20hydrant",
+      "licence": "CC0-1.0 (OpenRobotics, Gazebo Fuel)",
+      "resolution": "1k",
+      "path": "models/fuel_fire_hydrant",
+      "category": "fire",
+      "note": "fire hydrant used as a deck fire-water monitor stand, DAE converted with sim/tools/mesh_usd.py"
+    },
+    {
+      "id": "fuel_extinguisher_cabinet",
+      "kind": "model",
+      "source": "gazebo-fuel",
+      "url": "https://app.gazebosim.org/OpenRobotics/fuel/models/Extinguisher%20cabinet",
+      "licence": "CC-BY-4.0 (OpenRobotics, Gazebo Fuel)",
+      "resolution": "1k",
+      "path": "models/fuel_extinguisher_cabinet",
+      "category": "fire",
+      "note": "extinguisher cabinet, OBJ converted with sim/tools/mesh_usd.py"
     }
   ]
 }

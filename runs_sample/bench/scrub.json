@@ -235,8 +235,8 @@
      "wall_s": 7.4
     },
     "Gemini controller": {
-     "status": "not run - needs GEMINI_API_KEY",
-     "model_wanted": "gemini-4-argon"
+     "status": "run, n=30: see scrub_gemini.json",
+     "file": "scrub_gemini.json"
     }
    }
   },
@@ -474,8 +474,7 @@
      "wall_s": 7.2
     },
     "Gemini controller": {
-     "status": "not run - needs GEMINI_API_KEY",
-     "model_wanted": "gemini-4-argon"
+     "status": "train preset only: see scrub_gemini.json"
     }
    }
   }

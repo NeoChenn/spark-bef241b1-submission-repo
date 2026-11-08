@@ -16,6 +16,7 @@ STANDOFF_M = 0.85
 SPEED = {"walk": 1.0, "catwalk": 0.7, "spur": 0.5, "stairs": 0.45}
 DOCK_XY = (-12.0, 9.4)
 DOCK_PADS = 2
+HERO_BAY = ("hero_bay", (18.5, -4.5), (18.5, -7.1))
 
 MIDDLE_LOOP = [(-21, -6), (0, -6), (22, -6), (22, 2), (22, 14), (0, 14), (-21, 14), (-21, 0), (-21, -6)]
 LOWER_LOOP = [(-18, -4), (1, -4), (20, -4), (20, 12), (1, 12), (-18, 12), (-18, 5), (-18, -4)]
@@ -105,6 +106,14 @@ class RigMap:
                     continue
                 seen.add(frozenset((p0, p1)))
                 self.edge(deck, p0, deck, p1, kind, corridor)
+
+    def add_bay(self, pid: str, a_xy, b_xy, deck: str = "top_deck") -> None:
+        j = self.add_poi(f"{pid}_mouth", [a_xy[0], a_xy[1], DECKS[deck]], deck, standoff=0.0)
+        n = self.node(deck, b_xy)
+        self.coarse.append({"id": f"spur_{pid}", "a": self.pos[j].round(3).tolist(), "b": self.pos[n].round(3).tolist(),
+                            "kind": "spur", "narrow": True, "corridor": f"spur_{pid}", "deck": deck})
+        self._link(j, n, "spur", f"spur_{pid}")
+        self.poi_node[pid] = n
 
     def deck_of(self, z: float) -> str:
         return min((d for d in DECKS if DECKS[d] <= z + 0.5), key=lambda d: z - DECKS[d])
@@ -266,4 +275,5 @@ def load_rig_map(rig_meta: str = RIG_META, flange_meta: str = FLANGE_META) -> Ri
         if p["type"] == "gauge":
             rm.add_poi(p["id"], p["position_m"], "top_deck")
     rm.dock = rm.add_poi("dock", [*DOCK_XY, DECKS["top_deck"]], "top_deck", standoff=0.0)
+    rm.add_bay(*HERO_BAY)
     return rm

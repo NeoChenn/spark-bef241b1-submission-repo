@@ -19,7 +19,7 @@ def baked(scene):
         if not isinstance(mesh, trimesh.Trimesh) or len(mesh.faces) == 0:
             continue
         mesh.apply_transform(matrix)
-        out.append((re.sub(r"\W", "_", node) or "mesh", mesh))
+        out.append(("m_" + re.sub(r"\W", "_", node), mesh))
     return out
 
 
