@@ -340,6 +340,7 @@
     R.push({ g: "Views", id: "strip", label: "Sensor strip", sub: "Readings along the bottom", key: "S", on: S.strip, run: () => (S.strip = !S.strip) });
     R.push({ g: "Views", id: "gemini", label: "Gemini 4 Argon", sub: "Thoughts, calls and refusals", key: "G", on: S.g, run: () => (S.g = !S.g) });
     const ds = Array.isArray(s?.disturbances) ? s.disturbances : [];
+    R.push({ g: "Disturbances", id: "drop.can", label: "Drop can in view", sub: "Small can where the camera looks; nearest gripper picks it up", key: "", run: () => post("drop_can", { size: "small", at: "view" }) });
     ds.forEach((d, i) => R.push({ g: "Disturbances", id: "dist." + (d.id || i), label: d.name || nice(d.id), sub: d.fired ? "Fired" : i === s.next ? "Next" : "Later", key: i === s.next ? "I" : d.fired ? "✓" : "", tag: i === s.next, dis: i !== s.next, run: disturb }));
     if (s && !ds.length) R.push({ g: "Disturbances", id: "dist.next", label: "Next disturbance", sub: s.name || s.id, key: "I", run: disturb });
     R.push({ g: "Help", id: "help", label: "Keyboard shortcuts", sub: "Every key on one card", key: "?", run: () => (S.help = true) });

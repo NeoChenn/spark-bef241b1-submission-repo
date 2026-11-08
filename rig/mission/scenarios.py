@@ -599,10 +599,13 @@ class Scenarios:
             out["rust"], out["weld"], out["deck"] = rust, list(s.seam[1]), rust
         return {**CAM_DEFAULTS, **out}
 
+    def view_at(self) -> list:
+        return list(getattr(self, "cam_at", None) or self.targets()["deck"])
+
     def set_camera(self, args: dict) -> dict:
         mode, view = args.get("mode"), args.get("view")
         if mode in ("flyby", "rig"):
-            self.camera = {"mode": mode, "robot": None, "view": None}
+            self.camera, self.cam_at = {"mode": mode, "robot": None, "view": None}, None
             return {"camera": self.camera}
         tg = self.targets()
         key = "deck" if mode == "deck" else "obstacle" if mode == "obstacle" else view
@@ -611,6 +614,7 @@ class Scenarios:
             raise ValueError(f"no {key or mode} view here; have {sorted(tg)}")
         cam = "zoom" if mode == "zoom" else mode
         self.camera = {"mode": cam, "robot": None, "view": key if cam == "zoom" else None}
+        self.cam_at = list(at)
         self.m.sim_out.append({"name": "camera", "args": {"mode": cam, "at": at, "view": self.camera["view"]}})
         return {"camera": self.camera, "views": [k for k in ("rust", "can", "flange", "weld") if k in tg]}
 

@@ -410,6 +410,11 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             ev = check_event(body)
         except ValueError as e:
             raise HTTPException(400, str(e))
+        if ev["name"] == "drop_can" and ev["args"].get("at") == "view":
+            scen = getattr(mission, "scen", None)
+            ev["args"] = {k: v for k, v in ev["args"].items() if k != "at"}
+            if scen is not None:
+                ev["args"]["at"] = scen.view_at()
         out = {}
         if mission is not None:
             try:

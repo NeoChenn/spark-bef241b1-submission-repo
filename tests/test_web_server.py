@@ -32,3 +32,15 @@ def test_camera_works_without_a_scenario():
         _t.sleep(1.05)
         r = c.post("/api/event", json={"name": "camera", "args": {"mode": "zoom", "view": "rust"}})
         assert r.status_code == 200, r.text
+
+
+def test_drop_can_in_view_lands_at_the_camera_target():
+    from fastapi.testclient import TestClient
+    from rig.web.server import create_app, default_fleet
+    import time as _t
+    with TestClient(create_app(sim_port=0, fleet=default_fleet())) as c:
+        assert c.post("/api/event", json={"name": "camera", "args": {"mode": "deck"}}).status_code == 200
+        _t.sleep(1.05)
+        r = c.post("/api/event", json={"name": "drop_can", "args": {"size": "small", "at": "view"}})
+        assert r.status_code == 200, r.text
+        assert "queued for the nearest gripper" in r.text
