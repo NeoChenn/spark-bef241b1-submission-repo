@@ -351,6 +351,27 @@ def stair(b):
                 b.beam("yellow", p, q, 0.05, 0.05)
 
 
+LEDGE_MESH = "/World/Rig/legs_and_lower_deck_frame"
+LEDGE_BOX = ((-25.5, -45.0, 30.0), (0.5, -37.6, 41.5))
+
+
+def drop_ledges(stage):
+    rig = Usd.Stage.Open(str(pr.OUTPUT / "full_rig.usda"))
+    mesh = UsdGeom.Mesh(rig.GetPrimAtPath(LEDGE_MESH))
+    pts = np.array(mesh.GetPointsAttr().Get())
+    idx = np.array(mesh.GetFaceVertexIndicesAttr().Get()).reshape(-1, 3)
+    keep = ~fl.inside_box(pts[idx].mean(1), *LEDGE_BOX)
+    nrm = np.array(mesh.GetNormalsAttr().Get()).reshape(-1, 3, 3)[keep].reshape(-1, 3)
+    st = np.array(UsdGeom.PrimvarsAPI(mesh).GetPrimvar("st").Get()).reshape(-1, 3, 2)[keep].reshape(-1, 2)
+    over = UsdGeom.Mesh(stage.OverridePrim(LEDGE_MESH))
+    over.CreateFaceVertexCountsAttr(Vt.IntArray([3] * int(keep.sum())))
+    over.CreateFaceVertexIndicesAttr(Vt.IntArray.FromNumpy(idx[keep].reshape(-1).astype(np.int32)))
+    over.CreateNormalsAttr(Vt.Vec3fArray.FromNumpy(nrm.astype(np.float32)))
+    UsdGeom.PrimvarsAPI(over).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.faceVarying).Set(
+        Vt.Vec2fArray.FromNumpy(st.astype(np.float32)))
+    return int((~keep).sum())
+
+
 def floods(stage, b):
     UsdGeom.Scope.Define(stage, f"{facade.ROOT}/Lights")
     for i, (pos, target, kelvin) in enumerate(FLOODS):
@@ -407,10 +428,11 @@ def build() -> Path:
     world = stage.GetRootLayer().GetPrimAtPath("/World")
     world.specifier = Sdf.SpecifierOver
     world.typeName = ""
+    dropped = drop_ledges(stage)
     for path in HIDE:
         stage.OverridePrim(path).SetActive(False)
     stage.GetRootLayer().Save()
-    print(f"FACADE_WRITTEN {facade.LAYER} openings={openings} quads={quads} lamps={len(lamps)} spill={len(spills)}")
+    print(f"FACADE_WRITTEN {facade.LAYER} openings={openings} quads={quads} lamps={len(lamps)} spill={len(spills)} ledge_faces_dropped={dropped}")
     return facade.LAYER
 
 

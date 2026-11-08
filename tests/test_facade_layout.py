@@ -134,3 +134,8 @@ def test_pick_tile_dark_bias():
 def test_style_override_gives_office_row():
     w = fl.WALLS[0]
     assert any(o["w"] == fl.OFFICE_W for o in fl.openings(w) if o["storey"] == 1)
+
+
+def test_inside_box():
+    pts = [(0, -38.5, 34.0), (0, -37.5, 34.0), (5, -38.5, 34.0)]
+    assert list(fl.inside_box(pts, (-25.5, -45.0, 30.0), (0.5, -37.6, 41.5))) == [True, False, False]
