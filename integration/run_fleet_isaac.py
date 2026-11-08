@@ -1152,8 +1152,12 @@ def main(argv=None):
     head_path = out / "fleet_isaac_header.jsonl"
     kept = []
     if args.from_frame and head_path.exists():
-        kept = [ln for ln in head_path.read_text().splitlines() if ln.strip()
-                and json.loads(ln).get("frame", 0) < args.from_frame]
+        for ln in head_path.read_text().splitlines():
+            try:
+                if json.loads(ln).get("frame", 0) < args.from_frame:
+                    kept.append(ln)
+            except json.JSONDecodeError:
+                continue
     head = head_path.open("w")
     head.write("".join(ln + "\n" for ln in kept))
     nav_t = args.start
