@@ -117,3 +117,22 @@ class MLPPolicy(nn.Module):
 
 def n_params(m: nn.Module) -> int:
     return sum(p.numel() for p in m.parameters())
+
+
+def save_npz(model: nn.Module, path: str) -> None:
+    import numpy as np
+
+    np.savez_compressed(path, **{k: v.detach().cpu().half().numpy() if v.is_floating_point() else v.cpu().numpy()
+                                 for k, v in model.state_dict().items()})
+
+
+def load_weights(model: nn.Module, path: str, device="cpu") -> nn.Module:
+    if path.endswith(".npz"):
+        import numpy as np
+
+        z = np.load(path)
+        model.load_state_dict({k: torch.from_numpy(z[k]).float() if z[k].dtype == np.float16 else torch.from_numpy(z[k])
+                               for k in z.files})
+    else:
+        model.load_state_dict(torch.load(path, map_location=device))
+    return model.to(device)

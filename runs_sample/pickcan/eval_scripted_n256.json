@@ -1,0 +1,32 @@
+{
+ "episodes": 256,
+ "success": 0.875,
+ "success_lying": 0.8484848484848485,
+ "success_upright": 0.9230769230769231,
+ "time_s_mean": 11.31919704590525,
+ "time_s_p95": 14.061667490005492,
+ "drops_per_episode": 0.17578125,
+ "episodes_with_drop": 0.140625,
+ "max_force_mean": 2.0029378365143202,
+ "max_force_p95": 3.241944968700409,
+ "max_force_max": 196.17311096191406,
+ "deck_force_p95": 0.0,
+ "over_20N": 0.0078125,
+ "sealed": 1.0,
+ "lifted": 1.0,
+ "success_by_can": {
+  "0": 0.969,
+  "1": 0.781,
+  "2": 0.875,
+  "3": 0.969,
+  "4": 0.844,
+  "5": 0.969,
+  "6": 0.781,
+  "7": 0.812
+ },
+ "mode": "script",
+ "ckpt": "",
+ "num_envs": 256,
+ "steps": 479,
+ "wall_s": 119.4
+}
