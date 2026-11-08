@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sim"))
 
@@ -70,3 +71,17 @@ def test_make_puddle_and_set_rain_author_usd():
     shader = UsdShade.Shader.Get(stage, "/World/P0/look/shader")
     assert shader.GetInput("rain").Get() == 1.0
     assert shader.GetSourceAssetSubIdentifier("mdl") == "rig_puddle"
+
+
+def test_puddles_can_share_one_material():
+    from pxr import Usd, UsdShade
+
+    import photoreal
+
+    stage = Usd.Stage.CreateInMemory()
+    look = photoreal.puddle_material(stage, "/World/Looks/puddle")
+    for k in range(3):
+        photoreal.make_puddle(stage, f"/World/P{k}", (k, 0.0, 0.0), 0.5, seed=k, material=look)
+    assert not stage.GetPrimAtPath("/World/P0/look")
+    assert photoreal.set_rain(stage, 0.4) == 3
+    assert UsdShade.Shader.Get(stage, "/World/Looks/puddle/shader").GetInput("rain").Get() == pytest.approx(0.4)

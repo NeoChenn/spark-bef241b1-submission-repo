@@ -274,7 +274,8 @@ def apply(stage, preset: str, quality: str | None = None) -> dict:
     return {**w, **q, "floor_faces": bind_floors(stage)}
 
 
-def make_puddle(stage, path: str, center_xyz, radius_m: float, seed: int = 0, mdl_path: str | None = None, rain: float = 0.0):
+def make_puddle(stage, path: str, center_xyz, radius_m: float, seed: int = 0, mdl_path: str | None = None, rain: float = 0.0,
+                material=None):
     from pxr import Sdf, UsdGeom, UsdShade, Vt
 
     import puddle_geometry as pg
@@ -295,16 +296,26 @@ def make_puddle(stage, path: str, center_xyz, radius_m: float, seed: int = 0, md
         Vt.Vec2fArray.FromNumpy(m["uvs"].astype("float32")))
     prim = holder.GetPrim()
     prim.CreateAttribute(PUDDLE_ATTR, Sdf.ValueTypeNames.Bool, custom=True).Set(True)
-    material = UsdShade.Material.Define(stage, f"{path}/look")
-    shader = UsdShade.Shader.Define(stage, f"{path}/look/shader")
+    if material is None:
+        material = puddle_material(stage, f"{path}/look", mdl_path, rain)
+    elif isinstance(material, str):
+        material = UsdShade.Material(stage.GetPrimAtPath(material))
+    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material)
+    return prim
+
+
+def puddle_material(stage, path: str, mdl_path: str | None = None, rain: float = 0.0):
+    from pxr import Sdf, UsdShade
+
+    material = UsdShade.Material.Define(stage, path)
+    shader = UsdShade.Shader.Define(stage, f"{path}/shader")
     shader.SetSourceAsset(Sdf.AssetPath(mdl_path or str(PUDDLE_MDL)), "mdl")
     shader.SetSourceAssetSubIdentifier("rig_puddle", "mdl")
     shader.CreateInput("rain", Sdf.ValueTypeNames.Float).Set(float(rain))
     out = shader.CreateOutput("out", Sdf.ValueTypeNames.Token)
     material.CreateSurfaceOutput("mdl").ConnectToSource(out)
     material.CreateSurfaceOutput().ConnectToSource(out)
-    UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material)
-    return prim
+    return material
 
 
 def puddles(stage):
@@ -321,9 +332,18 @@ def set_rain(stage, amount: float) -> int:
 
     amount = min(max(float(amount), 0.0), 1.0)
     count = 0
+    done = set()
     for prim in puddles(stage):
-        shader = UsdShade.Shader.Get(stage, prim.GetPath().AppendPath(Sdf.Path("look/shader")))
+        geom = stage.GetPrimAtPath(prim.GetPath().AppendChild("geom"))
+        material = UsdShade.MaterialBindingAPI(geom).ComputeBoundMaterial()[0] if geom else None
+        if not material:
+            continue
+        count += 1
+        key = str(material.GetPath())
+        if key in done:
+            continue
+        done.add(key)
+        shader = UsdShade.Shader.Get(stage, material.GetPath().AppendChild("shader"))
         if shader:
             shader.CreateInput("rain", Sdf.ValueTypeNames.Float).Set(amount)
-            count += 1
     return count
