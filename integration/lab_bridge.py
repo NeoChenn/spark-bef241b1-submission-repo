@@ -239,6 +239,8 @@ class LabRepairBridge:
 
     def record_decision(self, rec: dict) -> None:
         self.pending_events.append(rec)
+        if rec.get("to") == "SCRUB" and rec.get("from") != "SCRUB":
+            self.chunk_peak = 0.0
 
     def _interp_joints(self, q1, steps: int = 24, stop_force: float | None = None, lift: float | None = None) -> bool:
         r = self.base._robot
@@ -446,6 +448,8 @@ class LabRepairBridge:
         return float(self.base.theta[0]) % TWO_PI, float(self.base.axial[0])
 
     def current_force(self) -> float:
+        if self.state_fn() not in ("SCRUB", "BACK_OFF"):
+            return float(self.force_now)
         return float(max(self.chunk_peak, self.force_now))
 
     def back_off(self, distance: float = 0.05) -> None:
