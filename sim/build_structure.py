@@ -73,6 +73,11 @@ def make_looks(stage) -> dict:
     looks["lamp_green"] = emissive(stage, "lamp_green", (0.4, 14.0, 1.5))
     looks["lamp_yellow"] = emissive(stage, "lamp_yellow", (16.0, 11.0, 0.6))
     looks["window"] = emissive(stage, "window", (0.02, 0.025, 0.03))
+    looks["ship_window"] = emissive(stage, "ship_window", (6.0, 4.3, 2.4))
+    looks["bridge_glass"] = emissive(stage, "bridge_glass", (0.25, 0.4, 0.45))
+    looks["nav_red"] = emissive(stage, "nav_red", (40.0, 1.0, 0.6))
+    looks["nav_green"] = emissive(stage, "nav_green", (0.8, 36.0, 4.0))
+    looks["nav_white"] = emissive(stage, "nav_white", (40.0, 40.0, 36.0))
     return looks
 
 
@@ -130,7 +135,8 @@ def sphere_cap(radius, rows=6, seg=12):
 def retire_old(stage):
     hidden = ["/World/Cinematic/Flare/boom_001", "/World/Cinematic/Flare/brace_002", "/World/Topside/lifeboat",
               "/World/Details/helideck_circle", "/World/Details/helideck_h_001", "/World/Details/helideck_h_002",
-              "/World/Details/helideck_h_003"]
+              "/World/Details/helideck_h_003", "/World/Cinematic/Ship", "/World/Rig/crane_crane",
+              "/World/Rig/derrick_derrick"]
     for path in hidden:
         UsdGeom.Imageable(stage.OverridePrim(path)).CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
     cx, cy = HELI_C
@@ -227,6 +233,9 @@ class Instances:
         elif proto == "box":
             prim = UsdGeom.Cube.Define(self.stage, path)
             prim.CreateSizeAttr(1.0)
+        elif proto == "sphere":
+            prim = UsdGeom.Sphere.Define(self.stage, path)
+            prim.CreateRadiusAttr(1.0)
         elif proto == "ibeam":
             prim = topside.ibeam_mesh(self.stage, path)
         else:
@@ -588,6 +597,163 @@ def build_lifeboats(stage, looks, kit):
             kit.add("landing", "box", (x + dx * 0.9, y, z + 1.75), scale=(0.25, 0.25, 0.3))
 
 
+SHIP = (-210.0, 330.0)
+BOXES = ("box_red", "box_blue", "box_green", "box_white", "box_orange")
+CRANE = (31.39, -4.62)
+DERRICK = (20.0, 20.0)
+DERRICK_FLOOR, DERRICK_TOP_Z = 46.3, 81.3
+
+
+def shifted(m, offset):
+    out = dict(m)
+    out["points"] = np.asarray(m["points"], float) + offset
+    return out
+
+
+def build_ship(stage, looks, kit):
+    sx, sy = SHIP
+    o = np.array((sx, sy, 0.0))
+    ring = sg.ship_planform(80.0, 18.0)
+    x = ring[:, 0]
+    sheer = 5.2 + 2.6 * np.clip((x - 14.0) / 18.0, 0.0, 1.0) ** 1.5
+    write_mesh(stage, f"{s.ROOT}/Ship/boot", shifted(sg.extrude_ring(ring, -4.0, 1.0), o), looks["psv_boot"], double=True)
+    write_mesh(stage, f"{s.ROOT}/Ship/topsides", shifted(sg.extrude_ring(ring, 1.0, sheer), o), looks["psv_hull"],
+               double=True)
+    write_mesh(stage, f"{s.ROOT}/Ship/deck", shifted(sg.fan(ring * 0.985, 4.0), o), looks["psv_deck"])
+    bow = ring[ring[:, 0] > 30.0]
+    write_mesh(stage, f"{s.ROOT}/Ship/foredeck", shifted(sg.fan(np.vstack((bow, [[30.0, 0.0]])) * 0.985, 7.4), o),
+               looks["psv_deck"])
+    for (cx, cy, cz), size, colour in sg.container_stacks(-38.0, 12.0, 7.4):
+        kit.add(BOXES[colour], "box", (sx + cx, sy + cy, 4.0 + cz), scale=size)
+    for centre, size in (((24.0, 0.0, 8.5), (18.0, 16.0, 9.0)), ((25.0, 0.0, 14.6), (12.0, 19.0, 3.2)),
+                         ((25.5, 0.0, 16.4), (8.0, 9.0, 0.4))):
+        kit.add("psv_white", "box", (sx + centre[0], sy + centre[1], centre[2]), scale=size)
+    for z in (5.4, 8.4, 11.4):
+        for x in np.arange(16.0, 32.0, 2.0):
+            for side in (-1, 1):
+                kit.add("ship_window", "box", (sx + x, sy + side * 8.02, z), scale=(1.0, 0.05, 0.7))
+        for y in np.arange(-6.5, 7.0, 2.0):
+            kit.add("ship_window", "box", (sx + 14.98, sy + y, z), scale=(0.05, 1.0, 0.7))
+    kit.add("bridge_glass", "box", (sx + 31.02, sy, 14.9), scale=(0.05, 18.0, 1.4))
+    for side in (-1, 1):
+        kit.add("bridge_glass", "box", (sx + 25.0, sy + side * 9.52, 14.9), scale=(11.0, 0.05, 1.4))
+        kit.add("psv_white", "box", (sx + 16.8, sy + side * 4.5, 15.5), scale=(2.4, 2.0, 5.0))
+        kit.add("black", "box", (sx + 16.8, sy + side * 4.5, 18.1), scale=(2.5, 2.1, 0.3))
+    mast = np.array((sx + 25.5, sy, 16.6))
+    kit.tube("psv_white", mast, mast + (0, 0, 10.5), 0.22)
+    kit.member("psv_white", "box", mast + (0, -3.2, 7.0), mast + (0, 3.2, 7.0), (0.15, 0.15))
+    kit.member("black", "box", mast + (0.6, -2.2, 5.2), mast + (0.6, 2.2, 5.2), (0.25, 0.12))
+    kit.member("black", "box", mast + (-0.6, -1.8, 8.0), mast + (-0.6, 1.8, 8.0), (0.2, 0.1))
+    kit.add("nav_white", "sphere", mast + (0, 0, 10.7), scale=(0.25, 0.25, 0.25))
+    kit.add("nav_red", "sphere", (sx + 25.0, sy + 9.7, 15.6), scale=(0.22, 0.22, 0.22))
+    kit.add("nav_green", "sphere", (sx + 25.0, sy - 9.7, 15.6), scale=(0.22, 0.22, 0.22))
+    kit.add("nav_white", "sphere", (sx - 39.6, sy, 6.0), scale=(0.2, 0.2, 0.2))
+    for n, (lx, ly) in enumerate(((-34.0, -8.4), (-34.0, 8.4), (-6.0, -8.4), (-6.0, 8.4))):
+        kit.tube("psv_white", (sx + lx, sy + ly, 4.0), (sx + lx, sy + ly, 11.6), 0.12)
+        prim = stage.OverridePrim(f"/World/Cinematic/Lamps/lamp_{910 + n}")
+        prim.CreateAttribute("xformOp:translate", Sdf.ValueTypeNames.Double3).Set(Gf.Vec3d(sx + lx, sy + ly * 0.95, 12.0))
+    for n, (lx, kelvin) in enumerate(((14.6, 4200), (14.6, 3000))):
+        add_light(stage, light_path("ship", n, False), (sx + lx, sy + (-4.0 if n else 4.0), 12.6), 120000.0, kelvin, 80.0)
+    add_light(stage, light_path("ship_mast", 0, False), mast + (0, 0, 10.7), 4000.0, 6000, None)
+    wake = {"points": np.array([(sx - 40.5, sy - 5.0, 0.42), (sx - 40.5, sy + 5.0, 0.42), (sx - 75.0, sy + 12.0, 0.42),
+                                (sx - 75.0, sy - 12.0, 0.42)]),
+            "normals": np.tile((0.0, 0.0, 1.0), (4, 1)), "counts": [4], "indices": [0, 3, 2, 1]}
+    wake["uvs"] = wake["points"][:, :2] / 9.0
+    write_mesh(stage, f"{s.ROOT}/Ship/wake", wake, UsdShade.Material(stage.OverridePrim("/World/Looks/cinematic_foam")))
+
+
+def build_crane(kit):
+    cx, cy = CRANE
+    kit.tube("crane_yellow", (cx, cy, 42.5), (cx, cy, 47.2), 1.5)
+    kit.tube("steel", (cx, cy, 47.2), (cx, cy, 47.55), 1.9)
+    kit.add("crane_yellow", "box", (cx + 1.2, cy, 48.95), scale=(4.6, 3.6, 2.8))
+    kit.add("black", "box", (cx + 3.8, cy, 48.5), scale=(1.2, 3.4, 1.8))
+    kit.add("crane_yellow", "box", (cx - 1.2, cy - 2.3, 48.75), scale=(2.2, 1.6, 2.3))
+    kit.add("window", "box", (cx - 2.32, cy - 2.3, 49.1), scale=(0.05, 1.3, 1.1))
+    kit.add("window", "box", (cx - 1.2, cy - 3.12, 49.1), scale=(1.8, 0.05, 1.0))
+    apex = np.array((cx + 1.6, cy, 56.5))
+    for dy in (-1.4, 1.4):
+        kit.tube("crane_yellow", (cx + 3.2, cy + dy, 50.35), apex + (0, dy * 0.25, 0), 0.17)
+        kit.tube("crane_yellow", (cx + 0.2, cy + dy, 50.35), apex + (0, dy * 0.25, 0), 0.17)
+    heel = np.array((cx - 0.6, cy, 49.3))
+    ang = math.radians(38.0)
+    tip = heel + 26.0 * np.array((math.cos(ang), 0.0, math.sin(ang)))
+    boom = sg.rect_lattice(heel, tip, 1.7, 0.8, panel=2.0, depth_ratio=0.8)
+    for p, q in boom["chords"]:
+        kit.tube("crane_yellow", p, q, 0.1)
+    for p, q in boom["girts"] + boom["diagonals"]:
+        kit.tube("crane_yellow", p, q, 0.045)
+    kit.member("steel", "cyl", tip + (0, -0.5, 0.2), tip + (0, 0.5, 0.2), (0.8, 0.8))
+    for dy in (-0.3, 0.3):
+        kit.tube("cable", apex + (0, dy, 0), tip + (0, dy, 0.3), 0.025)
+    hook = tip - (0, 0, 9.0)
+    for dy in (-0.12, 0.12):
+        kit.tube("cable", tip + (0, dy, -0.2), hook + (0, dy, 0.6), 0.02)
+    kit.add("crane_yellow", "box", hook + (0, 0, 0.3), scale=(0.55, 0.45, 0.9))
+    kit.tube("black", hook - (0, 0, 0.15), hook - (0, 0, 0.75), 0.1)
+    kit.add("lamp", "box", (cx - 0.1, cy - 2.3, 50.0), scale=(0.3, 0.3, 0.05))
+
+
+def build_derrick(stage, kit):
+    dx, dy = DERRICK
+    for x in (15.0, 25.0):
+        for y in (15.0, 25.0):
+            kit.member("derrick_white", "ibeam", (x, y, 42.5), (x, y, 45.9), (0.4, 0.4))
+    for (x0, y0), (x1, y1) in (((15, 15), (25, 15)), ((25, 15), (25, 25)), ((25, 25), (15, 25)), ((15, 25), (15, 15))):
+        kit.tube("derrick_white", (x0, y0, 42.6), (x1, y1, 45.8), 0.1)
+        kit.tube("derrick_white", (x1, y1, 42.6), (x0, y0, 45.8), 0.1)
+    kit.add("steel", "box", (dx, dy, 46.05), scale=(11.0, 11.0, 0.4))
+    kit.add("grating", "box", (dx, dy, 46.28), scale=(10.8, 10.8, 0.05))
+    kit.add("derrick_white", "box", (dx - 3.4, dy + 4.0, 47.7), scale=(3.4, 2.6, 2.8))
+    kit.add("window", "box", (dx - 1.68, dy + 4.0, 47.9), scale=(0.05, 1.6, 0.9))
+    kit.member("steel", "box", (dx + 5.3, dy, 46.3), (dx + 11.5, dy, 42.8), (1.2, 0.25))
+    tower = sg.rect_lattice((dx, dy, DERRICK_FLOOR), (dx, dy, DERRICK_TOP_Z), 7.0, 2.2, panel=3.2, cross=True)
+    for p, q in tower["chords"]:
+        kit.tube("derrick_white", p, q, 0.2)
+    for p, q in tower["girts"]:
+        kit.tube("derrick_white", p, q, 0.08)
+    for p, q in tower["diagonals"]:
+        kit.tube("derrick_white", p, q, 0.05)
+
+    def half(z):
+        return 3.5 + (1.1 - 3.5) * (z - DERRICK_FLOOR) / (DERRICK_TOP_Z - DERRICK_FLOOR)
+
+    zb = 69.0
+    hb = half(zb)
+    kit.add("grating", "box", (dx + hb + 0.9, dy, zb), scale=(1.8, 2.8, 0.08))
+    for k in np.linspace(-1.1, 1.1, 7):
+        kit.add("steel", "box", (dx + hb + 1.3, dy + k, zb + 0.15), scale=(1.4, 0.06, 0.12))
+    for side in (-1.4, 1.4):
+        kit.tube("crane_yellow", (dx + hb, dy + side, zb + 1.1), (dx + hb + 1.8, dy + side, zb + 1.1), 0.03)
+        kit.tube("crane_yellow", (dx + hb + 1.8, dy + side, zb), (dx + hb + 1.8, dy + side, zb + 1.1), 0.03)
+    for i, x in enumerate(np.linspace(dx + 1.2, dx + 2.6, 4)):
+        for y in np.linspace(dy - 1.0, dy + 1.0, 6):
+            kit.tube("pipe_grey", (x, y, DERRICK_FLOOR + 0.1), (x + 0.15 * (hb + 1.2 - (x - dx)), y, zb + 1.4), 0.065)
+    zc = DERRICK_TOP_Z
+    kit.add("grating", "box", (dx, dy, zc + 0.05), scale=(3.6, 3.6, 0.08))
+    corners = [(dx - 1.8, dy - 1.8), (dx + 1.8, dy - 1.8), (dx + 1.8, dy + 1.8), (dx - 1.8, dy + 1.8)]
+    for (x0, y0), (x1, y1) in zip(corners, corners[1:] + corners[:1]):
+        kit.tube("crane_yellow", (x0, y0, zc + 1.1), (x1, y1, zc + 1.1), 0.03)
+        kit.tube("crane_yellow", (x0, y0, zc), (x0, y0, zc + 1.1), 0.03)
+    kit.add("derrick_white", "box", (dx, dy, zc + 0.75), scale=(2.4, 2.0, 1.2))
+    for k in np.linspace(-0.75, 0.75, 4):
+        kit.member("steel", "cyl", (dx + k - 0.08, dy, zc + 1.0), (dx + k + 0.08, dy, zc + 1.0), (1.1, 1.1))
+    for x, y in corners:
+        kit.add("lamp", "box", (x, y, zc + 1.25), scale=(0.25, 0.25, 0.12))
+    zt = 60.0
+    for k in (-0.3, -0.1, 0.1, 0.3):
+        kit.tube("cable", (dx + k, dy, zc + 0.5), (dx + k, dy, zt + 1.2), 0.018)
+    kit.add("crane_yellow", "box", (dx, dy, zt), scale=(1.0, 1.3, 2.4))
+    kit.add("black", "box", (dx, dy, zt - 2.4), scale=(1.4, 1.2, 2.2))
+    kit.tube("pipe_grey", (dx, dy, DERRICK_FLOOR + 0.3), (dx, dy, zt - 3.5), 0.1)
+    kit.add("black", "box", (dx, dy, DERRICK_FLOOR + 0.6), scale=(1.4, 1.4, 0.5))
+    for n, (lamp, z, corner) in enumerate(((903, 66.0, (-1, -1)), (904, 66.0, (1, 1)), (905, 54.0, (-1, 1)), (906, 54.0, (1, -1)))):
+        h = half(z) + 0.35
+        prim = stage.OverridePrim(f"/World/Cinematic/Lamps/lamp_{lamp}")
+        prim.CreateAttribute("xformOp:translate", Sdf.ValueTypeNames.Double3).Set(
+            Gf.Vec3d(dx + corner[0] * h, dy + corner[1] * h, z))
+
+
 def build_drips(stage, looks, legs, seed=7):
     rng = np.random.default_rng(seed)
     count = 0
@@ -626,7 +792,7 @@ def build() -> Path:
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     stage.OverridePrim("/World")
-    for group in ("", "/Looks", "/Columns", "/Underside", "/Lights", "/Inst", "/Offline", "/Offline/Drips", "/Offline/Lights", "/Helideck", "/Lifeboats"):
+    for group in ("", "/Looks", "/Columns", "/Underside", "/Lights", "/Inst", "/Offline", "/Offline/Drips", "/Offline/Lights", "/Helideck", "/Lifeboats", "/Ship"):
         UsdGeom.Scope.Define(stage, f"{s.ROOT}{group}")
     looks = make_looks(stage)
     for name in ("galv", "black", "pipe_grey", "pipe_green", "pipe_yellow", "pipe_red"):
@@ -651,6 +817,9 @@ def build() -> Path:
     build_flare(stage, kit)
     build_helideck(stage, looks, kit)
     build_lifeboats(stage, looks, kit)
+    build_ship(stage, looks, kit)
+    build_crane(kit)
+    build_derrick(stage, kit)
     retire_old(stage)
     drips = build_drips(stage, looks, legs)
     total = kit.write()

@@ -399,3 +399,109 @@ def lifeboat(length: float, beam: float, depth: float, canopy: float, stations: 
     uvs = np.stack(np.broadcast_arrays(x, phi[None, :]), -1).reshape(-1, 2)
     return {"points": pts.reshape(-1, 3), "normals": n.reshape(-1, 3), "uvs": uvs,
             "counts": np.full((stations - 1) * around, 4), "indices": quads}
+
+
+def rect_lattice(base, tip, width0: float, width1: float, panel: float = 3.0, cross: bool = False,
+                 depth_ratio: float = 1.0) -> dict:
+    base, tip = np.asarray(base, float), np.asarray(tip, float)
+    axis = tip - base
+    length = float(np.linalg.norm(axis))
+    a = axis / length
+    side = np.cross(a, (0.0, 0.0, 1.0))
+    side = side / np.linalg.norm(side) if np.linalg.norm(side) > 1e-6 else np.array((0.0, 1.0, 0.0))
+    up = np.cross(side, a)
+    if abs(a[2]) > 0.99:
+        side, up = np.array((1.0, 0.0, 0.0)), np.array((0.0, 1.0, 0.0))
+    count = max(1, round(length / panel))
+    rings = []
+    for i in range(count + 1):
+        f = i / count
+        c = base + axis * f
+        w = (width0 + (width1 - width0) * f) / 2
+        h = w * depth_ratio
+        rings.append([c + side * w + up * h, c - side * w + up * h, c - side * w - up * h, c + side * w - up * h])
+    chords, girts, diagonals = [], [], []
+    for k in range(4):
+        for r0, r1 in zip(rings, rings[1:]):
+            chords.append((r0[k], r1[k]))
+    for r in rings:
+        girts += [(r[k], r[(k + 1) % 4]) for k in range(4)]
+    for i, (r0, r1) in enumerate(zip(rings, rings[1:])):
+        for k in range(4):
+            j = (k + 1) % 4
+            if cross:
+                diagonals += [(r0[k], r1[j]), (r0[j], r1[k])]
+            else:
+                diagonals.append((r0[k], r1[j]) if i % 2 == 0 else (r0[j], r1[k]))
+    return {"chords": chords, "girts": girts, "diagonals": diagonals, "rings": rings, "axis": a, "side": side,
+            "up": up, "length": length}
+
+
+def ship_planform(length: float, beam: float, parallel: float = 0.35, stations: int = 24) -> np.ndarray:
+    half = length / 2
+    xs = np.linspace(-half, half, stations)
+    x0 = half * parallel
+    t = np.clip((xs - x0) / (half - x0), 0.0, 1.0)
+    b = beam / 2 * np.sqrt(np.clip(1 - t ** 2.2, 0.0, 1.0))
+    b[0] *= 0.92
+    starboard = np.stack((xs, -b), -1)
+    port = np.stack((xs[::-1], b[::-1]), -1)
+    ring = np.concatenate((starboard, port[1:-1]))
+    return ring
+
+
+def extrude_ring(outline, z_low, z_high) -> dict:
+    outline = np.asarray(outline, float)
+    n = len(outline)
+    z_low = np.broadcast_to(np.asarray(z_low, float), (n,))
+    z_high = np.broadcast_to(np.asarray(z_high, float), (n,))
+    prev, nxt = np.roll(outline, 1, 0), np.roll(outline, -1, 0)
+    tangent = nxt - prev
+    normal = np.stack((tangent[:, 1], -tangent[:, 0]), -1)
+    normal /= np.maximum(np.linalg.norm(normal, axis=1, keepdims=True), 1e-9)
+    centre = outline.mean(0)
+    if (((outline - centre) * normal).sum(1) < 0).sum() > n / 2:
+        normal = -normal
+    lo = np.column_stack((outline, z_low))
+    hi = np.column_stack((outline, z_high))
+    points = np.concatenate((lo, hi))
+    normals = np.concatenate((np.column_stack((normal, np.zeros(n))),) * 2)
+    run = np.concatenate(([0.0], np.cumsum(np.linalg.norm(np.diff(outline, axis=0), axis=1))))
+    uvs = np.concatenate((np.column_stack((run, z_low)), np.column_stack((run, z_high))))
+    idx = []
+    for k in range(n):
+        j = (k + 1) % n
+        idx += [k, j, n + j, n + k]
+    return {"points": points, "normals": normals, "uvs": uvs, "counts": [4] * n, "indices": idx}
+
+
+def fan(outline, z) -> dict:
+    outline = np.asarray(outline, float)
+    n = len(outline)
+    c = outline.mean(0)
+    pts = np.vstack((np.append(c, z), np.column_stack((outline, np.full(n, z)))))
+    idx = []
+    for k in range(n):
+        idx += [0, 1 + k, 1 + (k + 1) % n]
+    area = sum(outline[k, 0] * outline[(k + 1) % n, 1] - outline[(k + 1) % n, 0] * outline[k, 1] for k in range(n))
+    if area < 0:
+        idx = [i for t in range(n) for i in (idx[3 * t], idx[3 * t + 2], idx[3 * t + 1])]
+    return {"points": pts, "normals": np.tile((0.0, 0.0, 1.0), (n + 1, 1)), "uvs": pts[:, :2], "counts": [3] * n,
+            "indices": idx}
+
+
+def container_stacks(x0: float, x1: float, y_half: float, seed: int = 3, gap: float = 0.4) -> list:
+    rng = np.random.default_rng(seed)
+    size = (6.06, 2.44, 2.59)
+    out = []
+    x = x0
+    while x + size[0] <= x1:
+        y = -y_half + size[1] / 2
+        while y + size[1] / 2 <= y_half:
+            if rng.uniform() > 0.18:
+                tiers = 1 + int(rng.uniform() > 0.55)
+                for t in range(tiers):
+                    out.append(((x + size[0] / 2, y, size[2] * (t + 0.5)), size, int(rng.integers(5))))
+            y += size[1] + gap
+        x += size[0] + 0.8
+    return out
