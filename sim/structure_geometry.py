@@ -577,3 +577,21 @@ def pipe_rack_bents(x0: float, x1: float, y: float, width: float, tiers, z0: flo
         for s in (-1, 1):
             ties.append(((xs[0], y + s * width / 2, z), (xs[-1], y + s * width / 2, z)))
     return {"columns": columns, "beams": beams, "ties": ties, "xs": xs}
+
+
+def route(points, bend: float, steps: int = 6) -> np.ndarray:
+    pts = [np.asarray(p, float) for p in points]
+    out = [pts[0]]
+    for a, b, c in zip(pts, pts[1:], pts[2:]):
+        u, v = b - a, c - b
+        lu, lv = np.linalg.norm(u), np.linalg.norm(v)
+        u, v = u / lu, v / lv
+        cut = min(bend, lu / 2, lv / 2)
+        if np.linalg.norm(np.cross(u, v)) < 1e-6:
+            out.append(b)
+            continue
+        p0, p1 = b - u * cut, b + v * cut
+        for t in np.linspace(0.0, 1.0, steps + 1):
+            out.append((1 - t) ** 2 * p0 + 2 * (1 - t) * t * b + t ** 2 * p1)
+    out.append(pts[-1])
+    return np.array(out)
