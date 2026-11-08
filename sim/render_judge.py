@@ -10,7 +10,7 @@ sys.path[:0] = ["/rig", "/rig/sim"]
 ap = argparse.ArgumentParser()
 ap.add_argument("--preset", default="night")
 ap.add_argument("--quality", default="offline")
-ap.add_argument("--atmos", default="offline", choices=["none", "live", "offline"])
+ap.add_argument("--atmos", default="none", choices=["none", "live", "offline"])
 ap.add_argument("--renderer", default="RealTimePathTracing")
 ap.add_argument("--spp", type=int, default=2)
 ap.add_argument("--subframes", type=int, default=32)
