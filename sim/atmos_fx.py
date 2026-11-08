@@ -167,6 +167,11 @@ class Atmosphere:
         self._build_exhaust()
         self.flow = self._build_flow() if (flow if flow is not None else self.q["flow"]) else None
         self.puffs = [] if self.flow is not None else self._build_puffs()
+        if self.flow is not None:
+            for i in range(5):
+                blob = stage.GetPrimAtPath(f"/World/Cinematic/Flare/flame_{i}")
+                if blob:
+                    UsdGeom.Imageable(blob).MakeInvisible()
         self.wet = self._collect_roughness()
         self.set_weather(self.w)
 

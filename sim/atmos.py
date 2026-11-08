@@ -14,7 +14,7 @@ KINDS = {
 DEFAULT_KIND = {"night": "calm", "golden": "calm", "storm": "storm"}
 TIERS = {
     "live": {"width": 1280, "height": 720, "rain": 1500, "embers": 160, "spray": 300, "smoke": 48, "steam": 40, "flow": True,
-             "flow_cell": 0.35, "slices": 96, "pixel_ratio": 8, "accum": 32, "renderer": "RealTimePathTracing",
+             "flow_cell": 0.25, "slices": 96, "pixel_ratio": 8, "accum": 32, "renderer": "RealTimePathTracing",
              "subframes": 1, "spp": 1},
     "offline": {"width": 1920, "height": 1080, "rain": 6000, "embers": 600, "spray": 1200, "smoke": 140, "steam": 120, "flow": True,
                 "flow_cell": 0.18, "slices": 256, "pixel_ratio": 4, "accum": 128, "renderer": "RealTimePathTracing",
@@ -209,6 +209,6 @@ def flow_overrides(flare, vent, wind, cell: float, flame_radius: float = 1.1, fu
     return {
         "fire": group(0, flare, flame_radius, {"fuel": fuel, "temperature": 2.0},
                       {"coolingRate": cooling, "combustionEnabled": True}, FIRE_MAP, smoke_fade),
-        "steam": group(1, vent, 0.6, {"fuel": 0.0, "temperature": 0.0, "smoke": steam, "coupleRateSmoke": 2.0},
+        "steam": group(1, vent, 1.0, {"fuel": 0.0, "temperature": 0.0, "smoke": steam, "coupleRateSmoke": 2.0},
                        {"combustionEnabled": False, "buoyancyPerSmoke": 40.0 * s}, STEAM_MAP, 1.2),
     }
