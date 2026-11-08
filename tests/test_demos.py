@@ -82,7 +82,8 @@ def test_gas_demo_searches_isolates_and_stops_the_vapour():
     m.scen.clock = lambda: clock[0]
     m.event("demo", {"id": "gas"})
     first = m.take_sim()
-    assert [e["name"] for e in first] == ["set_weather", "camera", "select", "views"]
+    assert [e["name"] for e in first] == ["set_weather", "camera", "select", "views", "hide_props"]
+    assert "/World/Greebles/Zone/Clutter/tarp" in first[4]["args"]["paths"]
     assert first[3]["args"] == {"robot": "R2", "on": True, "kind": "fpv"}
     assert m.for_sim()["leak"]["on"]
     cams, xs, states, w = [], [], set(), 0.0
@@ -95,14 +96,15 @@ def test_gas_demo_searches_isolates_and_stops_the_vapour():
         xs.append((r2["pose"]["x"], r2["pose"]["y"]))
         states.add(r2.get("job_state"))
     s = m.scen.cur
-    assert s.id == "demo_gas" and 15 < w < 25 and not m.leak.on and not m.for_sim()["leak"]["on"]
+    assert s.id == "demo_gas" and 15 < w < 28 and not m.leak.on and not m.for_sim()["leak"]["on"]
     assert {"LEAK_APPROACH", "VALVE_TURN"} <= states and not m.port.extra
     a = np.asarray(xs)
-    assert a[:, 0].min() >= 11.9 and a[:, 0].max() < 21.0 and -10.4 < a[:, 1].min() and a[:, 1].max() < -9.5
+    assert a[:, 0].min() >= 17.2 and a[:, 0].max() <= 21.05 and -10.3 < a[:, 1].min() and a[:, 1].max() < -9.5
     assert len(cams) == 1 and cams[0]["args"]["lens"]["dist"] < first[1]["args"]["lens"]["dist"]
     assert [x["kind"] for x in m.scen.alerts] == ["gas_alarm"]
     m.event("demo", {"id": "reset"})
     assert "F5" in m.leak.flanges and "F7" not in m.leak.flanges
+    assert {"name": "hide_props", "args": {"paths": []}} in m.take_sim()
 
 
 def test_valve_turn_reaches_and_spins_the_wrist():

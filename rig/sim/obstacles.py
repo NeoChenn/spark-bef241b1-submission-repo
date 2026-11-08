@@ -78,8 +78,8 @@ RUST_INPUTS = (("/World/RepairZone/Looks/rust_coarse_01/hero_mdl", "amount"),
                ("/World/RepairZone/Looks/green_metal_rust/hero_mdl", "streak_amount"))
 STATIC_DOG = "/World/Robots/scrubber_dog"
 RUST_SLEW = 0.25
-VAPOUR_N, VAPOUR_LIFE, VAPOUR_MS = 40, 6.0, 0.7
-VAPOUR_ALPHA = (0.2, 0.12, 0.06)
+VAPOUR_N, VAPOUR_LIFE, VAPOUR_MS, VAPOUR_JET = 90, 2.4, 0.8, 1.3
+VAPOUR_ALPHA = (0.12, 0.08, 0.05, 0.025)
 
 
 class ObstacleScene:
@@ -113,6 +113,7 @@ class ObstacleScene:
         self.anim_ms = 0.0
         self.rust, self.rust_q, self.rust_attrs, self.dog = 1.0, Quantiser(0.005), None, None
         self.leak, self.vap, self.vap_on, self.vap_t = None, None, False, -1e9
+        self.hidden = []
 
     def _roots(self):
         UsdGeom.Scope.Define(self.stage, ROOT)
@@ -360,16 +361,25 @@ class ObstacleScene:
             age = (t + i * VAPOUR_LIFE / VAPOUR_N) % VAPOUR_LIFE
             born = t - age
             live = lk is not None and (born >= self.vap_t if self.vap_on else born < self.vap_t)
-            j, k = 0.3 * age ** 0.7, VAPOUR_MS * age + 0.5 * (1.0 - math.exp(-4.0 * age))
+            j, k = 0.12 * age, VAPOUR_MS * age + VAPOUR_JET * (1.0 - math.exp(-2.5 * age))
             p = (src[0] + wx * k + j * math.sin(1.7 * i + 0.9 * age),
-                 src[1] + wy * k + j * math.cos(2.3 * i + 0.7 * age), src[2] + 0.1 + 0.12 * age)
+                 src[1] + wy * k + j * math.cos(2.3 * i + 0.7 * age), src[2] + 0.1 * age + 0.04 * j * math.sin(3.1 * i))
             pos.append(p if live else OFF)
-            r = 0.12 + 0.14 * age
+            r = 0.05 + 0.19 * age
             scl.append((r, r, r * 0.8))
             idx.append(min(int(age / VAPOUR_LIFE * len(VAPOUR_ALPHA)), len(VAPOUR_ALPHA) - 1))
         self.vap.GetPositionsAttr().Set(Vt.Vec3fArray([Gf.Vec3f(*p) for p in pos]))
         self.vap.GetScalesAttr().Set(Vt.Vec3fArray([Gf.Vec3f(*c) for c in scl]))
         self.vap.GetProtoIndicesAttr().Set(Vt.IntArray(idx))
+
+    def hide_prims(self, paths) -> None:
+        for p in self.hidden:
+            if p.IsValid():
+                UsdGeom.Imageable(p).MakeVisible()
+        self.hidden = [p for p in (self.stage.GetPrimAtPath(str(k)) for k in paths or ()) if p.IsValid() and p.IsA(UsdGeom.Imageable)]
+        for p in self.hidden:
+            UsdGeom.Imageable(p).MakeInvisible()
+        print(f"rig sim: hid {[str(p.GetPath()) for p in self.hidden]}", flush=True)
 
     def tick(self, t: float) -> None:
         self.now = t
