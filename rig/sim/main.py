@@ -112,6 +112,32 @@ def load_cinematic(app, ctx, preset: str, args=None):
     return path, update
 
 
+def load_atmosphere(stage, cam_path: str, args):
+    import sys
+
+    sys.path.insert(0, "/rig/sim")
+    import atmos
+    from atmos_fx import Atmosphere
+
+    schedule = atmos.parse_schedule(args.weather)
+    first = atmos.schedule_at(schedule, 0.0)
+    atm = Atmosphere(stage, args.cinematic, args.atmos, first, cam_path=cam_path)
+    if first is not None:
+        atm.set_weather(first, args.wind_dir, args.gust)
+    state = {"kind": first}
+
+    def tick(t: float) -> None:
+        kind = atmos.schedule_at(schedule, t)
+        if kind is not None and kind != state["kind"]:
+            state["kind"] = kind
+            atm.set_weather(kind, args.wind_dir, args.gust)
+            print(f"rig sim: weather {kind}", flush=True)
+        atm.update(t)
+
+    print(f"rig sim: atmosphere tier={args.atmos} weather={args.weather or 'preset'}", flush=True)
+    return atm, tick
+
+
 def make_orbit_camera(stage, src_path: str, args):
     from pxr import Gf, Usd, UsdGeom
 
@@ -194,6 +220,10 @@ def main() -> None:
         cam_path, orbit_update = make_orbit_camera(stage, cam_path, args)
         tickers.append(orbit_update)
     camera_header = make_camera_header(stage, cam_path, args.width, args.height)
+    atm = None
+    if args.atmos and args.cinematic:
+        atm, atm_tick = load_atmosphere(stage, cam_path, args)
+        tickers.append(atm_tick)
     env = load_environment(stage, args.env, args.sea_level)
     if env is not None:
         tickers.append(lambda t: env.update(t, camera=cam_path))
@@ -237,6 +267,8 @@ def main() -> None:
         if fresh or (sample and now - last_sent >= KEEPALIVE_S):
             last_sent = now
             rgb = np.ascontiguousarray(data[..., :3], dtype=np.uint8)
+            if atm is not None:
+                rgb = atm.post(rgb, camera_header(), t, args.lens)
             mean = float(rgb.mean())
             buf = io.BytesIO()
             Image.fromarray(rgb).save(buf, "JPEG", quality=args.quality)
