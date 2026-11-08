@@ -8,6 +8,9 @@ COPY rig ./rig
 COPY policy/__init__.py policy/gemini_verifier.py ./policy/
 COPY policy/fleet ./policy/fleet
 COPY policy/control ./policy/control
+COPY policy/weld ./policy/weld
+COPY fleet/__init__.py fleet/contract.py ./fleet/
+COPY fleet/jobs/__init__.py fleet/jobs/pick_can.py ./fleet/jobs/
 COPY policy/gasbot/__init__.py policy/gasbot/locate.py policy/gasbot/plume.py policy/gasbot/sensors.py ./policy/gasbot/
 COPY sim/output/full_rig_meta.json sim/output/leak_flanges_meta.json ./sim/output/
 COPY runs_sample/fleet/fleet_state.json runs_sample/fleet/fleet_map.json ./runs_sample/fleet/
