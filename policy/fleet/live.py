@@ -4,14 +4,12 @@ import random
 import threading
 
 from policy.fleet import barrel
-from policy.fleet.jobs import SIMPLE, JobLibrary, JobTrace, run_orchestrator
+from policy.fleet.jobs import RUST_FULL, SIMPLE, JobLibrary, JobTrace, run_orchestrator
 from policy.fleet.scenario import SCENARIOS
 
 LOG_KEEP = 300
 BARREL_EVERY_S = 60.0
-QUICK = {"rust": [(0, "DETECT", "rust confirmed"), (6, "SPRAY", "spray converter"), (14, "SOAK", "soak 30 s"),
-                  (44, "SCRUB", "scrub, force-limited"), (90, "VERIFY", "on-board + second opinion"),
-                  (100, "PAINT", "paint"), (120, "DONE", "repair complete")],
+QUICK = {"rust": RUST_FULL,
          "leak_check": [(0, "LEAK_APPROACH", "approach flange"), (10, "LEAK_INSPECT", "gas + bolt check"),
                         (35, "DONE", "flange checked")],
          "inspect": [(0, "DETECT", "read gauge"), (15, "DONE", "gauge in range")],

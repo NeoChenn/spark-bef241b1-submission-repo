@@ -5,6 +5,9 @@ from dataclasses import dataclass, field
 
 SETUP_S = {"valve": 5.0, "rust": 20.0, "gas": 15.0, "crack": 15.0, "leak_check": 15.0, "inspect": 10.0, "weld": 20.0, "pick_can": 3.0}
 FLANGE_KINDS = {"gas", "crack", "leak_check"}
+RUST_FULL = [(0, "DETECT", "rust confirmed"), (6, "SPRAY", "spray converter"), (14, "SOAK", "soak 30 s"),
+             (44, "SCRUB", "scrub, force-limited"), (90, "VERIFY", "on-board + second opinion"), (100, "PAINT", "paint"),
+             (120, "DONE", "repair complete")]
 SIMPLE = {"valve": [(0, "VALVE_APPROACH", "reach the isolation valve"), (4, "VALVE_CLOSE", "turn the valve shut"),
                    (12, "DONE", "isolation valve closed")]}
 LEAK_SCENARIO = {"clean": "none", "loose": "loose", "crack": "crack", "big": "big"}
@@ -51,8 +54,8 @@ def pick_trace(scenario: str) -> JobTrace:
 
 
 def run_orchestrator(kind: str, scenario: str) -> JobTrace:
-    if kind in SIMPLE:
-        segs = SIMPLE[kind]
+    if kind in SIMPLE or (kind, scenario) == ("rust", "repair"):
+        segs = SIMPLE.get(kind) or RUST_FULL
         return JobTrace(kind, scenario, float(segs[-1][0]), segs[-1][1], segs)
     if kind == "weld":
         from policy.weld.job import weld_trace

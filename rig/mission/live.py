@@ -12,7 +12,7 @@ import numpy as np
 from policy.fleet.fleet import Event
 from policy.fleet.jobs import SETUP_S
 from rig.captions import caption, fleet_robots
-from rig.mission.gas import ALARM_LEL, FLOW_GS, SUB_S, WALK_MS, GasLeak, wind_from_weather
+from rig.mission.gas import ALARM_LEL, FLOW_GS, METHODS, SUB_S, WALK_MS, GasLeak, wind_from_weather
 from rig.mission.jobs import MissionPort
 from rig.mission.obsviews import ObsViews
 from rig.mission.scenarios import Scenarios, gust_force, highlight, shielded
@@ -169,7 +169,7 @@ class MissionLive:
             if lk.seek is None and r is not None and abs(r.pos[2] - (src[2] - 1.1)) < DECK_TOL and \
                     (float(np.linalg.norm(r.pos[:2] - src[:2])) < 11.0 or r.state == "WORK"):
                 lk.begin_seek(r.id, r.pos, float(r.pos[2]))
-                self.note(unit_name(r.id), "GAS_SEEK", f"gas on the trunk sensor near {lk.fid} -> cast-and-surge upwind")
+                self.note(unit_name(r.id), "GAS_SEEK", f"gas on the trunk sensor near {lk.fid} -> {METHODS[lk.method]}")
             if lk.seek is not None:
                 with self.fleet.lock:
                     task.progress = min(task.progress, self._hold())
@@ -187,7 +187,10 @@ class MissionLive:
                           f"-> read bolts and re-torque")
                 self.valve_job = self.port.queue("valve_isolate", lk.fid, "SUPV", 1, by="coordinator",
                                                  why=f"Close the isolation valve upstream of {lk.fid} to starve the leak; "
-                                                     f"{unit_name(lk.robot_id)} re-torques meanwhile. Needs your approval.")
+                                                     + (f"{unit_name(self.valve_by)} turns the valve, {unit_name(lk.robot_id)} "
+                                                        "re-torques once it is shut." if self.valve_by else
+                                                        f"{unit_name(lk.robot_id)} re-torques meanwhile.")
+                                                     + " Needs your approval.")
                 self._finding()
         if lk.on and lk.found is not None and task is None:
             lk.stop("fixed")
@@ -547,7 +550,7 @@ class MissionLive:
                        track=sk.path[-80:], hits=sk.hits)
         mx = max(s["lel"] for s in sensors)
         level = "RETREAT" if mx >= 0.20 else "ALARM" if mx >= ALARM_LEL or lk.on else "CLEAR"
-        out.update(sensors=sensors, max=round(mx, 4), alarm=bool(lk.on or mx >= ALARM_LEL), level=level,
+        out.update(method=METHODS[lk.method], sensors=sensors, max=round(mx, 4), alarm=bool(lk.on or mx >= ALARM_LEL), level=level,
                    wind={"dir_deg": round((lk.toward + 180.0) % 360.0, 1), "speed_ms": round(lk.speed, 1)},
                    flange=lk.fid if (lk.found or lk.on) else None, leak=lk.on, found=lk.found,
                    isolated=lk.isolated)
