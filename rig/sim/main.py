@@ -174,15 +174,18 @@ def make_obstacles(stage, cine_update, args):
     return scene, tick
 
 
+def weather_kw(fn, args: dict) -> dict:
+    ps = inspect.signature(fn).parameters
+    anykw = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in ps.values())
+    return {k: args[k] for k in ("level", "wind_dir", "gust", "time", "rain", "fog") if k in args and (anykw or k in ps)}
+
+
 def handle_event(scene, event: dict, atm=None, weather=None) -> None:
     name, args = event.get("name"), event.get("args") or {}
-    keys = ("level", "wind_dir", "gust", "time", "rain", "fog")
     if weather is not None and name == "set_weather":
-        ok = inspect.signature(weather.set).parameters
-        weather.set(**{k: args[k] for k in keys if k in args and k in ok})
+        weather.set(**weather_kw(weather.set, args))
     if atm is not None and name == "set_weather" and "level" in args:
-        ok = inspect.signature(atm.set_weather).parameters
-        atm.set_weather(**{k: args[k] for k in keys if k in args and k in ok})
+        atm.set_weather(**weather_kw(atm.set_weather, args))
     if scene is not None and name == "fleet":
         scene.sync(args)
         return
