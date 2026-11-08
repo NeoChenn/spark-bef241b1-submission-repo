@@ -285,6 +285,9 @@ def build_layer(path: Path = LAYER) -> Path:
     light = stage.OverridePrim(f"{LIGHT}/light")
     light.CreateAttribute("inputs:radius", Sdf.ValueTypeNames.Float, custom=False).Set(LIGHT_RADIUS)
     light.CreateAttribute("visibleInPrimaryRay", Sdf.ValueTypeNames.Bool, custom=False).Set(False)
+    emitter = stage.OverridePrim(f"{FLOW}/flowEmitterSphere")
+    emitter.CreateAttribute("enabled", Sdf.ValueTypeNames.Bool).Set(False)
+    emitter.CreateAttribute("allocationScale", Sdf.ValueTypeNames.Float).Set(0.0)
     UsdGeom.Xform.Define(stage, ROOT)
     UsdGeom.Scope.Define(stage, f"{ROOT}/Looks")
     rows = SEGMENTS + 1
@@ -332,6 +335,8 @@ def build_layer(path: Path = LAYER) -> Path:
     return path
 
 
+EMITTER_OFF = {"enabled": False, "allocationScale": 0.0}
+EMITTER_ON = {"enabled": True, "allocationScale": 1.0}
 RTX = {"/rtx/raytracing/fractionalCutoutOpacity": True, "/rtx/pathtracing/fractionalCutoutOpacity": True,
        "/rtx/shadows/fractionalCutoutOpacity": True}
 
@@ -391,12 +396,14 @@ def update(stage, t: float, wind=WIND) -> None:
         return
     use = parts()
     flow = stage.GetPrimAtPath(FLOW)
-    flow_flame = bool(flow and flow.IsValid()) and os.environ.get("RIG_FLARE_FLOW", "0") == "1"
+    flow_flame = bool(flow and flow.IsDefined()) and os.environ.get("RIG_FLARE_FLOW", "0") == "1"
     shown = "invisible" if flow_flame else "inherited"
     emitter = stage.GetPrimAtPath(f"{FLOW}/flowEmitterSphere")
-    if emitter and emitter.IsValid() and not flow_flame:
-        _put(emitter.GetAttribute("fuel"), 0.0)
-        _put(emitter.GetAttribute("temperature"), 0.0)
+    if emitter and emitter.IsDefined():
+        for k, v in (EMITTER_ON if flow_flame else EMITTER_OFF).items():
+            attr = emitter.GetAttribute(k)
+            if attr:
+                _put(attr, v)
     for k, card in enumerate(CARDS):
         on = "flame" in use and (card[0] == 0 or "side" in use)
         _put(UsdGeom.Imageable(stage.GetPrimAtPath(f"{ROOT}/flame_{k}")).GetVisibilityAttr(),
