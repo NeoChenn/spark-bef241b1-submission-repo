@@ -9,6 +9,7 @@ from datetime import date
 
 import numpy as np
 
+from policy.control.brief import lel, name, place, plain
 from policy.fleet.fleet import Event
 from policy.fleet.jobs import SETUP_S
 from rig.captions import caption, fleet_robots
@@ -60,6 +61,8 @@ class MissionLive:
             fleet = FleetLive(scenario, speed)
         self.fleet, self.today = fleet, today
         self.port = MissionPort(fleet)
+        self.port.situation = self.situation
+        self.lel_seen: dict = {}
         self.control = control(self.port) if callable(control) else control
         m = fleet.map
         self.leak = GasLeak({x["id"]: x["xyz"] for x in m["flanges"]}, m.get("bounds"), seed, field)
@@ -562,6 +565,46 @@ class MissionLive:
         if lk.on and lk.plume is not None:
             out["flow_gs"] = round(lk.plume.q, 2)
             out["flow_kg_h"] = round(lk.plume.q * 3.6, 2)
+        return out
+
+    def situation(self) -> list[str]:
+        with self.lock:
+            fl = self.fleet.state()
+            g = self.gas()
+            sc = self.scen.header().get("scenario")
+        out = []
+        if sc:
+            out.append(f"Demo: {sc['name']}, step {sc['step_i'] + 1} of {len(sc['steps'])}: {sc['step']}")
+        det = [x for x in g["sensors"] if x["id"].startswith(("GD-", "IR-", "CAT-"))]
+        hot = []
+        for x in det:
+            prev = self.lel_seen.get(x["id"])
+            self.lel_seen[x["id"]] = x["lel"]
+            if x["lel"] >= 0.005:
+                d = 0.0 if prev is None else x["lel"] - prev
+                hot.append(f"{x['at']} {lel(x['lel'])}" + (" rising" if d > 0.005 else " falling" if d < -0.005 else ""))
+        w = g.get("wind") or {}
+        wind = f"wind from {w.get('dir_deg', 0):.0f}° at {w.get('speed_ms', 0):.0f} m/s"
+        out.append(("Gas: " + "; ".join(hot) if hot else "Gas: all fixed detectors clear") + f"; {wind}"
+                   + ("; ALARM" if g.get("alarm") else ""))
+        if g.get("found"):
+            f = g["found"]
+            out.append(f"Leak localised at {name(f.get('flange'))} (±{float(f.get('sigma_m') or 0):.0f} m)"
+                       + ("; isolated" if g.get("isolated") else "; not yet isolated"))
+        hz = fl.get("hazards") or {}
+        for o in hz.get("obstacles") or []:
+            k = str(o.get("kind") or "obstacle")
+            out.append(f"{k.capitalize()} on the walkway, {place(o.get('xyz'))}, blocking the route"
+                       + ("; pick-up queued" if o.get("task") else ""))
+        for c in hz.get("closures") or []:
+            what = name(c.get("target") or c.get("kind"))
+            out.append(f"{what[:1].upper()}{what[1:]} closed; robots route around it")
+        wx = hz.get("weather") or {}
+        if wx.get("level") and wx.get("level") != "calm":
+            out.append(f"Weather: {wx.get('label') or wx['level']}, wind {float(wx.get('wind') or 0):.0f} m/s")
+        recent = [plain(e.get("message", "")) for e in (fl.get("recent_events") or [])[-5:] if e.get("message")]
+        if recent:
+            out.append("Recent: " + " | ".join(recent))
         return out
 
     def header(self, events: bool = True) -> dict:

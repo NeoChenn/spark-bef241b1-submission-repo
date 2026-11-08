@@ -53,9 +53,10 @@ class AgentScript:
         if any(s.get("type") == "function_result" for s in history):
             return {"steps": [{"type": "model_output", "content": [{"type": "text", "text": "ok"}]}],
                     "_latency_ms": 900.0, "usage": {"total_input_tokens": 1000, "total_output_tokens": 50}}
-        state = json.loads(user.split("FLEET STATE: ")[1].split("\nRESERVED")[0])
+        jobs = json.loads(user.split("JOB IDS: ")[1].split("\n")[0])
+        waiting = [j["id"] for j in jobs if j["status"] == "WAITING_APPROVAL"]
         steps = [{"type": "function_call", "id": f"a{k}", "name": "approve_request",
-                  "arguments": {"job_id": j, "why": "evidence is clear"}} for k, j in enumerate(state["approvals"])]
+                  "arguments": {"job_id": j, "why": "evidence is clear"}} for k, j in enumerate(waiting)]
         steps.append({"type": "function_call", "id": "q", "name": "queue_job",
                       "arguments": {"kind": "paint", "target": "pipe_rack_A", "level": "AUTO", "priority": 3,
                                     "why": "paint after repair"}})

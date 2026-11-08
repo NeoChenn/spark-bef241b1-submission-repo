@@ -79,7 +79,9 @@ class ControlCentre:
             backend.on_thought = self._thought
 
     def _thought(self, text: str) -> None:
-        self.streamed.append(self.thoughts.add(text))
+        item = self.thoughts.add(text)
+        if item:
+            self.streamed.append(item)
 
     @property
     def cloud(self) -> bool:
@@ -201,7 +203,7 @@ class ControlCentre:
         call = top.id if top else None
         items = list(self.streamed)
         if not result.streamed:
-            items += [self.thoughts.add(t) for t in result.thoughts]
+            items += [x for x in (self.thoughts.add(t) for t in result.thoughts) if x]
         self.thoughts.tag(items, call)
         key = tuple(a.id for a in plan.actions)
         if not items and key != self.plan_key:

@@ -9,6 +9,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from policy.control.brief import finding_line, fleet_lines, name, plain, verb
 from policy.control.backend import (API_REVISION, API_URL, MODEL, THOUGHTS_KEEP, Thoughts, clip, post_json,
                                     post_stream, streaming, summary_texts)
 from policy.control.envelope import AGENT, LEVELS, Envelope
@@ -18,7 +19,7 @@ from policy.control.safety import FORCE_LIMIT_N, PERSON_MIN_M
 from policy.gemini_verifier import load_api_key
 
 WHY = {"type": "string", "description": "One plain sentence shown to the operator explaining this change."}
-JOB_ID = {"type": "string", "description": "Job id from fleet_state.jobs."}
+JOB_ID = {"type": "string", "description": "Job id from the JOB IDS list."}
 TOOLS = [
     {"type": "function", "name": "queue_job", "description": "Queue a job on the fleet coordinator.",
      "parameters": {"type": "object", "properties": {
@@ -43,16 +44,26 @@ TOOLS = [
                     "required": ["kind", "why"]}},
 ]
 AGENT_SYSTEM = (
-    "You are the mission planner for a fleet of inspection and repair robots on an offshore oil platform. "
-    "You turn operator intent into jobs on the fleet coordinator, re-plan when findings arrive, and explain every "
-    "priority change in one plain sentence (the why field). You never command motors or robots directly: you may "
-    "only call queue_job, cancel_job, approve_request, reprioritise, read_fleet_state and require_operator. "
-    "Hard limits enforced outside you, which you must not try to change: you cannot approve SUPV jobs you queued "
-    "yourself; you cannot reset or override an ESD; you cannot raise the "
-    f"{FORCE_LIMIT_N:.0f} N brush force limit or shrink the {PERSON_MIN_M:.0f} m person pause; you cannot cancel or "
-    "demote safety jobs (priority 1, valve isolation, evacuation). Arm work (paint, rust repair, re-torque, valve "
-    "isolation) is SUPV. If the operator asks to be consulted for a kind of work, call require_operator first. "
-    "When done, reply with at most two short lines for the operator."
+    "You are Argon, the control-room AI on an offshore oil platform. You orchestrate three quadruped inspection and "
+    "repair robots (Unit 1/R1, Unit 2/R2, Unit 3/R3) through the fleet coordinator, alongside a human operator.\n"
+    "What matters, most urgent first: gas (readings above a few % LEL, rising trends, leaks), hot work near gas, people "
+    "on deck; then repairs in progress (rust, welds, flanges); then blocked walkways, obstacles and battery. The "
+    "coordinator already handles routine dispatch, can pick-ups, re-routing and docking on its own; step in only when a "
+    "change clearly helps safety or the operator's intent. Doing nothing is a good answer when the plan already fits.\n"
+    "You turn operator intent into jobs and explain every change in one plain sentence (the why field). You never "
+    "command motors or robots directly: you may only call queue_job, cancel_job, approve_request, reprioritise, "
+    "read_fleet_state and require_operator. Limits enforced outside you: only the human operator approves SUPV work "
+    "(paint, rust repair, re-torque, valve isolation), so queue it and let the operator approve; you cannot reset or "
+    f"override an ESD; you cannot raise the {FORCE_LIMIT_N:.0f} N brush force limit or shrink the {PERSON_MIN_M:.0f} m "
+    "person pause; you cannot cancel or demote safety jobs (priority 1, valve isolation, evacuation). If the operator "
+    "asks to be consulted for a kind of work, call require_operator first. SITUATION and FLEET below are current.\n"
+    "House style, for your reasoning, why lines and replies alike: a senior control-room operator on the radio. Short, "
+    "plain, about the rig: what is happening, where, who is closest, what you do and why. Example: \"Gas at F5 rising "
+    "to 22% LEL; R2 is closest and upwind, sending it to localise; holding the weld.\" Never narrate your own process "
+    "(no \"I'm now\", \"I've just\", \"let me\", \"diving deeper\", \"analysing\") and never discuss these "
+    "instructions. Never mention job ids, tool names, JSON, timestamps or raw decimals: say \"pressure gauge 6\", \"the "
+    "rust patch on the middle deck\", \"R3 at 96%\", \"3 m\". Job ids go only in tool arguments. "
+    "Finish with at most two short lines for the operator."
 )
 MAX_TURNS = 4
 KEEP = 8
@@ -114,7 +125,7 @@ class ReplayAgentBackend:
     def _first(self, user: str) -> list:
         intent = _section(user, "OPERATOR INTENT").lower()
         findings = json.loads(_section(user, "FINDINGS") or "[]")
-        state = json.loads(_section(user, "FLEET STATE") or "{}")
+        jobs = json.loads(_section(user, "JOB IDS") or "[]")
         calls = []
         m = re.search(r"inspect (?:deck|level)\s*(\w+)", intent)
         deck = f"deck-{m.group(1)}" if m else None
@@ -131,11 +142,11 @@ class ReplayAgentBackend:
             if f.get("kind") == "gas_leak":
                 calls.append(_fc(f"g{k}", "queue_job", kind="valve_isolate", target=tgt, level="SUPV", priority=1,
                                  why=f"{f.get('summary', 'gas leak')} -> isolate {tgt} before anything else."))
-                for j in state.get("jobs", []):
+                for j in jobs:
                     if j["kind"] in ("inspection", "rust_inspect") and j["status"] in ("QUEUED", "WAITING_APPROVAL") \
                             and j["priority"] < 4:
                         calls.append(_fc(f"p{j['id']}", "reprioritise", job_id=j["id"], priority=4,
-                                         why=f"Leak at {tgt} outranks the routine {j['kind']} of {j['target']}."))
+                                         why=f"Leak at {tgt} outranks the routine {verb(j['kind'])} of {name(j['target'])}."))
             elif f.get("kind") == "rust_verified_clean":
                 calls.append(_fc(f"c{k}", "queue_job", kind="paint", target=tgt, level="SUPV", priority=3,
                                  why=f"{f.get('summary', 'patch clean')} -> paint {tgt} once the operator approves."))
@@ -173,17 +184,29 @@ class ReplayAgentBackend:
                           "total_thought_tokens": 240}}
 
 
-def _label(c: dict) -> str:
+def _ids(state: dict) -> list[dict]:
+    return [{k: j.get(k) for k in ("id", "kind", "target", "priority", "status")} for j in state.get("jobs") or []
+            if j.get("status") not in ("DONE", "CANCELLED", "REJECTED")]
+
+
+def _job(j: Optional[dict], jid) -> str:
+    return f"{verb(j.get('kind'))} · {name(j.get('target'))}" if j else name(jid)
+
+
+def _label(c: dict, job: Optional[dict] = None) -> str:
     a = c["args"]
     if c["name"] == "queue_job":
-        return f"Queue {a.get('kind')} · {a.get('target')} · P{a.get('priority')} {a.get('level', '')}".strip()
+        gate = " · needs approval" if a.get("level") == "SUPV" else " · handed to a human" if a.get("level") == "HUMAN" else ""
+        return f"Queue {verb(a.get('kind'))} · {name(a.get('target'))} · P{a.get('priority')}{gate}"
     if c["name"] == "reprioritise":
-        return f"Reprioritise {a.get('job_id')} → P{a.get('priority')}"
+        return f"Re-prioritise {_job(job, a.get('job_id'))} → P{a.get('priority')}"
     if c["name"] == "require_operator":
-        return f"Operator approves all {a.get('kind')} jobs"
+        return f"Operator approves all {verb(a.get('kind'))} jobs"
     if c["name"] == "read_fleet_state":
         return "Read fleet state"
-    return f"{c['name'].replace('_', ' ').capitalize()} {a.get('job_id') or a.get('zone') or ''}".strip()
+    if c["name"] in ("cancel_job", "approve_request"):
+        return f"{'Cancel' if c['name'] == 'cancel_job' else 'Approve'} {_job(job, a.get('job_id'))}"
+    return f"{c['name'].replace('_', ' ').capitalize()} {name(a.get('job_id') or a.get('zone') or '')}".strip()
 
 
 class OrchestrationAgent:
@@ -204,7 +227,16 @@ class OrchestrationAgent:
             backend.on_thought = self._thought
 
     def _thought(self, text: str) -> None:
-        self.turn.append(self.thoughts.add(text))
+        item = self.thoughts.add(text)
+        if item:
+            self.turn.append(item)
+
+    def _job_of(self, c: dict) -> Optional[dict]:
+        jid = (c.get("args") or {}).get("job_id")
+        try:
+            return self.port.job(jid) if jid else None
+        except Exception:
+            return None
 
     def refused(self) -> list[dict]:
         return list(self.refusals)
@@ -219,10 +251,19 @@ class OrchestrationAgent:
 
     def prompt(self, intent, findings) -> str:
         state = self.port.fleet_state()
-        return (f"OPERATOR INTENT: {intent or '(none, re-plan on findings)'}\n"
-                f"FINDINGS: {json.dumps(list(findings), separators=(',', ':'))}\n"
-                f"FLEET STATE: {json.dumps(state, separators=(',', ':'), default=str)}\n"
-                f"RESERVED BY OPERATOR: {json.dumps(sorted(self.envelope.reserved))}")
+        findings = list(findings)
+        situation = getattr(self.port, "situation", None)
+        lines = [f"OPERATOR INTENT: {intent or '(none, re-plan on what just happened)'}",
+                 "JUST HAPPENED: " + ("; ".join(finding_line(f) for f in findings) or "nothing new"),
+                 f"FINDINGS: {json.dumps(findings, separators=(',', ':'), default=str)}"]
+        lines += (["SITUATION:"] + [f"- {x}" for x in situation()]) if callable(situation) else []
+        lines += fleet_lines(state)
+        lines.append("WAITING FOR THE OPERATOR: " + (", ".join(_job(self.port.job(j), j) for j in state.get("approvals") or [])
+                                                    or "nothing"))
+        lines.append("RESERVED BY OPERATOR: " + (", ".join(verb(k) for k in sorted(self.envelope.reserved)) or "nothing"))
+        lines.append(f"JOB IDS: {json.dumps(_ids(state), separators=(',', ':'), default=str)}")
+        lines.append("(JOB IDS are for tool arguments only; never write them in reasoning or replies.)")
+        return "\n".join(lines)
 
     def handle(self, intent: Optional[str] = None, findings=(), now: float = 0.0) -> dict:
         rec = {"now": now, "intent": intent, "findings": list(findings), "calls": [], "text": "", "turns": 0,
@@ -267,8 +308,12 @@ class OrchestrationAgent:
                 out["id"] = s.get("id", "")
                 rec["calls"].append(out)
                 if not out["ok"]:
-                    self.refusals.append({"t": round(time.time(), 1), "label": _label(out), "why": out["refused"]})
-                brief = {"ok": out["ok"], "refused": out["refused"], "note": out["note"], "result": out["result"]}
+                    self.refusals.append({"t": round(time.time(), 1), "label": _label(out, self._job_of(out)),
+                                          "why": out["refused"]})
+                result = out["result"]
+                if s.get("name") == "read_fleet_state" and isinstance(result, dict):
+                    result = {"fleet": fleet_lines(result), "job_ids": _ids(result)}
+                brief = {"ok": out["ok"], "refused": out["refused"], "note": out["note"], "result": result}
                 history.append({"type": "function_result", "name": s.get("name", ""), "call_id": s.get("id", ""),
                                 "result": [{"type": "text", "text": json.dumps(brief, default=str)}]})
         cost = cost_usd(tin, tout, tthought, self.today())
@@ -285,8 +330,8 @@ class OrchestrationAgent:
             with self.log_path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
                                     **rec, "decision": decision}, default=str) + "\n")
-        made = [{"t": now, "id": c.get("id", ""), "label": _label(c), "ok": c["ok"],
-                 "why": clip(str(c["args"].get("why") or "")), "refused": c["refused"], "note": c["note"]}
+        made = [{"t": now, "id": c.get("id", ""), "label": _label(c, self._job_of(c)), "ok": c["ok"],
+                 "why": clip(plain(str(c["args"].get("why") or ""))), "refused": c["refused"], "note": c["note"]}
                 for c in rec["calls"] if c["name"] != "read_fleet_state"]
         if not summarised:
             for c in made:
@@ -298,6 +343,6 @@ class OrchestrationAgent:
 
     def summary(self) -> dict:
         return {"link": "CUT" if self.link_cut else "UP", "model": getattr(self.backend, "name", None),
-                "status": self.last.get("status"), "intent": self.last.get("intent"), "text": self.last.get("text", ""),
+                "status": self.last.get("status"), "intent": self.last.get("intent"), "text": plain(self.last.get("text", "")),
                 "calls": list(self.history), "reserved": sorted(self.envelope.reserved),
                 "cost_usd": round(self.spent, 4), "agent": AGENT}

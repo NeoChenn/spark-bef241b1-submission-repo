@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
 
+from policy.control.brief import plain, tidy
 from policy.control.prompt import prompt_hash, request_body
 from policy.control.safety import FORCE_LIMIT_N, LEL_EVACUATE, PERSON_MIN_M
 from policy.control.snapshot import SensorSnapshot
@@ -74,7 +75,10 @@ class Thoughts:
         self.items: deque = deque(maxlen=keep)
         self.lock = threading.Lock()
 
-    def add(self, text: str, kind: str = "summary", call: Optional[str] = None, t: Optional[float] = None) -> dict:
+    def add(self, text: str, kind: str = "summary", call: Optional[str] = None, t: Optional[float] = None) -> Optional[dict]:
+        text = tidy(text) if kind == "summary" else plain(text)
+        if not text:
+            return None
         item = {"t": round(time.time() if t is None else t, 1), "text": clip(text), "kind": kind}
         if call:
             item["call"] = call
