@@ -25,6 +25,7 @@ SIDES = 96
 DECK_UNDERSIDE = 18.75
 FLOODS = ((2.0, -31.0), (14.0, 8.0), (-16.0, 2.0))
 OUTLINE = topside.DECK_EDGES[0][1]
+OVERHANG = ((25.0, -37.5), (37.5, 25.0), 30.0)
 LANDING_ANGLE = -62.0
 RISERS = (
     ((-14.0, 0.32), (2.0, 0.45), (18.0, 0.28), (-40.0, 0.62)),
@@ -239,6 +240,34 @@ def build_braces(kit, legs):
         kit.tube("seam", p, q, r)
 
 
+def build_overhang(stage, looks, kit):
+    (x0, y0), (x1, y1), z = OVERHANG
+    rect = ((x0, y0), (x1, y0), (x1, y1), (x0, y1))
+    plate = {"points": np.array([(x, y, z - 0.04) for x, y in rect]), "normals": np.tile((0.0, 0.0, -1.0), (4, 1)),
+             "uvs": np.array(rect), "counts": [4], "indices": [3, 2, 1, 0]}
+    write_mesh(stage, f"{s.ROOT}/Underside/overhang_plate", plate, looks["plate"])
+    for y in sg.clear_stations(y0 + 0.4, y1 - 0.4, 3.1):
+        kit.member("steel", "ibeam", (x0 + 0.2, y, z - 0.38), (x1 - 0.3, y, z - 0.38), (0.32, 0.76))
+    for x in (x0 + 0.4, (x0 + x1) / 2, x1 - 0.3):
+        kit.member("steel", "ibeam", (x, y0, z - 0.8), (x, y1, z - 0.8), (0.6, 1.6))
+    for y in (y0 + 0.3, y1 - 0.3):
+        kit.member("steel", "ibeam", (x0, y, z - 0.8), (x1, y, z - 0.8), (0.6, 1.6))
+    for y in (y0 + 1.0, -17.5, 0.0, 17.5):
+        kit.member("steel", "ibeam", (x0 + 0.3, y, DECK_UNDERSIDE + 1.6), (x1 - 2.5, y, z - 1.5), (0.4, 0.5))
+    for x, r, look in ((29.0, 0.22, "pipe_grey"), (29.7, 0.14, "pipe_yellow"), (33.5, 0.28, "pipe_green")):
+        kit.tube(look, (x, y0 + 0.8, z - 1.1), (x, y1 - 0.8, z - 1.1), r)
+        for y in np.arange(y0 + 1.5, y1 - 1.0, 4.0):
+            kit.tube("galv", (x, y, z - 1.1 + r), (x, y, z - 0.75), 0.025)
+    for n, (x, y) in enumerate(((31.25, -30.0), (31.25, -12.0), (31.25, 6.0), (31.25, 20.0))):
+        kit.add("steel", "box", (x, y, z - 1.75), scale=(0.7, 0.35, 0.22))
+        kit.add("lamp", "box", (x, y, z - 1.87), scale=(0.6, 0.28, 0.03))
+        light = UsdLux.SphereLight.Define(stage, f"{s.ROOT}/Lights/overhang_{n:02d}")
+        UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(x, y, z - 2.2))
+        light.CreateRadiusAttr(0.25)
+        light.CreateIntensityAttr(200000.0)
+        light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(2300 if n % 2 else 4000)))
+
+
 def build_underside(stage, looks, kit, legs):
     z = DECK_UNDERSIDE
     xs = [p[0] for p in OUTLINE]
@@ -342,6 +371,7 @@ def build() -> Path:
     build_landing(stage, looks, kit, landing_leg)
     build_braces(kit, legs)
     build_underside(stage, looks, kit, legs)
+    build_overhang(stage, looks, kit)
     drips = build_drips(stage, looks, legs)
     total = kit.write()
     stage.OverridePrim(LEGS_MESH).SetActive(False)
