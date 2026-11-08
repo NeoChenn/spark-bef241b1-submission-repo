@@ -31,7 +31,8 @@ def worker(argv):
     p.add_argument("--init_from", type=str, default="", help="checkpoint to initialise weights from (fine-tune)")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--urdf", type=str, default="")
-    p.add_argument("--robot", type=str, default="lift", choices=["lift", "lift_v2", "go2ur3", "franka"])
+    p.add_argument("--robot", type=str, default="lift", choices=["lift", "lift_v2", "lift_v3", "go2ur3", "franka"])
+    p.add_argument("--storm", type=float, default=-1.0)
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -53,6 +54,8 @@ def worker(argv):
     task, cfg_name = TASKS[args.robot]
     env_cfg = getattr(C, cfg_name)()
     env_cfg.scene.num_envs = args.num_envs
+    if args.storm >= 0:
+        env_cfg.storm_level_range = (0.0, args.storm)
     env_cfg.seed = args.seed
     env_cfg.spawn_pipe_visual = False
     env_cfg.spawn_dog_visual = False

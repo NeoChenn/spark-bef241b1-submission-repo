@@ -58,7 +58,11 @@ def worker(argv):
     p.add_argument("--video_steps", type=int, default=600)
     p.add_argument("--meta", type=str, default="")
     p.add_argument("--force_patch", action="store_true")
-    p.add_argument("--robot", type=str, default="lift", choices=["lift", "lift_v2", "go2ur3", "franka"])
+    p.add_argument("--robot", type=str, default="lift", choices=["lift", "lift_v2", "lift_v3", "go2ur3", "franka"])
+    p.add_argument("--storm", type=float, default=-1.0)
+    p.add_argument("--gust_gate", type=float, nargs=2, default=None, metavar=("LIMIT", "RESUME"))
+    p.add_argument("--fmax", type=float, default=0.0)
+    p.add_argument("--storm_parts", default="gust,deck")
     p.add_argument("--cam", type=str, default="", choices=["", "close", "wide"])
     from isaaclab.app import AppLauncher
 
@@ -82,6 +86,12 @@ def worker(argv):
     task, cfg_name = TASKS[args.robot]
     env_cfg = getattr(C, cfg_name)()
     env_cfg.scene.num_envs = args.num_envs
+    if args.storm >= 0:
+        env_cfg.storm_level_range = (args.storm, args.storm)
+        if "deck" not in args.storm_parts:
+            env_cfg.storm_deck_amp, env_cfg.storm_trunk_sway = (0.0, 0.0), 0.0
+        if "gust" not in args.storm_parts:
+            env_cfg.storm_gust_peak, env_cfg.storm_gust_mean = (0.0, 0.0), (0.0, 0.0)
     if args.meta:
         print("[play] rig meta:", apply_meta(env_cfg, args.meta), flush=True)
     else:
@@ -129,9 +139,20 @@ def worker(argv):
     max_steps = args.video_steps if args.video else 10 ** 9
     step = 0
     t0 = time.time()
+    paused = torch.zeros(base.num_envs, dtype=torch.bool, device=base.device)
     while len(recs["success"]) < args.episodes and step < max_steps:
         with torch.inference_mode():
-            obs, _, dones, _ = env.step(policy(obs))
+            act = policy(obs)
+            if args.fmax > 0:
+                act[:, 3] = act[:, 3].clamp(max=(args.fmax - env_cfg.force_set_mid) / env_cfg.force_set_half)
+            if args.gust_gate:
+                g = base.gust_n
+                paused = torch.where(paused, g >= args.gust_gate[1], g > args.gust_gate[0])
+                th = base.theta
+                retract = torch.stack([torch.zeros_like(th), torch.cos(th), torch.sin(th), -torch.ones_like(th)], -1)
+                act = torch.where(paused[:, None], retract, act)
+            obs, _, dones, _ = env.step(act)
+            paused &= ~dones.bool()
         step += 1
         if dones.any() and getattr(base, "last_episode_stats", None) is not None:
             st = base.last_episode_stats
@@ -145,7 +166,7 @@ def worker(argv):
     mf = sorted(recs["max_force"])
     np_ = [s for s, e in zip(succ, recs["new_patch"]) if e]
     res = {
-        "ckpt": args.ckpt, "episodes": n, "meta": bool(args.meta),
+        "ckpt": args.ckpt, "episodes": n, "meta": bool(args.meta), "storm": max(args.storm, 0.0), "gust_gate": args.gust_gate, "fmax": args.fmax, "storm_parts": args.storm_parts,
         "success_rate": sum(succ) / max(n, 1),
         "mean_fraction_removed": sum(recs["fraction_removed"]) / max(n, 1),
         "mean_time_to_clean_s": (sum(t for t, s in zip(recs["time_to_clean_s"], succ) if s) / max(sum(succ), 1)),

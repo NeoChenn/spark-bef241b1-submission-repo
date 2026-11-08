@@ -26,9 +26,9 @@
     battery: "M3 8h15v8H3zM21 11v2M6 11v2",
   };
   const icon = (k) => `<svg viewBox="0 0 24 24"><path d="${ICONS[k] || ICONS.dot}"/></svg>`;
-  const NAME = { BACK_OFF: "Back off", PAUSE_PERSON: "Paused", ESCALATE_TO_HUMAN: "Escalated", SECOND_VIEW: "Second view", VERIFY_PAINT: "Verify paint", TRANSIT: "Walking", TO_DOCK: "To dock", GAS_CHECK: "Gas check", LEAK_APPROACH: "To leak", LEAK_INSPECT: "Inspect flange", LEAK_VERIFY: "Verify leak", RETORQUE: "Re-torque" };
+  const NAME = { BACK_OFF: "Back off", PAUSE_PERSON: "Paused", ESCALATE_TO_HUMAN: "Escalated", SECOND_VIEW: "Second view", VERIFY_PAINT: "Verify paint", TRANSIT: "Walking", TO_DOCK: "To dock", GAS_CHECK: "Gas check", LEAK_APPROACH: "To leak", LEAK_INSPECT: "Inspect flange", LEAK_VERIFY: "Verify leak", RETORQUE: "Re-torque", WIPE_LENS: "Wipe lens", WAIT_LULL: "Wait for lull" };
   const nice = (s) => NAME[s] || (s ? s[0] + s.slice(1).toLowerCase().replace(/_/g, " ") : "");
-  const TONE = { BACK_OFF: "warn", HOLD: "warn", WAIT: "warn", PAUSE_PERSON: "stop", PAUSED: "stop", ESCALATE_TO_HUMAN: "stop", GAS_RETREAT: "stop", DONE: "ok" };
+  const TONE = { BACK_OFF: "warn", HOLD: "warn", WAIT: "warn", PAUSE_PERSON: "stop", PAUSED: "stop", ESCALATE_TO_HUMAN: "stop", GAS_RETREAT: "stop", WIPE_LENS: "warn", WAIT_LULL: "warn", DONE: "ok" };
   const ALARM = {
     BACK_OFF: ["warn", "Back off", "Contact force over the 40 N limit · retracting", "warn"],
     PAUSE_PERSON: ["stop", "Person in work zone", "Worker within 3 m · arm stopped", "hand"],
