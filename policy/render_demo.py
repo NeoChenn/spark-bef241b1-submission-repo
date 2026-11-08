@@ -104,21 +104,6 @@ def seed_rust(base, seed: int, abrasion: float):
     rs.reset(torch.tensor([0], device=base.device), rust=rust, soak_time=60.0, abrasion_coef=abrasion)
 
 
-def draw_hud(rgb, lines, font, small):
-    import numpy as np
-    from PIL import Image, ImageDraw
-
-    im = Image.fromarray(np.ascontiguousarray(rgb[..., :3]))
-    d = ImageDraw.Draw(im, "RGBA")
-    x0, y0, w = 28, im.height - 28 - 34 - 26 * (len(lines) - 1), 640
-    d.rounded_rectangle([x0 - 14, y0 - 12, x0 + w, im.height - 22], radius=8, fill=(10, 14, 18, 165))
-    state, color = lines[0]
-    d.text((x0, y0), state, fill=color, font=font)
-    for k, line in enumerate(lines[1:]):
-        d.text((x0, y0 + 36 + 26 * k), line, fill=(230, 232, 235), font=small)
-    return np.asarray(im)
-
-
 def worker(argv):
     p = argparse.ArgumentParser()
     p.add_argument("--worker", action="store_true")
@@ -139,6 +124,12 @@ def worker(argv):
     p.add_argument("--max_s", type=float, default=18.0)
     p.add_argument("--still", action="store_true", help="render a few frames per shot only (look-dev)")
     p.add_argument("--no_flip_v", action="store_true")
+    p.add_argument("--look", default="night", choices=["day", "night"])
+    p.add_argument("--robot_color", default="graphite")
+    p.add_argument("--dome", type=float, default=220.0)
+    p.add_argument("--moon", type=float, default=25.0)
+    p.add_argument("--lamp_gain", type=float, default=1.0)
+    p.add_argument("--still_at", type=float, default=0.0)
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -152,7 +143,6 @@ def worker(argv):
     import numpy as np
     import omni.usd
     import torch
-    from PIL import ImageFont
     from rsl_rl.runners import OnPolicyRunner
 
     from isaaclab.envs import ViewerCfg
@@ -177,6 +167,7 @@ def worker(argv):
     env_cfg.spawn_pipe_visual = False
     env_cfg.backdrop_usd = os.path.abspath(args.scene)
     env_cfg.backdrop_translation = tuple(rig_translation(meta))
+    env_cfg.robot_cfg.spawn.make_instanceable = args.look == "day"
     env_cfg.viewer = ViewerCfg(eye=(2.0, 2.0, 1.6), lookat=(0, -0.4, 1.1), resolution=(1280, 720), origin_type="world")
     env_cfg.sim.render = RenderCfg(rendering_mode="quality", antialiasing_mode="DLAA", carb_settings={
         "/rtx/rendermode": args.renderer, "/rtx/pathtracing/spp": args.spp,
@@ -212,9 +203,13 @@ def worker(argv):
     settings = carb.settings.get_settings()
     for key, val in env_cfg.sim.render.carb_settings.items():
         settings.set(key, val)
-    font_dir = "/usr/share/fonts/truetype/dejavu"
-    font = ImageFont.truetype(os.path.join(font_dir, "DejaVuSans-Bold.ttf"), 26)
-    small = ImageFont.truetype(os.path.join(font_dir, "DejaVuSans.ttf"), 19)
+    if args.look == "night":
+        from policy import night_look
+
+        work = np.asarray(meta["env_to_world"]["translation"]) + np.array([0.0, -0.42, 1.2])
+        print("[demo] night look", night_look.apply(stage, "/World/Backdrop", tuple(work), dome=args.dome, moon=args.moon,
+                                                     lamp_gain=args.lamp_gain, robot_root="/World/envs/env_0/Robot",
+                                                     robot_color=args.robot_color), flush=True)
     origin = base.scene.env_origins[0].cpu().numpy()
     os.makedirs(args.out_dir, exist_ok=True)
     zero = torch.zeros(1, 4, device=base.device)
@@ -225,7 +220,6 @@ def worker(argv):
             base.sim.render()
         return base.render()
 
-    clips = {}
     for shot in args.shots.split(","):
         spec = SHOTS[shot]
         torch.manual_seed(args.seed)
@@ -243,7 +237,7 @@ def worker(argv):
         frames, info, t0 = [], [], time.time()
         n_pre = int(args.preroll / dt)
         done_at, retract_at, k = None, None, 0
-        max_steps = int(args.max_s / dt) if not args.still else int((args.preroll + 2.0) / dt)
+        max_steps = int(args.max_s / dt) if not args.still else int((args.preroll + args.still_at + 0.5) / dt)
         while k < max_steps:
             t = k * dt
             frac = float(base.rust.fraction_remaining()[0])
@@ -282,28 +276,20 @@ def worker(argv):
             base.sim.set_camera_view((eye + origin).tolist(), (look + origin).tolist())
             rgb = render_frame()
             force = float(base.force[0])
-            lines = [state, f"rust remaining   {100 * frac:5.1f} %",
-                     f"contact force    {force:5.1f} N   (limit 40 N)",
-                     f"t = {t:4.1f} s     policy: PPO scrub (Isaac Lab)"]
-            info.append({"t": round(t, 3), "frac": frac, "force": force, "state": state[0]})
-            if rgb is not None and rgb.size and k > 0:
-                frames.append(draw_hud(rgb, lines, font, small))
+            if rgb is not None and rgb.size and k > 0 and rgb[..., :3].mean() > 1:
+                frames.append(np.ascontiguousarray(rgb[..., :3]))
+                info.append({"t": round(t, 3), "frac": frac, "force": force, "state": state[0]})
             k += 1
         wall = time.time() - t0
-        frames = [f for f in frames if f.mean() > 3]
         fps = int(round(1 / dt))
-        path = os.path.join(args.out_dir, f"demo_{shot}.mp4")
-        imageio.mimsave(path, frames, fps=fps, quality=8, macro_block_size=8)
-        for q in (0.1, 0.35, 0.6, 0.9):
-            imageio.imwrite(os.path.join(args.out_dir, f"key_{shot}_{int(q * 100):02d}.png"), frames[int(q * (len(frames) - 1))])
-        with open(os.path.join(args.out_dir, f"demo_{shot}.json"), "w") as f:
+        path = os.path.join(args.out_dir, f"raw_{shot}.mp4")
+        imageio.mimsave(path, frames, fps=fps, quality=10, macro_block_size=8)
+        imageio.imwrite(os.path.join(args.out_dir, f"still_{shot}.png"), frames[-1])
+        with open(os.path.join(args.out_dir, f"raw_{shot}.json"), "w") as f:
             json.dump({"wall_s": round(wall, 1), "frames": len(frames), "fps": fps, "ckpt": args.ckpt,
-                       "renderer": args.renderer, "spp": args.spp, "subframes": args.subframes, "log": info}, f)
-        clips[shot] = frames
+                       "size": list(frames[0].shape[1::-1]), "renderer": args.renderer, "spp": args.spp,
+                       "subframes": args.subframes, "look": args.look, "log": info}, f)
         print(f"[demo] {shot}: {len(frames)} frames in {wall:.0f}s -> {path}", flush=True)
-    if len(clips) > 1:
-        out = [f for fr in clips.values() for f in fr]
-        imageio.mimsave(os.path.join(args.out_dir, "demo_combined.mp4"), out, fps=fps, quality=8, macro_block_size=8)
     print(f"[demo] settings rendermode={settings.get('/rtx/rendermode')}", flush=True)
     sys.stdout.flush()
     os._exit(0)
