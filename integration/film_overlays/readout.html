@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <title>Readout</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=block">
 <link rel="stylesheet" href="film.css">
 <style>
   #card { position: absolute; right: 64px; bottom: 64px; width: 400px; padding: 20px 24px 18px; }
@@ -20,6 +19,8 @@
   svg path { fill: none; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
   svg line { stroke-width: 1; stroke-dasharray: 3 4; }
   .state { margin-top: 10px; font-size: 15px; color: var(--label3); }
+  .nt { margin: 0; font-size: 19px; white-space: nowrap; }
+  .nt .dot { margin: 0 6px 0 2px; }
 </style>
 </head>
 <body>
@@ -27,7 +28,12 @@
 <script src="film.js"></script>
 <script>
   const { at, spark, fade, $, data } = K, R = data.readout || {}, L = data.span || 15;
-  const gas = R.mode !== "rust";
+  const gas = R.mode === "gas", note = R.mode === "note";
+  if (note) {
+    $("card").innerHTML = R.html ? `<div class="who"><span style="color:${R.source === "argon" ? "var(--accent)" : "var(--label2)"}">${R.source === "argon" ? "Argon" : "Edge rule"}</span></div><p class="nt">${R.html}</p>` : "";
+    $("card").style.width = "auto";
+    window.render = (t) => { $("card").style.opacity = R.html ? fade(t, 0, 0.4) * (1 - fade(t, L - 0.4, L)) : 0; return true; };
+  } else {
   if (data.corner === "tl") $("card").classList.add("tl");
   $("dot").className = "dot " + (gas ? "u2" : "u1");
   $("who").textContent = gas ? "Unit 2 · Fixer at F5" : "Unit 1 · Scrubber on the F5 line";
@@ -49,6 +55,7 @@
     $("card").style.opacity = fade(t, 0, 0.4) * (1 - fade(t, L - 0.4, L));
     return true;
   };
+  }
   window.render(0);
 </script>
 </body>

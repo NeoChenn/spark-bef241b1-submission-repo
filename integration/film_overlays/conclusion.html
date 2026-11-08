@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <title>Conclusion</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400&display=block">
 <link rel="stylesheet" href="film.css">
 <style>
   .card { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; opacity: 0; }
@@ -18,7 +17,7 @@
 <script src="film.js"></script>
 <script>
   const { fade, $, esc, data } = K, C = data.cards || [], L = data.span || 12, X = 0.5;
-  $("cards").innerHTML = C.map((c, i) => `<div class="card" id="c-${i}"><i></i><p>${c.html || esc(c.text)}</p>${c.sub ? `<small>${esc(c.sub)}</small>` : ""}</div>`).join("");
+  $("cards").innerHTML = C.map((c, i) => `<div class="card" id="c-${i}"><i></i><p>${c.lines ? c.lines.map((l, j) => `<span class="ln" id="l-${i}-${j}">${esc(l)}</span>`).join("<br>") : c.html || esc(c.text)}</p>${c.sub ? `<small>${esc(c.sub)}</small>` : ""}</div>`).join("");
   const slot = L / Math.max(1, C.length);
   window.render = (t) => {
     C.forEach((c, i) => {
@@ -26,6 +25,7 @@
       const o = (i === 0 ? fade(t, 0, X) : fade(t, a - X / 2, a + X / 2)) * (last ? 1 : 1 - fade(t, b - X / 2, b + X / 2));
       const e = $("c-" + i);
       e.style.opacity = o;
+      (c.lines || []).forEach((l, j) => { if (j) $(`l-${i}-${j}`).style.opacity = fade(t, a + 0.9 * j, a + 0.9 * j + X); });
       e.style.transform = `translateY(calc(-50% + ${(1 - o) * 6}px))`;
     });
     return true;
