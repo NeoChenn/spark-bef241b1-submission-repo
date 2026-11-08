@@ -198,7 +198,8 @@ class IsaacGasBot(GasBotMixin, IsaacRigBridge):
             return False
         self.at_flange = fid
         self.leak_mode = True
-        self.leak_views = g.view_poses(0.85)
+        self.leak_views = g.view_poses(0.42, 0.3)
+        self.inspection.camera.GetFocalLengthAttr().Set(18.0)
         self.inspection.look(*self.leak_views[0])
         self._sniff(g)
         return True
@@ -240,11 +241,13 @@ class IsaacGasBot(GasBotMixin, IsaacRigBridge):
     def retreat(self, distance: float = 3.0) -> None:
         self.at_flange = None
         self.leak_mode = False
+        self.inspection.camera.GetFocalLengthAttr().Set(35.0)
         self.walk_to(self.upwind_target(distance), guard=False)
 
     def return_to_work(self) -> None:
         self.at_flange = None
         self.leak_mode = False
+        self.inspection.camera.GetFocalLengthAttr().Set(35.0)
         self._stow()
         self.route.nearest(self.base_xy())
 

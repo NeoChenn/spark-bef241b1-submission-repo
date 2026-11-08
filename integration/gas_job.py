@@ -224,6 +224,8 @@ def run(app, rep, stage, args, out: Path, hero, hero_size, encode) -> None:
         if tail is not None and bridge.sim_time() - tail > 2.5:
             break
         orch.step()
+        if orch.state in (S.LEAK_INSPECT, S.LEAK_VERIFY) and bridge.last_inspection is not None:
+            Image.fromarray(bridge.last_inspection).save(out / f"inspect_{step:03d}.jpg", quality=92)
         tele.append({"t": round(bridge.sim_time(), 2), "state": orch.state.value, **orch.gas_telemetry()})
         if sender is not None:
             rgb = st["images"].get("hero")
