@@ -11,6 +11,7 @@ LAYER = SIM_DIR / "output" / "flare_fx.usda"
 TEX_DIR = SIM_DIR / "assets" / "generated"
 FLAME_TEX = TEX_DIR / "flare_flame_atlas.png"
 SMOKE_TEX = TEX_DIR / "flare_smoke_puff.png"
+MDL = SIM_DIR / "assets" / "mdl" / "flare_fx.mdl"
 HALO_TEX = TEX_DIR / "flare_halo.png"
 ROOT = "/World/FlareFx"
 LIGHT = "/World/Cinematic/Lamps/lamp_400"
@@ -140,12 +141,6 @@ def halo(size: int = 256) -> np.ndarray:
     return (np.clip(img, 0, 1) * 255 + 0.5).astype(np.uint8)
 
 
-def tile_transform(frame: int, cols: int = COLS, rows: int = ROWS):
-    frame %= cols * rows
-    r, c = divmod(frame, cols)
-    return (1.0 / cols, 1.0 / rows), (c / cols, (rows - 1 - r) / rows)
-
-
 def flicker(t: float, seed: float = 0.0) -> float:
     s = (math.sin(t * 11.3 + seed) * 0.5 + math.sin(t * 17.9 + 2.0 * seed + 1.3) * 0.3
          + math.sin(t * 5.1 + 3.0 * seed + 0.4) * 0.6 + math.sin(t * 29.3 + seed) * 0.2)
@@ -220,45 +215,24 @@ def write_textures() -> None:
     Image.fromarray(halo()).save(HALO_TEX, optimize=True)
 
 
-def _texture_material(stage, path: str, texture: str, emissive: bool, diffuse=(0.0, 0.0, 0.0), alpha: float = 1.0,
-                      gain: float = EMISSION, atlas_uv: bool = True):
+def _mdl_material(stage, path: str, sub: str, inputs: dict, rel):
     from pxr import Gf, Sdf, UsdShade
 
     mat = UsdShade.Material.Define(stage, path)
-    sh = UsdShade.Shader.Define(stage, f"{path}/surface")
-    sh.CreateIdAttr("UsdPreviewSurface")
-    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*diffuse))
-    sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(1.0)
-    sh.CreateInput("specularColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.0, 0.0, 0.0))
-    sh.CreateInput("useSpecularWorkflow", Sdf.ValueTypeNames.Int).Set(1)
-    rd = UsdShade.Shader.Define(stage, f"{path}/uv")
-    rd.CreateIdAttr("UsdPrimvarReader_float2")
-    rd.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
-    st = rd.CreateOutput("result", Sdf.ValueTypeNames.Float2)
-    if emissive and atlas_uv:
-        xf = UsdShade.Shader.Define(stage, f"{path}/tile")
-        xf.CreateIdAttr("UsdTransform2d")
-        xf.CreateInput("in", Sdf.ValueTypeNames.Float2).ConnectToSource(st)
-        xf.CreateInput("scale", Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(1.0 / COLS, 1.0 / ROWS))
-        xf.CreateInput("translation", Sdf.ValueTypeNames.Float2).Set(Gf.Vec2f(0.0, (ROWS - 1) / ROWS))
-        st = xf.CreateOutput("result", Sdf.ValueTypeNames.Float2)
-    tex = UsdShade.Shader.Define(stage, f"{path}/tex")
-    tex.CreateIdAttr("UsdUVTexture")
-    tex.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(texture)
-    tex.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(st)
-    tex.CreateInput("wrapS", Sdf.ValueTypeNames.Token).Set("clamp")
-    tex.CreateInput("wrapT", Sdf.ValueTypeNames.Token).Set("clamp")
-    tex.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB" if emissive else "raw")
-    gain = gain if emissive else 1.0
-    tex.CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(gain, gain, gain, alpha))
-    sh.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(tex.CreateOutput("a", Sdf.ValueTypeNames.Float))
-    sh.CreateInput("opacityThreshold", Sdf.ValueTypeNames.Float).Set(0.01)
-    rgb = tex.CreateOutput("rgb", Sdf.ValueTypeNames.Float3)
-    if emissive:
-        sh.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(rgb)
-    else:
-        sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*diffuse))
-    mat.CreateSurfaceOutput().ConnectToSource(sh.CreateOutput("surface", Sdf.ValueTypeNames.Token))
+    sh = UsdShade.Shader.Define(stage, f"{path}/shader")
+    sh.SetSourceAsset(Sdf.AssetPath(rel(MDL)), "mdl")
+    sh.SetSourceAssetSubIdentifier(sub, "mdl")
+    for k, v in inputs.items():
+        if isinstance(v, Path):
+            sh.CreateInput(k, Sdf.ValueTypeNames.Asset).Set(Sdf.AssetPath(rel(v)))
+            sh.GetInput(k).GetAttr().SetColorSpace("raw")
+        elif isinstance(v, tuple):
+            sh.CreateInput(k, Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(*v))
+        else:
+            sh.CreateInput(k, Sdf.ValueTypeNames.Float).Set(float(v))
+    out = sh.CreateOutput("out", Sdf.ValueTypeNames.Token)
+    mat.CreateSurfaceOutput("mdl").ConnectToSource(out)
+    mat.CreateSurfaceOutput().ConnectToSource(out)
     return mat
 
 
@@ -301,7 +275,8 @@ def build_layer(path: Path = LAYER) -> Path:
             faces += [a, a + 1, a + 4, a + 3]
     line = centerline(np.linspace(0, 1, rows), 0.0)
     for k, (yaw, ws, hs, phase, rate) in enumerate(CARDS):
-        mat = _texture_material(stage, f"{ROOT}/Looks/flame_{k}", rel(FLAME_TEX), True)
+        mat = _mdl_material(stage, f"{ROOT}/Looks/flame_{k}", "flare_card",
+                            {"atlas": FLAME_TEX, "frame": 0.0, "cols": COLS, "rows": ROWS, "gain": EMISSION}, rel)
         m = UsdGeom.Mesh.Define(stage, f"{ROOT}/flame_{k}")
         m.CreatePointsAttr(card_points(line, facing_right(line[0], (0, -200, 50), yaw), WIDTH * ws).tolist())
         m.CreateFaceVertexCountsAttr([4] * (len(faces) // 4))
@@ -314,14 +289,15 @@ def build_layer(path: Path = LAYER) -> Path:
     h = _quad(stage, f"{ROOT}/halo")
     h.GetPrim().CreateAttribute("primvars:doNotCastShadows", Sdf.ValueTypeNames.Bool).Set(True)
     UsdShade.MaterialBindingAPI.Apply(h.GetPrim()).Bind(
-        _texture_material(stage, f"{ROOT}/Looks/halo", rel(HALO_TEX), True, alpha=HALO_ALPHA, gain=HALO_GAIN,
-                          atlas_uv=False))
+        _mdl_material(stage, f"{ROOT}/Looks/halo", "flare_card",
+                      {"atlas": HALO_TEX, "cols": 1.0, "rows": 1.0, "gain": HALO_GAIN, "alpha_gain": HALO_ALPHA}, rel))
     inst = UsdGeom.PointInstancer.Define(stage, f"{ROOT}/smoke")
     protos = []
     for k in range(SMOKE_LEVELS):
         q = _quad(stage, f"{ROOT}/smoke/proto_{k}")
         a = 0.85 * (k + 1) / SMOKE_LEVELS
-        mat = _texture_material(stage, f"{ROOT}/Looks/smoke_{k}", rel(SMOKE_TEX), False, (0.05, 0.045, 0.04), a)
+        mat = _mdl_material(stage, f"{ROOT}/Looks/smoke_{k}", "smoke_card",
+                            {"puff": SMOKE_TEX, "tint": (0.06, 0.055, 0.05), "alpha_gain": a}, rel)
         UsdShade.MaterialBindingAPI.Apply(q.GetPrim()).Bind(mat)
         protos.append(q.GetPath())
     inst.CreatePrototypesRel().SetTargets(protos)
@@ -389,10 +365,9 @@ def update(stage, t: float, wind=WIND) -> None:
         UsdGeom.Mesh(stage.GetPrimAtPath(f"{ROOT}/flame_{k}")).GetPointsAttr().Set(
             Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
         frame = int(math.floor((t + phase * 7.0) * FPS * rate))
-        _, offset = tile_transform(frame)
-        UsdShade.Shader.Get(stage, f"{ROOT}/Looks/flame_{k}/tile").GetInput("translation").Set(Gf.Vec2f(*offset))
-        g = EMISSION * flicker(t, k + 1.0)
-        UsdShade.Shader.Get(stage, f"{ROOT}/Looks/flame_{k}/tex").GetInput("scale").Set(Gf.Vec4f(g, g, g, 1.0))
+        sh = UsdShade.Shader.Get(stage, f"{ROOT}/Looks/flame_{k}/shader")
+        sh.GetInput("frame").Set(float(frame % FRAMES))
+        sh.GetInput("gain").Set(EMISSION * flicker(t, k + 1.0))
     pos, scale, alpha = smoke_state(t, wind)
     inst = UsdGeom.PointInstancer(stage.GetPrimAtPath(f"{ROOT}/smoke"))
     inst.GetPositionsAttr().Set(Vt.Vec3fArray.FromNumpy(pos.astype(np.float32)))
@@ -408,8 +383,7 @@ def update(stage, t: float, wind=WIND) -> None:
     base = centre - toward * 8.0
     quad = np.array([base - right - up, base + right - up, base + right + up, base - right + up])
     UsdGeom.Mesh(stage.GetPrimAtPath(f"{ROOT}/halo")).GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(quad.astype(np.float32)))
-    g = HALO_GAIN * level
-    UsdShade.Shader.Get(stage, f"{ROOT}/Looks/halo/tex").GetInput("scale").Set(Gf.Vec4f(g, g, g, HALO_ALPHA))
+    UsdShade.Shader.Get(stage, f"{ROOT}/Looks/halo/shader").GetInput("gain").Set(HALO_GAIN * level)
     lamp = stage.GetPrimAtPath(LIGHT)
     if lamp:
         c = line[rows // 4]

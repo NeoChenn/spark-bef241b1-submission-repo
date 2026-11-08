@@ -9,14 +9,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sim"))
 import flare_fx as fx
 
 
-def test_tile_transform_walks_atlas_top_down_and_wraps():
-    scale, first = fx.tile_transform(0, 8, 4)
-    assert scale == pytest.approx((0.125, 0.25))
-    assert first == pytest.approx((0.0, 0.75))
-    assert fx.tile_transform(9, 8, 4)[1] == pytest.approx((0.125, 0.5))
-    assert fx.tile_transform(32, 8, 4)[1] == first
-
-
 def test_flicker_stays_in_band():
     vals = [fx.flicker(t * 0.01, 1.0) for t in range(3000)]
     assert 0.8 < min(vals) < max(vals) < 1.05

@@ -42,365 +42,180 @@ over "World"
         {
             def Material "flame_0"
             {
-                token outputs:surface.connect = </World/FlareFx/Looks/flame_0/surface.outputs:surface>
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/flame_0/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/flame_0/shader.outputs:out>
 
-                def Shader "surface"
+                def Shader "shader"
                 {
-                    uniform token info:id = "UsdPreviewSurface"
-                    color3f inputs:diffuseColor = (0, 0, 0)
-                    color3f inputs:emissiveColor.connect = </World/FlareFx/Looks/flame_0/tex.outputs:rgb>
-                    float inputs:opacity.connect = </World/FlareFx/Looks/flame_0/tex.outputs:a>
-                    float inputs:opacityThreshold = 0.01
-                    float inputs:roughness = 1
-                    color3f inputs:specularColor = (0, 0, 0)
-                    int inputs:useSpecularWorkflow = 1
-                    token outputs:surface
-                }
-
-                def Shader "uv"
-                {
-                    uniform token info:id = "UsdPrimvarReader_float2"
-                    token inputs:varname = "st"
-                    float2 outputs:result
-                }
-
-                def Shader "tile"
-                {
-                    uniform token info:id = "UsdTransform2d"
-                    float2 inputs:in.connect = </World/FlareFx/Looks/flame_0/uv.outputs:result>
-                    float2 inputs:scale = (0.125, 0.25)
-                    float2 inputs:translation = (0, 0.75)
-                    float2 outputs:result
-                }
-
-                def Shader "tex"
-                {
-                    uniform token info:id = "UsdUVTexture"
-                    asset inputs:file = @../assets/generated/flare_flame_atlas.png@
-                    float4 inputs:scale = (9, 9, 9, 1)
-                    token inputs:sourceColorSpace = "sRGB"
-                    float2 inputs:st.connect = </World/FlareFx/Looks/flame_0/tile.outputs:result>
-                    token inputs:wrapS = "clamp"
-                    token inputs:wrapT = "clamp"
-                    float outputs:a
-                    float3 outputs:rgb
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "flare_card"
+                    asset inputs:atlas = @../assets/generated/flare_flame_atlas.png@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:cols = 8
+                    float inputs:frame = 0
+                    float inputs:gain = 9
+                    float inputs:rows = 4
+                    token outputs:out
                 }
             }
 
             def Material "flame_1"
             {
-                token outputs:surface.connect = </World/FlareFx/Looks/flame_1/surface.outputs:surface>
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/flame_1/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/flame_1/shader.outputs:out>
 
-                def Shader "surface"
+                def Shader "shader"
                 {
-                    uniform token info:id = "UsdPreviewSurface"
-                    color3f inputs:diffuseColor = (0, 0, 0)
-                    color3f inputs:emissiveColor.connect = </World/FlareFx/Looks/flame_1/tex.outputs:rgb>
-                    float inputs:opacity.connect = </World/FlareFx/Looks/flame_1/tex.outputs:a>
-                    float inputs:opacityThreshold = 0.01
-                    float inputs:roughness = 1
-                    color3f inputs:specularColor = (0, 0, 0)
-                    int inputs:useSpecularWorkflow = 1
-                    token outputs:surface
-                }
-
-                def Shader "uv"
-                {
-                    uniform token info:id = "UsdPrimvarReader_float2"
-                    token inputs:varname = "st"
-                    float2 outputs:result
-                }
-
-                def Shader "tile"
-                {
-                    uniform token info:id = "UsdTransform2d"
-                    float2 inputs:in.connect = </World/FlareFx/Looks/flame_1/uv.outputs:result>
-                    float2 inputs:scale = (0.125, 0.25)
-                    float2 inputs:translation = (0, 0.75)
-                    float2 outputs:result
-                }
-
-                def Shader "tex"
-                {
-                    uniform token info:id = "UsdUVTexture"
-                    asset inputs:file = @../assets/generated/flare_flame_atlas.png@
-                    float4 inputs:scale = (9, 9, 9, 1)
-                    token inputs:sourceColorSpace = "sRGB"
-                    float2 inputs:st.connect = </World/FlareFx/Looks/flame_1/tile.outputs:result>
-                    token inputs:wrapS = "clamp"
-                    token inputs:wrapT = "clamp"
-                    float outputs:a
-                    float3 outputs:rgb
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "flare_card"
+                    asset inputs:atlas = @../assets/generated/flare_flame_atlas.png@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:cols = 8
+                    float inputs:frame = 0
+                    float inputs:gain = 9
+                    float inputs:rows = 4
+                    token outputs:out
                 }
             }
 
             def Material "flame_2"
             {
-                token outputs:surface.connect = </World/FlareFx/Looks/flame_2/surface.outputs:surface>
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/flame_2/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/flame_2/shader.outputs:out>
 
-                def Shader "surface"
+                def Shader "shader"
                 {
-                    uniform token info:id = "UsdPreviewSurface"
-                    color3f inputs:diffuseColor = (0, 0, 0)
-                    color3f inputs:emissiveColor.connect = </World/FlareFx/Looks/flame_2/tex.outputs:rgb>
-                    float inputs:opacity.connect = </World/FlareFx/Looks/flame_2/tex.outputs:a>
-                    float inputs:opacityThreshold = 0.01
-                    float inputs:roughness = 1
-                    color3f inputs:specularColor = (0, 0, 0)
-                    int inputs:useSpecularWorkflow = 1
-                    token outputs:surface
-                }
-
-                def Shader "uv"
-                {
-                    uniform token info:id = "UsdPrimvarReader_float2"
-                    token inputs:varname = "st"
-                    float2 outputs:result
-                }
-
-                def Shader "tile"
-                {
-                    uniform token info:id = "UsdTransform2d"
-                    float2 inputs:in.connect = </World/FlareFx/Looks/flame_2/uv.outputs:result>
-                    float2 inputs:scale = (0.125, 0.25)
-                    float2 inputs:translation = (0, 0.75)
-                    float2 outputs:result
-                }
-
-                def Shader "tex"
-                {
-                    uniform token info:id = "UsdUVTexture"
-                    asset inputs:file = @../assets/generated/flare_flame_atlas.png@
-                    float4 inputs:scale = (9, 9, 9, 1)
-                    token inputs:sourceColorSpace = "sRGB"
-                    float2 inputs:st.connect = </World/FlareFx/Looks/flame_2/tile.outputs:result>
-                    token inputs:wrapS = "clamp"
-                    token inputs:wrapT = "clamp"
-                    float outputs:a
-                    float3 outputs:rgb
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "flare_card"
+                    asset inputs:atlas = @../assets/generated/flare_flame_atlas.png@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:cols = 8
+                    float inputs:frame = 0
+                    float inputs:gain = 9
+                    float inputs:rows = 4
+                    token outputs:out
                 }
             }
 
             def Material "halo"
             {
-                token outputs:surface.connect = </World/FlareFx/Looks/halo/surface.outputs:surface>
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/halo/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/halo/shader.outputs:out>
 
-                def Shader "surface"
+                def Shader "shader"
                 {
-                    uniform token info:id = "UsdPreviewSurface"
-                    color3f inputs:diffuseColor = (0, 0, 0)
-                    color3f inputs:emissiveColor.connect = </World/FlareFx/Looks/halo/tex.outputs:rgb>
-                    float inputs:opacity.connect = </World/FlareFx/Looks/halo/tex.outputs:a>
-                    float inputs:opacityThreshold = 0.01
-                    float inputs:roughness = 1
-                    color3f inputs:specularColor = (0, 0, 0)
-                    int inputs:useSpecularWorkflow = 1
-                    token outputs:surface
-                }
-
-                def Shader "uv"
-                {
-                    uniform token info:id = "UsdPrimvarReader_float2"
-                    token inputs:varname = "st"
-                    float2 outputs:result
-                }
-
-                def Shader "tex"
-                {
-                    uniform token info:id = "UsdUVTexture"
-                    asset inputs:file = @../assets/generated/flare_halo.png@
-                    float4 inputs:scale = (1.2, 1.2, 1.2, 0.5)
-                    token inputs:sourceColorSpace = "sRGB"
-                    float2 inputs:st.connect = </World/FlareFx/Looks/halo/uv.outputs:result>
-                    token inputs:wrapS = "clamp"
-                    token inputs:wrapT = "clamp"
-                    float outputs:a
-                    float3 outputs:rgb
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "flare_card"
+                    float inputs:alpha_gain = 0.5
+                    asset inputs:atlas = @../assets/generated/flare_halo.png@ (
+                        colorSpace = "raw"
+                    )
+                    float inputs:cols = 1
+                    float inputs:gain = 1.2
+                    float inputs:rows = 1
+                    token outputs:out
                 }
             }
 
             def Material "smoke_0"
             {
-                token outputs:surface.connect = </World/FlareFx/Looks/smoke_0/surface.outputs:surface>
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/smoke_0/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/smoke_0/shader.outputs:out>
 
-                def Shader "surface"
+                def Shader "shader"
                 {
-                    uniform token info:id = "UsdPreviewSurface"
-                    color3f inputs:diffuseColor = (0.05, 0.045, 0.04)
-                    float inputs:opacity.connect = </World/FlareFx/Looks/smoke_0/tex.outputs:a>
-                    float inputs:opacityThreshold = 0.01
-                    float inputs:roughness = 1
-                    color3f inputs:specularColor = (0, 0, 0)
-                    int inputs:useSpecularWorkflow = 1
-                    token outputs:surface
-                }
-
-                def Shader "uv"
-                {
-                    uniform token info:id = "UsdPrimvarReader_float2"
-                    token inputs:varname = "st"
-                    float2 outputs:result
-                }
-
-                def Shader "tex"
-                {
-                    uniform token info:id = "UsdUVTexture"
-                    asset inputs:file = @../assets/generated/flare_smoke_puff.png@
-                    float4 inputs:scale = (1, 1, 1, 0.17)
-                    token inputs:sourceColorSpace = "raw"
-                    float2 inputs:st.connect = </World/FlareFx/Looks/smoke_0/uv.outputs:result>
-                    token inputs:wrapS = "clamp"
-                    token inputs:wrapT = "clamp"
-                    float outputs:a
-                    float3 outputs:rgb
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "smoke_card"
+                    float inputs:alpha_gain = 0.17
+                    asset inputs:puff = @../assets/generated/flare_smoke_puff.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:tint = (0.06, 0.055, 0.05)
+                    token outputs:out
                 }
             }
 
             def Material "smoke_1"
             {
-                token outputs:surface.connect = </World/FlareFx/Looks/smoke_1/surface.outputs:surface>
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/smoke_1/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/smoke_1/shader.outputs:out>
 
-                def Shader "surface"
+                def Shader "shader"
                 {
-                    uniform token info:id = "UsdPreviewSurface"
-                    color3f inputs:diffuseColor = (0.05, 0.045, 0.04)
-                    float inputs:opacity.connect = </World/FlareFx/Looks/smoke_1/tex.outputs:a>
-                    float inputs:opacityThreshold = 0.01
-                    float inputs:roughness = 1
-                    color3f inputs:specularColor = (0, 0, 0)
-                    int inputs:useSpecularWorkflow = 1
-                    token outputs:surface
-                }
-
-                def Shader "uv"
-                {
-                    uniform token info:id = "UsdPrimvarReader_float2"
-                    token inputs:varname = "st"
-                    float2 outputs:result
-                }
-
-                def Shader "tex"
-                {
-                    uniform token info:id = "UsdUVTexture"
-                    asset inputs:file = @../assets/generated/flare_smoke_puff.png@
-                    float4 inputs:scale = (1, 1, 1, 0.34)
-                    token inputs:sourceColorSpace = "raw"
-                    float2 inputs:st.connect = </World/FlareFx/Looks/smoke_1/uv.outputs:result>
-                    token inputs:wrapS = "clamp"
-                    token inputs:wrapT = "clamp"
-                    float outputs:a
-                    float3 outputs:rgb
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "smoke_card"
+                    float inputs:alpha_gain = 0.34
+                    asset inputs:puff = @../assets/generated/flare_smoke_puff.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:tint = (0.06, 0.055, 0.05)
+                    token outputs:out
                 }
             }
 
             def Material "smoke_2"
             {
-                token outputs:surface.connect = </World/FlareFx/Looks/smoke_2/surface.outputs:surface>
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/smoke_2/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/smoke_2/shader.outputs:out>
 
-                def Shader "surface"
+                def Shader "shader"
                 {
-                    uniform token info:id = "UsdPreviewSurface"
-                    color3f inputs:diffuseColor = (0.05, 0.045, 0.04)
-                    float inputs:opacity.connect = </World/FlareFx/Looks/smoke_2/tex.outputs:a>
-                    float inputs:opacityThreshold = 0.01
-                    float inputs:roughness = 1
-                    color3f inputs:specularColor = (0, 0, 0)
-                    int inputs:useSpecularWorkflow = 1
-                    token outputs:surface
-                }
-
-                def Shader "uv"
-                {
-                    uniform token info:id = "UsdPrimvarReader_float2"
-                    token inputs:varname = "st"
-                    float2 outputs:result
-                }
-
-                def Shader "tex"
-                {
-                    uniform token info:id = "UsdUVTexture"
-                    asset inputs:file = @../assets/generated/flare_smoke_puff.png@
-                    float4 inputs:scale = (1, 1, 1, 0.51)
-                    token inputs:sourceColorSpace = "raw"
-                    float2 inputs:st.connect = </World/FlareFx/Looks/smoke_2/uv.outputs:result>
-                    token inputs:wrapS = "clamp"
-                    token inputs:wrapT = "clamp"
-                    float outputs:a
-                    float3 outputs:rgb
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "smoke_card"
+                    float inputs:alpha_gain = 0.51
+                    asset inputs:puff = @../assets/generated/flare_smoke_puff.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:tint = (0.06, 0.055, 0.05)
+                    token outputs:out
                 }
             }
 
             def Material "smoke_3"
             {
-                token outputs:surface.connect = </World/FlareFx/Looks/smoke_3/surface.outputs:surface>
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/smoke_3/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/smoke_3/shader.outputs:out>
 
-                def Shader "surface"
+                def Shader "shader"
                 {
-                    uniform token info:id = "UsdPreviewSurface"
-                    color3f inputs:diffuseColor = (0.05, 0.045, 0.04)
-                    float inputs:opacity.connect = </World/FlareFx/Looks/smoke_3/tex.outputs:a>
-                    float inputs:opacityThreshold = 0.01
-                    float inputs:roughness = 1
-                    color3f inputs:specularColor = (0, 0, 0)
-                    int inputs:useSpecularWorkflow = 1
-                    token outputs:surface
-                }
-
-                def Shader "uv"
-                {
-                    uniform token info:id = "UsdPrimvarReader_float2"
-                    token inputs:varname = "st"
-                    float2 outputs:result
-                }
-
-                def Shader "tex"
-                {
-                    uniform token info:id = "UsdUVTexture"
-                    asset inputs:file = @../assets/generated/flare_smoke_puff.png@
-                    float4 inputs:scale = (1, 1, 1, 0.68)
-                    token inputs:sourceColorSpace = "raw"
-                    float2 inputs:st.connect = </World/FlareFx/Looks/smoke_3/uv.outputs:result>
-                    token inputs:wrapS = "clamp"
-                    token inputs:wrapT = "clamp"
-                    float outputs:a
-                    float3 outputs:rgb
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "smoke_card"
+                    float inputs:alpha_gain = 0.68
+                    asset inputs:puff = @../assets/generated/flare_smoke_puff.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:tint = (0.06, 0.055, 0.05)
+                    token outputs:out
                 }
             }
 
             def Material "smoke_4"
             {
-                token outputs:surface.connect = </World/FlareFx/Looks/smoke_4/surface.outputs:surface>
+                token outputs:mdl:surface.connect = </World/FlareFx/Looks/smoke_4/shader.outputs:out>
+                token outputs:surface.connect = </World/FlareFx/Looks/smoke_4/shader.outputs:out>
 
-                def Shader "surface"
+                def Shader "shader"
                 {
-                    uniform token info:id = "UsdPreviewSurface"
-                    color3f inputs:diffuseColor = (0.05, 0.045, 0.04)
-                    float inputs:opacity.connect = </World/FlareFx/Looks/smoke_4/tex.outputs:a>
-                    float inputs:opacityThreshold = 0.01
-                    float inputs:roughness = 1
-                    color3f inputs:specularColor = (0, 0, 0)
-                    int inputs:useSpecularWorkflow = 1
-                    token outputs:surface
-                }
-
-                def Shader "uv"
-                {
-                    uniform token info:id = "UsdPrimvarReader_float2"
-                    token inputs:varname = "st"
-                    float2 outputs:result
-                }
-
-                def Shader "tex"
-                {
-                    uniform token info:id = "UsdUVTexture"
-                    asset inputs:file = @../assets/generated/flare_smoke_puff.png@
-                    float4 inputs:scale = (1, 1, 1, 0.85)
-                    token inputs:sourceColorSpace = "raw"
-                    float2 inputs:st.connect = </World/FlareFx/Looks/smoke_4/uv.outputs:result>
-                    token inputs:wrapS = "clamp"
-                    token inputs:wrapT = "clamp"
-                    float outputs:a
-                    float3 outputs:rgb
+                    uniform token info:implementationSource = "sourceAsset"
+                    uniform asset info:mdl:sourceAsset = @../assets/mdl/flare_fx.mdl@
+                    uniform token info:mdl:sourceAsset:subIdentifier = "smoke_card"
+                    float inputs:alpha_gain = 0.85
+                    asset inputs:puff = @../assets/generated/flare_smoke_puff.png@ (
+                        colorSpace = "raw"
+                    )
+                    color3f inputs:tint = (0.06, 0.055, 0.05)
+                    token outputs:out
                 }
             }
         }
