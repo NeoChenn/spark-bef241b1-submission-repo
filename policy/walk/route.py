@@ -58,7 +58,8 @@ def falls_per_km(falls: int, dist_m: float) -> float:
 class WaypointFollower:
     def __init__(self, path, goal_yaw: float, v_max: float = 1.0, w_max: float = 1.0, lookahead: float = 0.8,
                  k_heading: float = 2.0, r_final: float = 1.0, k_final: float = 1.5, v_final: float = 0.5,
-                 pos_tol: float = 0.03, yaw_tol: float = 0.05, k_slow: float = 0.8, v_min: float = 0.0):
+                 pos_tol: float = 0.03, yaw_tol: float = 0.05, k_slow: float = 0.8, v_min: float = 0.0,
+                 hold_tol: float = math.inf, hold_yaw: float = math.inf):
         self.pts = resample(path, 0.05)
         self.s = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(self.pts, axis=0), axis=1))]
         self.total = float(self.s[-1])
@@ -67,6 +68,7 @@ class WaypointFollower:
         self.v_max, self.w_max, self.lookahead, self.k_heading = v_max, w_max, lookahead, k_heading
         self.r_final, self.k_final, self.v_final, self.k_slow = r_final, k_final, v_final, k_slow
         self.pos_tol, self.yaw_tol, self.v_min = pos_tol, yaw_tol, v_min
+        self.hold_tol, self.hold_yaw = hold_tol, hold_yaw
         self.progress, self.done = 0.0, False
 
     def _update_progress(self, p):
@@ -82,6 +84,8 @@ class WaypointFollower:
         yaw_err = wrap(self.goal_yaw - yaw)
         if dist < self.pos_tol and abs(yaw_err) < self.yaw_tol:
             self.done = True
+        elif self.done and (dist > self.hold_tol or abs(yaw_err) > self.hold_yaw):
+            self.done = False
         if self.done:
             return 0.0, 0.0, 0.0, True
         self._update_progress(p)

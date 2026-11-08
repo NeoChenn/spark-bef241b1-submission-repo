@@ -116,3 +116,14 @@ def test_final_approach_keeps_minimum_speed():
     f.progress = polyline_length(SQUARE)
     vx, vy, _, done = f.command(4.0, 2.94, 0.0)
     assert not done and math.hypot(vx, vy) == pytest.approx(0.15)
+
+
+def test_follower_reengages_when_pushed_off_stance():
+    f = WaypointFollower(SQUARE, goal_yaw=0.0, pos_tol=0.05, yaw_tol=0.05, hold_tol=0.08, hold_yaw=0.1)
+    f.progress = polyline_length(SQUARE)
+    assert f.command(4.0, 3.0, 0.0)[3]
+    assert f.command(4.0, 2.95, 0.05)[3]
+    vx, vy, wz, done = f.command(4.0, 2.85, 0.0)
+    assert not done and vy > 0
+    _, _, wz, done = f.command(4.0, 3.0, 0.3)
+    assert not done and wz < 0
