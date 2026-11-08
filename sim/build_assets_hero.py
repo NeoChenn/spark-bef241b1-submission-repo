@@ -51,7 +51,6 @@ def place(stage, parent: str, name: str, asset: str, pos, rot: float, scale: flo
     model.GetReferences().AddReference(url)
     if asset.startswith("nv_"):
         model.GetVariantSets().AddVariantSet("PhysX").SetVariantSelection("Disabled")
-        stage.OverridePrim(f"{model.GetPath()}/Joints").SetActive(False)
     cz = -(lo[2] + hi[2]) / 2 if centre_z else -lo[2]
     UsdGeom.Xformable(model).AddTranslateOp().Set(Gf.Vec3d(-(lo[0] + hi[0]) / 2, -(lo[1] + hi[1]) / 2, cz))
     if asset.startswith("fuel_"):

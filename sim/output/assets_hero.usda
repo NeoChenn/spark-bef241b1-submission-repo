@@ -44,12 +44,6 @@ over "World"
                 {
                     double3 xformOp:translate = (0.10175, -0, -0.0003)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
-
-                    over "Joints" (
-                        active = false
-                    )
-                    {
-                    }
                 }
             }
 
@@ -104,12 +98,6 @@ over "World"
                 {
                     double3 xformOp:translate = (-0.08910000000000001, -0, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
-
-                    over "Joints" (
-                        active = false
-                    )
-                    {
-                    }
                 }
             }
 
@@ -164,12 +152,6 @@ over "World"
                 {
                     double3 xformOp:translate = (-0, -0.00020000000000003348, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
-
-                    over "Joints" (
-                        active = false
-                    )
-                    {
-                    }
                 }
             }
 
@@ -190,12 +172,6 @@ over "World"
                 {
                     double3 xformOp:translate = (-0, -0.00020000000000003348, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
-
-                    over "Joints" (
-                        active = false
-                    )
-                    {
-                    }
                 }
             }
 
@@ -216,12 +192,6 @@ over "World"
                 {
                     double3 xformOp:translate = (-0, 0.01855000000000001, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
-
-                    over "Joints" (
-                        active = false
-                    )
-                    {
-                    }
                 }
             }
 
@@ -259,12 +229,6 @@ over "World"
                 {
                     double3 xformOp:translate = (-0, -0, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
-
-                    over "Joints" (
-                        active = false
-                    )
-                    {
-                    }
                 }
             }
 
@@ -285,12 +249,6 @@ over "World"
                 {
                     double3 xformOp:translate = (-0, -0, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
-
-                    over "Joints" (
-                        active = false
-                    )
-                    {
-                    }
                 }
             }
 
@@ -311,12 +269,6 @@ over "World"
                 {
                     double3 xformOp:translate = (0.004149999999999987, 0.027200000000000002, -0)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
-
-                    over "Joints" (
-                        active = false
-                    )
-                    {
-                    }
                 }
             }
         }
@@ -374,12 +326,6 @@ over "World"
                 {
                     double3 xformOp:translate = (-0.09005, -0.00495000000000001, -0.2341)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
-
-                    over "Joints" (
-                        active = false
-                    )
-                    {
-                    }
                 }
             }
 
@@ -400,12 +346,6 @@ over "World"
                 {
                     double3 xformOp:translate = (-0.05435, 0.0020000000000000018, -0.20875)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
-
-                    over "Joints" (
-                        active = false
-                    )
-                    {
-                    }
                 }
             }
         }
