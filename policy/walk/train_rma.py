@@ -19,6 +19,8 @@ def make(args, eval_mode=False):
     cfg = WalkRMAEnvCfg()
     cfg.scene.num_envs = args.num_envs
     cfg.seed = args.seed
+    if getattr(args, "blind", False):
+        cfg.observations.policy.extrinsics.scale = 0.0
     if eval_mode:
         cfg.scene.terrain.max_init_terrain_level = None
         cfg.scene.terrain.terrain_generator.curriculum = False
@@ -51,7 +53,7 @@ def teacher(args):
     runner.alg.policy.load_state_dict(expand_first_layer(sd, EXT_DIM))
     t0 = time.time()
     runner.learn(num_learning_iterations=args.iters, init_at_random_ep_len=True)
-    runner.save(os.path.join(args.run_dir, "teacher.pt"))
+    runner.save(os.path.join(args.run_dir, "teacher_blind.pt" if args.blind else "teacher.pt"))
     print(f"[rma] TEACHER_DONE {time.time() - t0:.0f}s", flush=True)
 
 
@@ -155,9 +157,13 @@ def evaluate(args):
         "oracle": lambda o, h: actor(o),
         "no_latent": lambda o, h: actor(torch.cat([o[:, :BASE_OBS], zeros], 1)),
     }
+    bp = os.path.join(args.run_dir, "teacher_blind.pt")
+    if os.path.exists(bp):
+        blind = load_actor(bp, dev)
+        pols["finetune_blind"] = lambda o, h: blind(torch.cat([o[:, :BASE_OBS], zeros], 1))
     dt = base.step_dt
     out = {}
-    for name in args.policies.split(","):
+    for name in [n for n in args.policies.split(",") if n in pols]:
         with torch.inference_mode():
             torch.manual_seed(args.seed)
             base._rma_gen.manual_seed(args.seed + 7)
@@ -217,6 +223,7 @@ def main(argv):
     p.add_argument("--base", required=True)
     p.add_argument("--run_dir", required=True)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--blind", action="store_true")
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)

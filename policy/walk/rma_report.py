@@ -4,7 +4,7 @@ import json
 import os
 import sys
 
-LABELS = {"base": "PPO baseline", "rma": "RMA adapted", "oracle": "privileged teacher", "no_latent": "adapted, latent zeroed"}
+LABELS = {"base": "PPO baseline", "rma": "RMA adapted", "oracle": "privileged teacher", "no_latent": "adapted, latent zeroed", "finetune_blind": "fine-tuned, no estimator"}
 
 
 def build(ev: dict, extra: dict) -> dict:
@@ -26,8 +26,8 @@ def chart(res: dict, path: str):
     import matplotlib.pyplot as plt
 
     fg, mute = "#e8ecf2", "#9aa4b2"
-    names = [n for n in ("base", "rma", "oracle") if n in res["policies"]]
-    cols = {"base": "#7d8796", "rma": "#4cc3ff", "oracle": "#3a5f7a"}
+    names = [n for n in ("base", "finetune_blind", "rma", "oracle") if n in res["policies"]]
+    cols = {"base": "#7d8796", "finetune_blind": "#a58bd6", "rma": "#4cc3ff", "oracle": "#3a5f7a"}
     fig, axs = plt.subplots(1, 3, figsize=(10, 3.2))
     fig.patch.set_alpha(0)
     pol = res["policies"]
