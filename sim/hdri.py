@@ -56,3 +56,9 @@ def horizon_color(img: np.ndarray, max_elevation_deg: float = 4.0) -> np.ndarray
     h = img.shape[0]
     rows = max(1, int(round(h * max_elevation_deg / 180.0)))
     return img[h // 2 - rows : h // 2].reshape(-1, 3).mean(0)
+
+
+def horizon_gain(elevation_deg, floor: float = 0.05, top: float = 25.0):
+    u = np.clip(np.asarray(elevation_deg, dtype=float) / top, 0.0, 1.0)
+    smooth = u * u * (3 - 2 * u)
+    return floor + (1 - floor) * smooth

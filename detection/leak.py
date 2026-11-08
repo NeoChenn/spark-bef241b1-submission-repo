@@ -128,7 +128,7 @@ class LeakLocalizer:
         shape_score = min(1.0, max(0.0, (elong - 2.5) / 3.5))
         size_score = min(1.0, r_px / 8.0)
         sat = float((R[red] - 0.5 * (G[red] + B[red])).mean())
-        sat_score = min(1.0, max(0.0, (sat - 50.0) / 90.0))
+        sat_score = min(1.0, max(0.0, (sat - 40.0) / 60.0))
         conf = count_score * shape_score * size_score * sat_score
         return BoltReading(k, angle, float(conf), (cx, cy), n_red)
 

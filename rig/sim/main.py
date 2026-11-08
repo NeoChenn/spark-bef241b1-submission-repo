@@ -94,11 +94,11 @@ def load_cinematic(app, ctx, preset: str, args=None):
     op.Set(Gf.Matrix4d(1))
     cinematic.apply_preset(stage, preset)
     rest, distance, _, _ = ocean.make_grid()
-    height = cinematic.PRESETS[preset]["wave_height"]
+    wave = {"height": cinematic.PRESETS[preset]["wave_height"]}
     view = merged_camera(args, scene_path) if merged else None
 
     def update(t: float) -> None:
-        cinematic.animate_ocean(stage, rest, distance, t, height)
+        cinematic.animate_ocean(stage, rest, distance, t, wave["height"])
         cinematic.animate_effects(stage, t)
         if view is None:
             cinematic.set_camera(stage, path, t % cinematic.SEQUENCE_SECONDS)
@@ -107,6 +107,7 @@ def load_cinematic(app, ctx, preset: str, args=None):
         cam.GetFocalLengthAttr().Set(focal)
         op.Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*eye), Gf.Vec3d(*target), Gf.Vec3d(0, 0, 1)).GetInverse())
 
+    update.wave = wave
     update(0.0)
     print(f"rig sim: cinematic preset {preset} scene {scene_path.name}", flush=True)
     return path, update
@@ -136,6 +137,47 @@ def load_atmosphere(stage, cam_path: str, args):
 
     print(f"rig sim: atmosphere tier={args.atmos} weather={args.weather or 'preset'}", flush=True)
     return atm, tick
+
+
+def load_fleet_log(path: str):
+    import json
+
+    ticks = [json.loads(line) for line in open(path) if line.startswith('{"type": "tick"')]
+    return [x["t"] for x in ticks], ticks
+
+
+def make_obstacles(stage, cine_update, args):
+    from rig.sim.obstacle_math import tick_index
+    from rig.sim.obstacles import ObstacleScene
+
+    scene = ObstacleScene(stage, wave=getattr(cine_update, "wave", None), radius=args.path_radius)
+    replay = None
+    if args.fleet_log:
+        times, ticks = load_fleet_log(args.fleet_log)
+        replay = {"times": times, "ticks": ticks, "i": -1}
+        print(f"rig sim: replaying {len(ticks)} fleet ticks from {args.fleet_log} at x{args.fleet_speed}", flush=True)
+
+    def tick(t: float) -> None:
+        if replay:
+            i = tick_index(replay["times"], (t * args.fleet_speed) % (replay["times"][-1] + 1.0))
+            if i != replay["i"]:
+                replay["i"] = i
+                scene.sync(replay["ticks"][i])
+        scene.tick(t)
+
+    return scene, tick
+
+
+def handle_event(scene, event: dict, atm=None) -> None:
+    name, args = event.get("name"), event.get("args") or {}
+    if atm is not None and name == "set_weather":
+        atm.set_weather(**{k: args[k] for k in ("level", "wind_dir", "gust") if k in args})
+    if scene is not None and name == "fleet":
+        scene.sync(args)
+        return
+    if scene is not None and name == "set_weather":
+        scene.set_weather(**{k: args[k] for k in ("level", "wind_dir", "gust") if k in args})
+    print(f"rig sim: event {name} {args}", flush=True)
 
 
 def make_orbit_camera(stage, src_path: str, args):
@@ -201,6 +243,7 @@ def main() -> None:
 
     ctx = omni.usd.get_context()
     tickers = []
+    obstacles = None
     if args.scene == "test":
         from rig.sim.scene import CAMERA_PATH, build_scene, spin
 
@@ -210,6 +253,8 @@ def main() -> None:
     elif args.cinematic:
         cam_path, cine_update = load_cinematic(app, ctx, args.cinematic, args)
         tickers.append(cine_update)
+        obstacles, obstacle_tick = make_obstacles(ctx.get_stage(), cine_update, args)
+        tickers.append(obstacle_tick)
     else:
         open_scene(app, ctx, args.scene)
         cam_path = args.camera
@@ -227,6 +272,13 @@ def main() -> None:
     env = load_environment(stage, args.env, args.sea_level)
     if env is not None:
         tickers.append(lambda t: env.update(t, camera=cam_path))
+
+    leak = None
+    if args.leak:
+        from sim.plume.isaac import LeakStream
+
+        leak = LeakStream(stage, args)
+        tickers.append(leak.tick)
 
     rp = rep.create.render_product(cam_path, (args.width, args.height))
     ann = rep.AnnotatorRegistry.get_annotator("rgb")
@@ -256,6 +308,12 @@ def main() -> None:
     while app.is_running():
         now = time.monotonic()
         t = now - start
+        while not sender.inbox.empty():
+            ev = sender.inbox.get_nowait()
+            if leak and ev["name"] == "gas_leak":
+                print(f"rig sim: gas_leak {ev['args']} -> {leak.event(ev['args'])}", flush=True)
+            else:
+                handle_event(obstacles, ev, atm)
         for tick in tickers:
             tick(t)
         rep.orchestrator.step(rt_subframes=args.subframes, pause_timeline=False, wait_for_render=args.wait_render)
@@ -273,8 +331,12 @@ def main() -> None:
             buf = io.BytesIO()
             Image.fromarray(rgb).save(buf, "JPEG", quality=args.quality)
             jpeg_kb = buf.tell() / 1024
-            sender.send({"type": "frame", "w": rgb.shape[1], "h": rgb.shape[0], "seq": seq, "t": t, "mean": round(mean, 1),
-                         "camera": camera_header()}, buf.getvalue())
+            head = {"type": "frame", "w": rgb.shape[1], "h": rgb.shape[0], "seq": seq, "t": t, "mean": round(mean, 1),
+                    "camera": camera_header()}
+            plume = leak.header(t) if leak else None
+            if plume:
+                head["plume"] = plume
+            sender.send(head, buf.getvalue())
             seq += 1
             if snap_at is not None and now >= snap_at and mean > 3:
                 path = args.snapshot if not args.snapshot_every else args.snapshot.replace(".png", f"_{int(t):04d}.png")
@@ -286,7 +348,8 @@ def main() -> None:
         if now >= stats_at:
             print(
                 f"t={t:.0f}s fps={stats_fresh / (now - stats_start):.1f} steps={stats_frames / (now - stats_start):.1f} sent={sender.sent} dropped={sender.dropped} "
-                f"connected={sender.connected.is_set()} mean={mean:.1f} jpeg={jpeg_kb:.0f}KB",
+                f"connected={sender.connected.is_set()} mean={mean:.1f} jpeg={jpeg_kb:.0f}KB"
+                + (f" plume_ms={leak.sim_ms:.1f} pts={leak.visual.count} vol10={leak.stats['vol_10lel_m3']:.2f}" if leak and leak.stats else ""),
                 flush=True,
             )
             stats_at = now + STATS_EVERY_S

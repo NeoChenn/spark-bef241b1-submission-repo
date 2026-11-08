@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rig Camera</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="/static/ui-lab/context/ui.css">
+</head>
+<body>
+  <div id="stage">
+    <div id="backdrop"><div class="shot" id="shotA"></div><div class="shot" id="shotB"></div></div>
+    <canvas id="view" width="640" height="360"></canvas>
+    <div id="flash"></div>
+  </div>
+  <div id="vignette"></div>
+  <div id="labels"></div>
+
+  <button class="glass" id="capsule" title="Commands (⌘K)">
+    <span class="dot" id="c-dot"></span>
+    <span id="c-state">Standby</span>
+    <span class="num c-time"><b id="c-time">0.0</b> s</span>
+    <span class="num c-key" id="c-key"></span>
+    <kbd>⌘K</kbd>
+  </button>
+
+  <div id="subtitle"><span id="sub-k">Offshore autonomy · live sim</span><p id="sub-t">Press Space to begin</p></div>
+
+  <aside class="glass dock" id="dock">
+    <section class="card" data-panel="control"><div><div class="in">
+      <header><h3>Control centre</h3><span class="meta">Gemini 4 Argon</span><button class="pin"></button></header>
+      <p class="cc-sum" id="cc-sum">No incident.</p>
+      <ol class="cc-acts" id="cc-acts"></ol>
+    </div></div></section>
+    <section class="card" data-panel="gas"><div><div class="in">
+      <header><h3>Gas sensors</h3><span class="meta">H₂S ppm</span><button class="pin"></button></header>
+      <ul class="rows" id="gas-list"></ul>
+    </div></div></section>
+    <section class="card" data-panel="force"><div><div class="in">
+      <header><h3>Brush force</h3><span class="meta">limit 40 N</span><button class="pin"></button></header>
+      <div class="big"><b class="num" id="f-now">0.0</b><span>N</span><span class="sub">max <b class="num" id="f-max">0.0</b></span></div>
+      <div class="gauge"><span id="f-gauge"></span><s></s></div>
+      <canvas id="f-chart"></canvas>
+    </div></div></section>
+    <section class="card" data-panel="soak"><div><div class="in soak">
+      <svg viewBox="0 0 44 44"><circle class="track" cx="22" cy="22" r="19"/><circle class="ring" id="soak-ring" cx="22" cy="22" r="19"/></svg>
+      <div><h3>Converter soaking</h3><div class="big"><b class="num" id="soak-left">30</b><span>s left</span></div></div>
+      <button class="pin"></button>
+    </div></div></section>
+    <section class="card" data-panel="gemini"><div><div class="in">
+      <header><h3>Second opinion</h3><span class="meta" id="g-lat">Gemini Robotics-ER</span><button class="pin"></button></header>
+      <div class="g-row"><span class="chip" id="g-verdict">—</span><span class="sub">confidence <b class="num" id="g-conf">0.00</b></span></div>
+      <div class="thumb"><img id="g-img" alt=""><svg id="g-pts"></svg></div>
+      <p class="note" id="g-reason"></p>
+    </div></div></section>
+    <section class="card" data-panel="vitals"><div><div class="in">
+      <header><h3>Vitals</h3><button class="pin"></button></header>
+      <div class="vital"><span>Force</span><b class="num" id="v-force">—</b><canvas id="sp-force"></canvas></div>
+      <div class="vital"><span>Rust</span><b class="num" id="v-rust">—</b><canvas id="sp-rust"></canvas></div>
+      <div class="vital"><span>Detector</span><b class="num" id="v-conf">—</b><canvas id="sp-conf"></canvas></div>
+    </div></div></section>
+    <section class="card" data-panel="map"><div><div class="in">
+      <header><h3>Pipe map</h3><button class="pin"></button></header>
+      <canvas id="map-canvas"></canvas>
+    </div></div></section>
+    <section class="card" data-panel="log"><div><div class="in">
+      <header><h3>Decisions</h3><button class="pin"></button></header>
+      <ol class="rows log" id="log-list"></ol>
+    </div></div></section>
+    <section class="card" data-panel="fleet"><div><div class="in">
+      <header><h3>Fleet</h3><button class="pin"></button></header>
+      <ul class="rows" id="fleet-list"></ul>
+    </div></div></section>
+    <section class="card" data-panel="modules"><div><div class="in">
+      <header><h3>Modules</h3><span class="meta"><span id="status">connecting…</span> · <span id="fps">–</span> fps</span><button class="pin"></button></header>
+      <ul class="rows" id="mod-list"></ul><span hidden id="age"></span>
+    </div></div></section>
+    <section class="card" data-panel="help"><div><div class="in">
+      <header><h3>Shortcuts</h3><button class="pin"></button></header>
+      <ul class="rows keys" id="help-list"></ul>
+    </div></div></section>
+  </aside>
+
+  <aside class="glass dock" id="media">
+    <section class="card" data-panel="insp"><div><div class="in">
+      <header><h3>Inspection camera</h3><button class="pin"></button></header>
+      <div class="thumb"><img id="pip-img" alt=""></div>
+    </div></div></section>
+    <section class="card" data-panel="plume"><div><div class="in">
+      <header><h3>Gas plume</h3><span class="meta" id="plume-meta">wind NE 2.3 m/s</span><button class="pin"></button></header>
+      <canvas id="plume" width="272" height="153"></canvas>
+    </div></div></section>
+  </aside>
+
+  <div id="spot" hidden>
+    <div class="glass sp" role="dialog" aria-label="Commands">
+      <label class="sp-q"><svg viewBox="0 0 24 24"><path d="M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM15.5 15.5L21 21"/></svg><input id="q" autocomplete="off" spellcheck="false" placeholder="Search panels, cameras, events…"></label>
+      <div id="res" role="listbox"></div>
+    </div>
+  </div>
+
+  <script src="/static/viewer.js"></script>
+  <script src="/static/ui-lab/context/ui.js"></script>
+</body>
+</html>

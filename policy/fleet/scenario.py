@@ -45,3 +45,28 @@ def build_default(n_robots: int = 3, jobs=None, rm=None) -> Fleet:
         if kind != "robot_failure" or data["robot"] in ids:
             f.schedule(t, kind, **data)
     return f
+
+
+JUDGES_ROBOTS = [("R1", [-12.0, 9.4, 42.5], 0.9), ("R2", [-21.0, 4.0, 31.25], 0.9), ("R3", [10.0, 12.0, 20.0], 0.9)]
+JUDGES_RUST = [("rust_mid_west", [-21.8, 8.0, 32.0], 0.4, 0.6), ("rust_mid_east", [12.0, -6.8, 32.0], 0.6, 0.6),
+               ("rust_low_east", [20.8, 6.0, 21.0], 0.5, 0.9), ("rust_low_splash", [-10.0, -4.8, 21.0], 0.7, 0.95)]
+JUDGES_EVENTS = [(6.0, "drop_obstacle", {"kind": "crate", "at": "R1"}),
+                 (55.0, "set_weather", {"level": "storm", "wind_dir": 90.0}),
+                 (200.0, "set_weather", {"level": "calm"}),
+                 (200.0, "clear", {"id": "all"})]
+
+
+def build_judges(n_robots: int = 3, jobs=None, rm=None, disturb: bool = True) -> Fleet:
+    rm = rm or load_rig_map()
+    f = Fleet(rm, jobs)
+    for rid, xyz, soc in JUDGES_ROBOTS[:n_robots]:
+        f.add_robot(rid, nearest_node(rm, xyz), soc)
+    f.add_task("leak_check", "F5", deadline=CHECK_DEADLINE_S)
+    for poi, xyz, sev, exp in JUDGES_RUST:
+        f.add_task("rust", poi, xyz, severity=sev, exposure=exp)
+    for t, kind, data in JUDGES_EVENTS if disturb else []:
+        f.schedule(t, kind, **data)
+    return f
+
+
+SCENARIOS = {"default": build_default, "judges": build_judges}

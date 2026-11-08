@@ -48,6 +48,10 @@ ALERTS = {
                        "Treat as loss of containment: keep people clear and follow site procedure before any repair."),
     "gas_limit": ("critical", True, "Gas {gas} at the robot; it stopped work and retreated.",
                   "Keep clear and send a gas-testing crew."),
+    "gas_alarm": ("warning", False, "Gas {gas} at unit 2 ({where}); locating the source.",
+                  "Keep hot work stopped in the area until the source is found."),
+    "source_lost": ("warning", True, "Gas detected but unit 2 could not localise the source within {why}.",
+                    "Send a gas-testing crew with a portable detector."),
     "needs_human": ("warning", True, "Robot stopped at {fid} and needs a human: {why}.",
                     "Send a person, or re-inspect when conditions allow."),
 }

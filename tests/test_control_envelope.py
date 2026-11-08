@@ -127,3 +127,12 @@ def test_refusals_are_logged_to_timeline(port):
     run(Envelope(), port, "reset_esd", why="go")
     e = port.timeline[-1]
     assert e["event"] == "agent_refused" and e["detail"]["call"] == "reset_esd"
+
+
+def test_agent_approval_only_requests_a_human(port):
+    env = Envelope()
+    vid = port.queue("valve_isolate", "F3", "SUPV", 1, by="coordinator", why="leak")
+    r = run(env, port, "approve_request", job_id=vid, why="gas confirmed at F3")
+    assert r["ok"] and port.job(vid)["status"] == "WAITING_APPROVAL"
+    assert "operator" in r["note"]
+    assert any(e["event"] == "approval_requested" and e.get("job") == vid for e in port.timeline)

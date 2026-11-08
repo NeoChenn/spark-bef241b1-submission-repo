@@ -21,6 +21,8 @@ import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdPhysics, UsdShade, Vt
 
 import rig_details
+import topside
+import topside_frames
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
 
 STL_PATH = ASSETS / "oil_rig_ansyslearn" / "OilRig2.stl"
@@ -353,6 +355,13 @@ def build_scene() -> dict:
         part_faces = np.flatnonzero(parts == part)
         name, labels = classify(points, faces, part_faces, areas, face_normals)
         name = name.replace("-", "n")
+        if name in topside.HIDDEN_PARTS:
+            continue
+        if name in ("upper_structure", "legs_and_lower_deck"):
+            tri = world[faces[part_faces]]
+            kept = np.array([topside_frames.keep_facade(t.min(0), t.max(0)) for t in tri])
+            part_faces = part_faces[(labels != "module_white") | kept]
+            labels = labels[(labels != "module_white") | kept]
         while name in used_names:
             name += "_b"
         used_names.add(name)
@@ -385,6 +394,7 @@ def build_scene() -> dict:
     rig_details.add_props(builder)
     rig_details.add_splash_zone(builder, world[faces[leg_faces]])
     rig_details.add_walkway_lines(builder, rig_details.PATROL_ROUTE)
+    topside_stats = topside.build(stage, builder)
     blocked = rig_details.route_blockages(world[faces], rig_details.PATROL_ROUTE)
 
     low, high = world.min(0), world.max(0)
@@ -420,11 +430,13 @@ def build_scene() -> dict:
         "inspection_points": inspection_points,
         "parts": inventory,
         "cameras": cameras,
+        "topside": topside_stats,
     }
     (OUTPUT / "full_rig_meta.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     print(f"SCENE_WRITTEN {SCENE_PATH} parts={len(inventory)} size={(high - low).round(1)}")
     print(f"ROUTE_BLOCKED {len(blocked)} {blocked[:12]}")
     print(f"FACADE_WINDOWS {window_count}")
+    print(f"TOPSIDE {topside_stats}")
     return metadata
 
 
