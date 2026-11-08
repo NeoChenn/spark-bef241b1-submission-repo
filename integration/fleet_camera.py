@@ -98,7 +98,7 @@ class Beats:
         end = g("end", start + 60.0)
         paint = g("paint", end - 10.0)
         return cls(start, g("push", max(start + 0.5, amber - 6.25)), amber, red, g("step_back", red + 1.5),
-                   g("arrive", fixed - 7.0), fixed, green, resume, g("spray", (resume + paint) / 2), paint, end)
+                   g("arrive", fixed - 7.0), fixed, green, resume, g("spray", max(resume + 1.0, paint - 5.0)), paint, end)
 
 
 @dataclass(frozen=True)
@@ -205,7 +205,7 @@ def beat_spans(beats: Beats = DEFAULT_BEATS) -> list[tuple[str, float, float, fl
         ("green", b.green - 1.0, b.resume),
         ("spray", b.spray, b.paint - 2.0),
         ("paint", b.paint, min(b.paint + 3.0, b.end - 7.0)),
-        ("wide", _move(min(b.paint + 3.0, b.end - 7.0), b.end, cap=6.0, frac=0.85), b.end),
+        ("wide", _move(min(b.paint + 3.0, b.end - 7.0), b.end, cap=5.0, frac=0.85), b.end),
     ]
     out, t0 = [], b.start
     for name, arrive, end in plan:
@@ -217,7 +217,7 @@ def beat_spans(beats: Beats = DEFAULT_BEATS) -> list[tuple[str, float, float, fl
 
 DRIFT = {"establish": (0.6, -0.4, -0.2), "scrub": (0.05, 0.06, 0.0), "detector": (0.12, 0.08, 0.0),
          "pull_back": (-0.6, -0.3, -0.2), "gripper": (0.05, 0.05, 0.0), "green": (0.1, 0.1, 0.05),
-         "spray": (0.08, 0.05, 0.0), "paint": (-0.06, 0.05, 0.0), "wide": (-0.8, 0.5, 0.3)}
+         "spray": (0.08, 0.05, 0.0), "paint": (-0.06, 0.05, 0.0), "wide": (-0.3, 0.2, 0.1)}
 
 
 def inside(eye, scene: Scene = DEFAULT_SCENE) -> bool:
