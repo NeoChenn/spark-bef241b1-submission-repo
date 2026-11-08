@@ -8,7 +8,7 @@ import shafts
 from topside_frames import kelvin_rgb
 
 ROOT = "/World/Cinematic/Shafts"
-OPACITY = 0.3
+OPACITY = 0.05
 GAIN = 20.0
 
 
@@ -20,15 +20,12 @@ def _material(stage):
     sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.0, 0.0, 0.0))
     sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(1.0)
     sh.CreateInput("opacityThreshold", Sdf.ValueTypeNames.Float).Set(0.0)
-    for name, kind, out in (("glow", "UsdPrimvarReader_float3", "emissiveColor"),
-                            ("fade", "UsdPrimvarReader_float", "opacity")):
-        rd = UsdShade.Shader.Define(stage, f"{path}/{name}")
-        rd.CreateIdAttr(kind)
-        var = "displayColor" if name == "glow" else "displayOpacity"
-        rd.CreateInput("varname", Sdf.ValueTypeNames.Token).Set(var)
-        vt = Sdf.ValueTypeNames.Float3 if name == "glow" else Sdf.ValueTypeNames.Float
-        target = Sdf.ValueTypeNames.Color3f if name == "glow" else Sdf.ValueTypeNames.Float
-        sh.CreateInput(out, target).ConnectToSource(rd.CreateOutput("result", vt))
+    sh.CreateInput("opacity", Sdf.ValueTypeNames.Float).Set(OPACITY)
+    rd = UsdShade.Shader.Define(stage, f"{path}/glow")
+    rd.CreateIdAttr("UsdPrimvarReader_float3")
+    rd.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("displayColor")
+    sh.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).ConnectToSource(
+        rd.CreateOutput("result", Sdf.ValueTypeNames.Float3))
     mat.CreateSurfaceOutput().ConnectToSource(sh.CreateOutput("surface", Sdf.ValueTypeNames.Token))
     return mat
 
@@ -54,17 +51,18 @@ class Shafts:
             for flag in ("doNotCastShadows", "invisibleToSecondaryRays"):
                 m.GetPrim().CreateAttribute(f"primvars:{flag}", Sdf.ValueTypeNames.Bool).Set(True)
             pv = UsdGeom.PrimvarsAPI(m)
-            color = np.asarray(kelvin_rgb(look.KELVIN.get(sp["kelvin"], sp["kelvin"])), np.float32) * gain * sp["gain"]
-            pv.CreatePrimvar("displayColor", Sdf.ValueTypeNames.Color3fArray, UsdGeom.Tokens.vertex).Set(
-                Vt.Vec3fArray.FromNumpy(np.tile(color, (len(pts), 1))))
-            fade = pv.CreatePrimvar("displayOpacity", Sdf.ValueTypeNames.FloatArray, UsdGeom.Tokens.vertex)
-            fade.Set(Vt.FloatArray.FromNumpy(np.zeros(len(pts), np.float32)))
+            color = np.asarray(kelvin_rgb(look.KELVIN.get(sp["kelvin"], sp["kelvin"])), np.float32) * sp["gain"]
+            glow = pv.CreatePrimvar("displayColor", Sdf.ValueTypeNames.Color3fArray, UsdGeom.Tokens.vertex)
+            glow.Set(Vt.Vec3fArray.FromNumpy(np.zeros((len(pts), 3), np.float32)))
             UsdShade.MaterialBindingAPI.Apply(m.GetPrim()).Bind(mat)
-            self.items.append((m, sp, pts, nrm, s, fade))
+            self.items.append((m, sp, pts, nrm, s, glow, color))
+        self.gain = gain
 
     def update(self, eye, t: float) -> None:
-        for _, sp, pts, nrm, s, fade in self.items:
-            fade.Set(Vt.FloatArray.FromNumpy((shafts.alpha(pts, nrm, s, eye, sp, t) * OPACITY).astype(np.float32)))
+        k = self.gain / OPACITY
+        for _, sp, pts, nrm, s, glow, color in self.items:
+            a = shafts.alpha(pts, nrm, s, eye, sp, t)[:, None] * color[None] * k
+            glow.Set(Vt.Vec3fArray.FromNumpy(a.astype(np.float32)))
 
     def show(self, on: bool) -> None:
         for m, *_ in self.items:
