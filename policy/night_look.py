@@ -137,11 +137,11 @@ def paint_robot(stage, robot_root, color="graphite"):
     body = _material(stage, "/World/Looks/robot_body", ROBOT_COLORS[color], 0.42, 0.3, 0.6)
     pad = _material(stage, "/World/Looks/robot_brush", CORAL_LIN, 0.55, 0.0, 0.2, emissive=tuple(c * 0.06 for c in CORAL_LIN))
     root = stage.GetPrimAtPath(robot_root)
-    for prim in Usd.PrimRange(root):
-        if prim.IsInstanceable():
-            prim.SetInstanceable(False)
-    n = {"body": 0, "brush": 0}
-    for prim in Usd.PrimRange(root):
+    n = {"body": 0, "brush": 0, "instanced": 0}
+    for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
+        if prim.IsInstanceProxy():
+            n["instanced"] += 1
+            continue
         if not prim.IsA(UsdGeom.Gprim):
             continue
         bound = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()[0]
