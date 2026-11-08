@@ -148,6 +148,8 @@ def inscatter(rgb, depth, cam: dict, preset: str, sun_dir, strength: float = 1.0
         if callable(depth):
             due = st.get("key") != key or st["n"] % LIVE_EVERY == 0 or _moved(cam, st.get("T"))
             depth = depth() if due else None
+        if depth is not None and np.ndim(depth) < 2:
+            depth = None
         if depth is not None or st.get("key") != key:
             if depth is None:
                 return rgb

@@ -5,13 +5,14 @@ import contextlib
 import hmac
 import json
 import os
+import re
 from collections import deque
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from rig.frames import encode, read_message_async
@@ -349,13 +350,19 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
     app.include_router(__import__("rig.web.views_api", fromlist=["views_router"]).views_router(hub))
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
+    ver = str(int(time.time()))
+
+    def page(name: str) -> HTMLResponse:
+        html = re.sub(r'(/static/[\w./-]+\.(?:css|js))"', rf'\1?v={ver}"', (STATIC / name).read_text())
+        return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+
     @app.get("/")
-    async def index() -> FileResponse:
-        return FileResponse(STATIC / "index.html")
+    async def index() -> HTMLResponse:
+        return page("index.html")
 
     @app.get("/interactive")
-    async def interactive() -> FileResponse:
-        return FileResponse(STATIC / "interactive.html")
+    async def interactive() -> HTMLResponse:
+        return page("interactive.html")
 
     @app.get("/judge")
     async def judge() -> RedirectResponse:
