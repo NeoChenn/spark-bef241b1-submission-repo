@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 SIM_DIR = Path(__file__).resolve().parent
-LAYER = SIM_DIR / "output" / "assets_hero.usda"
+LAYER = Path(os.environ.get("RIG_ASSETS_HERO_LAYER", SIM_DIR / "output" / "assets_hero.usda"))
 ROOT = "/World/AssetsHero"
 OFFLINE = f"{ROOT}/Offline"
 DECK = 42.5
