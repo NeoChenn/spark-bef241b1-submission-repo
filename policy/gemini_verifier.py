@@ -254,13 +254,14 @@ def pick_text_model(api_key: str, transport=None) -> str:
 
     for tier in ("pro", "flash"):
         pool = [n for n in names if n.startswith("gemini-") and tier in n and "lite" not in n
-                and not any(k in n for k in ("tts", "image", "audio", "live", "embedding", "robotics"))]
+                and not any(k in n for k in ("tts", "image", "audio", "live", "embedding", "robotics",
+                                             "customtools", "computer-use", "thinking-exp"))]
         if pool:
             return max(pool, key=lambda n: (version(n), "preview" not in n and "exp" not in n, n))
     raise RuntimeError("no Gemini text model with generateContent is available to this key")
 
 
-def generate_json(prompt: str, schema: dict, api_key: str, model: str, timeout: float = 120.0, transport=None,
+def generate_json(prompt: str, schema: dict, api_key: str, model: str, timeout: float = 300.0, transport=None,
                   temperature: float = 0.4) -> dict:
     """One text-only generateContent call that must return JSON matching `schema`."""
     body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],

@@ -52,9 +52,34 @@ rust that is still there, declaring DONE without finding rust that exists, force
 control steps, and timeouts. Perception is a colour-based rust classifier on camera images; the scrub policy
 targets the cells perception marks as rusty."""
 
+# What each parameter physically does in the simulation, so Gemini reasons from the real mechanism.
+MEANING = {
+    "seed": "random seed",
+    "patch_size": "size (m) of the initial rust blob",
+    "patch_level": "how strong the initial rust is; faint rust (low level) is hard for the colour classifier to see",
+    "patch_theta_offset": "where around the pipe the rust sits, relative to the inspection camera's axis",
+    "glare": "specular glare washes out the nominal camera view (view 0 only); other views have none",
+    "glare_alpha": "glare strength",
+    "new_patch": "a new rust patch appears after the first SPRAY (the mid-run change)",
+    "new_patch_delay_s": "seconds after the first spray when it appears (late = it may appear after the last re-detect)",
+    "new_patch_theta_offset": "where the new patch is, relative to the first; far offsets may be out of the camera's view",
+    "new_patch_z": "axial position of the new patch",
+    "new_patch_size": "size of the new patch",
+    "force_spike_step": "scrub control step where the brush snags a weld bead (0 = never)",
+    "force_spike_newtons": "contact force during the snag",
+    "force_spike_steps": "how many control steps the snag lasts",
+    "occlusion_phase": "state in which spray mist covers the camera lens (black frames)",
+    "occlusion_frames": "how many camera frames are black; HOLD escalates after 5 s",
+    "person_phase": "state in which a worker walks up (they do NOT block the camera; the robot pauses within 3 m)",
+    "person_distance_m": "how close the worker comes",
+    "person_duration_s": "how long the worker stays",
+    "abrasion_coef": "how easily rust scrubs off; low = stubborn rust that leaves faint residue after scrubbing",
+    "arm_drop_prob": "probability that each spray or paint waypoint is NOT reached (missed coverage); the camera is "
+                     "fixed and does not move with the arm",
+}
 FIELD_DOC = "\n".join(
     f"- {k}: {kind}" + (f" in [{lo}, {hi}]" if kind in ("int", "float") else
-                        (f" one of {lo}" if kind == "enum" else "")) + f" (default {default})"
+                        (f" one of {lo}" if kind == "enum" else "")) + f" (default {default}). {MEANING.get(k, '')}"
     for k, (kind, default, lo, hi) in FIELDS.items())
 
 _TYPES = {"int": "INTEGER", "float": "NUMBER", "bool": "BOOLEAN", "enum": "STRING"}
@@ -128,13 +153,14 @@ def design(gemini: Gemini, n: int, round_no: int, rng: np.random.Generator, prev
                   "(g1-001, g1-002, ...) and a one-line rationale saying what it tests. Return a JSON array.")
     else:
         prompt = (f"{SYSTEM}\n\nRound 1 results (failure statistics and examples):\n{_brief(previous)}\n\n"
-                  f"Design {n} follow-up scenarios that find the exact boundaries of the failures above: vary one "
-                  "factor at a time around failing cases, add near-miss variants that should pass, and test whether "
-                  f"failure modes combine. Fields:\n{FIELD_DOC}\n\nIds g2-001, g2-002, ...; one-line rationale "
-                  "each. Return a JSON array.")
+                  f"Design {n} follow-up scenarios whose goal is to FIND MORE UNSAFE OUTCOMES and pin down their "
+                  "boundaries. Most scenarios (about 80%) should sit at or just past the conditions that failed, "
+                  "varying one factor at a time to locate the threshold; about 20% should be near-miss controls that "
+                  f"should pass. Fields:\n{FIELD_DOC}\n\nIds g2-001, g2-002, ...; one-line rationale "
+                  "each naming the hypothesis being tested. Return a JSON array.")
     out = []
-    for start in range(0, n, 40):                      # keep each reply a manageable size
-        batch = gemini.ask(f"design_round{round_no}", prompt.replace(f"Design {n}", f"Design {min(40, n - start)}")
+    for start in range(0, n, 20):                      # small batches keep each reply well under the timeout
+        batch = gemini.ask(f"design_round{round_no}", prompt.replace(f"Design {n}", f"Design {min(20, n - start)}")
                            + (f" Start numbering at {start + 1}." if start else ""), SCENARIO_SCHEMA)
         if not isinstance(batch, list):
             break
@@ -241,7 +267,9 @@ def analyse(gemini: Gemini, results: list[dict]) -> tuple[dict, str]:
               "\n\nWrite the test report: a one-sentence headline with the key numbers; the failure modes ranked by "
               "severity (critical = unsafe outcome), each with the count, evidence run ids from the data, the trigger "
               "conditions in parameter terms, the likely cause in the orchestrator/perception logic, and a concrete "
-              "fix; what worked (with numbers); and the next tests to run. Only cite numbers and ids that appear above.")
+              "fix; what worked (with numbers); and the next tests to run. Only cite numbers and ids that appear above."
+              f"\n\nWhat each parameter physically does (reason only from these mechanisms; if a cause is not "
+              f"explained by them, say the cause is uncertain):\n{FIELD_DOC}")
     out = gemini.ask("analyse", prompt, ANALYSIS_SCHEMA)
     if isinstance(out, dict) and out.get("failure_modes") is not None:
         return out, "gemini"
