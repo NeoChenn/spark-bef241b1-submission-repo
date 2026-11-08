@@ -17,6 +17,7 @@ ROOT = "/World/FlareFx"
 LIGHT = "/World/Cinematic/Lamps/lamp_400"
 LIGHT_RADIUS, LIGHT_POWER = 6.0, 0.15
 LIGHT_SCALE = LIGHT_POWER * (3.0 / LIGHT_RADIUS) ** 2
+FLOW = "/World/Atmos/Flow"
 CAMERAS = ("/World/Judge/Cam", "/World/Cinematic/Cameras/stream")
 TIP = (-58.4, 8.0, 70.6)
 JET = (-0.75, 0.0, 0.66)
@@ -356,11 +357,15 @@ def billboard_quats(pos: np.ndarray, eye) -> np.ndarray:
 
 
 def update(stage, t: float, wind=WIND) -> None:
-    from pxr import Gf, UsdGeom, UsdShade, Vt
+    from pxr import Gf, Sdf, UsdGeom, UsdShade, Vt
 
     root = stage.GetPrimAtPath(ROOT)
     if not root or not root.IsValid():
         return
+    flow = stage.GetPrimAtPath(FLOW)
+    shown = "invisible" if flow and flow.IsValid() else "inherited"
+    for name in [f"flame_{k}" for k in range(len(CARDS))] + ["smoke"]:
+        UsdGeom.Imageable(stage.GetPrimAtPath(f"{ROOT}/{name}")).GetVisibilityAttr().Set(shown)
     eye = _eye(stage)
     rows = SEGMENTS + 1
     line = centerline(np.linspace(0, 1, rows), t, wind)
@@ -403,7 +408,10 @@ def update(stage, t: float, wind=WIND) -> None:
         light = stage.GetPrimAtPath(f"{LIGHT}/light")
         base = light.GetAttribute("spark:baseIntensity") if light else None
         if base and base.IsValid() and base.Get():
-            light.GetAttribute("inputs:intensity").Set(float(base.Get()) * LIGHT_SCALE * level)
+            if not light.GetAttribute("spark:flareScaled").IsValid():
+                base.Set(float(base.Get()) * LIGHT_SCALE)
+                light.CreateAttribute("spark:flareScaled", Sdf.ValueTypeNames.Bool, custom=True).Set(True)
+            light.GetAttribute("inputs:intensity").Set(float(base.Get()) * level)
 
 
 if __name__ == "__main__":
