@@ -300,7 +300,7 @@ hero_sample deck_sample(
     float3 base = tint * math::lerp(1.0, luma(d) / 0.16, 0.45) * (0.45 + 1.1 * macro);
     float recess = ss(0.78, 0.55, ao);
     float raised = ss(0.9, 0.975, ao);
-    float dirt = math::saturate(dirt_amount * (recess * (0.45 + 0.9 * m3.z) + 0.5 * ss(0.3, 0.95, m1.z * 0.6 + m2.z * 0.6) + 0.3 * g));
+    float dirt = math::saturate(dirt_amount * (recess * (0.25 + 1.1 * m3.z * (0.4 + m1.z)) + 0.5 * ss(0.3, 0.95, m1.z * 0.6 + m2.z * 0.6) + 0.3 * g));
     float3 albedo = math::lerp(base, float3(0.022, 0.019, 0.015), dirt);
     float stain = stain_amount * ss(0.72, 0.9, m3.y * 0.4 + m2.y * 0.4 + g * 0.35);
     albedo = math::lerp(albedo, math::lerp(float3(0.03, 0.025, 0.02), f3(rust_diff, q / 2.3) * 0.22, 0.5), stain * (0.5 + 0.5 * recess));
@@ -339,7 +339,7 @@ export material rig_hero_deck(
     float dirt_amount = 0.75,
     float stain_amount = 0.3,
     float worn_amount = 0.7,
-    float normal_strength = 0.75,
+    float normal_strength = 0.6,
     float wetness = 0.0 [[ anno::hard_range(0.0, 1.0) ]],
     float puddles = 0.0 [[ anno::hard_range(0.0, 1.0) ]],
     float puddle_scale = 7.0
