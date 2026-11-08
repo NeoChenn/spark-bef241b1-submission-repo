@@ -11,7 +11,7 @@ from pathlib import Path
 import os
 
 try:
-    import torch  # noqa: F401
+    import torch
 except ImportError:
     sys.path.insert(0, str(Path(os.environ.get("ISAAC_DEPS", Path.home() / ".isaac-deps"))))
 
