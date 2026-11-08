@@ -10,7 +10,7 @@ sys.path[:0] = ["/rig", "/rig/sim"]
 ap = argparse.ArgumentParser()
 ap.add_argument("--preset", default="night")
 ap.add_argument("--quality", default="offline")
-ap.add_argument("--atmos", default="offline", choices=["none", "live", "offline"])
+ap.add_argument("--atmos", default="none", choices=["none", "live", "offline"])
 ap.add_argument("--renderer", default="RealTimePathTracing")
 ap.add_argument("--spp", type=int, default=2)
 ap.add_argument("--subframes", type=int, default=32)
@@ -23,6 +23,7 @@ ap.add_argument("--t", type=float, default=6.0)
 ap.add_argument("--warm", type=int, default=24)
 ap.add_argument("--lens", action="store_true")
 ap.add_argument("--set", action="append", default=[])
+ap.add_argument("--look", default="offline")
 args = ap.parse_args()
 os.environ["RIG_QUALITY"] = args.quality
 
@@ -36,12 +37,13 @@ import omni.replicator.core as rep
 import omni.timeline
 import omni.usd
 from PIL import Image
-from pxr import Gf, Usd, UsdGeom
+from pxr import Gf, Sdf, Usd, UsdGeom
 
 from rig.camera import from_usd
 from rig.sim.cli import parse_setting
 from rig.sim.main import load_cinematic
 from rig.sim.zoom import ZoomPath
+import look
 
 VIEWS = {
     "wide": ((110.0, -235.0, 9.0), (4.0, -6.0, 36.0), 28.0),
@@ -85,9 +87,22 @@ if args.atmos != "none":
     from atmos_fx import Atmosphere
 
     atm = Atmosphere(stage, args.preset, args.atmos, None, cam_path=cam_path)
-for item in args.set:
-    k, v = parse_setting(item)
-    settings.set(k, v)
+overrides = dict(parse_setting(item) for item in args.set)
+looks = args.look.split(",")
+keys = {k for lk in looks for k in look.rtx_settings(lk)}
+neutral = {k: settings.get(k) if settings.get(k) is not None else (False if k.endswith("enabled") else None) for k in keys}
+
+
+def use_look(lk, ev, eye, target, fstop):
+    for k, v in {**neutral, **look.rtx_settings(lk, ev), **overrides}.items():
+        if v is not None:
+            settings.set(k, v)
+    lens = look.lens(float(np.linalg.norm(np.subtract(target, eye))), fstop if lk == "offline" else 0.0)
+    for k, v in lens.items():
+        cam.GetPrim().CreateAttribute(k, Sdf.ValueTypeNames.Float).Set(v)
+
+
+use_look(looks[0], 0.0, (0, 0, 0), (0, 0, 1), 0.0)
 omni.timeline.get_timeline_interface().play()
 for _ in range(20):
     app.update()
@@ -112,6 +127,9 @@ def tick(t):
 
 for name in filter(None, args.views.split(",")):
     start = time.monotonic()
+    eye, target, focal = VIEWS[name]
+    vl = look.view_look(name, float(np.linalg.norm(np.subtract(target, eye))))
+    use_look(looks[0], vl["ev"], eye, target, vl["fstop"])
     aim(*VIEWS[name])
     for i in range(args.warm):
         tick(args.t - args.warm / 24.0 + i / 24.0)
@@ -119,11 +137,17 @@ for name in filter(None, args.views.split(",")):
         rep.orchestrator.step(rt_subframes=1, delta_time=1.0 / 24.0, pause_timeline=False)
     tick(args.t)
     aim(*VIEWS[name])
-    rep.orchestrator.step(rt_subframes=args.subframes, delta_time=1.0 / 24.0, pause_timeline=False)
-    rgb = np.asarray(ann.get_data())[..., :3].astype(np.uint8)
-    if atm is not None:
-        rgb = atm.post(rgb, header(), args.t, args.lens)
-    Image.fromarray(np.ascontiguousarray(rgb)).save(out / f"{args.tag}_{name}.png")
-    print(f"VIEW {name} mean={rgb.mean():.1f} s={time.monotonic() - start:.1f}", flush=True)
+    for n, lk in enumerate(looks):
+        use_look(lk, vl["ev"], eye, target, vl["fstop"])
+        rep.orchestrator.step(rt_subframes=args.subframes, delta_time=0.0 if n else 1.0 / 24.0, pause_timeline=False)
+        rgb = np.asarray(ann.get_data())[..., :3].astype(np.uint8)
+        if atm is not None:
+            rgb = atm.post(rgb, header(), args.t, args.lens)
+        rgb = look.grade(rgb, lk, args.t)
+        suffix = f"_{lk}" if len(looks) > 1 else ""
+        Image.fromarray(np.ascontiguousarray(rgb)).save(out / f"{args.tag}_{name}{suffix}.png")
+        lum = rgb.mean(-1)
+        print(f"VIEW {name}{suffix} mean={rgb.mean():.1f} clip={(lum > 250).mean():.4f} dark={(lum < 10).mean():.3f} "
+              f"s={time.monotonic() - start:.1f}", flush=True)
 print("DONE", flush=True)
 os._exit(0)

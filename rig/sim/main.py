@@ -102,8 +102,10 @@ def load_cinematic(app, ctx, preset: str, args=None):
         cinematic.animate_effects(stage, t)
         if view is None:
             cinematic.set_camera(stage, path, t % cinematic.SEQUENCE_SECONDS)
+            update.eye_target = cinematic.camera_at(t % cinematic.SEQUENCE_SECONDS)[:2]
             return
         eye, target, focal = view(t)
+        update.eye_target = (eye, target)
         cam.GetFocalLengthAttr().Set(focal)
         op.Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*eye), Gf.Vec3d(*target), Gf.Vec3d(0, 0, 1)).GetInverse())
 
@@ -220,6 +222,20 @@ def main() -> None:
         cam_path, orbit_update = make_orbit_camera(stage, cam_path, args)
         tickers.append(orbit_update)
     camera_header = make_camera_header(stage, cam_path, args.width, args.height)
+    grade = None
+    if args.cinematic and args.look != "none":
+        import look
+
+        for key, value in look.rtx_settings(args.look).items():
+            settings.set(key, value)
+
+        def expose(t: float) -> None:
+            eye, target = getattr(cine_update, "eye_target", ((0.0, 0.0, 0.0), (0.0, 0.0, 30.0)))
+            for key, value in look.exposure(look.ev_at(float(np.linalg.norm(np.subtract(target, eye))))).items():
+                settings.set(key, value)
+
+        tickers.append(expose)
+        grade = look.grade
     atm = None
     if args.atmos and args.cinematic:
         atm, atm_tick = load_atmosphere(stage, cam_path, args)
@@ -269,6 +285,8 @@ def main() -> None:
             rgb = np.ascontiguousarray(data[..., :3], dtype=np.uint8)
             if atm is not None:
                 rgb = atm.post(rgb, camera_header(), t, args.lens)
+            if grade is not None:
+                rgb = grade(rgb, args.look, t)
             mean = float(rgb.mean())
             buf = io.BytesIO()
             Image.fromarray(rgb).save(buf, "JPEG", quality=args.quality)
