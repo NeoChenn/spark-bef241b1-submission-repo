@@ -9,7 +9,8 @@ import torch
 from integration import repair_scene as rs
 from integration.kinematics import ARM_STOWED, LIFT_JOINT, RobotModel, pose
 from integration.lab_bridge import LEGS, LabRepairBridge, smooth
-from integration.loop_plan import PipeCyl, brush_fk, ik_error, plan_reposition, plan_staged, retract_target
+from integration.loop_plan import (PipeCyl, brush_fk, ik_error, plan_reposition, plan_staged, retract_target,
+                                   stage_steps)
 from integration.loop_timeline import MissionTimeline, mission_phase
 from integration.walk_obs import leg_targets, speed_profile, walk_obs
 
@@ -135,16 +136,14 @@ class LoopBridge(LabRepairBridge):
             self.check_fk()
         return True
 
-    def _run_stages(self, stages, steps_arm: int, steps_lift: int, stop_force=None) -> bool:
+    def _run_stages(self, stages, stop_force=None) -> bool:
         q_prev = self._q()
         for st in stages:
             arm = torch.tensor([[st[n] for n in self.arm_names]], device=self.dev)
             lift = st.get(LIFT_JOINT)
-            moved_lift = lift is not None and abs(lift - q_prev.get(LIFT_JOINT, lift)) > 1e-3
-            steps = steps_lift if moved_lift else steps_arm
-            ok = self._interp_joints(arm, steps=steps, stop_force=stop_force,
+            ok = self._interp_joints(arm, steps=stage_steps(q_prev, st, self.dt), stop_force=stop_force,
                                      lift=None if lift is None else torch.tensor([[lift]], device=self.dev))
-            for _ in range(3):
+            for _ in range(2):
                 self._step()
             if not ok:
                 return False
@@ -174,7 +173,7 @@ class LoopBridge(LabRepairBridge):
         q_to[LIFT_JOINT] = 0.0
         stages, c = plan_staged(self._fk(), self._q(), q_to, self.pipe_cyl, self.brush_r)
         self.log(f"   park: {len(stages)} stage(s), planned clearance {100 * c:.1f} cm")
-        self._run_stages(stages, 30, 36)
+        self._run_stages(stages)
         self.joint_target = self.q_stow.clone()
         self.parked = True
         self.force_now = 0.0
@@ -190,7 +189,7 @@ class LoopBridge(LabRepairBridge):
         q_to[LIFT_JOINT] = float(self.lift_work)
         stages, c = plan_staged(self._fk(), self._q(), q_to, self.pipe_cyl, self.brush_r)
         self.log(f"   unpark: {len(stages)} stage(s), planned clearance {100 * c:.1f} cm")
-        clear = self._run_stages(stages, 36, 36, stop_force=5.0)
+        clear = self._run_stages(stages, stop_force=5.0)
         if not clear:
             self.joint_target = b._robot.data.joint_pos[:1, self.arm_ids].clone()
             self.log(f"   unpark: brush touched the pipe ({self.force_peak:.0f} N) -> lift off in task space")

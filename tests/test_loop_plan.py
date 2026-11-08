@@ -84,3 +84,19 @@ def test_ik_error_reachable_and_far():
     names = [n for n in ARM_START if n != "lift_joint"]
     assert ik_error(m, base, q, p + np.array([0.05, 0.03, -0.04]), names) < 0.005
     assert ik_error(m, base, q, p + np.array([2.0, 0.0, 0.0]), names) > 1.0
+
+
+def test_staged_paths_never_get_closer_than_the_endpoints(fk):
+    for a, b in ((ARM_STOWED, ARM_START), (ARM_START, ARM_STOWED)):
+        stages, c = plan_staged(fk, dict(a), dict(b), PIPE, BR)
+        ends = min(clearance(fk(dict(a)), PIPE, BR), clearance(fk(dict(b)), PIPE, BR))
+        assert c == pytest.approx(ends, abs=2e-3)
+        assert len(stages) >= 3
+
+
+def test_stage_steps_from_joint_and_lift_rates():
+    from integration.loop_plan import stage_steps
+
+    assert stage_steps({"a": 0.0}, {"a": 1.4}, 1 / 30) == 30
+    assert stage_steps({"lift_joint": 0.0}, {"lift_joint": 0.42}, 1 / 30) == 42
+    assert stage_steps({"a": 0.0}, {"a": 0.0}, 1 / 30) == 6

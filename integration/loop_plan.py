@@ -9,7 +9,7 @@ import numpy as np
 from integration.kinematics import ARM_JOINTS, LIFT_JOINT
 
 BRUSH_OFFSET = (-0.025, 0.0, 0.0)
-GROUPS = ((LIFT_JOINT,), tuple(ARM_JOINTS))
+GROUPS = ((LIFT_JOINT,), (ARM_JOINTS[0],), (ARM_JOINTS[1],), (ARM_JOINTS[2],), tuple(ARM_JOINTS[3:]))
 
 
 @dataclass(frozen=True)
@@ -84,6 +84,15 @@ def plan_staged(fk, q_from: dict, q_to: dict, pipe: PipeCyl, brush_r: float, gro
         if c > best_c + 1e-6:
             best, best_c = stages, c
     return best, best_c
+
+
+def stage_steps(q0: dict, q1: dict, dt: float, joint_rate: float = 1.4, lift_rate: float = 0.3,
+                min_steps: int = 6) -> int:
+    t = 0.0
+    for k, v in q1.items():
+        rate = lift_rate if k == LIFT_JOINT else joint_rate
+        t = max(t, abs(v - q0.get(k, v)) / rate)
+    return max(min_steps, int(round(t / dt)))
 
 
 def plan_reposition(err: Callable, targets, dxs=(0.0, 0.1, -0.1, 0.2, -0.2, 0.3, -0.3),
