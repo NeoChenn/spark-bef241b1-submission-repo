@@ -62,15 +62,15 @@
     } });
   const GEM = `<div class="g-top"><span class="chip" data-k="v">No call yet</span><span class="tnum dim" data-k="lat"></span></div><div class="bar"><span data-k="bar"></span></div><div class="thumb"><img data-k="img" alt=""><svg data-k="pts"></svg></div><p class="why" data-k="why"></p>`;
   H.panel({ id: "gemini", title: "Second opinion", meta: "Gemini Robotics-ER", icon: "spark", key: "o", phases: (S) => now() - S.gemAt < 9 / S.speed, priority: 70, keys: "gemini verdict vlm verify",
-    desc: "Gemini checks the detector's call before the robot moves on.", hint: (S) => (S.gemini ? S.gemini.verdict.replace("_", " ") : ""),
+    desc: "Gemini checks the detector's call before the robot moves on.", hint: (S) => (S.gemini ? String(S.gemini.verdict || "").replace("_", " ") : ""),
     render(el, S) {
       const x = q(el, GEM), g = S.gemini;
       if (!g || el._g === S.gkey) return;
       el._g = S.gkey;
       x.v.className = "chip " + g.verdict;
-      set(x.v, ({ rust: "Rust", clean: "Clean", cannot_tell: "Can't tell" }[g.verdict] || g.verdict) + "  " + (g.confidence || 0).toFixed(2));
-      set(x.lat, Math.round(g.latency_ms || 0) + " ms"); x.bar.style.width = (g.confidence || 0) * 100 + "%"; set(x.why, g.reason);
-      if (!S.inspection) return;
+      set(x.v, ({ rust: "Rust", clean: "Clean", cannot_tell: "Can't tell" }[g.verdict] || g.verdict || "Verdict") + "  " + (g.confidence || 0).toFixed(2));
+      set(x.lat, Math.round(g.latency_ms || 0) + " ms"); x.bar.style.width = (g.confidence || 0) * 100 + "%"; set(x.why, g.reason || "");
+      if (!S.inspection?.jpg) return;
       const I = S.inspection, r = I.w / 40;
       x.img.src = "data:image/jpeg;base64," + I.jpg;
       x.pts.setAttribute("viewBox", `0 0 ${I.w} ${I.h}`); x.pts.setAttribute("preserveAspectRatio", "xMidYMid slice");
@@ -86,8 +86,8 @@
     if (!g) return "";
     const a = g.acoustic, src = g.source, out = [];
     if (g.h2s_ppm != null) out.push(`H2S ${g.h2s_ppm.toFixed(1)} ppm`);
-    if (a) out.push(`US ${Math.round(a.db)} dB${a.snr_db > 0 ? ` (+${Math.round(a.snr_db)})` : ""}${a.bearing_deg != null ? ` → ${Math.round(a.bearing_deg)}°` : ""}`);
-    if (src) out.push(`source ${src.x.toFixed(1)}, ${src.y.toFixed(1)} ±${src.sigma_m.toFixed(1)} m`);
+    if (a && a.db != null) out.push(`US ${Math.round(a.db)} dB${a.snr_db > 0 ? ` (+${Math.round(a.snr_db)})` : ""}${a.bearing_deg != null ? ` → ${Math.round(a.bearing_deg)}°` : ""}`);
+    if (src && typeof src === "object" && src.x != null && src.y != null) out.push(`source ${(+src.x).toFixed(1)}, ${(+src.y).toFixed(1)}${src.sigma_m != null ? ` ±${(+src.sigma_m).toFixed(1)}` : ""} m`);
     if (g.flow_gs != null) out.push(`flow ${g.flow_gs.toFixed(1)} g/s`);
     if (g.mode) out.push(String(g.mode).toLowerCase());
     return out.join(" · ");
@@ -127,8 +127,10 @@
       set(x.cap, S.pip?.caption || (wd ? `Wind from ${wd.dir_deg}° at ${wd.speed_ms} m/s` : "No wind data"));
     } });
   const acted = new Set(), sent = (x) => (x ? x[0] + x.slice(1).toLowerCase() : "");
+  const realBanner = (c) => (c?.banner && (c.mode !== "CLOUD" || (c.link && c.link !== "UP") || c.online === false) ? c.banner : null);
+  H.realBanner = realBanner;
   const ctl = (S) => {
-    const c = S.control, cut = S.linkCut || c?.link === "CUT", ag = c?.agent || S.intent ? { ...(c?.agent || {}), intent: S.intent || c?.agent?.intent } : null;
+    const c = S.control && { ...S.control, banner: realBanner(S.control) }, cut = S.linkCut || c?.link === "CUT", ag = c?.agent || S.intent ? { ...(c?.agent || {}), intent: S.intent || c?.agent?.intent } : null;
     return !c ? null : { ...c, agent: ag && (cut ? { ...ag, link: "CUT" } : ag), ...(cut ? { mode: "EDGE", banner: "Gemini link cut — edge only", link: "CUT" } : {}) };
   };
   H.ctl = ctl;
@@ -138,38 +140,45 @@
   }
   H.on((h) => {
     if (!h.control) return;
-    if (h.control.banner && h.control.banner !== H._cb) H.banner("warn", sent(h.control.banner), "Robots keep their last plan on the edge", "link");
-    H._cb = h.control.banner;
-    const key = (h.control.actions || []).map((a) => a.id).join();
+    const bn = realBanner(h.control);
+    if (bn && bn !== H._cb) H.banner("warn", sent(bn), "Robots keep their last plan on the edge", "link");
+    H._cb = bn;
+    const key = (h.control.actions || []).filter(Boolean).map((a) => a.id).join();
     if (key === H._ck) return;
     H._ck = key;
     [...Array(9).keys()].forEach((n) => H.uncommand("cc." + n));
-    (h.control.actions || []).slice(0, 5).forEach((a, n) => H.command({ id: "cc." + n, group: "Control centre", label: a.label, icon: a.source === "edge" ? "warn" : "target", keys: "action plan argon " + (a.robot || ""),
-      desc: `${a.source === "edge" ? "Edge safety rule" : "Ranked " + (a.rank || n + 1) + " by Gemini 4 Argon"}. ${a.rationale || ""}`, hint: `${a.source === "edge" ? "Edge" : "Argon"} · ${a.source === "edge" ? "hard" : Math.round(a.confidence * 100)}`,
-      score: () => (n === 0 && (H.S.gasAlarm || h.control.banner) ? 0.95 : 0), active: () => acted.has(a.id), run: () => act(a) }));
+    (h.control.actions || []).filter(Boolean).slice(0, 5).forEach((a, n) => H.command({ id: "cc." + n, group: "Control centre", label: a.label, icon: a.source === "edge" ? "warn" : "target", keys: "action plan argon " + (a.robot || ""),
+      desc: `${a.source === "edge" ? "Edge safety rule" : "Ranked " + (a.rank || n + 1) + " by Gemini 4 Argon"}. ${a.rationale || ""}`, hint: `${a.source === "edge" ? "Edge" : "Argon"} · ${a.source === "edge" ? "hard" : Math.round((a.confidence || 0) * 100)}`,
+      score: () => (n === 0 && (H.S.gasAlarm || realBanner(h.control)) ? 0.95 : 0), active: () => acted.has(a.id), run: () => act(a) }));
   });
+  const waiting = (S) => (S.orchestrator?.approvals || []).filter((a) => a && !H.decided?.has(a.job));
+  H.waiting = waiting;
   const hot = (S) => {
-    const c = S.control, an = c?.anomalies || [];
+    const c = S.control && { ...S.control, banner: realBanner(S.control) }, an = Array.isArray(c?.anomalies) ? c.anomalies : [];
+    if (waiting(S).length && !(S.gasAlarm && now() - S.gasAt < 6 / S.speed)) return 95;
     if (!c && S.state !== "ESCALATE_TO_HUMAN") return 0;
+    const sk = JSON.stringify([c?.situation, (c?.actions || []).map((a) => a?.label)]).replace(/\d+(\.\d+)?/g, "#");
+    if (sk !== H._sk) { H._sk = sk; H._skAt = now(); }
     if (S.gasAlarm && now() - S.gasAt < 6 / S.speed) return 0;
-    return S.gasAlarm || S.linkCut || c?.banner || S.state === "ESCALATE_TO_HUMAN" || an.some((a) => a.severity === "critical") ? 90 : an.some((a) => /warn/.test(a.severity)) ? 50 : 0;
+    return S.gasAlarm || S.linkCut || c?.banner || S.state === "ESCALATE_TO_HUMAN" || an.some((a) => a?.severity === "critical") ? 90 : an.some((a) => /warn/.test(a?.severity)) ? 50 : c && S.started && now() - H._skAt < 14 / S.speed ? 20 : 0;
   };
-  const ccRow = (a, n) => `<li data-n="${n}" class="${acted.has(a.id) ? "done" : ""}"><span class="tnum">${a.rank || n + 1}</span><span>${esc(a.label)}<small>${a.source === "edge" ? "Edge rule" : "Argon"}${a.rationale ? " · " + esc(a.rationale) : ""}</small></span><b class="tnum">${a.source === "edge" ? "hard" : Math.round((a.confidence || 0) * 100)}</b></li>`;
-  H.planner = (ag, n) => (ag && (ag.intent || ag.calls?.length) ? `<div class="cc-agent">${ag.intent ? `<p class="intent">“${esc(ag.intent)}”</p>` : ""}${(ag.calls || []).slice(-n).reverse().map((x) =>
-    `<p class="call ${x.ok ? "" : "no"}"><b>${x.ok ? "✓" : "✗"}</b>${esc(x.label)}<small>${esc(x.ok ? x.why : "refused: " + x.refused)}</small></p>`).join("")}</div>` : "");
+  const ccRow = (a, n) => !a ? "" : `<li data-n="${n}" class="${acted.has(a.id) ? "done" : ""}"><span class="tnum">${a.rank || n + 1}</span><span>${esc(a.label)}<small>${a.source === "edge" ? "Edge rule" : "Argon"}${a.rationale ? " · " + esc(a.rationale) : ""}</small></span><b class="tnum">${a.source === "edge" ? "hard" : Math.round((a.confidence || 0) * 100)}</b></li>`;
+  H.planner = (ag, n) => (ag && (ag.intent || ag.text || ag.calls?.length) ? `<div class="cc-agent">${ag.intent ? `<p class="intent">“${esc(ag.intent)}”</p>` : ""}${ag.text ? `<p class="ag-text">${esc(String(ag.text).slice(0, 160))}</p>` : ""}${(Array.isArray(ag.calls) ? ag.calls : []).filter(Boolean).slice(-n).reverse().map((x) =>
+    `<p class="call ${x.ok === false ? "no" : ""}"><b>${x.ok === false ? "✗" : "✓"}</b>${esc(x.label || x.name || "call")}<small>${esc(x.ok === false ? "refused: " + (x.refused || x.note || x.why || "") : x.why || x.note || "")}</small></p>`).join("")}</div>` : "");
   H.vetoes = (c, n) => (c?.vetoed || []).slice(0, n).map((v) => `<p class="veto"><b>Edge veto</b> <s>${esc(v.label)}</s><small>${esc(v.why)}</small></p>`).join("");
   H.panel({ id: "control", title: "Control centre", meta: "Gemini 4 Argon", icon: "target", key: "a", priority: hot, phases: (S) => hot(S) > 0, keys: "situation report gemini argon actions plan edge link",
     desc: "Gemini 4 Argon's situation report and ranked actions, the edge rules that override it, and the planner's last calls. Each action is also a palette command.",
     hint: (S) => { const c = ctl(S); return !c ? "" : c.link === "CUT" ? "Edge only" : c.banner ? sent(c.banner) : c.key ? sent(c.key.replace(/[_+]/g, " ")) : "On track"; },
     render(el, S) {
-      const c = ctl(S), key = JSON.stringify(c) + acted.size;
+      const c = ctl(S), ap = waiting(S), key = JSON.stringify(c) + acted.size + JSON.stringify(ap);
       if (el._k === key) return;
       el._k = key;
-      el.innerHTML = !c ? `<p class="none">Waiting for a situation report</p>` : `<div class="cc-meta"><span class="badge ${c.mode === "CLOUD" ? "cloud" : ""}">${c.mode === "CLOUD" ? "Cloud" : "Edge"}</span>${c.latency_ms != null ? `<span class="tnum">${(c.latency_ms / 1000).toFixed(1)} s</span>` : ""}${c.cost_today_usd != null ? `<span class="tnum">$${c.cost_today_usd.toFixed(3)} today · ${c.calls_today || 0} calls</span>` : ""}</div>`
+      const aps = ap.slice(0, 2).map((a) => `<div class="ap mini"><b>${esc((a.kind || "job").replace(/_/g, " "))} · ${esc(a.target || a.job)}</b>${a.text ? `<p>${esc(a.text)}</p>` : ""}<div><button data-job="${esc(a.job)}" data-a="1" class="yes">Approve</button><button data-job="${esc(a.job)}" data-a="0">Reject</button></div></div>`).join("");
+      el.innerHTML = (aps ? `<h6 class="cc-h">Waiting for you</h6>${aps}` : "") + (!c ? (aps ? "" : `<p class="none">Waiting for a situation report</p>`) : `<div class="cc-meta"><span class="badge ${c.mode === "CLOUD" ? "cloud" : ""}">${c.mode === "CLOUD" ? "Cloud" : "Edge"}</span>${typeof c.latency_ms === "number" ? `<span class="tnum">${(c.latency_ms / 1000).toFixed(1)} s</span>` : ""}${typeof c.cost_today_usd === "number" ? `<span class="tnum">$${c.cost_today_usd.toFixed(3)} today · ${c.calls_today || 0} calls</span>` : ""}</div>`
         + (c.banner ? `<p class="edge">${esc(sent(c.banner))}</p>` : "")
-        + `<div class="cc-sum">${(c.situation?.length ? c.situation : [c.summary || "Edge safety rules only; no cloud plan yet."]).slice(0, 3).map((l) => `<p>${esc(l)}</p>`).join("")}</div>`
-        + `<ol class="cc-acts">${(c.actions || []).slice(0, 3).map(ccRow).join("")}</ol>` + H.vetoes(c, 1) + H.planner(c.agent, 1);
-      el.onclick = (e) => { const li = e.target.closest("[data-n]"); if (li) act(c.actions[+li.dataset.n]); };
+        + `<div class="cc-sum">${(Array.isArray(c.situation) && c.situation.length ? c.situation : [typeof c.situation === "string" ? c.situation : c.summary || "Edge safety rules only; no cloud plan yet."]).slice(0, 3).map((l) => `<p>${esc(l)}</p>`).join("")}</div>`
+        + `<ol class="cc-acts">${(c.actions || []).slice(0, 3).map(ccRow).join("")}</ol>` + H.vetoes(c, 1) + H.planner(c.agent, 1));
+      el.onclick = (e) => { const b = e.target.closest("[data-job]"); if (b) return H.decide?.(b.dataset.job, b.dataset.a === "1"); const li = e.target.closest("[data-n]"); if (li && c?.actions) act(c.actions[+li.dataset.n]); };
     } });
   function bounds(m, rs) {
     if (m?.bounds) return m.bounds;
@@ -177,7 +186,7 @@
     return { xmin: Math.min(...xs, -10) - 3, xmax: Math.max(...xs, 10) + 3, ymin: Math.min(...ys, -10) - 3, ymax: Math.max(...ys, 10) + 3 };
   }
   H.drawRig = function (c, S, o = {}) {
-    const [g, w, h] = fit(c), m = S.fleetMap, f = S.fleet, rs = (f?.robots || []).filter((r) => r.pose);
+    const [g, w, h] = fit(c), m = S.fleetMap, f = S.fleet, rs = (f?.robots || []).filter((r) => r?.pose && Number.isFinite(r.pose.x) && Number.isFinite(r.pose.y));
     if (!g) return [];
     const b = bounds(m, rs), k = Math.min((w - 24) / (b.xmax - b.xmin), (h - 24) / (b.ymax - b.ymin)), ox = (w - k * (b.xmax - b.xmin)) / 2, oy = (h - k * (b.ymax - b.ymin)) / 2;
     const X = (x) => ox + (x - b.xmin) * k, Y = (y) => h - oy - (y - b.ymin) * k, big = !!o.big;
@@ -190,14 +199,14 @@
       g.lineWidth = on ? (big ? 2.5 : 1.6) : 1;
       g.beginPath(); g.moveTo(X(s.a[0]), Y(s.a[1])); g.lineTo(X(s.b[0]), Y(s.b[1])); g.stroke();
     });
-    if (m?.dock) { const [dx, dy] = m.dock.xyz; g.strokeStyle = COL.act; g.lineWidth = 1.2; g.strokeRect(X(dx) - 5, Y(dy) - 5, 10, 10); if (big) { g.fillStyle = "rgba(235,235,245,.5)"; g.font = "500 11px -apple-system, system-ui, sans-serif"; g.fillText("Dock", X(dx) + 9, Y(dy) + 4); } }
-    if (big) (f?.tasks || []).filter((t) => t.status !== "done" && t.xyz).forEach((t) => {
+    if (m?.dock?.xyz) { const [dx, dy] = m.dock.xyz; g.strokeStyle = COL.act; g.lineWidth = 1.2; g.strokeRect(X(dx) - 5, Y(dy) - 5, 10, 10); if (big) { g.fillStyle = "rgba(235,235,245,.5)"; g.font = "500 11px -apple-system, system-ui, sans-serif"; g.fillText("Dock", X(dx) + 9, Y(dy) + 4); } }
+    if (big) (f?.tasks || []).filter((t) => t && t.status !== "done" && t.xyz).forEach((t) => {
       g.fillStyle = t.kind === "gas" ? COL.stop : t.kind === "rust" ? COL.act : "rgba(235,235,245,.35)";
       const x = X(t.xyz[0]), y = Y(t.xyz[1]);
       g.beginPath(); g.moveTo(x, y - 4); g.lineTo(x + 4, y); g.lineTo(x, y + 4); g.lineTo(x - 4, y); g.fill();
     });
-    (f?.zones || []).forEach((z) => {
-      const x = X(z.xyz[0]), y = Y(z.xyz[1]), r = Math.max(6, z.radius * k);
+    (f?.zones || []).filter((z) => z?.xyz).forEach((z) => {
+      const x = X(z.xyz[0]), y = Y(z.xyz[1]), r = Math.max(6, (z.radius || 3) * k);
       if (z.kind === "gas") { const gr = g.createRadialGradient(x, y, 0, x, y, r * 1.4); gr.addColorStop(0, "rgba(248,81,73,.55)"); gr.addColorStop(1, "rgba(248,81,73,0)"); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r * 1.4, 0, 7); g.fill(); }
       else { g.strokeStyle = z.kind === "person" ? COL.warn : "rgba(235,235,245,.4)"; g.setLineDash(z.kind === "no_fly" ? [4, 4] : []); g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, r, 0, 7); g.stroke(); g.setLineDash([]); }
       if (z.kind === "person") { g.fillStyle = COL.warn; g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill(); }
@@ -205,7 +214,8 @@
     if (H.drawRoutes) H.drawRoutes(g, { X, Y, k, deck, big, w, h }, S);
     const hits = [];
     rs.forEach((r) => {
-      if (deck !== "all" && r.deck !== deck && r.deck !== "air") return;
+      const off = deck !== "all" && r.deck && r.deck !== deck && r.deck !== "air";
+      g.globalAlpha = off ? 0.38 : 1;
       const x = X(r.pose.x), y = Y(r.pose.y), col = COL[tone(r.job_state || r.state)], rr = big ? 6 : 4, a = -(r.pose.yaw || 0);
       if (S.focus === r.id) { g.strokeStyle = "rgba(255,255,255,.85)"; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, rr + 5, 0, 7); g.stroke(); }
       g.fillStyle = col; g.beginPath();
@@ -213,17 +223,55 @@
       g.fill();
       g.strokeStyle = col; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); g.lineTo(x + Math.cos(a) * (rr + (big ? 9 : 6)), y + Math.sin(a) * (rr + (big ? 9 : 6))); g.stroke();
       g.fillStyle = "rgba(255,255,255,.85)"; g.font = `${big ? 600 : 500} ${big ? 12 : 10}px -apple-system, system-ui, sans-serif`;
-      g.fillText(big ? rname(r) : rname(r).split(" ·")[0].replace("Unit ", "U"), x + rr + 4, y - rr);
+      g.fillText((big ? rname(r) : rname(r).split(" ·")[0].replace("Unit ", "U")) + (off && big ? "  · " + String(r.deck).replace("_deck", " deck") : ""), x + rr + 4, y - rr);
+      g.globalAlpha = 1;
       hits.push({ id: r.id, x, y });
     });
     return Object.assign(hits, { deck });
   };
   const fleetRows = (S) => (S.fleet?.robots || []).map((r) => `<div class="bot"><b>${esc(rname(r).split(" ·")[0])}</b><span class="dim">${esc(H.nice(r.job_state || r.state))}</span><i><s style="width:${pct(r.battery?.soc).replace(" ", "")};background:${(r.battery?.soc ?? 1) < 0.25 ? COL.warn : ""}"></s></i><em class="tnum">${r.battery?.soc == null ? "" : Math.round(r.battery.soc * 100)}</em></div>`).join("");
   H.panel({ id: "fleet", title: "Fleet", icon: "robot", key: "b", edge: "left", keys: "robots map battery deck units", suggest: (S) => ((S.fleet?.robots?.length || 0) > 1 ? 0.2 : 0),
-    desc: "Every robot on the rig: where it is on its deck, what it is doing and its battery. ⇧M opens the full mission map.", hint: (S) => (S.fleet ? S.fleet.robots.length + " robots" : ""),
+    desc: "Every robot on the rig: where it is on its deck, what it is doing and its battery. ⇧M opens the full mission map.", hint: (S) => (S.fleet?.robots ? S.fleet.robots.length + " robots" : ""),
     render(el, S) {
       const x = q(el, `<canvas class="rig" data-k="c"></canvas><div data-k="rows"></div>`), rows = fleetRows(S);
       if (now() - (el._t || 0) > 0.1) { el._t = now(); H.drawRig(x.c, S); }
       if (x.rows._h !== rows) { x.rows._h = rows; x.rows.innerHTML = rows || `<p class="none">No fleet snapshot yet</p>`; }
+    } });
+  const RT = { stop: 3, warn: 2, act: 1, ok: 0.5 };
+  H.bots = (S) => {
+    const fr = new Map((S.fleet?.robots || []).filter((r) => r?.id).map((r) => [r.id, r])), out = [];
+    (S.robots || []).filter((r) => r?.id).forEach((r) => out.push({ ...(fr.get(r.id) || {}), ...r, fleet: fr.get(r.id) }));
+    fr.forEach((r, id) => out.some((o) => o.id === id) || out.push({ ...r, fleet: r }));
+    return out;
+  };
+  H.lead = (S) => {
+    const bs = H.bots(S);
+    if (!bs.length) return null;
+    const f = bs.find((r) => r.id === S.focus) || bs.find((r) => r.id === S.caption?.robot);
+    if (f) return f;
+    const rank = (r) => (RT[r.caption?.tone] || RT[tone(r.job_state || r.state)] || 0) + (S.gasAlarm && /GAS|LEAK|RETORQUE/.test(r.state || "") ? 2.5 : 0) - (/DOCK|CHARG/.test(r.state || "") ? 1.5 : 0);
+    return bs.reduce((a, b) => (rank(b) > rank(a) ? b : a));
+  };
+  const lastv = (S, k) => S.series[k]?.at(-1)?.[1];
+  H.panel({ id: "robot", title: "Active robot", icon: "robot", key: "y", priority: 5, phases: (S) => S.started && !!H.lead(S), keys: "unit focus robot card status caption battery task",
+    desc: "The robot that matters most right now: what it is doing, its battery, task and live readings. Click another unit to focus it.",
+    hint: (S) => H.lead(S)?.name || "",
+    render(el, S) {
+      const r = H.lead(S);
+      if (!r) { if (el._k !== "none") { el._k = "none"; el.innerHTML = `<p class="none">No robots reporting yet</p>`; } return; }
+      const id = r.id, st = r.job_state || r.state, tn = r.caption?.tone || tone(st), soc = r.battery?.soc ?? lastv(S, id + ".battery");
+      const gas = lastv(S, id + ".gas_lel"), force = lastv(S, id + ".force_n") ?? (H.bots(S)[0]?.id === id && S.series.force ? S.force : null);
+      const kv = [["Battery", soc == null ? null : Math.round(soc * 100) + " %"], ["Task", r.task ? String(r.task).split(":").pop().replace(/_/g, " ") : null], ["Deck", r.deck ? String(r.deck).replace("_deck", "").replace(/_/g, " ") : null],
+        ["Gas", gas == null ? null : (gas * 100).toFixed(1) + " % LEL"], ["Force", force == null ? null : force.toFixed(1) + " N"]].filter((x) => x[1] != null).slice(0, 4);
+      const others = H.bots(S).filter((o) => o.id !== id);
+      const src = H.viewSrc?.(id), key = [id, st, r.caption?.text, JSON.stringify(kv), others.map((o) => o.id + (o.job_state || o.state)).join(), src].join("|");
+      if (el._k === key) return;
+      el._k = key;
+      el.innerHTML = `<div class="rb-top"><i style="background:${COL[tn] || COL.act}"></i><b>${esc(rname(r))}</b><span class="chip">${esc(H.nice(st) || "Idle")}</span></div>`
+        + (r.caption?.text ? `<p class="rb-cap">${esc(r.caption.text)}</p>` : "")
+        + (src ? `<div class="pip on rb-pip"><img src="${src}" alt=""></div>` : "")
+        + (kv.length ? `<div class="rb-kv">${kv.map(([k, v]) => `<span><em>${k}</em><b class="tnum">${esc(v)}</b></span>`).join("")}</div>` : "")
+        + (others.length ? `<div class="rb-oth">${others.map((o) => `<button data-id="${esc(o.id)}"><i style="background:${COL[o.caption?.tone || tone(o.job_state || o.state)] || COL.act}"></i>${esc(rname(o).split(" ·")[0])}<em>${esc(H.nice(o.job_state || o.state))}</em></button>`).join("")}</div>` : "");
+      el.onclick = (e) => { const b = e.target.closest("[data-id]"); if (b) H.focus(b.dataset.id); };
     } });
 })();

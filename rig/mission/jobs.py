@@ -5,10 +5,10 @@ import threading
 STATUS = {"pending": "QUEUED", "assigned": "ASSIGNED", "active": "RUNNING", "done": "DONE",
           "escalated": "HANDED_TO_HUMAN", "blocked_by_hazard": "BLOCKED", "superseded": "CANCELLED",
           "cancelled": "CANCELLED"}
-KIND = {"rust": "rust_repair", "leak_check": "leak_check", "inspect": "gauge_read", "gas": "gas_leak",
+KIND = {"pick_can": "pick_can", "weld": "weld_repair", "rust": "rust_repair", "leak_check": "leak_check", "inspect": "gauge_read", "gas": "gas_leak",
         "crack": "crack_check"}
-LEVEL = {"rust": "SUPV", "gas": "AUTO", "leak_check": "AUTO", "inspect": "AUTO", "crack": "HUMAN"}
-FLEET_KIND = {"rust_repair": "rust", "rust": "rust", "paint": "rust", "touch_up": "rust", "inspection": "inspect",
+LEVEL = {"weld": "SUPV", "rust": "SUPV", "gas": "AUTO", "leak_check": "AUTO", "inspect": "AUTO", "crack": "HUMAN"}
+FLEET_KIND = {"weld": "weld", "weld_repair": "weld", "rust_repair": "rust", "rust": "rust", "paint": "rust", "touch_up": "rust", "inspection": "inspect",
               "inspect": "inspect", "gauge_read": "inspect", "survey": "inspect", "gas_survey": "leak_check",
               "leak_check": "leak_check", "flange_check": "leak_check", "retorque": "leak_check"}
 OPEN = ("QUEUED", "WAITING_APPROVAL", "ASSIGNED", "RUNNING")
