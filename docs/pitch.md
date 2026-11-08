@@ -67,11 +67,12 @@ Underneath: *fixed detectors on every flange (green, amber, red, grey for a faul
 
 **Call-outs while it plays:**
 1. On the spray and the scrub: *"Unit 1 sprays, lets it soak, then scrubs. The brush squishes onto the pipe and stays under 40 newtons."*
-2. When G-F5 goes amber (the loosening is scripted in the sim at a fixed time, not announced): *"Gas. A wire brush is a spark source, so Unit 1 stops and steps back at once. Its job is paused, not cancelled."*
+2. When G-F5 goes amber (the loosening is scripted in the sim at a fixed time, not announced): *"Gas: you can see it venting at the flange. A wire brush is a spark source, so Unit 1 stops and steps back at once. Its job is paused, not cancelled."*
 3. When Unit 2 sets off: *"Unit 1's sniffer is too far away to confirm it, so Argon sends Unit 2 to check."*
-4. At the flange: *"Confirmed. It finds the loose bolt and re-torques it. The detector goes green."*
-5. When Unit 1 resumes: *"Argon clears the zone. Unit 1 picks up exactly where it stopped, then paints."*
-6. If the stuck detector or the refused resume shows: *"That detector is stuck high, and the robot next to it reads clean, so it's a ticket for a human, not a repair."* / *"Gemini asked to resume while the leak was still open. The safety layer refused it."*
+4. When the crate drops (about 30 s): *"Something fell on the walkway. Unit 2's lidar stops it short and it reports the object; the robot's own rule holds it for the crew, not Argon. Once it's cleared, a shove knocks it off its path, and it recovers."*
+5. At the flange: *"Confirmed. It finds the loose bolt and re-torques it. The detector goes green."*
+6. When Unit 1 resumes: *"Argon clears the zone. Unit 1 picks up exactly where it stopped, then paints."*
+7. If the stuck detector or the refused resume shows: *"That detector is stuck high, and the robot next to it reads clean, so it's a ticket for a human, not a repair."* / *"Gemini asked to resume while the leak was still open. The safety layer refused it."*
 
 **Fallback if the video fails:** open the fleet HUD replay of the live Argon run (`?replay=` the run folder, then Space to start, H for the controls). If nothing loads, use https://rig.zeecloud.org or the mock replay at `/?mock=1`.
 
@@ -87,7 +88,7 @@ Underneath: *fixed detectors on every flange (green, amber, red, grey for a faul
 | High | Too far away to tell | **UNVERIFIED** | Send Unit 2 to check |
 | Clean | Clean | **OK** | Carry on |
 
-Numbers: **18/18** scenario evals correct; **4/4** valid live calls in the demo run; **4–9 s** per call, non-blocking; about **$0.003** per call.
+Numbers: **18/18** scenario evals correct; **4/4** valid live calls in the demo run; **6–11 s** per call, non-blocking; about **$0.003** per call.
 
 Underneath: *hazard first (≥ 20 %LEL is always real gas); spark rule (hot work stops within 6 m of an amber or red detector); link cut, timeout or a bad reply → the same rules decide locally.*
 
@@ -149,7 +150,7 @@ Underneath: *hazard first (≥ 20 %LEL is always real gas); spark rule (hot work
 
 **On screen:**
 - **On the robot (CPU):** rust detector 1.1 ms; scrub policy 0.012 ms; leak check about 90 ms per frame (measured on a laptop CPU); lidar navigation and the safety rules. TensorRT on the GB10: **TBD**.
-- **Cloud, Argon:** gemini-4-argon fleet decisions, non-blocking, 4–9 s per call; the Gemini rust second opinion. Offline, the edge rules make the safe call.
+- **Cloud, Argon:** gemini-4-argon fleet decisions, non-blocking, 6–11 s per call; the Gemini rust second opinion. Offline, the edge rules make the safe call.
 - **Training only:** Modal A10G / L40S and our GB10.
 - **Next:** trained PPO lidar navigation on both units (the demo uses the pure-pursuit fallback), a 3D gas plume with orifice leak rate, storm adaptation, and more units and jobs under Argon.
 
@@ -183,7 +184,7 @@ We didn't need it, and a classical check is easier to trust. A painted torque st
 That's the failure we designed against. A crack probability ≥ 0.5 is never a robot repair. While a crack is merely possible (unsure), no bolt is touched. And a dirty lens can't produce a "no crack", because view quality below 0.85 turns it into "unsure". The safety sweep in the tests checks that it never tightens a cracked flange, never tightens in gas at the limit, and never finishes "done" with a loose bolt left.
 
 **Is Argon really making the decisions in the video?**
-Yes, with one exception we show on purpose. The video replays a recorded run in which four live gemini-4-argon calls made the dispatch to F5, the fix order, the sensor-fault ticket and the final resume (4.2–8.6 s each, about 1¢ for the whole run). The spark-rule hold came from the edge rule in the same tick as the amber alarm, because hot work near gas can't wait seconds for a model. Replaying the recording reproduces the same commands at the same times.
+Yes, with one exception we show on purpose. The video replays a recorded run in which four live gemini-4-argon calls made the dispatch to F5, the fix order, the sensor-fault ticket and the final resume (5.9–10.5 s each, about 1¢ for the whole run). The spark-rule hold came from the edge rule in the same tick as the amber alarm, because hot work near gas can't wait seconds for a model. Replaying the recording reproduces the same commands at the same times.
 
 **What do the gas numbers mean?**
 They are percentages of the lower explosive limit (%LEL): under 5 is clear, 10 is an alarm (red), and 20 or more means stop and retreat, and is always treated as real gas. They are illustrative, not from a site standard; the gas model is a simple distance-decay field. Unit 2 is the dedicated gas robot; a 3D plume model is next.
