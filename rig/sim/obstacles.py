@@ -34,6 +34,7 @@ CAN_SIZE = {"small": (0.085, 0.24), "large": (0.15, 0.42)}
 CAN_PAINT = {"red": (0.62, 0.05, 0.03), "blue": (0.04, 0.16, 0.55), "yellow": (0.78, 0.55, 0.04), "green": (0.06, 0.35, 0.1)}
 WEATHER_KEYS = ("fog_color", "fog_height", "wave_height", "dome", "wind", "sun", "fog_dist")
 GRIP_ROBOTS = ("R3",)
+SODA = (0.045, 0.18)
 EE_LINK = ("Geometry/base/lift_housing/lift_carriage/ur3_base_link/ur3_shoulder_link/ur3_upper_arm_link/ur3_forearm_link/"
            "ur3_wrist_1_link/ur3_wrist_2_link/ur3_wrist_3_link/ur3_ee_link")
 TOTE = (-0.27, 0.0, 0.062, 0.26, 0.22, 0.09, 0.008)
@@ -432,6 +433,7 @@ class ObstacleScene:
             x, y, z, yaw = rb["root"]
             k, lift = (f1 if o.get("phase") == "tote" else rb.get("ro_k", f0)), -ro.base_z
         _, _, p, q = ro.at(k)
+        lift += SODA[0] - ro.radius
         rot = Gf.Matrix4d().SetRotate(Gf.Quatd(*q)) * Gf.Matrix4d().SetRotate(Gf.Rotation(Gf.Vec3d(0, 0, 1), math.degrees(yaw)))
         at = Gf.Matrix4d().SetRotate(Gf.Rotation(Gf.Vec3d(0, 0, 1), math.degrees(yaw))).Transform(Gf.Vec3d(p[0], p[1], p[2] + lift))
         pr["op"].Set(rot.SetTranslateOnly(Gf.Vec3d(x, y, z) + at))
@@ -455,14 +457,21 @@ class ObstacleScene:
         return {"path": path, "op": op, "t0": self.now - (10.0 if flat else 0.0), "xyz": o["xyz"]}
 
     def _spawn_held(self, path, o) -> dict:
-        x = UsdGeom.Xform.Define(self.stage, path)
-        op = UsdGeom.Xformable(x).AddTransformOp()
-        r, h = self.rollout.radius, self.rollout.length
-        paint = self._mat("obst_can_red", CAN_PAINT["red"], 0.38, 0.35)
+        UsdGeom.Xform.Define(self.stage, path)
+        op = UsdGeom.Xformable(UsdGeom.Xform.Define(self.stage, f"{path}/can")).AddTransformOp()
+        r, h = SODA
+        paint = self._mat("obst_soda_red", (0.9, 0.035, 0.02), 0.3, 0.3)
+        white = self._mat("obst_soda_white", (0.92, 0.92, 0.9), 0.35)
         tin = self._mat("obst_can_tin", (0.7, 0.7, 0.68), 0.25, 0.95)
-        for name, rr, hh, z, mat in (("body", r, h, 0.0, paint), ("rim_0", r * 1.04, 0.008, -h / 2 + 0.004, tin),
-                                     ("rim_1", r * 1.04, 0.008, h / 2 - 0.004, tin)):
-            c = UsdGeom.Cylinder.Define(self.stage, f"{path}/{name}")
+        if o.get("lamp"):
+            lamp = UsdLux.SphereLight.Define(self.stage, f"{path}/lamp")
+            lamp.CreateRadiusAttr(0.4)
+            lamp.CreateIntensityAttr(float(o["lamp"][3]))
+            lamp.CreateColorAttr(Gf.Vec3f(1.0, 0.93, 0.82))
+            UsdGeom.Xformable(lamp).AddTranslateOp().Set(Gf.Vec3d(*o["lamp"][:3]))
+        for name, rr, hh, z, mat in (("body", r, h, 0.0, paint), ("band", r * 1.01, h * 0.3, 0.0, white),
+                                     ("rim_0", r * 1.04, 0.01, -h / 2 + 0.005, tin), ("rim_1", r * 1.04, 0.01, h / 2 - 0.005, tin)):
+            c = UsdGeom.Cylinder.Define(self.stage, f"{path}/can/{name}")
             c.CreateAxisAttr("Z")
             c.CreateRadiusAttr(rr)
             c.CreateHeightAttr(hh)
