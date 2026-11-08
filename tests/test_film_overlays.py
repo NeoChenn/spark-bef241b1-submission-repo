@@ -45,3 +45,23 @@ def test_every_page_has_data_without_a_run_and_fonts_are_local(tmp_path):
         assert "googleapis" not in (HERE / f"{page}.html").read_text()
     assert len(list((HERE / "fonts").glob("*.woff2"))) == 6 and len(list((HERE / "fonts").glob("*OFL.txt"))) == 2
     assert Path(HERE / "film.css").read_text().count("@font-face") == 6
+
+
+def test_rust_readout_matches_scrub_motion():
+    import pytest
+
+    sm = pytest.importorskip("integration.scrub_motion")
+    if not hasattr(sm, "film_job"):
+        pytest.skip("scrub_motion.film_job not merged yet")
+    from integration.film_overlays.capture import _u, _knots, load_run
+
+    sim = (88.0, 107.9, 19.9 / 8.0)
+    r = film_data("readout", 8.0, RUN, sim, "rust")["readout"]
+    assert r["source"] in ("scrub_motion", "scrub_track")
+    job, kn = sm.film_job(Path(RUN) / "timeline.jsonl"), _knots(load_run(RUN), 8.0, sim)
+    pts = dict((u, v) for u, v in r["series"])
+    for t in (90.0, 95.0, 100.0, 104.0, 106.0):
+        u = min(pts, key=lambda x: abs(x - _u(kn, t)))
+        a = job.at(88.0 + u * 19.9 / 8.0)
+        assert abs(pts[u] - a["rust_fraction"]) < 1e-3
+    assert any(v > 0.04 for u, v in r["series"] if 88.0 + u * 19.9 / 8.0 > 100.5)
