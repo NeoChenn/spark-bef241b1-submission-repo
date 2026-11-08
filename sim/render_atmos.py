@@ -25,6 +25,7 @@ ap.add_argument("--video-subframes", type=int, default=0)
 ap.add_argument("--fps", type=int, default=24)
 ap.add_argument("--fps-test", type=float, default=0.0)
 ap.add_argument("--set", action="append", default=[])
+ap.add_argument("--renderer", default="")
 args = ap.parse_args()
 
 import atmos
@@ -35,7 +36,7 @@ SUB = args.subframes or tier["subframes"]
 
 from isaacsim import SimulationApp
 
-app = SimulationApp({"headless": True, "renderer": tier["renderer"], "width": W, "height": H})
+app = SimulationApp({"headless": True, "renderer": args.renderer or tier["renderer"], "width": W, "height": H})
 
 import carb
 import numpy as np

@@ -62,6 +62,7 @@ def volumetric_settings(preset: str, tier: str, weather: dict) -> dict:
     m, q = MEDIA[preset], TIERS[tier]
     return {
         "/rtx/raytracing/globalVolumetricEffects/enabled": True,
+        "/rtx/raytracing/fractionalCutoutOpacity": True,
         "/rtx/raytracing/inscattering/densityMult": m["density"] * (0.5 + 1.5 * weather["fog"]),
         "/rtx/raytracing/inscattering/singleScatteringAlbedo": list(m["albedo"]),
         "/rtx/raytracing/inscattering/transmittanceColor": list(m["transmit"]),
