@@ -20,7 +20,7 @@ LABEL_LIFT = 0.85
 TANGENT = 0.75
 LEAD = 0.65
 TRUNK_Z = 42.82
-OBST_AZ, OBST_EL = 280.0, 45.0
+OBST_AZ, OBST_EL = -30.0, 40.0
 MAX_TAKE_S = 120.0
 ALIASES = {"retorque_done": "fixed", "gas_clear": "green", "hold": "step_back", "retreat": "step_back",
            "resume_rust": "resume", "unit2_arrive": "arrive", "duration_s": "end", "SPRAY": "spray",
@@ -145,15 +145,16 @@ class Scene:
     unit2_work: Vec3 = (21.01, -10.27, TRUNK_Z)
     unit2_dock: Vec3 = (*DOCK["unit2"][:2], TRUNK_Z)
     crate: Vec3 = (25.897, -9.68, 42.5)
-    push_ahead_m: float = 2.0
-    shove: Vec3 = (0.0, 0.4, 0.0)
+    stop_m: float = 1.57
+    push_ahead_m: float = 1.05
+    shove: Vec3 = (0.0, -0.45, 0.0)
     plume: Vec3 = (0.0, -1.6, 0.35)
     deck_z: float = 42.5
 
     @property
     def unit2_stop(self) -> Vec3:
         d = np.asarray(self.unit2_dock[:2]) - np.asarray(self.crate[:2])
-        x, y = np.asarray(self.crate[:2]) + d / np.linalg.norm(d)
+        x, y = np.asarray(self.crate[:2]) + self.stop_m * d / np.linalg.norm(d)
         return (float(x), float(y), TRUNK_Z)
 
     @property
@@ -275,7 +276,7 @@ def shots(scene: Scene = DEFAULT_SCENE) -> dict[str, tuple]:
                          margin=90.0),
         "pull_back": pull_back,
         "obstacle": _fit(_body(s.unit2_stop) + _body(s.unit2_pushed_at) + shoved + crate,
-                         OBST_AZ, OBST_EL, 33.0, margin=110.0),
+                         OBST_AZ, OBST_EL, 33.0, margin=50.0),
         "gripper": _fit(u2 + [s.bolt, s.flange], 80.0, 15.0, MID, margin=60.0, target=s.bolt),
         "green": _close(tuple((np.asarray(s.detector) + np.asarray(s.bolt)) / 2), 2.6, 70.0, 25.0, MID),
         "resume": _close(tuple((np.asarray(s.unit1_work) + np.asarray(s.unit1_back)) / 2 + [0, 0, 0.4]), 4.0, 180.0,
@@ -297,7 +298,7 @@ def beat_spans(beats: Beats = DEFAULT_BEATS) -> list[tuple[str, float, float, fl
     if ev and b.step_back + 6.0 < ev[0] and ev[-1] + 4.5 < b.arrive:
         hold = ev[0] - 2.5
         pull = [("pull_back", _move(b.step_back, hold, cap=4.5, frac=0.85), hold),
-                ("obstacle", ev[0] - 0.2, ev[-1] + 1.5)]
+                ("obstacle", ev[0] + 1.2, ev[-1] + 1.5)]
     else:
         pull = [("pull_back", _move(b.step_back, b.arrive, cap=5.5, frac=0.8), b.arrive)]
     plan = [

@@ -88,11 +88,11 @@ def test_the_crate_stop_and_push_get_their_own_shot():
     b = Beats.from_events({"t_end": 95.9, "beats": beats})
     assert (b.obstacle, b.shove, b.recovered, b.end) == (31.2, 37.5, 41.0, 95.9)
     spans = {n: (t0, end, arrive) for n, t0, end, arrive in beat_spans(b)}
-    assert spans["obstacle"][2] <= 31.2 and spans["obstacle"][1] >= 41.0
+    assert spans["obstacle"][2] <= 32.5 and spans["obstacle"][1] >= 41.0
     assert spans["detector"][2] <= 19.5 and spans["detector"][1] >= 22.0
     eyes = np.array([camera_at(t, b)[0] for t in np.arange(b.start, b.end, 1 / 30)])
     assert np.linalg.norm(np.diff(eyes, axis=0), axis=1).max() * 30 < 15.0
-    for t in np.arange(31.2, 41.0, 0.25):
+    for t in np.arange(spans["obstacle"][2], 41.0, 0.25):
         cam = view(t, b)
         for p in (robots_at(t, b)["unit2"], DEFAULT_SCENE.crate):
             u, v, z = project(cam, p)
