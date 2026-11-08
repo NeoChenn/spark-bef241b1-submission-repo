@@ -11,9 +11,11 @@ from rig.captions import robot_entry
 HOOKS = ("spawn_patch", "set_glare", "occlude_camera", "force_spike", "person_at")
 EXTRA = ("camera",)
 CONTROL_EVENTS = ("cut_link", "intent")
+MISSION = ("scenario", "disturb", "select", "views", "force")
+SCENARIO_IDS = ("gas", "patrol", "repair", "flyby")
 SCENARIO = ("set_weather", "drop_obstacle", "drop_can", "close_walkway", "close_stairs", "clear", "gas_leak",
             "control_action", "battery_fault", "approve", "reject", "weld_job")
-EVENTS = HOOKS + EXTRA + CONTROL_EVENTS + SCENARIO
+EVENTS = HOOKS + EXTRA + CONTROL_EVENTS + SCENARIO + MISSION
 WEATHER = ("calm", "wind", "rain", "fog", "storm")
 FLEET = ("drop_obstacle", "drop_can", "close_walkway", "close_stairs", "clear", "set_weather", "weld_job")
 TIMES = ("dusk", "night")
@@ -173,6 +175,8 @@ def check_event(event: dict) -> dict:
         raise ValueError(f"unknown weather {lv!r}; expected one of {WEATHER} or 0..1")
     if name == "set_weather" and args.get("time") is not None and args["time"] not in TIMES:
         raise ValueError(f"unknown time {args['time']!r}; expected one of {TIMES}")
+    if name == "scenario" and args.get("id") not in SCENARIO_IDS:
+        raise ValueError(f"unknown scenario {args.get('id')!r}; expected one of {SCENARIO_IDS}")
     return {"name": name, "args": args}
 
 
@@ -339,7 +343,8 @@ def mock_sensors(robots: list[dict], evs: dict, t: float) -> dict:
         out[r["id"]] = {"force_n": round(float(ev.get("force") or 0.0), 1), "gas_lel": round(float(ev.get("gas") or 0.01), 3),
                         "thermal_c": round(31.0 + 4 * k + 0.6 * np.sin(0.7 * t + k), 1),
                         "battery": round(float(ev.get("soc") or (0.82 - 0.17 * k)), 3),
-                        "reach": round(0.35 + 0.3 * float(r["state"] in ("SCRUB", "RETORQUE", "SPRAY")), 2)}
+                        "reach": round(0.35 + 0.3 * float(r["state"] in ("SCRUB", "RETORQUE", "SPRAY")), 2),
+                        "highlight": ["force_n"] if r["state"] == "SCRUB" else []}
     return out
 
 

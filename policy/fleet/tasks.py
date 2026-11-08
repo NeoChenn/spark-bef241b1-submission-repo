@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-KIND_BASE = {"gas": 100.0, "pick_can": 60.0, "crack": 50.0, "weld": 30.0, "rust": 10.0, "leak_check": 3.0, "inspect": 1.0}
+KIND_BASE = {"gas": 100.0, "valve": 90.0, "pick_can": 60.0, "crack": 50.0, "weld": 30.0, "rust": 10.0, "leak_check": 3.0, "inspect": 1.0}
 NEEDS = {"pick_can": frozenset({"arm", "gripper"})}
 URGENT = ("gas", "pick_can")
 DEADLINE_W = 5.0
@@ -30,6 +30,7 @@ class Task:
     finished: Optional[float] = None
     outcome: Optional[str] = None
     preemptions: int = 0
+    only: Optional[str] = None
 
 
 def priority(task: Task, t: float) -> float:

@@ -81,9 +81,9 @@ class GaussianPlume:
         x = rel @ w
         y = rel @ np.array([-w[1], w[0]])
         xe = np.maximum(x, 0.0) + 0.05
-        sig = self.sigma0 + 0.04 * math.sqrt(self.q) + self.spread * xe
-        sy = np.sqrt(sig ** 2 + (meander * xe) ** 2)
         qq = self._q_at(self.t - np.maximum(x, 0.0) / u) if q is None else np.full(len(p), float(q))
+        sig = self.sigma0 + 0.04 * (np.sqrt(qq) if q is None else math.sqrt(self.q)) + self.spread * xe
+        sy = np.sqrt(sig ** 2 + (meander * xe) ** 2)
         zs, z = self.source[2] - self.deck_z, p[:, 2] - self.deck_z
         vert = np.exp(-(z - zs) ** 2 / (2 * sig ** 2)) + np.exp(-(z + zs) ** 2 / (2 * sig ** 2))
         c = qq / (2 * math.pi * u * sig * sy) * np.exp(-y ** 2 / (2 * sy ** 2)) * vert

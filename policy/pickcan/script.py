@@ -14,7 +14,8 @@ SHOULDER = (-0.01, 0.0)
 ARC_R = 0.30
 ARC_STEP = 0.6
 ARC_SWITCH = 0.6
-LIFT_UP = 0.1
+LIFT_UP = 0.0
+RELEASE_Z = 0.64
 LIFT_CLEAR = 0.25
 
 
@@ -62,7 +63,7 @@ class ScriptedPicker:
         self._go(m, ABOVE)
         m = (ph == CARRY) & (dist(tip[:, :2], tote[:, :2]) < 0.02)
         self._go(m, LOWER)
-        m = (ph == LOWER) & (lift < 0.01) & (tip[:, 2] < CARRY_Z + 0.015)
+        m = (ph == LOWER) & (lift < 0.01) & (tip[:, 2] < RELEASE_Z + lift + 0.015)
         self._go(m, RELEASE)
         m = (ph == RELEASE) & (self.t_phase > 0.5)
         self._go(m, DONE)
@@ -79,8 +80,9 @@ class ScriptedPicker:
         lift_t = self.hold + torch.tensor([0.0, 0.0, LIFT_CLEAR], device=dev)
         target = torch.where((ph == LIFT)[:, None], lift_t, target)
         target = torch.where((ph == CARRY)[:, None], carry, target)
-        target = torch.where(((ph == LOWER) | (ph == RELEASE) | (ph == DONE))[:, None], tote, target)
-        gain = torch.where(ph == DESCEND, self.slow, 1.0)
+        drop = torch.cat([tote[:, :2], (RELEASE_Z + lift)[:, None]], -1)
+        target = torch.where(((ph == LOWER) | (ph == RELEASE) | (ph == DONE))[:, None], drop, target)
+        gain = torch.where((ph == DESCEND) | (ph == LOWER), self.slow, 1.0)
         a = ((target - p_tgt) / self.scale).clamp(-1.0, 1.0) * gain[:, None]
         suction = torch.where((ph == DESCEND) | (ph == LIFT) | (ph == CARRY) | (ph == LOWER), 1.0, -1.0)
         up = (ph == LIFT) | (ph == CARRY)

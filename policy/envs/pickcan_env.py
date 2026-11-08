@@ -273,6 +273,7 @@ class PickCanEnv(DirectRLEnv):
         pts = pts + (pts - eye[:, None, :]) * c.depth_noise * torch.randn_like(pts[..., :1])
         hit = hit & (torch.rand_like(pts[..., 0]) > c.depth_dropout)
         self.geom_fit = geom.fit_cylinder(pts, hit)
+        self.geom_pts, self.geom_hit, self.geom_eye = pts, hit, eye
         return self.geom_fit
 
     def geom_grasp(self):
