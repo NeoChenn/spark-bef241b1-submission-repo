@@ -11,7 +11,7 @@
 
   const SCEN = [["gas", "Gas leak", "Leak search, valve isolation, hot-work stop", "⇧1"], ["patrol", "Deck patrol", "Patrol route, re-routes, can pick-up", "⇧2"],
     ["repair", "Pipe repair", "Rust scrub, verify, paint, weld crack", "⇧3"], ["flyby", "Fly-by", "Ambient camera, no robot selected", "esc"]];
-  const DEMOS = [["can", "Demo: Can pick-up", "Unit 3 walks to a dropped can, learned pick-up into the tote", "⇧C", "R3"], ["rust", "Demo: Rust scrub", "Unit 1 scrubs the rusted pipe clean", "⇧R", "R1"],
+  const DEMOS = [["can", "Demo: Can pick-up", "Unit 3 walks to a dropped can, learned pick-up into the tote", "⇧C", "R3"], ["gas", "Demo: Gas leak", "Unit 2 localises the F5 leak, valve isolation waits for you", "⇧G", "R2"], ["rust", "Demo: Rust scrub", "Unit 1 scrubs the rusted pipe clean", "⇧R", "R1"],
     ["reset", "Demo: Reset", "Back to the normal fleet", "⇧X", null]];
   const UNITS = { R1: ["Unit 1", "repair and weld"], R2: ["Unit 2", "gas"], R3: ["Unit 3", "patrol and pick-up"] };
   const CARDS = { f: ["fpv", "Head camera", ["fpv", "policy", "obs", "belief"]], b: ["boxes", "Detections", ["boxes", "fpv", "policy"]], l: ["lidar", "Lidar", ["lidar", "bev"]], d: ["depth", "Depth", ["depth", "obs", "belief", "policy"]] };
@@ -130,7 +130,7 @@
     post("select", { robot: rid });
   }
   function wide() { S.mc = true; S.g = false; setSel(null); }
-  const ZN = { rust: "Rust", can: "Can", flange: "Flange F3", weld: "Weld seam", obstacle: "Obstacle" };
+  const ZN = { rust: "Rust", can: "Can", flange: "Flange F5", weld: "Weld seam", obstacle: "Obstacle" };
   const cm = () => (S.h.camera_mode && typeof S.h.camera_mode === "object" ? S.h.camera_mode : {});
   function cam(mode, view) { S.mc = true; post("camera", view ? { mode, view } : { mode }); }
   function rigDeck() { cam(cm().mode === "deck" ? "rig" : "deck"); }
@@ -397,7 +397,7 @@
   addEventListener("pointerdown", (e) => { if (S.spot && !spot.contains(e.target)) closeSpot(); });
 
   const HELP = [["⌘K", "Spotlight"], ["0", "Rig ↔ Deck camera"], ["Z", "Next close-up"], ["1 2 3", "Select a robot"], ["F", "Head camera"], ["B", "Detection boxes"], ["L", "Lidar"], ["D", "Depth"], ["S", "Sensor strip"],
-    ["G", "Gemini panel"], ["I", "Next disturbance"], ["⇧1 ⇧2 ⇧3", "Start a scenario"], ["⇧C ⇧R", "Demo: can pick-up, rust scrub"], ["⇧X", "Demo reset"], ["esc", "Back to fly-by"], ["M", "Mute"], ["?", "This card"]];
+    ["G", "Gemini panel"], ["I", "Next disturbance"], ["⇧1 ⇧2 ⇧3", "Start a scenario"], ["⇧C ⇧G ⇧R", "Demo: can pick-up, gas leak, rust scrub"], ["⇧X", "Demo reset"], ["esc", "Back to fly-by"], ["M", "Mute"], ["?", "This card"]];
   function help() {
     const el = $("help");
     el.classList.toggle("on", S.help);
@@ -488,18 +488,18 @@
   const MK = { scen: null, sel: null, t0: now(), alerts: [], seq: 0, fired: {} };
   const DIST = { gas: [["leak_reopens", "Leak reopens"], ["second_leak", "Second flange leaks"], ["cut_link", "Gemini link cut"]],
     patrol: [["more_cans", "More small cans"], ["unfamiliar_object", "Unfamiliar object"], ["drum", "205 L drum"]], repair: [["rust_returns", "Rust reappears"], ["gust", "Wind gust"]] };
-  const STEPS = { gas: ["Gas sensor on flange F3 tripped", "Argon checking its plan in simulation", "Gas robot localising the leak", "Valve isolation waiting for the operator", "Weld held by the hot-work gate"],
+  const STEPS = { gas: ["Gas sensor on flange F5 tripped", "Argon checking its plan in simulation", "Gas robot localising the leak", "Valve isolation waiting for the operator", "Weld held by the hot-work gate"],
     patrol: ["Patrol robot walking its route", "Re-routing around a blocked walkway", "Picking up a fallen can", "Back to dock to charge"], repair: ["Rust detector found a patch", "Scrubbing under the 40 N shield", "Verifying the patch is clean", "Repairing a weld crack"] };
-  const CAPS = { gas: ["Gas detector GD-F3", " · 14 %LEL and rising"], patrol: ["Unit 3", " · walking the patrol route on the middle deck"], repair: ["Unit 1", " · scrubbing the riser at 31 N"] };
+  const CAPS = { gas: ["Gas detector GD-F5", " · 14 %LEL and rising"], patrol: ["Unit 3", " · walking the patrol route on the middle deck"], repair: ["Unit 1", " · scrubbing the riser at 31 N"] };
   const MAIN = { gas: "R2", patrol: "R3", repair: "R1" };
-  const THOUGHTS = ["GD-F3 reads 14 %LEL and rising; wind from the west at 5 m/s puts the plume over the weld bay.", "Hot work near F3 must stop until gas is under 10 %LEL.",
-    "Checking the valve isolation plan in simulation before filing it.", "Simulated plan keeps the weld frozen and R2 upwind of the plume.", "Filing valve isolate F3 for the operator. I can't approve it myself.",
-    "R2's particle filter has narrowed the source to the F3 flange."];
+  const THOUGHTS = ["GD-F5 reads 14 %LEL and rising; wind from the west at 5 m/s puts the plume over the weld bay.", "Hot work near F5 must stop until gas is under 10 %LEL.",
+    "Checking the valve isolation plan in simulation before filing it.", "Simulated plan keeps the weld frozen and R2 upwind of the plume.", "Filing valve isolate F5 for the operator. I can't approve it myself.",
+    "R2's particle filter has narrowed the source to the F5 flange."];
   const mkAlert = (kind, text) => { MK.alerts = [...MK.alerts, { seq: ++MK.seq, kind, text, t: now() }].slice(-10); };
   function mockEvent(name, a) {
     if (name === "scenario") {
       MK.scen = a.id === "flyby" ? null : a.id; MK.t0 = now(); MK.fired = {}; MK.sel = null;
-      if (MK.scen === "gas") setTimeout(() => MK.scen === "gas" && mkAlert("gas_alarm", "Gas at flange F3 · 14 %LEL"), 1800);
+      if (MK.scen === "gas") setTimeout(() => MK.scen === "gas" && mkAlert("gas_alarm", "Gas at flange F5 · 14 %LEL"), 1800);
     }
     if (name === "disturb" && MK.scen) { const d = DIST[MK.scen].find(([id]) => !MK.fired[id]); if (d) { MK.fired[d[0]] = 1; mkAlert("disturbance", d[1]); if (/leak/.test(d[0])) mkAlert("gas_alarm", d[1]); } }
     if (name === "select") MK.sel = a.robot ?? null;
@@ -538,9 +538,9 @@
     const n = MK.scen ? Math.min(THOUGHTS.length, 1 + Math.floor(t / 5)) : 2;
     return { mode: MK.fired.cut_link ? "EDGE" : "CLOUD", link: MK.fired.cut_link ? "CUT" : "UP", model: "gemini-4-argon", calls_today: 67, cost_today_usd: 0.46,
       thoughts: THOUGHTS.slice(0, n).map((text, i) => ({ t: i * 5, text })),
-      agent: { calls: [{ label: "Dispatch R2 gas survey", ok: true, why: "Nearest gas robot with a full battery, 40 m from F3." }, { label: "Request valve isolate F3", ok: true, why: "Leak localised to F3; isolation needs a human." },
+      agent: { calls: [{ label: "Dispatch R2 gas survey", ok: true, why: "Nearest gas robot with a full battery, 40 m from F5." }, { label: "Request valve isolate F5", ok: true, why: "Leak localised to F5; isolation needs a human." },
         { label: "Resume weld on R1", ok: false, why: "Seam is nearly finished.", refused: "hot-work gate: gas above 10 %LEL" }] },
-      vetoed: [{ label: "Approve valve isolate F3", why: "Gemini can never approve its own request" }] };
+      vetoed: [{ label: "Approve valve isolate F5", why: "Gemini can never approve its own request" }] };
   }
   function fill(h) {
     const t = now() - MK.t0, out = { scenario: mockScenario() };
@@ -549,13 +549,13 @@
     const rids = (h.robots || []).map((r) => r.id).filter(Boolean), mv = mockViews(rids);
     out.views = Object.fromEntries(rids.map((r) => [r, { ...mv[r], ...Object.fromEntries(Object.entries(h.views?.[r] || {}).filter(([, v]) => v)) }]));
     if (h.sensors) out.sensors = Object.fromEntries(Object.entries(h.sensors).map(([r, v]) => [r, Array.isArray(v?.highlight) ? v : { ...v, highlight: MK.scen === "gas" ? ["gas_lel"] : MK.scen === "repair" ? ["force_n"] : ["battery"] }]));
-    if (MK.scen === "gas" && t > 20 && !h.orchestrator?.approvals?.length) out.orchestrator = { ...(h.orchestrator || {}), approvals: [{ job: "valve_isolate:F3", kind: "valve_isolate", target: "F3", text: "Close the F3 isolation valve. R2 localised the leak and Argon checked the plan in simulation." }] };
+    if (MK.scen === "gas" && t > 20 && !h.orchestrator?.approvals?.length) out.orchestrator = { ...(h.orchestrator || {}), approvals: [{ job: "valve_isolate:F5", kind: "valve_isolate", target: "F5", text: "Close the F5 isolation valve. R2 localised the leak and Argon checked the plan in simulation." }] };
     return out;
   }
   function mockHeader() {
     const t = now() - MK.t0, T = now(), sel = MK.sel, sc = MK.scen;
     const place = (id, i) => { const [u, v, z] = sel ? (id === sel ? [960, 600, 12] : [-900, 600, 30]) : [[560, 640, 30], [930, 560, 34], [1320, 690, 28]][i]; return [(u - 960 + 18 * Math.sin(T / 3 + i)) * z / 1400, (v - 540) * z / 1400, z - 0.85]; };
-    const tasks = { R1: sc === "gas" ? "weld:riser_east" : "rust:riser_mid", R2: sc === "gas" ? "gas_survey:F3" : "leak_check:F5", R3: sc === "patrol" ? "pick_can:can_2" : "patrol:route_a" };
+    const tasks = { R1: sc === "gas" ? "weld:riser_east" : "rust:riser_mid", R2: sc === "gas" ? "gas_survey:F5" : "leak_check:F5", R3: sc === "patrol" ? "pick_can:can_2" : "patrol:route_a" };
     const rs = ["R1", "R2", "R3"].map((id, i) => ({ id, name: `${UNITS[id][0]} · ${UNITS[id][1]}`, state: "WORK", world_pos: place(id, i), caption: { tone: sc === "gas" && id === "R1" ? "warn" : "act" } }));
     const caps = sc ? CAPS[sc] : ["Live", " · three robots on the rig"];
     const sens = {
@@ -565,7 +565,7 @@
     return { t: T, scenario: mockScenario(), selected: sel, robots: rs, camera: { K: [[1400, 0, 960], [0, 1400, 540], [0, 0, 1]], T: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], w: 1920, h: 1080 },
       caption: { lead: caps[0], rest: caps[1], text: caps.join("") }, alerts: MK.alerts, control: mockControl(t), sensors: sens, views: mockViews(["R1", "R2", "R3"]),
       fleet: { robots: rs.map((r) => ({ id: r.id, task: tasks[r.id], battery: { soc: sens[r.id].battery } })) },
-      orchestrator: { approvals: sc === "gas" && t > 20 ? [{ job: "valve_isolate:F3", kind: "valve_isolate", target: "F3", text: "Close the F3 isolation valve. R2 localised the leak and Argon checked the plan in simulation." }] : [] } };
+      orchestrator: { approvals: sc === "gas" && t > 20 ? [{ job: "valve_isolate:F5", kind: "valve_isolate", target: "F5", text: "Close the F5 isolation valve. R2 localised the leak and Argon checked the plan in simulation." }] : [] } };
   }
 
   window.HUD = { S, on, emit, post, toast, apply, esc, now, json: (u) => fetch(u).then((r) => (r.ok ? r.json() : null)).catch(() => null),

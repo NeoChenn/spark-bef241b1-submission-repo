@@ -74,3 +74,27 @@ def test_fixed_shot_lens_overrides():
     assert eye[1] > 4.0
     eye, _, _ = fixed_shot((0.0, 0.0, 42.5), "zoom", None, {"eye": [1, 2, 3]})
     assert eye == (1.0, 2.0, 3.0)
+
+
+def test_gas_demo_finds_the_flange_in_shot_and_recuts_on_beat():
+    m = MissionLive(obs=False)
+    clock = [0.0]
+    m.scen.clock = lambda: clock[0]
+    m.event("demo", {"id": "gas"})
+    first = m.take_sim()
+    assert [e["name"] for e in first] == ["set_weather", "camera", "select", "views"]
+    assert first[3]["args"] == {"robot": "R2", "on": True, "kind": "fpv"}
+    cams, xs, w = [], [], 0.0
+    while m.leak.found is None and w < 40:
+        w += 0.25
+        clock[0] = w
+        m.advance(0.25)
+        cams += [e for e in m.take_sim() if e["name"] == "camera"]
+        r2 = next(r for r in m.for_sim()["robots"] if r["id"] == "R2")
+        xs.append((r2["pose"]["x"], r2["pose"]["y"]))
+    assert m.scen.cur.id == "demo_gas" and m.leak.fid == "F5" and w < 30
+    assert m.leak.found["err_m"] < 1.5 and m.scen.cur.i == 4
+    a = np.asarray(xs)
+    assert a[:, 0].min() > 7.0 and a[:, 0].max() < 23.0 and a[:, 1].min() > -13.0
+    assert len(cams) == 1 and cams[0]["args"]["at"][0] > first[1]["args"]["at"][0]
+    assert "flange" in m.scen.targets()
