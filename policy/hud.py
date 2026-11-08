@@ -24,7 +24,7 @@ TRACK = (66, 65, 61)
 RUST = (196, 98, 52)
 STAGES = ("SPRAY", "SOAK", "SCRUB", "VERIFY", "PAINT")
 STATE_COLORS = {"PATROL": BLUE, "APPROACH": BLUE, "SPRAY": BLUE, "SOAK": BLUE, "SCRUB": GREEN, "RE-PLAN": AMBER,
-                "VERIFY": BLUE, "PAINT": CORAL, "DONE": GREEN, "BACK_OFF": RED, "ESCALATE": RED, "HOLD": AMBER}
+                "VERIFY": BLUE, "PAINT": CORAL, "DONE": GREEN, "BACK_OFF": RED, "ESCALATE": RED, "HOLD": AMBER, "CLEAN": GREEN}
 STAGE_OF = {"APPROACH": "SCRUB", "RE-PLAN": "SCRUB", "BACK_OFF": "SCRUB"}
 
 
@@ -74,9 +74,18 @@ def state_color(key: str):
     return STATE_COLORS.get(key, STATE_COLORS["PATROL"])
 
 
+def demo_state(raw: str) -> str:
+    key, cap = parse_state(raw)
+    if key == "DONE":
+        return f"CLEAN  {cap} · paint next" if "residual" not in cap else f"VERIFY  {cap}"
+    return raw
+
+
 def pipeline(key: str):
     if key == "DONE":
         return [(s, "done") for s in STAGES]
+    if key == "CLEAN":
+        return [(s, "todo" if s == "PAINT" else "done") for s in STAGES]
     cur = STAGE_OF.get(key, key)
     if cur not in STAGES:
         return [(s, "todo") for s in STAGES]
@@ -304,7 +313,7 @@ def composite(raw, log_path, sinks, keys=(), key_stem=None, spark_s=3.0):
             break
         e = log[i]
         bp = project(e["brush"], e["eye"], e["look"], e["focal"], w, h, e.get("v_aperture", 15.2908)) if "brush" in e else None
-        img = draw_card(grade(fr), e["state"], e["frac"], e["force"], forces[max(0, i - n_spark):i + 1], e["t"],
+        img = draw_card(grade(fr), demo_state(e["state"]), e["frac"], e["force"], forces[max(0, i - n_spark):i + 1], e["t"],
                         brush_px=bp)
         for s in sinks:
             s.write(img.tobytes())

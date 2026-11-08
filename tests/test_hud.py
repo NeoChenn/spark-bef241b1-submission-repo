@@ -6,7 +6,7 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from policy.hud import (FORCE_CAP, FORCE_LIMIT, GREY, GREEN, AMBER, RED, draw_card, force_color, force_zone,
+from policy.hud import (FORCE_CAP, demo_state, FORCE_LIMIT, GREY, GREEN, AMBER, RED, draw_card, force_color, force_zone,
                         gauge_x, lerp_color, parse_state, pipeline, sparkline_points, state_color)
 
 
@@ -108,3 +108,12 @@ def test_draw_card_with_brush_ring_draws_near_brush():
     out = draw_card(frame, "SCRUB  removing rust", 0.5, 30.0, [30.0], 1.0, brush_px=(900, 200))
     assert np.abs(out[160:240, 860:940].astype(int)).sum() > 0
     assert out[100:300, 700:800].sum() == 0
+
+
+def test_demo_state_maps_scrub_clip_end_to_clean():
+    assert demo_state("DONE  retract brush") == "CLEAN  retract brush · paint next"
+    assert demo_state("SCRUB  removing rust") == "SCRUB  removing rust"
+    assert demo_state("DONE  4 % residual flagged for touch-up").startswith("VERIFY")
+    p = dict(pipeline("CLEAN"))
+    assert p["VERIFY"] == "done" and p["PAINT"] == "todo"
+    assert state_color("CLEAN") == GREEN
