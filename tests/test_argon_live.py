@@ -21,7 +21,7 @@ def test_one_live_argon_call_on_a_stuck_gas_head(tmp_path):
     assert backend.available
     centre = ControlCentre(backend, log_path=tmp_path / "calls.jsonl", interval_s=0.0, cap_usd_day=CAP_USD,
                            today=lambda: DAY, timeline=brain.port)
-    h = centre.tick(brain.snap, now=brain.f.t)
+    h = centre.tick(brain.snap, now=brain.c.t)
     call = [e for e in brain.port.timeline if e["event"] == "argon_call"][-1]["detail"]
     record = {"model": call["model"], "status": call["status"], "latency_ms": call.get("latency_ms"),
               "tokens_in": call.get("tokens_in"), "tokens_out": call.get("tokens_out"),
