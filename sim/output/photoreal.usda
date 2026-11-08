@@ -40,7 +40,7 @@ over "World"
                 float inputs:porosity = 0.6
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
-                float inputs:rust_amount = 0.18
+                float inputs:rust_amount = 0.08
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
                     colorSpace = "sRGB"
                 )
@@ -93,7 +93,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -166,7 +166,7 @@ over "World"
                 )
                 float inputs:rust_scale = 1.5
                 float inputs:salt_amount = 0.35
-                float inputs:streak_amount = 0.75
+                float inputs:streak_amount = 1
                 color3f inputs:streak_color = (0.06, 0.05, 0.04)
                 asset inputs:streaks = @../assets/generated/rig_streaks.png@ (
                     colorSpace = "raw"
@@ -264,7 +264,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -321,7 +321,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -378,7 +378,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -435,7 +435,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -492,7 +492,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -549,7 +549,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -606,7 +606,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -663,7 +663,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -720,7 +720,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -777,7 +777,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -834,7 +834,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -891,7 +891,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -948,7 +948,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1005,7 +1005,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1062,7 +1062,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1119,7 +1119,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1176,7 +1176,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1233,7 +1233,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1290,7 +1290,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1347,7 +1347,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1404,7 +1404,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1461,7 +1461,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1518,7 +1518,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1575,7 +1575,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1632,7 +1632,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1689,7 +1689,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1746,7 +1746,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1803,7 +1803,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1860,7 +1860,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1917,7 +1917,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -1974,7 +1974,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -2031,7 +2031,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -2088,7 +2088,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 1.1
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -2145,7 +2145,7 @@ over "World"
                 asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:paint_scale = 2
+                float inputs:paint_scale = 0.6
                 float inputs:porosity = 0.35
                 float inputs:puddle_scale = 9
                 float inputs:puddles = 0
@@ -2668,7 +2668,7 @@ over "World"
                     float inputs:porosity = 0.6
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
-                    float inputs:rust_amount = 0.18
+                    float inputs:rust_amount = 0.08
                     asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
                         colorSpace = "sRGB"
                     )
@@ -2721,7 +2721,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -2794,7 +2794,7 @@ over "World"
                     )
                     float inputs:rust_scale = 1.5
                     float inputs:salt_amount = 0.35
-                    float inputs:streak_amount = 0.75
+                    float inputs:streak_amount = 1
                     color3f inputs:streak_color = (0.06, 0.05, 0.04)
                     asset inputs:streaks = @../assets/generated/rig_streaks.png@ (
                         colorSpace = "raw"
@@ -2892,7 +2892,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -2949,7 +2949,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3006,7 +3006,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3063,7 +3063,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3120,7 +3120,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3177,7 +3177,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3234,7 +3234,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3291,7 +3291,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3348,7 +3348,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3405,7 +3405,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3462,7 +3462,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3519,7 +3519,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3576,7 +3576,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3633,7 +3633,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3690,7 +3690,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3747,7 +3747,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3804,7 +3804,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3861,7 +3861,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3918,7 +3918,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -3975,7 +3975,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -4032,7 +4032,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -4089,7 +4089,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -4146,7 +4146,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -4203,7 +4203,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -4260,7 +4260,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -4317,7 +4317,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -4374,7 +4374,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -4431,7 +4431,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -4488,7 +4488,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -4545,7 +4545,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -4602,7 +4602,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -4659,7 +4659,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -4716,7 +4716,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 1.1
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -4773,7 +4773,7 @@ over "World"
                     asset inputs:paint_rough = @../assets/third_party/textures/PaintedMetal010_4k/rough.jpg@ (
                         colorSpace = "raw"
                     )
-                    float inputs:paint_scale = 2
+                    float inputs:paint_scale = 0.6
                     float inputs:porosity = 0.35
                     float inputs:puddle_scale = 9
                     float inputs:puddles = 0
@@ -6037,6 +6037,18 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "sm_body_e02_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_stratchfilm_e02_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -6054,6 +6066,13 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "sm_ibcTank_a02_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -6071,6 +6090,18 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "sm_lid_a01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_drum_a01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -6088,6 +6119,18 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "sm_lid_a01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_drum_a01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -6105,6 +6148,18 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "sm_lid_a01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_drum_a01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -6122,6 +6177,18 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "sm_lid_a02_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_drum_a02_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -6166,6 +6233,48 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "sm_door2_a01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_roller4_a01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_roller2_a01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_roller1_a01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_roller5_a01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_cabinet_drum_a02_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_roller3_a01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_door1_a01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -6183,6 +6292,13 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "sm_crate_b01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -6200,6 +6316,13 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "sm_crate_b01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -6396,6 +6519,13 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "pressureWasher_01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -6413,6 +6543,13 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "body_01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -6887,6 +7024,18 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "sm_handle_a01_obj_01"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_bucket_utility_a01_obj_01"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -7036,6 +7185,13 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "bag_01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -7053,6 +7209,28 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "body_02_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "lockDetailLeft_01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "body_01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "lockDetailRight_01_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -7499,6 +7677,13 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "sm_crate_a08_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
 
@@ -7516,6 +7701,13 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "sm_crate_a08_obj_00"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
         }
@@ -7654,6 +7846,18 @@ over "World"
                     prepend variantSets = "PhysX"
                 )
                 {
+                    over "Geometry"
+                    {
+                        over "sm_handle_a01_obj_01"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+
+                        over "sm_bucket_utility_a01_obj_01"
+                        {
+                            custom bool physics:rigidBodyEnabled = 0
+                        }
+                    }
                 }
             }
         }

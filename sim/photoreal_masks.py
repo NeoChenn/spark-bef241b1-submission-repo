@@ -24,7 +24,7 @@ def smoothstep(a: float, b: float, x):
 
 
 def puddle_threshold(level: float) -> float:
-    return 1.0 - 0.45 * float(np.clip(level, 0.0, 1.0))
+    return 1.0 - 0.55 * float(np.clip(level, 0.0, 1.0))
 
 
 def puddle_coverage(field: np.ndarray, level: float) -> float:

@@ -28,11 +28,11 @@ float3 to_internal(float3 n) {
     return math::normalize(state::transform_normal(state::coordinate_world, state::coordinate_internal, n));
 }
 
-float3 fetch3(texture_2d t, float2 uv) {
+float3 fetch3(uniform texture_2d t, float2 uv) {
     return tex::lookup_float3(t, uv, tex::wrap_repeat, tex::wrap_repeat);
 }
 
-float4 fetch4(texture_2d t, float2 uv) {
+float4 fetch4(uniform texture_2d t, float2 uv) {
     return tex::lookup_float4(t, uv, tex::wrap_repeat, tex::wrap_repeat);
 }
 
@@ -55,7 +55,7 @@ float2 uv_x(float3 q) { return float2(q.y + 0.37, q.z + 0.11); }
 float2 uv_y(float3 q) { return float2(q.x + 0.71, q.z + 0.53); }
 float2 uv_z(float3 q) { return float2(q.x, q.y); }
 
-float3 tri3(texture_2d t, float3 p, float3 w, float scale) {
+float3 tri3(uniform texture_2d t, float3 p, float3 w, float scale) {
     float3 q = p / scale;
     float3 c = float3(0.0);
     if (w.x > 0.0)
@@ -67,7 +67,7 @@ float3 tri3(texture_2d t, float3 p, float3 w, float scale) {
     return c;
 }
 
-float4 tri4(texture_2d t, float3 p, float3 w, float scale) {
+float4 tri4(uniform texture_2d t, float3 p, float3 w, float scale) {
     float3 q = p / scale;
     float4 c = float4(0.0);
     if (w.x > 0.0)
@@ -84,7 +84,7 @@ float3 unpack(float3 c, float strength) {
     return float3(t.x * strength, t.y * strength, t.z);
 }
 
-float3 tri_normal(texture_2d t, float3 p, float3 w, float scale, float strength, float3 n) {
+float3 tri_normal(uniform texture_2d t, float3 p, float3 w, float scale, float strength, float3 n) {
     float3 q = p / scale;
     float3 r = float3(0.0);
     if (w.x > 0.0) {
@@ -102,7 +102,7 @@ float3 tri_normal(texture_2d t, float3 p, float3 w, float scale, float strength,
     return math::normalize(r);
 }
 
-float streak_mask(texture_2d t, float3 p, float3 n, float width, float height) {
+float streak_mask(uniform texture_2d t, float3 p, float3 n, float width, float height) {
     float3 a = math::abs(n);
     float vertical = 1.0 - math::smoothstep(0.55, 0.85, a.z);
     if (vertical <= 0.0)
@@ -124,9 +124,9 @@ float smooth(float a, float b, float x) {
 }
 
 surface_sample weathered(
-    texture_2d paint_diff, texture_2d paint_rough, texture_2d paint_normal,
-    texture_2d rust_diff, texture_2d rust_rough, texture_2d rust_normal,
-    texture_2d masks, texture_2d streaks, texture_2d opacity_tex,
+    uniform texture_2d paint_diff, uniform texture_2d paint_rough, uniform texture_2d paint_normal,
+    uniform texture_2d rust_diff, uniform texture_2d rust_rough, uniform texture_2d rust_normal,
+    uniform texture_2d masks, uniform texture_2d streaks, uniform texture_2d opacity_tex,
     float3 paint_color, bool tint_paint, float paint_reference, float paint_scale, float paint_rough_scale,
     float chip_amount, float rust_amount, float3 rust_tint, float rust_scale,
     float metallic, float normal_strength, float detail_strength, float detail_scale,
@@ -172,11 +172,11 @@ surface_sample weathered(
 
     float up = smooth(0.82, 0.96, n.z);
     float wet = math::saturate(wetness * math::lerp(0.55 + 0.45 * macro, 1.0, up));
-    float edge = 1.0 - 0.45 * math::saturate(puddles);
+    float edge = 1.0 - 0.55 * math::saturate(puddles);
     float pool = fetch4(masks, uv_z(p / puddle_scale)).y;
     float puddle = up * smooth(edge, edge + 0.06, pool) * (puddles > 0.0 ? 1.0 : 0.0);
     float soak = math::lerp(1.0, porosity, paint);
-    albedo *= 1.0 - 0.5 * wet * soak;
+    albedo *= 1.0 - 0.6 * wet * soak;
     albedo *= 1.0 - 0.35 * puddle;
     rough = math::lerp(rough, rough * 0.3 + 0.05, wet);
     float3 shading = math::normalize(math::lerp(nd, n, math::saturate(puddle + 0.5 * wet * up)));
@@ -188,8 +188,8 @@ surface_sample weathered(
         rough,
         metallic * paint * (1.0 - 0.6 * wet),
         to_internal(shading),
-        math::saturate(math::max(wet * 0.55, puddle)),
-        math::lerp(0.12, 0.015, puddle),
+        math::saturate(math::max(wet * (0.35 + 0.55 * up), puddle)),
+        math::lerp(0.07, 0.012, puddle),
         opacity);
 }
 

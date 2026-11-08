@@ -38,9 +38,9 @@ PIPE_GREY = (0.33, 0.35, 0.36)
 BLACK = (0.035, 0.035, 0.04)
 
 RECIPES = {
-    "deck": {"kind": "tread", "texture": "DiamondPlate008C_4k", "rust_amount": 0.18, "metallic": 0.4, "scale": 1.6},
+    "deck": {"kind": "tread", "texture": "DiamondPlate008C_4k", "rust_amount": 0.08, "metallic": 0.4, "scale": 1.6},
     "helideck": _paint((0.05, 0.16, 0.1), chip=0.25, rust=0.08, streak_amount=0.0),
-    "concrete": {"kind": "concrete", "texture": "Concrete042C_4k", "rust_amount": 0.08, "scale": 3.0, "streak_amount": 0.75,
+    "concrete": {"kind": "concrete", "texture": "Concrete042C_4k", "rust_amount": 0.08, "scale": 3.0, "streak_amount": 1.0,
                  "salt_amount": 0.35},
     "splash_zone": {"kind": "concrete", "texture": "Concrete042C_4k", "rust_amount": 0.25, "scale": 2.0,
                     "tint": (0.22, 0.3, 0.22), "streak_amount": 0.4, "salt_amount": 0.5},
@@ -63,21 +63,21 @@ RECIPES = {
     "module_blue": _paint(BLUE, chip=0.5, rust=0.2),
     "vessel": _paint(BLUE, chip=0.5, rust=0.22),
     "topside_machine_blue": _paint(BLUE, chip=0.5, rust=0.2),
-    "line_water": _paint(BLUE, chip=0.6, rust=0.25),
+    "line_water": _paint(BLUE, chip=0.6, rust=0.25, scale=0.6),
     "topside_machine_green": _paint(GREEN, chip=0.5, rust=0.2),
-    "topside_pipe_green": _paint(GREEN, chip=0.6, rust=0.3),
-    "pipe": _paint(ORANGE, chip=0.6, rust=0.3),
-    "line_process": _paint(ORANGE, chip=0.6, rust=0.3),
-    "pipe_orange": _paint(ORANGE, chip=0.6, rust=0.3),
+    "topside_pipe_green": _paint(GREEN, chip=0.6, rust=0.3, scale=0.6),
+    "pipe": _paint(ORANGE, chip=0.6, rust=0.3, scale=0.6),
+    "line_process": _paint(ORANGE, chip=0.6, rust=0.3, scale=0.6),
+    "pipe_orange": _paint(ORANGE, chip=0.6, rust=0.3, scale=0.6),
     "topside_lifeboat": _paint((0.85, 0.3, 0.03), chip=0.3, rust=0.05, streak_amount=0.2),
-    "line_gas": _paint(YELLOW, chip=0.6, rust=0.3),
-    "topside_pipe_yellow": _paint(YELLOW, chip=0.6, rust=0.3),
-    "topside_pipe_red": _paint(RED, chip=0.6, rust=0.3),
+    "line_gas": _paint(YELLOW, chip=0.6, rust=0.3, scale=0.6),
+    "topside_pipe_yellow": _paint(YELLOW, chip=0.6, rust=0.3, scale=0.6),
+    "topside_pipe_red": _paint(RED, chip=0.6, rust=0.3, scale=0.6),
     "topside_valve_red": _paint(RED, chip=0.5, rust=0.25),
     "module_grey": _paint(PIPE_GREY, chip=0.5, rust=0.2),
-    "topside_pipe_grey": _paint(PIPE_GREY, chip=0.6, rust=0.3),
+    "topside_pipe_grey": _paint(PIPE_GREY, chip=0.6, rust=0.3, scale=0.6),
     "topside_vessel_grey": _paint(PIPE_GREY, chip=0.5, rust=0.25),
-    "pipe_grey": _paint(PIPE_GREY, chip=0.6, rust=0.3),
+    "pipe_grey": _paint(PIPE_GREY, chip=0.6, rust=0.3, scale=0.6),
     "topside_galv": {"kind": "brushed", "base_color": (0.5, 0.52, 0.53), "roughness_along": 0.3, "roughness_across": 0.5},
     "topside_insulated": {"kind": "brushed", "base_color": (0.62, 0.64, 0.65), "roughness_along": 0.16,
                           "roughness_across": 0.4, "brush_axis": (0.0, 0.0, 1.0)},
@@ -139,7 +139,7 @@ def shader_inputs(recipe: dict) -> tuple[str, dict]:
               "porosity": 0.35, "grime_amount": 0.35}
     if kind == "paint":
         values.update(_set(PAINT, "paint"), tint_paint=True, paint_color=recipe["paint_color"],
-                      chip_amount=recipe.get("chip_amount", 0.6), paint_scale=recipe.get("scale", 2.0))
+                      chip_amount=recipe.get("chip_amount", 0.6), paint_scale=recipe.get("scale", 1.1))
         values.update({k: recipe[k] for k in OVERRIDES if k in recipe})
         return "rig_weathered", values
     texture = recipe["texture"]
