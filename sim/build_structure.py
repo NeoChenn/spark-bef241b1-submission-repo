@@ -228,6 +228,16 @@ def build_landing(stage, looks, kit, leg):
     kit.add("grating", "box", bl["deck"], zquat(bl["deck_angle"]), bl["deck_size"])
     u = np.array((math.cos(math.radians(LANDING_ANGLE)), math.sin(math.radians(LANDING_ANGLE)), 0.0))
     t = np.array((-u[1], u[0], 0.0))
+    for n, (dz, out, kelvin) in enumerate(((7.2, 0.6, 4000), (13.5, 0.6, 2300))):
+        pos = sg.axis_at(leg, dz)
+        pos = np.array((pos[0], pos[1], dz)) + u * (leg["radius"] + out) + t * (2.2 if n else -2.6)
+        kit.add("steel", "box", pos + (0, 0, 0.2), zquat(LANDING_ANGLE), (0.5, 0.5, 0.3))
+        kit.add("lamp", "box", pos, zquat(LANDING_ANGLE), (0.45, 0.45, 0.04))
+        light = UsdLux.SphereLight.Define(stage, f"{s.ROOT}/Lights/landing_{n:02d}")
+        UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(*(pos + u * 0.6 - (0, 0, 0.3))))
+        light.CreateRadiusAttr(0.25)
+        light.CreateIntensityAttr(320000.0)
+        light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(kelvin)))
     for side in (-3.6, 0.0, 3.6):
         kit.add("landing", "box", bl["deck"] + t * side - (0, 0, 0.18), zquat(LANDING_ANGLE), (3.0, 0.14, 0.26))
 
@@ -235,7 +245,7 @@ def build_landing(stage, looks, kit, leg):
 def build_braces(kit, legs):
     br = sg.braces(legs, z=7.4, deck=DECK_UNDERSIDE - 2.3)
     for p, q, r in br["horizontal"] + br["diagonal"]:
-        kit.tube("column", p, q, r)
+        kit.tube("brace", p, q, r)
     for p, q, r in br["cans"]:
         kit.tube("seam", p, q, r)
 
@@ -306,6 +316,14 @@ def build_underside(stage, looks, kit, legs):
             for y in np.arange(a + 1.5, b - 1.0, 4.0):
                 kit.tube("galv", (x, y, zp + r), (x, y, z - 0.75), 0.025)
                 kit.member("galv", "box", (x - r - 0.05, y, zp - r - 0.04), (x + r + 0.05, y, zp - r - 0.04), (0.08, 0.05))
+    for a, b in (((-11.5, -19.1), (11.5, -19.1)), ((19.1, -11.5), (19.1, 11.5)), ((-19.1, -11.5), (-19.1, 11.5))):
+        w = sg.walkway(a, b, z - 3.1, hang_to=z - 0.76)
+        centre, angle, size = w["deck"]
+        kit.add("grating", "box", centre, zquat(angle), size)
+        for p, q in w["rails"] + w["posts"]:
+            kit.tube("landing", p, q, 0.025)
+        for p, q in w["hangers"]:
+            kit.tube("galv", p, q, 0.03)
     for n, (x, y) in enumerate(LIGHT_SPOTS):
         zl = z - 2.35 if (abs(abs(x) - 17.5) < 0.1 or abs(abs(y) - 17.5) < 0.1) else z - 0.9
         kit.add("steel", "box", (x, y, zl + 0.12), scale=(0.7, 0.35, 0.22))

@@ -246,3 +246,23 @@ def seams(leg, z0: float, z1: float, pitch: float = 2.4, verticals: int = 12) ->
             u2 = _frame(360.0 * k / verticals + 7.0 + 180.0 / verticals)[0] if n % 2 else u
             lines.append((a + u2 * leg["radius"], b + u2 * leg["radius"]))
     return {"rings": rings, "lines": lines}
+
+
+def walkway(p, q, z: float, width: float = 1.0, hang_to: float | None = None, spacing: float = 2.5) -> dict:
+    p, q = np.array((p[0], p[1], z), float), np.array((q[0], q[1], z), float)
+    d = q - p
+    length = float(np.linalg.norm(d))
+    u = d / length
+    n = np.array((-u[1], u[0], 0.0))
+    angle = math.degrees(math.atan2(u[1], u[0]))
+    rails, hangers, posts = [], [], []
+    for side in (-1, 1):
+        edge = n * side * width / 2
+        for h in (0.55, 1.1):
+            rails.append((p + edge + (0, 0, h), q + edge + (0, 0, h)))
+        for k in range(int(length // spacing) + 1):
+            base = p + u * min(k * spacing, length) + edge
+            posts.append((base, base + (0, 0, 1.1)))
+            if hang_to is not None:
+                hangers.append((base, base * (1, 1, 0) + (0, 0, hang_to)))
+    return {"deck": ((p + q) / 2, angle, (length, width, 0.06)), "rails": rails, "posts": posts, "hangers": hangers}

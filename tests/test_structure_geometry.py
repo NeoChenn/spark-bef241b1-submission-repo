@@ -137,3 +137,11 @@ def test_structure_bands_and_recipes():
     for name, recipe in structure.RECIPES.items():
         _, values = pr.shader_inputs(recipe)
         assert all(v.exists() for v in values.values() if isinstance(v, Path)), name
+
+
+def test_walkway_rails_and_hangers():
+    w = sg.walkway((0, 0), (10, 0), 16.0, hang_to=18.0)
+    centre, angle, size = w["deck"]
+    assert np.allclose(centre, (5, 0, 16)) and math.isclose(angle, 0.0) and math.isclose(size[0], 10.0)
+    assert len(w["rails"]) == 4 and len(w["posts"]) == 2 * 5
+    assert all(math.isclose(b[2], 18.0) for _, b in w["hangers"])
