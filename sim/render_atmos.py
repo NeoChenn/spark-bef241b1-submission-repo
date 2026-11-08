@@ -28,6 +28,7 @@ ap.add_argument("--set", action="append", default=[])
 ap.add_argument("--renderer", default="")
 ap.add_argument("--flow-preset", action="store_true")
 ap.add_argument("--flow-kw", default="")
+ap.add_argument("--no-flow", action="store_true")
 args = ap.parse_args()
 
 import atmos
@@ -86,7 +87,8 @@ if args.tier != "none":
     from atmos_fx import Atmosphere
 
     kw = {k: float(v) for k, v in (i.split("=") for i in filter(None, args.flow_kw.split(",")))}
-    atm = Atmosphere(stage, args.preset, args.tier, None, cam_path=cam_path, flow_kw=kw)
+    atm = Atmosphere(stage, args.preset, args.tier, None, cam_path=cam_path, flow=False if args.no_flow else None,
+                     flow_kw=kw)
     sched = atmos.parse_schedule(args.weather)
     if sched:
         atm.set_weather(sched[0][1], args.wind_dir, args.gust)

@@ -21,7 +21,7 @@ TIERS = {
                 "subframes": 16, "spp": 2},
 }
 MEDIA = {
-    "night": {"vis": 240.0, "albedo": (0.9, 0.86, 0.8), "transmit": (0.5, 0.58, 0.62), "height": 45.0, "g": 0.55},
+    "night": {"vis": 240.0, "albedo": (0.9, 0.86, 0.8), "transmit": (0.5, 0.58, 0.62), "height": 60.0, "g": 0.55},
     "storm": {"vis": 170.0, "albedo": (0.82, 0.86, 0.9), "transmit": (0.5, 0.55, 0.6), "height": 70.0, "g": 0.35},
     "golden": {"vis": 420.0, "albedo": (0.95, 0.82, 0.66), "transmit": (0.62, 0.55, 0.48), "height": 60.0, "g": 0.6},
 }
@@ -209,6 +209,6 @@ def flow_overrides(flare, vent, wind, cell: float, flame_radius: float = 2.6, fu
     return {
         "fire": group(0, flare, flame_radius, {"fuel": fuel, "temperature": 2.0},
                       {"coolingRate": cooling, "combustionEnabled": True}, FIRE_MAP, smoke_fade, jet),
-        "steam": group(1, vent, 1.0, {"fuel": 0.0, "temperature": 0.0, "smoke": steam, "coupleRateSmoke": 2.0},
+        "steam": group(1, vent, 1.0, {"fuel": 0.0, "temperature": 0.2, "smoke": steam, "coupleRateSmoke": 2.0},
                        {"combustionEnabled": False, "buoyancyPerSmoke": 40.0 * s}, STEAM_MAP, 1.2, 3.0),
     }
