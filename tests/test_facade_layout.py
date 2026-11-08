@@ -82,3 +82,12 @@ def test_helideck_lights_spacing():
     pts = fl.helideck_lights([(0, 0), (9, 0), (9, 9)], spacing=3.0)
     assert len(pts) == 3 + 3 + 5
     assert pts[0] == (0, 0)
+
+
+def test_glow_follows_preset():
+    import sys
+    sys.path.insert(0, "sim")
+    from sim import facade
+    assert facade.glow_scale("interior", 0.15) < facade.glow_scale("interior", 1.0)
+    assert facade.glow_scale("lamp", 1.0) == facade.GLOW["lamp"]
+    assert facade.glow_scale("lamp", 0.0) == 0.0
