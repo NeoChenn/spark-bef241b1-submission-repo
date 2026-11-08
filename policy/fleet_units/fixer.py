@@ -157,6 +157,7 @@ class FixerConfig:
     seek_dt: float = 0.5
     sniff_radius_m: float = 1.0
     sniff_min_m: float = 0.5
+    sniff_walk: bool = True
     stand_m: float = 0.55
     trunk_z: float = 0.45
     await_s: float = 20.0
@@ -267,6 +268,8 @@ class Fixer:
         self.reports: list[dict] = []
         self.log: list[dict] = []
         self.onboard_lel = 0.0
+        self._ev_seen = 0
+        self.walkway: Optional[dict] = None
         self._reset_sniff()
 
     def _reset_sniff(self) -> None:
@@ -383,6 +386,26 @@ class Fixer:
         if self.state not in (DOCKED, RETREATING) and self.onboard_lel >= self.cfg.stop_lel:
             self._retreat(f"sniffer {self.onboard_lel:.0f} %LEL >= stop {self.cfg.stop_lel:.0f}")
         getattr(self, "_s_" + self.state.lower())(dt)
+        self._walk_events()
+
+    def _walk_events(self) -> None:
+        evs = getattr(self.walker, "events", None)
+        if not evs:
+            return
+        for e in evs[self._ev_seen:]:
+            if e.get("type") in ("object_on_walkway", "blocked"):
+                xy = e.get("xy")
+                where = f" at ({xy[0]:.1f}, {xy[1]:.1f})" if xy else ""
+                what = "object on walkway" if e["type"] == "object_on_walkway" else "path blocked"
+                self.reports.append({"unit": self.id, "verdict": e["type"], "xy": xy, "width_m": e.get("width_m"),
+                                     "leg": e.get("leg"), "flange": self.target, "t": round(self.t, 2),
+                                     "message": f"unit2 {what}{where}: stopped and reported"})
+                self.walkway = self.reports[-1]
+            elif e.get("type") == "cleared":
+                self.walkway = None
+        self._ev_seen = len(evs)
+        if self.walkway is not None and getattr(self.walker, "state", None) in ("REPORT", "BLOCKED"):
+            self.caption = self.walkway["message"]
 
     def _s_docked(self, dt: float) -> None:
         pass
@@ -436,7 +459,8 @@ class Fixer:
         gap = float(np.linalg.norm(nxt - c))
         if gap < self.cfg.sniff_min_m:
             nxt = c + (nxt - c) / max(gap, 1e-6) * self.cfg.sniff_min_m
-        self.walker.go(nxt)
+        if self.cfg.sniff_walk:
+            self.walker.go(nxt)
         self.caption = (f"sniff {self.seeker.mode.lower()} at {self.target}: {self.onboard_lel:.1f} %LEL "
                         f"(peak {self.peak_lel:.1f})")
 
@@ -568,7 +592,8 @@ class Fixer:
         ev = {"unit": self.id, "state": self.state, "job": self.job, "flange": self.target, "sensor": self.sensor,
               "xy": [round(float(v), 2) for v in self.xy], "onboard_lel": self.onboard_lel,
               "peak_lel": round(self.peak_lel, 2), "progress": round(self.progress, 3), "diagnosis": self.diagnosis,
-              "alert": self.alert, "report": self.reports[-1] if self.reports else None}
+              "alert": self.alert, "report": self.reports[-1] if self.reports else None, "walkway": self.walkway,
+              "nav": getattr(self.walker, "state", None)}
         if self.seeker is not None:
             ev["seek_mode"] = self.seeker.mode
         if self.estimate is not None:
@@ -602,12 +627,22 @@ class Fixer:
                 "sniffer_lel": self.onboard_lel, "caption": self.caption}
 
 
-def from_scenario(sc, dock_xy, walker: Optional[Walker] = None, arm: Optional[ArmSkill] = None,
+def nav_walker(xy, yaw: float = math.pi, unit: str = FIXER):
+    from integration.fleet_nav import NavWalker
+    return NavWalker(unit, xy, yaw)
+
+
+def from_scenario(sc, dock_xy=None, walker: Optional[Walker] = None, arm: Optional[ArmSkill] = None,
                   sniff_z: Optional[float] = None, **kw) -> Fixer:
     from policy.leak.mock import LeakPerception
     from policy.leak.world import LeakWorld
 
     mirror = LeakWorld(list(sc.flanges.values()))
+    if dock_xy is None:
+        from integration.fleet_paths import DOCK
+        dock_xy = DOCK[FIXER]
+    if walker is None:
+        walker = nav_walker(dock_xy[:2], dock_xy[2] if len(dock_xy) > 2 else math.pi)
     arm = arm or RetorqueArm()
     box: dict = {}
 
@@ -624,7 +659,8 @@ def from_scenario(sc, dock_xy, walker: Optional[Walker] = None, arm: Optional[Ar
             q[2] = sniff_z
         return sc.gas_frac(q, box["fx"].t)
 
-    fx = Fixer(sc, dock_xy, sc.detectors, walker=walker, arm=arm, gas_at=gas_at, tighten=tighten,
+    kw.setdefault("config", FixerConfig(sniff_s=6.0, sniff_walk=False))
+    fx = Fixer(sc, dock_xy[:2], sc.detectors, walker=walker, arm=arm, gas_at=gas_at, tighten=tighten,
                perception=LeakPerception(mirror), on_step=sync, **kw)
     box["fx"] = fx
     return fx
