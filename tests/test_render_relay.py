@@ -139,6 +139,7 @@ def test_local_sim_frames_win_over_render_frames(client):
         time.sleep(0.1)
         assert client.get("/api/frame.jpg").content == b"\xff\xd8local2"
         assert client.get("/api/health").json()["source"] == "sim"
+        assert client.get("/api/health").json()["latency_ms"] is None
 
 
 def test_render_does_not_steal_event_channel(client):

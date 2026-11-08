@@ -60,8 +60,8 @@ class FrameHub:
         self.frames += 1
         self.last_frame_at = now
         self.latest = (self._seq, jpeg, header)
-        if "state_ts" in header:
-            self.latency_ms = round((time.time() - header["state_ts"]) * 1000, 1)
+        ts = header.get("state_ts")
+        self.latency_ms = round((time.time() - ts) * 1000, 1) if ts else None
         self._absorb(header)
         self._times = [t for t in self._times if now - t <= FPS_WINDOW_S]
         self._times.append(now)
