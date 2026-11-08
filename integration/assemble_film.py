@@ -4,9 +4,13 @@ import argparse
 import dataclasses
 import importlib
 import json
+import math
+import re
+import shutil
 import subprocess
 import sys
 import wave
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -48,6 +52,12 @@ class Shot:
     badge: str = ""
     fade_in: bool = False
     fade_out: bool = False
+    sim: Optional[tuple] = None
+
+    def film_at(self, sim_t: float) -> Optional[float]:
+        if self.sim is None or self.rate <= 0 or not self.sim[0] - 1e-6 <= sim_t <= self.sim[1] + 1e-6:
+            return None
+        return min(self.start + (sim_t - self.sim[0]) / self.rate, self.end)
 
     @property
     def blur(self) -> bool:
@@ -109,20 +119,38 @@ def shot_from(d, prev_end: float = 0.0) -> Shot:
     return Shot(name, start, float(end), kind, float(_get(d, "rate", "playback", "speed", default=1.0)), xf,
                 _get(d, "frames"), {k: v for k, v in d.items() if k not in known and not callable(v)},
                 bool(_get(d, "two_d", default=False)), str(_get(d, "badge", default="") or ""),
-                str(tr).lower() == "fade", out == "fade")
+                str(tr).lower() == "fade", out == "fade", _span(d, ("sim", "sim_span")))
 
 
-def load_edl(spec: Optional[str] = None, summary: Optional[str] = None) -> tuple[list[Shot], dict]:
+def film_summary(summary: Optional[str] = None) -> dict:
+    if summary:
+        return json.loads(Path(summary).read_text())
+    try:
+        p = importlib.import_module("integration.film_edl").FILM_RUN / "summary.json"
+        return json.loads(p.read_text()) if p.exists() else {}
+    except (ImportError, AttributeError):
+        return {}
+
+
+def load_edl(spec: Optional[str] = None, summary: Optional[str] = None, length=60.0) -> tuple[list[Shot], dict]:
     if spec and Path(spec).exists():
-        raw = json.loads(Path(spec).read_text())
-    else:
-        mod = importlib.import_module((spec or "integration.film_edl").split(":")[0])
-        attr = spec.split(":")[1] if spec and ":" in spec else None
-        names = [attr] if attr else ["edl", "EDL", "SHOTS", "shots", "build_edl"]
-        raw = next(getattr(mod, n) for n in names if hasattr(mod, n))
-        if callable(raw):
-            raw = raw(mod.FilmBeats.load(summary)) if summary and hasattr(mod, "FilmBeats") else raw()
-    return load_edl_rows(raw)
+        return load_edl_rows(json.loads(Path(spec).read_text()))
+    mod = importlib.import_module((spec or "integration.film_edl").split(":")[0])
+    attr = spec.split(":")[1] if spec and ":" in spec else None
+    names = [attr] if attr else ["edl", "EDL", "SHOTS", "shots", "build_edl"]
+    raw = next(getattr(mod, n) for n in names if hasattr(mod, n))
+    if callable(raw):
+        kw = {"length": length}
+        if hasattr(mod, "FilmBeats"):
+            beats = mod.FilmBeats.load(summary) if summary else (
+                mod.FilmBeats.load() if (getattr(mod, "FILM_RUN", Path("/nonexistent")) / "summary.json").exists()
+                else mod.FilmBeats())
+            track = mod.load_track() if hasattr(mod, "load_track") else None
+            raw = raw(beats, track=track, **kw)
+        else:
+            raw = raw(**kw)
+    shots, meta = load_edl_rows(raw)
+    return shots, dict(meta, summary=film_summary(summary))
 
 
 def load_edl_rows(raw) -> tuple[list[Shot], dict]:
@@ -144,6 +172,12 @@ def inject_time(shots: list[Shot], meta: dict) -> Optional[float]:
     v = _get(meta, "inject", "inject_at", "alarm", "alarm_at", "scenario_at")
     if v is not None:
         return float(v)
+    alarm = ((meta.get("summary") or {}).get("beats") or {}).get("alarm")
+    if alarm is not None:
+        for s in sorted(shots, key=lambda s: "board" not in s.kind):
+            f = s.film_at(float(alarm))
+            if f is not None:
+                return round(f, 3)
     for s in shots:
         v = _get(s.extra, "inject", "inject_at", "alarm", "alarm_at", "scenario_at")
         if v is not None:
@@ -157,7 +191,15 @@ def _images(d: Path) -> list[Path]:
     return sorted(f for f in d.iterdir() if f.suffix.lower() in IMAGES) if d.is_dir() else []
 
 
-def shot_frames(root: Optional[Path], shot: Shot) -> list[Path]:
+def _shot_dir(root: Path, name: str) -> list[Path]:
+    for c in (root / name / "frames", root / name, root / "shots" / name / "frames", root / "shots" / name,
+              root / "frames" / name):
+        if _images(c):
+            return _images(c)
+    return []
+
+
+def shot_frames(root: Optional[Path], shot: Shot, names: Iterable[str] = ()) -> list[Path]:
     if shot.frames:
         p = Path(shot.frames)
         if not p.is_absolute() and root is not None:
@@ -167,10 +209,16 @@ def shot_frames(root: Optional[Path], shot: Shot) -> list[Path]:
                 return _images(c)
     if root is None:
         return []
-    for c in (root / shot.name / "frames", root / shot.name, root / "shots" / shot.name / "frames",
-              root / "shots" / shot.name, root / "frames" / shot.name):
-        if _images(c):
-            return _images(c)
+    got = _shot_dir(root, shot.name)
+    if got:
+        return got
+    for other in sorted(names, key=len, reverse=True):
+        if other != shot.name and shot.name.startswith(other):
+            got = _shot_dir(root, other)
+            if got:
+                return got
+    if any((root / n).is_dir() or (root / "shots" / n).is_dir() for n in names):
+        return []
     for c in (root / "frames", root):
         if _images(c):
             return _images(c)
@@ -184,6 +232,9 @@ class Overlay:
     offset: int
 
     def at(self, k: int) -> Optional[Path]:
+        p = self.dir / f"{k:06d}.png"
+        if p.exists():
+            return p
         p = self.dir / f"{k - self.offset:05d}.png"
         return p if p.exists() else None
 
@@ -213,9 +264,18 @@ def background(shot: Shot, frames: list[Path], k: int, size: tuple[int, int], fa
     rel = min(max(k - round(shot.start * FPS), 0), n_shot - 1)
     if frames:
         path = str(frames[min(len(frames) - 1, rel * len(frames) // n_shot)])
-        return _blurred(path, size) if shot.blur else _load(path, size, "RGB")
-    im = fallback if fallback is not None else Image.new("RGB", size, (8, 11, 16))
-    return blur_dim(im) if shot.blur else im
+        return drift(_blurred(path, size), k / FPS) if shot.blur else _load(path, size, "RGB")
+    im = fallback if fallback is not None else Image.new("RGB", size, (0, 0, 0))
+    return drift(blur_dim(im), k / FPS) if shot.blur else im
+
+
+def drift(im: Image.Image, t: float, zoom: float = 1.08) -> Image.Image:
+    w, h = im.size
+    cw, ch = w / zoom, h / zoom
+    mx, my = (w - cw) / 2, (h - ch) / 2
+    x = mx + 0.9 * mx * math.sin(2 * math.pi * t / 45.0)
+    y = my + 0.9 * my * math.sin(2 * math.pi * t / 60.0 + 1.0)
+    return im.resize((w, h), Image.BICUBIC, box=(x, y, x + cw, y + ch))
 
 
 def blur_dim(im: Image.Image) -> Image.Image:
@@ -352,19 +412,20 @@ def _encode(cmd_out, w: int, h: int, wav, crf: int = 18) -> subprocess.Popen:
 
 
 def teaser_start(shots: list[Shot], total: float, dur: float = 10.0) -> float:
-    s = next((s for s in shots if "unit2" in s.kind or "fixer" in s.kind), None)
+    s = next((s for s in shots if "job" in s.kind and ("unit2" in s.kind or "fixer" in s.kind)), None)
+    s = s or next((s for s in shots if "unit2" in s.kind or "fixer" in s.kind), None)
     s = s or next((s for s in shots if "board" in s.kind), shots[0])
     mid = (s.start + s.end) / 2
     return max(0.0, min(mid - dur / 2, total - dur))
 
 
 def assemble(edl, out, frames_root=None, overlays_root=None, size=(1920, 1080), chime_at: Optional[float] = None,
-             bed: bool = True, teaser: bool = True, summary: Optional[str] = None) -> dict:
-    shots, meta = load_edl(edl, summary) if isinstance(edl, (str, type(None))) else (edl, {})
+             bed: bool = True, teaser: bool = True, summary: Optional[str] = None, length=60.0) -> dict:
+    shots, meta = load_edl(edl, summary, length) if isinstance(edl, (str, type(None))) else (edl, {})
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     root = Path(frames_root) if frames_root else None
-    srcs = {s.name: shot_frames(root, s) for s in shots}
+    srcs = {s.name: shot_frames(root, s, [x.name for x in shots]) for s in shots}
     overlays = load_overlays(Path(overlays_root) if overlays_root else None)
     total = max(s.end for s in shots)
     n = int(round(total * FPS))
@@ -378,7 +439,7 @@ def assemble(edl, out, frames_root=None, overlays_root=None, size=(1920, 1080), 
     for k in range(n):
         t = k / FPS
         parts = active(shots, t)
-        ims = [(compose(s, srcs[s.name], overlays, k, size, last), a) for s, a in parts]
+        ims = [(compose(s, srcs[s.name], overlays, k, size), a) for s, a in parts]
         im = ims[0][0] if len(ims) == 1 else Image.blend(ims[0][0], ims[1][0], ims[1][1])
         im = overlay_all(im, overlays, k)
         last = im
@@ -408,10 +469,61 @@ def assemble(edl, out, frames_root=None, overlays_root=None, size=(1920, 1080), 
     return report
 
 
+def badge_rate(shot: Shot) -> Optional[float]:
+    m = re.search(r"\d+(?:\.\d+)?", shot.badge or "")
+    return float(m.group()) if m else (shot.rate if shot.ff else None)
+
+
+def capture_specs(shots: list[Shot], cards: str) -> list[tuple[str, str, list[str]]]:
+    names = {s.name: s for s in shots}
+    film = lambda a, b: ["--film", f"{a:g}", f"{b:g}"]
+    out = []
+    if "board" in names:
+        b = names["board"]
+        hold = names.get("board_hold")
+        end = hold.end if hold is not None and abs(hold.start - b.end) < 1e-6 else b.end
+        sim = ["--sim", f"{b.sim[0]:g}", f"{b.sim[1]:g}", f"{b.rate:g}"] if b.sim and b.rate > 0 else []
+        out.append(("board", "board", sim + film(b.start, end)))
+    for shot, mode in (("unit2_job", "gas"), ("unit1_walk", "note"), ("unit1_spray", "rust"), ("unit1_soak", "rust"),
+                       ("unit1_scrub", "rust"), ("unit1_paint", "rust")):
+        if shot in names:
+            out.append(("readout", shot, ["--mode", mode] + film(names[shot].start, names[shot].end)))
+    for sh in shots:
+        r = badge_rate(sh)
+        if r is not None:
+            out.append(("ff", sh.name, ["--rate", f"{r:g}"] + film(sh.start, sh.end)))
+    if "conclusion" in names:
+        c = names["conclusion"]
+        out.append(("conclusion", "conclusion", ["--cards", cards] + film(c.start, c.end)))
+    return out
+
+
+def capture_overlays(shots: list[Shot], root, length=60.0, size=(1920, 1080), jobs: int = 4) -> list[str]:
+    root = Path(root)
+    shutil.rmtree(root, ignore_errors=True)
+    cards = "long" if length is None or (isinstance(length, (int, float)) and length > 60) else "short"
+    script = REPO / "integration/film_overlays/capture.py"
+    uv = shutil.which("uv") or "uv"
+
+    def run(spec):
+        page, shot, extra = spec
+        d = root / f"{page}_{shot}"
+        shutil.rmtree(d, ignore_errors=True)
+        cmd = [uv, "run", "--with", "playwright", "python", str(script), page, "--shot", shot, "--out", str(d),
+               "--size", f"{size[0]}x{size[1]}", *extra]
+        subprocess.run(cmd, check=True, cwd=REPO, capture_output=True)
+        return d.name
+
+    with ThreadPoolExecutor(jobs) as ex:
+        return list(ex.map(run, capture_specs(shots, cards)))
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Assemble the fleet film from the EDL, Isaac shot frames and overlays.")
     ap.add_argument("--edl", default=None, help="EDL JSON path or module[:attr]; default integration.film_edl")
     ap.add_argument("--summary", help="run summary.json; builds film_edl.edl(FilmBeats.load(summary))")
+    ap.add_argument("--length", default="60", help="60 for the short cut, long for the 66 s cut")
+    ap.add_argument("--capture", action="store_true", help="capture every per-shot overlay into --overlays first")
     ap.add_argument("--frames", help="Isaac --film output root: <root>/<shot>/frames/*.jpg (or shots/<shot>/...)")
     ap.add_argument("--overlays", help="overlay root: <root>/<name>/<film_frame:05d>.png, optional manifest.json")
     ap.add_argument("--out", default="runs/film/film.mp4")
@@ -421,7 +533,13 @@ def main(argv=None) -> int:
     ap.add_argument("--no-teaser", action="store_true")
     a = ap.parse_args(argv)
     w, h = (int(x) for x in a.size.split("x"))
-    r = assemble(a.edl, a.out, a.frames, a.overlays, (w, h), a.chime_at, not a.no_bed, not a.no_teaser, a.summary)
+    length = None if a.length in ("long", "none", "None") else float(a.length)
+    if a.capture:
+        shots, _ = load_edl(a.edl, a.summary, length)
+        a.overlays = a.overlays or str(Path(a.out).with_name(Path(a.out).stem + "_overlays"))
+        print("captured", capture_overlays(shots, a.overlays, length, (w, h)), file=sys.stderr)
+    r = assemble(a.edl, a.out, a.frames, a.overlays, (w, h), a.chime_at, not a.no_bed, not a.no_teaser, a.summary,
+                 length)
     print(json.dumps(r, indent=2))
     return 0
 
