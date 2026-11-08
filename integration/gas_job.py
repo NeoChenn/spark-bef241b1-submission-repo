@@ -149,11 +149,11 @@ def run(app, rep, stage, args, out: Path, hero, hero_size, encode) -> None:
         p = b.base_xy()
         if b.at_flange:
             g = b.flange(b.at_flange)
-            look = g.center + np.array([0.3, 0.45, -0.35])
-            eye = np.array([g.center[0] - 2.4, 2.9, 2.3])
+            look = np.array([g.center[0] - 0.2, 0.9, 0.75])
+            eye = np.array([g.center[0] + 2.3, 2.85, 1.9])
         else:
-            look = np.array([p[0] + 1.2, 0.9, 0.5])
-            eye = np.array([p[0] - 4.2, 2.95, 2.7])
+            look = np.array([p[0] - 1.6, 1.0, 0.55])
+            eye = np.array([min(p[0] + 4.4, 8.2), 2.9, 2.8])
         k = 1.0 if cam["eye"] is None else 0.12
         cam["eye"] = eye if cam["eye"] is None else cam["eye"] + k * (eye - cam["eye"])
         cam["look"] = look if cam["look"] is None else cam["look"] + k * (look - cam["look"])
@@ -193,7 +193,7 @@ def run(app, rep, stage, args, out: Path, hero, hero_size, encode) -> None:
                 d.line([tuple(p) for p in uv] + [tuple(uv[0])], fill=ACCENT + (255,), width=3)
                 c, zc = project(cm, np.array([[m[0], m[1], 0.03]]))
                 d.text((c[0][0] + 8, c[0][1] - 18), f"source est +/-{sig:.1f} m", fill=ACCENT)
-        im = Image.fromarray(draw_hud(np.asarray(im), hud))
+        im = Image.fromarray(draw_hud(np.asarray(im), orch.overlay_text()))
         gas_panel(im, orch.gas_telemetry())
         imgs = st.get("images", {})
         if imgs.get("ogi") is not None:

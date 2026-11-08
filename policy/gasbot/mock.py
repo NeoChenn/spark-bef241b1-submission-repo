@@ -196,7 +196,25 @@ def episode(seed, scenario="loose", max_t=900.0, **kw) -> dict:
                 for e in [float(np.hypot(x - src[0], y - src[1]))]]
         err = near[-1] if near else None
     return {"seed": seed, **truth, "detected": orch.detect_t is not None, "t_detect": orch.detect_t,
-            "t_found": orch.found_t, "t_fixed": orch.fixed_t, "loc_err": err, "flange_ok": orch.handoffs[0] == truth["fid"] if orch.handoffs else None,
+            "t_found": orch.found_t, "t_fixed": orch.fixed_t, "loc_err": err,
+            "flange_ok": orch.handoffs[0] == truth["fid"] if orch.handoffs else None,
             "handoffs": orch.handoffs, "final": orch.state.value, "flow_est": orch.flow, "flow_conc": orch.flow_conc,
             "alerts": [a["kind"] for a in orch.alerts], "track": track, "t_end": bridge.t,
             "path": np.round(np.array(bridge.path), 2).tolist()}
+
+
+def record_hud(path, seed=10) -> dict:
+    import json
+    from pathlib import Path
+    from rig.hud import HudFeed, playback_times
+    orch, bridge, truth = build(seed, "loose", fid="M3", wind_speed=3.0, wind_dir=math.radians(20), h2s_ratio=2e-4,
+                                start=(6.6, 1.25))
+    feed = HudFeed(orch)
+    snaps = [feed.header()]
+    run(orch, bridge, 200, on_step=lambda o: snaps.append(feed.header()))
+    for k, pt in enumerate(playback_times(snaps)):
+        snaps[k]["pt"] = pt
+    session = {"snapshots": snaps, "duration": snaps[-1]["pt"]}
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(json.dumps(session, separators=(",", ":"), default=float))
+    return session

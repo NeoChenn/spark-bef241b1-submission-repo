@@ -52,23 +52,23 @@ def plots(results: dict, out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     rs = results["leak"]
     fig, ax = plt.subplots(figsize=(7, 4))
-    T = np.arange(0, 121, 2.0)
-    curves = []
-    for r in rs:
-        if not r["track"]:
-            continue
-        t, e = np.array([(a, b) for a, b, _ in r["track"]]).T
-        curves.append(np.interp(T, t, e, left=np.nan, right=e[-1]))
-        ax.plot(t, e, color=acc2, alpha=0.12, lw=0.8)
-    if curves:
-        C = np.array(curves)
-        ax.plot(T, np.nanmedian(C, 0), color=acc, lw=2.2, label="median")
-        ax.fill_between(T, np.nanpercentile(C, 25, 0), np.nanpercentile(C, 75, 0), color=acc, alpha=0.18,
-                        label="25-75%")
-    ax.set(xlabel="time since first detection (s)", ylabel="source estimate error (m)", xlim=(0, 120), ylim=(0, 8))
-    ax.grid(color=grid, lw=0.5)
+    T = np.arange(0, 61, 1.0)
+    for key, label, col in (("leak", "ultrasound + CH4", acc), ("leak_no_ultrasound", "CH4 only (cast and surge)", acc2)):
+        curves = []
+        for r in results.get(key, []):
+            if not r["track"] or r["t_found"] is None:
+                continue
+            t, e = np.array([(a, b) for a, b, _ in r["track"]]).T
+            curves.append(np.interp(T, t, e, left=np.nan, right=e[-1]))
+            ax.plot(t, e, color=col, alpha=0.08, lw=0.7)
+        if curves:
+            C = np.array(curves)
+            ax.plot(T, np.nanmedian(C, 0), color=col, lw=2.2, label=f"{label}: median, n={len(curves)}")
+            ax.fill_between(T, np.nanpercentile(C, 25, 0), np.nanpercentile(C, 75, 0), color=col, alpha=0.16)
+    ax.set(xlabel="time since first detection (s)", ylabel="source estimate error (m)", xlim=(0, 60), ylim=(0, 6))
+    ax.grid(color=grid, lw=0.4, alpha=0.6)
     ax.legend(frameon=False)
-    ax.set_title(f"Localisation error vs time ({len(curves)} leaks)", color=fg, loc="left")
+    ax.set_title("Localisation error vs time (shaded 25-75%)", color=fg, loc="left")
     fig.tight_layout()
     fig.savefig(out / "loc_error_vs_time.png", transparent=True, dpi=160)
     plt.close(fig)
@@ -83,7 +83,7 @@ def plots(results: dict, out: Path) -> None:
             ax.hist(v, bins=15, color=col, edgecolor="none")
             ax.axvline(np.median(v), color=fg, lw=1, ls="--")
         ax.set_title(title, color=fg, loc="left", fontsize=10)
-        ax.grid(color=grid, lw=0.5, axis="y")
+        ax.grid(color=grid, lw=0.4, alpha=0.6, axis="y")
     fig.tight_layout()
     fig.savefig(out / "timing_hist.png", transparent=True, dpi=160)
     plt.close(fig)
@@ -94,7 +94,8 @@ def plots(results: dict, out: Path) -> None:
         ax.add_patch(plt.Circle(c, r, color=grid))
     ax.axhline(0.0, color=mut, lw=3)
     ax.axhline(3.2, color=mut, lw=2)
-    ex = next((r for r in rs if r["t_fixed"] is not None), rs[0])
+    pool = [r for r in results.get("leak_no_ultrasound", []) if r["t_fixed"] is not None] or rs
+    ex = max(pool, key=lambda r: len(r["path"]) if len(r["path"]) < 400 else 0)
     p = np.array(ex["path"])
     ax.plot(p[:, 0], p[:, 1], color=acc2, lw=1.2, label="unit 2 path")
     for g in deck.flanges():
@@ -110,6 +111,10 @@ def plots(results: dict, out: Path) -> None:
     fig.tight_layout()
     fig.savefig(out / "example_path.png", transparent=True, dpi=160)
     plt.close(fig)
+
+
+def replot(out: str = "runs/leakbot") -> None:
+    plots(json.loads((Path(out) / "eval_episodes.json").read_text()), Path(out) / "plots")
 
 
 def main(argv=None) -> dict:

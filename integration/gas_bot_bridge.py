@@ -27,7 +27,7 @@ def add_deck_flanges(stage) -> dict:
     from scene_builder import SceneBuilder
     UsdGeom.Xform.Define(stage, "/World/Leak")
     b = SceneBuilder(stage)
-    mats = {"steel": b.plain("LeakSteel", STEEL, 0.35, 0.9), "head": b.plain("LeakBoltHead", HEAD, 0.4, 0.9),
+    mats = {"steel": b.plain("LeakSteel", STEEL, 0.55, 0.35), "head": b.plain("LeakBoltHead", HEAD, 0.5, 0.4),
             "bore": b.plain("LeakBore", BORE, 0.8), "red": b.plain("TorqueStripe", RED, 0.6),
             "crack": b.plain("LeakCrack", CRACK, 0.9)}
     return {g.id: build_flange(b, stage, g.id, g, mats) for g in deck.flanges()}

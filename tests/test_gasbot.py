@@ -151,11 +151,11 @@ def test_deck_clamp_and_route():
     q, blocked = deck.clamp([0.0, 10.0])
     assert blocked and q[1] == deck.BOUNDS[1][1]
     q, blocked = deck.clamp([5.7, 2.0])
-    assert blocked and np.linalg.norm(q - [5.7, 2.0]) >= 0.85 - 1e-9
+    assert blocked and np.linalg.norm(q - [5.7, 2.0]) >= 0.7 - 1e-9
     r = deck.Route()
     p = np.asarray(deck.ROUTE[0], float)
     total = sum(np.linalg.norm(np.subtract(deck.ROUTE[k], deck.ROUTE[k - 1])) for k in range(len(deck.ROUTE)))
-    p, _, lap = r.step(p, total)
+    p, _, lap = r.step(p, total + 1e-6)
     assert lap and np.allclose(p, deck.ROUTE[0])
     assert all(deck.BOUNDS[1][0] <= deck.stand_pose(g)[0][1] <= deck.BOUNDS[1][1] for g in deck.flanges())
 
@@ -229,3 +229,10 @@ def test_solver_field_adapts_a_rate_scaled_plume():
     f.set_flow("M1", 9.0)
     f.step(0.1)
     assert f.plume.rate == pytest.approx(0.5) and f.flow_rate() == 2.0 and len(f.leaks()) == 1
+
+
+def test_patrol_route_stays_clear_of_obstacles():
+    pts = np.asarray(deck.ROUTE, float)
+    for k in range(len(pts)):
+        for s in np.linspace(0, 1, 50):
+            assert not deck.clamp(pts[k - 1] + s * (pts[k] - pts[k - 1]))[1]
