@@ -200,7 +200,7 @@ over "World"
                     uniform token info:implementationSource = "sourceAsset"
                     uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_hero.mdl@
                     uniform token info:mdl:sourceAsset:subIdentifier = "rig_hero_paint"
-                    float inputs:chip_amount = 0.65
+                    float inputs:chip_amount = 0.9
                     asset inputs:chip_mask = @../assets/third_party/textures/PaintedMetal010_4k/diff.jpg@ (
                         colorSpace = "raw"
                     )
@@ -372,7 +372,7 @@ over "World"
                 uniform token info:implementationSource = "sourceAsset"
                 uniform asset info:mdl:sourceAsset = @../assets/mdl/rig_hero.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "rig_hero_paint"
-                float inputs:chip_amount = 0.7
+                float inputs:chip_amount = 1
                 asset inputs:chip_mask = @../assets/third_party/textures/PaintedMetal010_4k/diff.jpg@ (
                     colorSpace = "raw"
                 )
@@ -390,14 +390,14 @@ over "World"
                     colorSpace = "raw"
                 )
                 float inputs:puddles = 0.7206
-                float inputs:rust_amount = 0.35
+                float inputs:rust_amount = 0.5
                 asset inputs:rust_diff = @../assets/third_party/textures/Rust007_4k/diff.jpg@ (
                     colorSpace = "sRGB"
                 )
                 asset inputs:rust_normal = @../assets/third_party/textures/Rust007_4k/nor_gl.jpg@ (
                     colorSpace = "raw"
                 )
-                float inputs:scale = 0.45
+                float inputs:scale = 0.35
                 asset inputs:streaks = @../assets/generated/rig_streaks.png@ (
                     colorSpace = "raw"
                 )
