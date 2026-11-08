@@ -45,6 +45,7 @@ def main(argv):
     p.add_argument("--lamp_gain", type=float, default=1.0)
     p.add_argument("--renderer", default="RaytracedLighting")
     p.add_argument("--still", action="store_true")
+    p.add_argument("--key", type=float, default=2.5e4)
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -107,6 +108,8 @@ def main(argv):
             print("[video] night look", night_look.apply(st, "/World/Backdrop", w, dome=args.dome,
                                                           lamp_gain=args.lamp_gain,
                                                           robot_root="/World/envs/env_0/Robot"), flush=True)
+            night_look._lamp(st, "/World/PickKey", (0.9, -1.6, 1.9), (1.0, 0.86, 0.7), 0.12, args.key)
+            night_look._lamp(st, "/World/PickRim", (-1.2, 0.8, 1.4), night_look.LED, 0.1, 0.4 * args.key)
 
     PE.PickCanEnv._setup_scene = setup
     env = gym.make("Rig-PickCan-Go2UR3Lift-v0", cfg=cfg)
@@ -144,14 +147,14 @@ def main(argv):
     K = intrinsics(14.0, wrist.aperture, WW, WH)
 
     def place_cams(t):
-        a = -0.95 + 0.22 * math.sin(0.35 * t)
-        eye = np.array([math.cos(a) * 1.9, math.sin(a) * 1.9, 1.05 + 0.1 * math.sin(0.25 * t)])
-        wide.look(eye + origin, np.array([-0.02, -0.12, 0.33]) + origin)
+        a = -0.75 - 0.25 * math.sin(0.3 * t)
+        eye = np.array([math.cos(a) * 2.1, math.sin(a) * 2.1, 0.95 + 0.08 * math.sin(0.25 * t)])
+        wide.look(eye + origin, np.array([-0.02, -0.18, 0.3]) + origin)
         tip, R = (x[0].cpu().numpy() for x in u._tip()[:2])
         out = np.array([tip[0] + 0.01, tip[1], 0.0])
         out = out / max(np.linalg.norm(out), 1e-6)
-        e = tip - 0.02 * R[:, 0] + np.array([0.0, 0.0, 0.07]) - 0.04 * out
-        wrist.look(e + origin, tip + 0.5 * R[:, 0] + 0.2 * out + origin)
+        e = tip + np.array([0.0, 0.0, 0.24]) - 0.12 * out
+        wrist.look(e + origin, tip + np.array([0.0, 0.0, -0.45]) + 0.22 * out + origin)
 
     for _ in range(3):
         place_cams(0.0)
@@ -196,6 +199,7 @@ def main(argv):
             T = cv_pose(wrist.world_matrix())
             T[:3, 3] -= origin
             dets = detect_cans(wr, np.nan_to_num(dp.astype(np.float64), posinf=50.0), K, T)
+            dets = [q for q in dets if 0.28 < math.hypot(q["xyz"][0] + 0.01, q["xyz"][1]) < 0.55 and q["xyz"][2] < 0.25]
             if dets and t < args.intro:
                 det_best = dets[0]
         can_p = u._can_state()[0][0].cpu().numpy()

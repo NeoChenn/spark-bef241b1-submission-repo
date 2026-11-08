@@ -10,8 +10,8 @@ RETRIES = 1
 FORCE_N = 18.0
 FORCE_LIMIT_N = 40.0
 PHASES = (("DETECT", 0.15, "can found on camera, pose estimated"), ("APPROACH", 0.25, "arm to pre-grasp"),
-          ("GRASP", 0.25, "close gripper on the can"), ("LIFT", 0.15, "lift clear of the grating"),
-          ("STOW", 0.2, "drop the can in the bin"))
+          ("GRASP", 0.25, "seal the suction cup on the can"), ("LIFT", 0.15, "lift clear of the grating"),
+          ("STOW", 0.2, "drop the can in the back tote"))
 SLIP_S = 0.1
 
 
@@ -30,7 +30,7 @@ def simulate(params: dict | None = None) -> dict:
             if name == "GRASP":
                 forces.append(FORCE_N * (1.0 + 0.15 * rng.gauss(0.0, 1.0)))
                 if not ok:
-                    phases.append((round(t, 2), "SLIP", "can slipped from the gripper"
+                    phases.append((round(t, 2), "SLIP", "suction seal lost, can dropped"
                                    + (" -> re-detect and retry" if n <= RETRIES else "")))
                     t += SLIP_S * ts
                     break

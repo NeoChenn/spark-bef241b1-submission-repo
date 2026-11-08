@@ -11,8 +11,9 @@ NAMES = ("APPROACH", "DESCEND", "LIFT", "CARRY", "LOWER", "RELEASE", "DONE")
 HOVER = 0.10
 CARRY_Z = 0.72
 SHOULDER = (-0.01, 0.0)
-ARC_R = 0.34
+ARC_R = 0.30
 ARC_STEP = 0.6
+ARC_SWITCH = 0.6
 LIFT_UP = 0.15
 
 
@@ -70,7 +71,7 @@ class ScriptedPicker:
         dth = wrap(math.pi - th)
         a_next = th + dth.clamp(-ARC_STEP, ARC_STEP)
         arc = torch.stack([SHOULDER[0] + ARC_R * torch.cos(a_next), SHOULDER[1] + ARC_R * torch.sin(a_next), carry_z], -1)
-        carry = torch.where((dth.abs() > 0.35)[:, None], arc, tote)
+        carry = torch.where((dth.abs() > ARC_SWITCH)[:, None], arc, tote)
 
         target = above.clone()
         target = torch.where((ph == DESCEND)[:, None], grasp - torch.tensor([0.0, 0.0, self.press], device=dev), target)

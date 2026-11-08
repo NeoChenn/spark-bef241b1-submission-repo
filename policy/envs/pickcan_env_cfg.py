@@ -91,6 +91,7 @@ class PickCanEnvCfg(DirectRLEnvCfg):
     work_lo: tuple = (-0.5, -0.6, 0.02)
     work_hi: tuple = (0.6, 0.6, 0.85)
     rot_weight: float = 0.6
+    max_dq: float = 0.025
 
     seal_gap: float = 0.012
     seal_margin: float = 0.01
@@ -105,15 +106,16 @@ class PickCanEnvCfg(DirectRLEnvCfg):
     force_limit: float = 20.0
 
     w_reach: float = 1.0
-    w_seal_bonus: float = 5.0
-    w_hold: float = 0.5
-    w_lift: float = 2.0
-    w_carry: float = 3.0
-    w_place: float = 4.0
-    w_success: float = 60.0
-    w_drop: float = 10.0
+    w_hold: float = 1.5
+    w_lift: float = 1.0
+    w_carry: float = 2.0
+    w_place: float = 6.0
+    w_progress: float = 10.0
+    w_success: float = 50.0
+    w_drop: float = 5.0
     w_action_rate: float = 0.01
     w_force: float = 0.05
+    w_time: float = 0.01
     w_idle_suction: float = 0.02
 
     def __post_init__(self):
