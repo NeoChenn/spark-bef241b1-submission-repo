@@ -1463,8 +1463,13 @@ def main(argv=None):
 
             try:
                 mk = rm.timeline_marks(str(resolve(tl)))
+                obs_ = [rm.Cylinder(c_["name"], np.asarray(c_["p0"]), np.asarray(c_["p1"]), c_["radius"])
+                        for c_ in FF.collision()] if hasattr(rm, "Cylinder") else None
+                kw_ = {"obstacles": obs_} if obs_ is not None else {}
                 motion = rm.fit(mk["engaged"], mk["torque_done"], mk.get("leave"), FF.geometry(), FF.LEAK_BOLT,
-                                base=FF.work_base(float(meta["world"]["deck_z_m"])))
+                                base=FF.work_base(float(meta["world"]["deck_z_m"])), **kw_)
+                if hasattr(motion, "min_clearance"):
+                    print(f"[fleet] retorque clearance vs film_flange {motion.min_clearance()}", flush=True)
             except Exception as exc:
                 print(f"[fleet] from_timeline failed ({exc}), fixed t0", flush=True)
                 motion = rm.RetorqueMotion(flange=rm.flange_from_meta(lk["flange"]), bolt=lk["bolt"])
