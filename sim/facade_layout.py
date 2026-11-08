@@ -25,19 +25,20 @@ TILE_WEIGHTS = (
 
 
 def wall(name, axis, sign, plane, along, z, storeys, doors=(), windows=True, blank=0.15, depth=None, clad="clad",
-         ribs=False):
-    return {"name": name, "axis": axis, "sign": sign, "plane": plane, "along": along, "z": z, "storeys": storeys,
+         ribs=False, styles=None):
+    return {"styles": dict(styles or {}), "name": name, "axis": axis, "sign": sign, "plane": plane, "along": along, "z": z, "storeys": storeys,
             "doors": tuple(doors), "windows": windows, "blank": blank, "depth": depth, "clad": clad, "ribs": ribs}
 
 
 WALLS = (
-    wall("lq_s_upper", "y", -1, -37.5, (-25.0, 0.3), (30.0, 41.2), 3, doors=((-19.8, 0), (-3.4, 0))),
+    wall("lq_s_upper", "y", -1, -37.5, (-25.0, 0.3), (30.0, 41.2), 3, doors=((-19.8, 0), (-3.4, 0)),
+         styles={1: "office"}),
     wall("lq_s_lower", "y", -1, -37.5, (-18.1, 0.3), (20.0, 30.0), 3),
     wall("lq_notch_w", "x", -1, -18.1, (-37.5, -27.5), (20.0, 30.0), 3, doors=((-30.2, 0),)),
     wall("lq_notch_s", "y", -1, -27.5, (-25.0, -18.1), (20.0, 30.0), 3),
     wall("lq_w_lower", "x", -1, -25.0, (-27.5, -22.9), (20.0, 30.0), 3),
     wall("lq_w_upper", "x", -1, -25.0, (-37.5, -22.9), (30.0, 41.2), 3, doors=((-25.6, 0),)),
-    wall("lq_e_lower", "x", 1, 0.3, (-37.5, -22.9), (20.0, 30.0), 3, doors=((-24.6, 0),)),
+    wall("lq_e_lower", "x", 1, 0.3, (-37.5, -22.9), (20.0, 30.0), 3, doors=((-24.6, 0),), styles={1: "office"}),
     wall("lq_e_upper", "x", 1, 0.3, (-37.5, -22.9), (30.0, 41.2), 3, doors=((-29.9, 0),)),
     wall("lq_n_lower", "y", 1, -22.9, (-25.0, 0.3), (20.0, 30.0), 3, doors=((-2.0, 0),)),
     wall("lq_n_upper", "y", 1, -22.9, (-22.1, 0.3), (30.0, 41.2), 3, windows=False),
@@ -107,7 +108,7 @@ def openings(w) -> list[dict]:
         if not w["windows"]:
             continue
         row = f"{w['name']}:{s}"
-        style = storey_style(row)
+        style = next((st for st in STYLES if st[0] == w["styles"].get(s)), None) or storey_style(row)
         sill = floor + SILL + (unit(row + "sill") - 0.5) * 0.2
         dark = 0.4 + 2.2 * unit(row + "dark")
         centres = bays(*w["along"])

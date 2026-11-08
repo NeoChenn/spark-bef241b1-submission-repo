@@ -129,3 +129,8 @@ def test_pick_tile_dark_bias():
     dark_hi = sum(fl.TILE_KELVIN[fl.pick_tile(k, 3.0)] == 0 for k in keys)
     dark_lo = sum(fl.TILE_KELVIN[fl.pick_tile(k, 0.3)] == 0 for k in keys)
     assert dark_hi > dark_lo + 60
+
+
+def test_style_override_gives_office_row():
+    w = fl.WALLS[0]
+    assert any(o["w"] == fl.OFFICE_W for o in fl.openings(w) if o["storey"] == 1)
