@@ -50,7 +50,7 @@ def main():
             ax.text(xi, v, f"{v:.1f}", ha="center", va="bottom", fontsize=9, color=INK)
         if limit:
             ax.axhline(limit, color=MUTED, ls="--", lw=1)
-            ax.text(len(names) - 0.5, limit, "40 N limit", ha="right", va="bottom", fontsize=8, color=MUTED)
+            ax.text(-0.45, limit, "40 N limit", ha="left", va="bottom", fontsize=8, color=MUTED)
         ax.set_xticks(x, [n.replace(" ", "\n", 1) for n in names], fontsize=8)
         ax.set_title(label, fontsize=10, loc="left", color=INK)
         ax.set_facecolor("#fcfcfb")
