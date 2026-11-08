@@ -102,3 +102,14 @@ def test_preset_exposure_offsets():
     night = look.view_look("wide", 250.0, True)["ev"]
     assert look.view_look("wide", 250.0, True, "storm")["ev"] == pytest.approx(night + look.PRESET_EV["storm"])
     assert look.view_look("wide", 250.0, True, "golden")["ev"] > night
+
+
+def test_dusk_grade_warmer_highlights():
+    img = np.full((8, 8, 3), 200, np.uint8)
+    night, dusk = look.grade(img, "live", 0.0), look.grade(img, "live", 0.0, "dusk")
+    assert int(dusk[4, 4, 0]) - int(dusk[4, 4, 2]) > int(night[4, 4, 0]) - int(night[4, 4, 2])
+
+
+def test_dusk_exposure_darkens_far_hazy_views_and_lifts_close_ones():
+    assert look.view_look("wide", 250.0, True, "dusk")["ev"] < look.view_look("wide", 250.0, True)["ev"]
+    assert look.view_look("repair", 1.9, True, "dusk")["ev"] > look.view_look("repair", 1.9, True)["ev"]

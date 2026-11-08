@@ -9,8 +9,8 @@ if str(SIM) not in sys.path:
 import carb.settings
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade
 
-from rig.sim.obstacle_math import (DROP_S, dashes, drop_offset, flame_offset, ghost_alpha, lerp, seg_frame, segments,
-                                   weather_params)
+from rig.sim.obstacle_math import (DROP_S, DRUM_R, dashes, drop_offset, drum_pose, flame_offset, ghost_alpha, lerp,
+                                   puddle_edge, seg_frame, segments, weather_params)
 from rig.sim.zoom import ease
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
 
@@ -25,6 +25,8 @@ LIFT = 0.1
 SKIES = {False: GENERATED / "sky_night.hdr", True: GENERATED / "sky_storm.hdr"}
 RAMP_S = 3.0
 REVEAL_S = 1.2
+CAN_SIZE = {"small": (0.085, 0.24), "large": (0.15, 0.42)}
+CAN_PAINT = {"red": (0.62, 0.05, 0.03), "blue": (0.04, 0.16, 0.55), "yellow": (0.78, 0.55, 0.04), "green": (0.06, 0.35, 0.1)}
 WEATHER_KEYS = ("fog_color", "fog_height", "wave_height", "dome", "wind", "sun", "fog_dist")
 
 
@@ -63,11 +65,7 @@ class ObstacleScene:
     def __init__(self, stage, wave=None, radius=0.06, robot_model=True):
         self.stage, self.wave, self.radius, self.robot_model = stage, wave if wave is not None else {}, radius, robot_model
         self.b = SceneBuilder(stage)
-        UsdGeom.Scope.Define(stage, ROOT)
-        for g in ("Props", "Paths", "Closed", "Robots"):
-            UsdGeom.Scope.Define(stage, f"{ROOT}/{g}")
-        self.coral, _ = _emissive(stage, "obst_coral", CORAL)
-        self.red, _ = _emissive(stage, "obst_closed", CLOSED)
+        self._roots()
         self.now = 0.0
         self.props: dict[str, dict] = {}
         self.paths: dict[str, dict] = {}
@@ -87,6 +85,20 @@ class ObstacleScene:
         self.tip_z = min((p[2] for _, p in self.flames), default=0.0)
         self.n = 0
 
+    def _roots(self):
+        UsdGeom.Scope.Define(self.stage, ROOT)
+        for g in ("Props", "Paths", "Closed", "Robots"):
+            UsdGeom.Scope.Define(self.stage, f"{ROOT}/{g}")
+        self.coral, _ = _emissive(self.stage, "obst_coral", CORAL)
+        self.red, _ = _emissive(self.stage, "obst_closed", CLOSED)
+
+    def republish(self):
+        for p in (ROOT, "/World/Looks/obst_coral", "/World/Looks/obst_closed"):
+            self.stage.RemovePrim(p)
+        self.props, self.paths, self.robots, self.closed_key = {}, {}, {}, None
+        self.b.materials = {k: v for k, v in self.b.materials.items() if not k.startswith("obst_")}
+        self._roots()
+
     def _id(self, s):
         self.n += 1
         return f"{s}_{self.n}"
@@ -102,7 +114,12 @@ class ObstacleScene:
         for oid, o in obs.items():
             if oid not in self.props:
                 self.props[oid] = self._spawn(o)
-        key = tuple((tuple(c["a"]), tuple(c["b"])) for c in hz.get("closed", []))
+            elif "mv" in self.props[oid]:
+                pr = self.props[oid]
+                pr["mv"] = {"p": tuple(o["xyz"]), "v": tuple(o.get("vel") or (0.0, 0.0)) if o.get("rolling") else (0.0, 0.0),
+                            "t": self.now, "from": pr.get("at", tuple(o["xyz"]))}
+        drums = {o["id"] for o in hz.get("obstacles", []) if o.get("kind") == "barrel"}
+        key = tuple((tuple(c["a"]), tuple(c["b"])) for c in hz.get("closed", []) if c.get("why") not in drums)
         if key != self.closed_key:
             self.closed_key = key
             self.stage.RemovePrim(f"{ROOT}/Closed")
@@ -213,6 +230,9 @@ class ObstacleScene:
         self.now = t
         for o in self.props.values():
             age = t - o["t0"]
+            if "mv" in o:
+                self._roll(o, t, age)
+                continue
             if age <= DROP_S + 0.1:
                 o["op"].Set(Gf.Vec3d(o["xyz"][0], o["xyz"][1], o["xyz"][2] + drop_offset(age)))
         for rid, cur in self.paths.items():
@@ -264,14 +284,104 @@ class ObstacleScene:
         if dome:
             dome.GetTextureFileAttr().Set(rel(SKIES[self.w_to["storm_sky"]]))
 
+    def _roll(self, o, t, age) -> None:
+        at, yaw, spin = drum_pose(o["mv"], t, o.get("at"), o["yaw"], o["spin"])
+        o["at"], o["yaw"], o["spin"] = at, yaw, spin
+        o["op"].Set(Gf.Vec3d(at[0], at[1], at[2] + drop_offset(age)))
+        o["rz"].Set(yaw)
+        o["spin_op"].Set(spin)
+
     def _spawn(self, o) -> dict:
         path = f"{ROOT}/Props/{o['id']}"
         x = UsdGeom.Xform.Define(self.stage, path)
         op = UsdGeom.Xformable(x).AddTranslateOp()
-        op.Set(Gf.Vec3d(o["xyz"][0], o["xyz"][1], o["xyz"][2] + drop_offset(0.0)))
-        UsdGeom.Xformable(x).AddRotateZOp().Set(float(sum(map(ord, o["id"])) * 37 % 60 - 30))
+        flat = o["kind"] in ("puddle", "spill")
+        op.Set(Gf.Vec3d(o["xyz"][0], o["xyz"][1], o["xyz"][2] + (0.0 if flat else drop_offset(0.0))))
+        rz = UsdGeom.Xformable(x).AddRotateZOp()
+        rz.Set(float(o.get("yaw", 0.0)) if o["kind"] == "barrel" else float(sum(map(ord, o["id"])) * 37 % 60 - 30))
+        if o["kind"] == "barrel":
+            xyz = tuple(o["xyz"])
+            return {"path": path, "op": op, "rz": rz, "t0": self.now, "xyz": o["xyz"], "yaw": float(o.get("yaw", 0.0)),
+                    "spin": 0.0, "spin_op": self._build_barrel(path, o), "at": xyz,
+                    "mv": {"p": xyz, "v": tuple(o.get("vel") or (0.0, 0.0)), "t": self.now, "from": xyz}}
         getattr(self, f"_build_{o['kind']}", self._build_debris)(path, o)
-        return {"path": path, "op": op, "t0": self.now, "xyz": o["xyz"]}
+        return {"path": path, "op": op, "t0": self.now - (10.0 if flat else 0.0), "xyz": o["xyz"]}
+
+    def _liquid(self, name, color, opacity, ior=1.33):
+        if name in self.b.materials:
+            return self.b.materials[name]
+        mat, sh = self.b._surface(name)
+        for k, t, v in (("diffuseColor", Sdf.ValueTypeNames.Color3f, Gf.Vec3f(*color)),
+                        ("roughness", Sdf.ValueTypeNames.Float, 0.015), ("metallic", Sdf.ValueTypeNames.Float, 0.0),
+                        ("ior", Sdf.ValueTypeNames.Float, ior), ("clearcoat", Sdf.ValueTypeNames.Float, 1.0),
+                        ("clearcoatRoughness", Sdf.ValueTypeNames.Float, 0.0), ("opacity", Sdf.ValueTypeNames.Float, opacity)):
+            sh.CreateInput(k, t).Set(v)
+        return mat
+
+    def _water(self):
+        return self._liquid("obst_water", (0.006, 0.008, 0.01), 0.92)
+
+    def _blob(self, path, name, r, seed, z, mat, n=48):
+        pts, nrm, uvs, idx = [(0.0, 0.0, z)], [(0, 0, 1)], [(0.5, 0.5)], []
+        for k in range(n):
+            a = 2 * math.pi * k / n
+            rr = r * puddle_edge(a, seed)
+            pts.append((rr * math.cos(a), rr * math.sin(a), z))
+            nrm.append((0, 0, 1))
+            uvs.append((0.5 + rr * math.cos(a) / (2 * r), 0.5 + rr * math.sin(a) / (2 * r)))
+            idx.extend((0, k + 1, (k + 1) % n + 1))
+        return self.b._mesh(self.b.unique(path, name), pts, nrm, uvs, [3] * n, idx, mat, None)
+
+    def _build_puddle(self, path, o):
+        seed = sum(map(ord, o["id"]))
+        r = o.get("radius", 0.8) * 1.1
+        self._blob(path, "water", r, seed, 0.008, self._water())
+        dark = self._mat("obst_wet_edge", (0.02, 0.022, 0.024), 0.25)
+        self._blob(path, "wet_rim", r * 1.18, seed + 7, 0.004, dark)
+
+    def _build_can(self, path, o):
+        r, h = CAN_SIZE.get(o.get("size", "small"), CAN_SIZE["small"])
+        c = o.get("colour", "red")
+        paint = self._mat(f"obst_can_{c}", CAN_PAINT.get(c, CAN_PAINT["red"]), 0.38, 0.35)
+        tin = self._mat("obst_can_tin", (0.7, 0.7, 0.68), 0.25, 0.95)
+        body = UsdGeom.Cylinder.Define(self.stage, f"{path}/body")
+        body.CreateAxisAttr("Z")
+        body.CreateRadiusAttr(r)
+        body.CreateHeightAttr(h)
+        UsdGeom.Xformable(body).AddTranslateOp().Set(Gf.Vec3d(0, 0, h / 2))
+        _bind(body.GetPrim(), paint)
+        for k, z in enumerate((0.006, h - 0.006)):
+            rim = UsdGeom.Cylinder.Define(self.stage, f"{path}/rim_{k}")
+            rim.CreateAxisAttr("Z")
+            rim.CreateRadiusAttr(r * 1.04)
+            rim.CreateHeightAttr(0.012)
+            UsdGeom.Xformable(rim).AddTranslateOp().Set(Gf.Vec3d(0, 0, z))
+            _bind(rim.GetPrim(), tin)
+        self.b.tube(path, "handle", (-r * 0.6, 0, h + 0.012), (r * 0.6, 0, h + 0.012), 0.008, tin, segments=8)
+
+    def _build_barrel(self, path, o):
+        paint = self._mat("obst_drum_paint", (0.2, 0.035, 0.025), 0.62, 0.35)
+        rim = self._tex("rusty_metal_02", self._mat("obst_drum_rim", (0.16, 0.15, 0.14), 0.6, 0.8))
+        lid = self._mat("obst_drum_lid", (0.17, 0.035, 0.025), 0.7, 0.3)
+        band = self._mat("obst_drum_band", (0.42, 0.38, 0.3), 0.75, 0.05)
+        spin = UsdGeom.Xform.Define(self.stage, f"{path}/spin")
+        ops = UsdGeom.Xformable(spin)
+        ops.AddTranslateOp().Set(Gf.Vec3d(0, 0, DRUM_R))
+        sop = ops.AddRotateYOp()
+        sop.Set(0.0)
+        drum = UsdGeom.Xform.Define(self.stage, f"{path}/spin/drum")
+        UsdGeom.Xformable(drum).AddRotateZOp().Set(90.0)
+        d, h = f"{path}/spin/drum", 0.44
+        self.b.tube(d, "shell", (-h, 0, 0), (h, 0, 0), DRUM_R - 0.006, paint, segments=40)
+        for x in (-0.29, 0.29):
+            self.b.tube(d, "hoop", (x - 0.018, 0, 0), (x + 0.018, 0, 0), DRUM_R + 0.008, rim, segments=40)
+        for x in (-h, h):
+            self.b.tube(d, "chime", (x - 0.02, 0, 0), (x + 0.004, 0, 0), DRUM_R + 0.004, rim, segments=40)
+        self.b.tube(d, "band", (-0.08, 0, 0), (0.08, 0, 0), DRUM_R - 0.002, band, segments=40)
+        self.b.disc(d, "lid", (-h + 0.012, 0, 0), -1, DRUM_R - 0.01, lid)
+        self.b.disc(d, "lid", (h - 0.012, 0, 0), 1, DRUM_R - 0.01, lid)
+        self.b.tube(d, "bung", (h - 0.012, 0.16, 0.0), (h + 0.01, 0.16, 0.0), 0.03, rim, segments=12)
+        return sop
 
     def _mat(self, name, color, rough=0.6, metal=0.0):
         return self.b.plain(name, color, rough, metal)
@@ -304,15 +414,8 @@ class ObstacleScene:
         self.b.box(path, "crate_top", (0.1, -0.05, 1.32), (0.8, 0.7, 0.55), wood, collide=None)
 
     def _build_spill(self, path, o):
-        oil = self._mat("obst_oil", (0.015, 0.012, 0.01), 0.04, 0.0)
         r = o.get("radius", 2.0) * 0.8
-        d = UsdGeom.Cylinder.Define(self.stage, f"{path}/slick")
-        d.CreateAxisAttr("Z")
-        d.CreateRadiusAttr(r)
-        d.CreateHeightAttr(0.01)
-        UsdGeom.Xformable(d).AddTranslateOp().Set(Gf.Vec3d(0, 0, 0.012))
-        UsdGeom.Xformable(d).AddScaleOp().Set(Gf.Vec3f(1.0, 0.7, 1.0))
-        _bind(d.GetPrim(), oil)
+        self._blob(path, "slick", r, sum(map(ord, o["id"])), 0.008, self._liquid("obst_oil", (0.012, 0.008, 0.004), 1.0))
         orange = self._mat("obst_orange", (0.95, 0.35, 0.03), 0.45)
         white = self._mat("obst_white", (0.9, 0.9, 0.88), 0.5)
         for k, ang in enumerate((0, 120, 240)):

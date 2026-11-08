@@ -91,6 +91,17 @@ FASCIA = (
 )
 RIB_START, RIB_SPACING = 1.0, 2.2
 ID_BOARDS = (((31.25, -37.2, 37.2), "-y", 7.2, 1.8), ((37.2, 4.5, 37.6), "+x", 7.2, 1.8))
+DRUMS = ((0.95, 4.25, "blue"), (1.55, 4.45, "rust"), (1.25, 3.85, "grey"), (2.15, 4.3, "red"), (7.35, 0.45, "rust"),
+         (7.0, 0.95, "blue"), (6.35, 0.15, "tipped"), (-7.35, -1.9, "red"))
+CRATES = ((6.65, -0.6, 8.0, "wood", 2), (7.3, -0.75, -5.0, "plastic", 1), (-7.35, -2.35, 12.0, "wood", 1),
+          (-6.75, -2.3, -8.0, "plastic", 2), (2.75, 4.45, 30.0, "plastic", 1))
+PALLETS = ((7.0, 2.55, 4.0, 3), (6.75, -1.5, 80.0, 1))
+TARPED = ((6.95, -2.45, 0.0),)
+WET_SIGNS = ((-4.55, 2.3, 20.0), (6.15, -1.25, 200.0))
+STREAK_SUPPORTS = (((-6.0, 0.25), 0.95, 0), ((-3.4, 0.25), 0.95, 1), ((3.4, 0.25), 0.95, 2), ((6.0, 0.25), 0.95, 0),
+                   ((-1.5, 0.18), 0.95, 1), ((-2.5, 3.325), 0.68, 2), ((2.5, 3.325), 0.68, 0), ((-6.5, 3.325), 0.68, 1),
+                   ((6.5, 3.325), 0.68, 2))
+DECK_LIMIT = (7.8, 4.9)
 ATLAS_GRID = 4
 ATLAS_PAD = 3 / 2048
 ATLAS = {
@@ -190,10 +201,37 @@ def footprints() -> list[tuple]:
     items += [("chock", x, y, 0.0, None) for x, y, _ in CHOCKS]
     items += [("scatter", x, y, 0.0, None) for (x, y), _, _ in SCATTER]
     items += [("tin", x, y, 0.0, None) for x, y in TINS]
+    items += [("drum", x, y, 0.0, None) for x, y, _ in DRUMS]
+    items += [("crate", x, y, 0.0, None) for x, y, _, _, _ in CRATES]
+    items += [("pallet", x, y, 0.0, None) for x, y, _, _ in PALLETS]
+    items += [("tarp", x, y, 0.0, None) for x, y, _ in TARPED]
+    items += [("wet_sign", x, y, 0.0, None) for x, y, _ in WET_SIGNS]
+    items += [("puddle", x, y, 0.0, None) for x, y, *_ in puddle_layout()]
     items += [("tubing", x, y, 0.1, None) for x in TUBING_X for y in TUBING_Y]
     items += [("drain", x, y, 0.0, None) for x, y in DRAINS]
     items += [(kind, x, y, 0.0, None) for kind, (x, y), _ in DEBRIS]
     return items
+
+
+def puddle_layout(seed: int = 11) -> list[tuple]:
+    import random
+
+    rng = random.Random(seed)
+    spots = [(x, y, 1.1) for x, y in COLUMNS] + [(x, y, 1.0) for x, y in GRIT_SUPPORTS]
+    spots += [(x, LINES[line][0], 0.8) for line in ("grey", "orange", "rusty") for x in SUPPORTS[line]]
+    for y in (2.1, -2.45, -4.1):
+        spots += [(x, y, 0.9) for x in stations(-7.2, 5.0, 1.7)]
+    spots += [(x, y, 0.9) for x in (4.4, 6.1) for y in stations(-3.0, 1.0, 1.6)]
+    out = []
+    for x, y, size in spots:
+        if rng.random() > 0.75:
+            continue
+        px, py = x + rng.uniform(-0.45, 0.45), y + rng.uniform(-0.35, 0.35)
+        if abs(px) > DECK_LIMIT[0] or abs(py) > DECK_LIMIT[1] or in_work_zone(px, py, 0.35):
+            continue
+        out.append((round(px, 3), round(py, 3), round(size * rng.uniform(0.7, 1.3), 3), round(rng.uniform(0, 180), 1),
+                    rng.randrange(4)))
+    return out
 
 
 def route_local() -> list[tuple[float, float]]:

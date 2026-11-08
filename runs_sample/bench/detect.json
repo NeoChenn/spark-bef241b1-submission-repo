@@ -356,16 +356,613 @@
    }
   },
   {
-   "status": "not run \u2014 needs key",
+   "name": "Gemini gemini-4-argon",
    "model": "gemini-4-argon",
+   "label": "GeminiVerifier 'rust' prompt; score = confidence if rust, 1-confidence if clean, 0.5 if cannot_tell",
+   "threshold": 0.5,
    "runs_on_robot": false,
-   "name": "Gemini gemini-4-argon"
+   "compute": "cloud API",
+   "results": {
+    "sim_heldout": {
+     "n": 13,
+     "n_pos": 6,
+     "threshold": 0.5,
+     "confusion": {
+      "tn": 4,
+      "fp": 3,
+      "fn": 0,
+      "tp": 6
+     },
+     "f1": {
+      "mean": 0.8,
+      "lo": 0.5,
+      "hi": 1.0
+     },
+     "precision": {
+      "mean": 0.6666666666666666,
+      "lo": 0.3333333333333333,
+      "hi": 1.0
+     },
+     "recall": {
+      "mean": 1.0,
+      "lo": 1.0,
+      "hi": 1.0
+     },
+     "auroc": {
+      "mean": 0.9642857142857143,
+      "lo": 0.8571428571428571,
+      "hi": 1.0
+     },
+     "latency": {
+      "median_s": 9.530993917025626,
+      "p90_s": 13.92915388387628,
+      "n": 13
+     },
+     "n_attempted": 13,
+     "n_errors": 0,
+     "cannot_tell_rate": 0.3076923076923077,
+     "per_item": [
+      {
+       "id": "preview_repair_closeup.png:damage patch (rust_coarse_01)",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.98
+      },
+      {
+       "id": "preview_repair_closeup.png:rusty steel post (rusty_metal_02)",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.98
+      },
+      {
+       "id": "preview_repair_closeup.png:deck grate (metal_grate_rusty)",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.98
+      },
+      {
+       "id": "preview_repair_closeup.png:green painted pipe",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.9
+      },
+      {
+       "id": "preview_repair_closeup.png:green painted pipe right",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "preview_hero.png:rusty steel support",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.9
+      },
+      {
+       "id": "preview_hero.png:rusty steel support 2",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.9
+      },
+      {
+       "id": "preview_hero.png:deck grate",
+       "label": 1,
+       "verdict": "cannot_tell",
+       "confidence": 0.9
+      },
+      {
+       "id": "preview_hero.png:green painted pipe",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.9
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:yellow pipe",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.9
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:blue pipe",
+       "label": 0,
+       "verdict": "cannot_tell",
+       "confidence": 0.98
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:gauge face",
+       "label": 0,
+       "verdict": "cannot_tell",
+       "confidence": 0.98
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:blue pipe right",
+       "label": 0,
+       "verdict": "cannot_tell",
+       "confidence": 0.99
+      }
+     ]
+    },
+    "rust_sim_test": {
+     "n": 60,
+     "n_pos": 25,
+     "threshold": 0.5,
+     "confusion": {
+      "tn": 16,
+      "fp": 19,
+      "fn": 0,
+      "tp": 25
+     },
+     "f1": {
+      "mean": 0.7246376811594203,
+      "lo": 0.5964912280701754,
+      "hi": 0.8311688311688312
+     },
+     "precision": {
+      "mean": 0.5681818181818182,
+      "lo": 0.425,
+      "hi": 0.7111111111111111
+     },
+     "recall": {
+      "mean": 1.0,
+      "lo": 1.0,
+      "hi": 1.0
+     },
+     "auroc": {
+      "mean": 0.9697142857142856,
+      "lo": 0.9206252693385047,
+      "hi": 0.9971981721981722
+     },
+     "latency": {
+      "median_s": 8.65264972904697,
+      "p90_s": 21.181651421193965,
+      "n": 60
+     },
+     "n_attempted": 60,
+     "n_errors": 0,
+     "cannot_tell_rate": 0.21666666666666667
+    }
+   }
   },
   {
-   "status": "not run \u2014 needs key",
+   "name": "Gemini gemini-robotics-er-2-preview",
    "model": "gemini-robotics-er-2-preview",
+   "label": "GeminiVerifier 'rust' prompt; score = confidence if rust, 1-confidence if clean, 0.5 if cannot_tell",
+   "threshold": 0.5,
    "runs_on_robot": false,
-   "name": "Gemini gemini-robotics-er-2-preview"
+   "compute": "cloud API",
+   "results": {
+    "sim_heldout": {
+     "n": 12,
+     "n_pos": 5,
+     "threshold": 0.5,
+     "confusion": {
+      "tn": 3,
+      "fp": 4,
+      "fn": 1,
+      "tp": 4
+     },
+     "f1": {
+      "mean": 0.6153846153846154,
+      "lo": 0.2,
+      "hi": 0.875
+     },
+     "precision": {
+      "mean": 0.5,
+      "lo": 0.14285714285714285,
+      "hi": 0.8571428571428571
+     },
+     "recall": {
+      "mean": 0.8,
+      "lo": 0.3333333333333333,
+      "hi": 1.0
+     },
+     "auroc": {
+      "mean": 0.8571428571428572,
+      "lo": 0.5555555555555556,
+      "hi": 1.0
+     },
+     "latency": {
+      "median_s": 3.4904491044580936,
+      "p90_s": 4.121927266265265,
+      "n": 12
+     },
+     "n_attempted": 13,
+     "n_errors": 1,
+     "cannot_tell_rate": 0.25,
+     "per_item": [
+      {
+       "id": "preview_repair_closeup.png:rusty steel post (rusty_metal_02)",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.98
+      },
+      {
+       "id": "preview_repair_closeup.png:deck grate (metal_grate_rusty)",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.98
+      },
+      {
+       "id": "preview_repair_closeup.png:green painted pipe",
+       "label": 0,
+       "verdict": "rust",
+       "confidence": 0.95
+      },
+      {
+       "id": "preview_repair_closeup.png:green painted pipe right",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "preview_hero.png:rusty steel support",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.95
+      },
+      {
+       "id": "preview_hero.png:rusty steel support 2",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.95
+      },
+      {
+       "id": "preview_hero.png:deck grate",
+       "label": 1,
+       "verdict": "clean",
+       "confidence": 0.9
+      },
+      {
+       "id": "preview_hero.png:green painted pipe",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:yellow pipe",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:blue pipe",
+       "label": 0,
+       "verdict": "cannot_tell",
+       "confidence": 0.95
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:gauge face",
+       "label": 0,
+       "verdict": "cannot_tell",
+       "confidence": 0.95
+      },
+      {
+       "id": "full_rig_gauge_closeup.png:blue pipe right",
+       "label": 0,
+       "verdict": "cannot_tell",
+       "confidence": 0.95
+      }
+     ]
+    },
+    "rust_sim_test": {
+     "n": 46,
+     "n_pos": 11,
+     "threshold": 0.5,
+     "confusion": {
+      "tn": 22,
+      "fp": 13,
+      "fn": 1,
+      "tp": 10
+     },
+     "f1": {
+      "mean": 0.5882352941176471,
+      "lo": 0.36363636363636365,
+      "hi": 0.7568033550792169
+     },
+     "precision": {
+      "mean": 0.43478260869565216,
+      "lo": 0.23809523809523808,
+      "hi": 0.6363636363636364
+     },
+     "recall": {
+      "mean": 0.9090909090909091,
+      "lo": 0.6923076923076923,
+      "hi": 1.0
+     },
+     "auroc": {
+      "mean": 0.9337662337662337,
+      "lo": 0.8286653297682709,
+      "hi": 0.9970026276276276
+     },
+     "latency": {
+      "median_s": 3.4453291456447914,
+      "p90_s": 11.305492792045698,
+      "n": 46
+     },
+     "n_attempted": 60,
+     "n_errors": 14,
+     "cannot_tell_rate": 0.15217391304347827,
+     "per_item": [
+      {
+       "id": "synth_blue_metal_plate_01351.jpg",
+       "label": 0,
+       "verdict": "rust",
+       "confidence": 0.8
+      },
+      {
+       "id": "synth_blue_metal_plate_01381.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_blue_metal_plate_01399.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.9
+      },
+      {
+       "id": "synth_blue_metal_plate_01443.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.9
+      },
+      {
+       "id": "synth_blue_metal_plate_01468.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_blue_metal_plate_01594.jpg",
+       "label": 0,
+       "verdict": "rust",
+       "confidence": 0.9
+      },
+      {
+       "id": "synth_box_profile_metal_sheet_01641.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.9
+      },
+      {
+       "id": "synth_box_profile_metal_sheet_01756.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_box_profile_metal_sheet_01782.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.9
+      },
+      {
+       "id": "synth_concrete_floor_damaged_01_01949.jpg",
+       "label": 0,
+       "verdict": "rust",
+       "confidence": 0.9
+      },
+      {
+       "id": "synth_concrete_floor_damaged_01_01974.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.9
+      },
+      {
+       "id": "synth_concrete_floor_damaged_01_01985.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.9
+      },
+      {
+       "id": "synth_green_metal_rust_02210.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_metal_plate_01185.jpg",
+       "label": 0,
+       "verdict": "rust",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_metal_plate_01206.jpg",
+       "label": 0,
+       "verdict": "rust",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_metal_plate_01280.jpg",
+       "label": 0,
+       "verdict": "rust",
+       "confidence": 0.9
+      },
+      {
+       "id": "synth_metal_plate_01317.jpg",
+       "label": 0,
+       "verdict": "cannot_tell",
+       "confidence": 0.8
+      },
+      {
+       "id": "synth_paint_blue_02352.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_paint_blue_02585.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.98
+      },
+      {
+       "id": "synth_paint_blue_02634.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_paint_green_02317.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_paint_green_02327.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_paint_green_02686.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.98
+      },
+      {
+       "id": "synth_paint_orange_paint_02736.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_paint_red_paint_02525.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_paint_red_paint_02665.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_paint_red_paint_02731.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_paint_white_02697.jpg",
+       "label": 0,
+       "verdict": "cannot_tell",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_paint_yellow_02723.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_render_03160.jpg",
+       "label": 0,
+       "verdict": "clean",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_render_03162.jpg",
+       "label": 0,
+       "verdict": "cannot_tell",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_render_03198.jpg",
+       "label": 0,
+       "verdict": "cannot_tell",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_render_03225.jpg",
+       "label": 0,
+       "verdict": "cannot_tell",
+       "confidence": 0.9
+      },
+      {
+       "id": "synth_render_03257.jpg",
+       "label": 0,
+       "verdict": "cannot_tell",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_render_03334.jpg",
+       "label": 0,
+       "verdict": "cannot_tell",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_blob_rusty_metal_02_02900.jpg",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.98
+      },
+      {
+       "id": "synth_metal_grate_rusty_00856.jpg",
+       "label": 1,
+       "verdict": "clean",
+       "confidence": 0.9
+      },
+      {
+       "id": "synth_metal_grate_rusty_00888.jpg",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_metal_grate_rusty_00951.jpg",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_metal_grate_rusty_00961.jpg",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_rust_coarse_01_00038.jpg",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.9
+      },
+      {
+       "id": "synth_rust_coarse_01_00067.jpg",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_rust_coarse_01_00071.jpg",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_rust_coarse_01_00433.jpg",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.95
+      },
+      {
+       "id": "synth_rusty_metal_02_00584.jpg",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.99
+      },
+      {
+       "id": "synth_rusty_metal_02_00694.jpg",
+       "label": 1,
+       "verdict": "rust",
+       "confidence": 0.98
+      }
+     ]
+    }
+   }
   }
- ]
+ ],
+ "gemini_note": "Gemini arms: all 13 held-out sim crops + a stratified 60-image sample (seed 0) of the synthetic test split, regenerated locally with detection/synth_sim.generate(seed=0) (same 485/202 split as watson)."
 }
