@@ -192,6 +192,21 @@ def label(name: str, direction: int):
     return img, None
 
 
+def id_board():
+    w, h = 2048, 512
+    img = Image.new("RGB", (w, h), (14, 30, 62))
+    emit = Image.new("RGB", (w, h), (6, 10, 18))
+    for im, fg, stripe in ((img, WHITE, YELLOW), (emit, (255, 250, 236), (150, 110, 10))):
+        d = ImageDraw.Draw(im)
+        for x in range(-h, w, 96):
+            d.polygon(((x, 0), (x + 48, 0), (x + 48 - 40, 40), (x - 40, 40)), fill=stripe)
+            d.polygon(((x, h - 40), (x + 48, h - 40), (x + 48 - 40, h), (x - 40, h)), fill=stripe)
+        centred(d, (w * 0.36, h / 2 + 4), "SA-7", 300, fg, 8)
+        centred(d, (w * 0.78, h / 2 - 50), "PLATFORM", 86, fg, 3)
+        centred(d, (w * 0.78, h / 2 + 60), "SIERRA ALPHA", 70, fg, 2)
+    return weather(img, 77, 0.5), emit
+
+
 def build() -> dict:
     TEXTURES.mkdir(parents=True, exist_ok=True)
     items = {"no_smoking": no_smoking(), "ppe": ppe(), "hazard_flammable": hazard_flammable(), "muster": muster(),
@@ -209,6 +224,9 @@ def build() -> dict:
         if mask is not None:
             mask.save(TEXTURES / f"{name}_mask.png")
     Image.new("L", (8, 8), 255).save(TEXTURES / "solid_mask.png")
+    board, emit = id_board()
+    board.save(TEXTURES / "id_board.jpg", quality=90)
+    emit.save(TEXTURES / "id_board_emit.jpg", quality=90)
     cell = 512
     atlas = Image.new("RGB", (cell * ATLAS_GRID, cell * ATLAS_GRID), (128, 128, 128))
     amask = Image.new("L", atlas.size, 255)

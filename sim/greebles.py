@@ -22,10 +22,10 @@ LINES = {
     "rusty": (3.2, 0.8, 0.12, "rusty_painted_metal"),
 }
 EXISTING_FLANGES = {"main": (-7.6, -3.0, 3.0, 7.6), "grey": (-7.6, 7.6), "orange": (-7.6, 7.6), "rusty": (-7.6, 7.6)}
-NEW_FLANGES = {"grey": (-4.2, 0.9, 4.8), "orange": (-1.9, 2.9, 5.6), "rusty": (-3.9, 1.3, 4.7)}
+NEW_FLANGES = {"main": (-1.2,), "grey": (-4.2, 0.9, 4.8), "orange": (-1.9, 2.9, 5.6), "rusty": (-3.9, 1.3, 4.7)}
 SUPPORTS = {"main": (-6.0, -3.4, 3.4, 6.0), "grey": (-6.5, -2.5, 2.5, 6.5), "orange": (-6.5, -2.5, 2.5, 6.5),
             "rusty": (-6.5, -2.5, 2.5, 6.5)}
-WELDS = {"main": (-5.6, -2.1, 1.5, 5.3), "grey": (-5.6, -2.05, 3.1), "orange": (-4.6, -0.6, 2.25), "rusty": (-5.2, -1.6, 2.9)}
+WELDS = {"main": (-5.6, -2.1, 0.07, 1.5, 5.3), "grey": (-5.6, -2.05, 3.1), "orange": (-4.6, -0.6, 2.25), "rusty": (-5.2, -1.6, 2.9)}
 LABELS = (
     ("main", 2.05, "crude", 1), ("main", -4.3, "crude", 1), ("grey", -0.25, "water", -1), ("grey", 3.6, "water", -1),
     ("orange", 0.4, "gas", 1), ("orange", -5.2, "gas", 1), ("rusty", -1.0, "foam", -1), ("rusty", 3.0, "foam", -1),
@@ -61,6 +61,15 @@ DEBRIS = (
 )
 STRIPES = tuple(c for c in COLUMNS)
 ALLOWED_IN_WORK = ("weld", "label")
+MAIN_SUPPORTS = (-1.5,)
+BRUSH_CLEAR = 0.5
+HALF_LENGTH = {"flange": 0.11, "weld": 0.01, "label": 0.28, "support": 0.21, "gauge": 0.05}
+FASCIA = (
+    ((0.3, -37.5), (37.5, -37.5), 30.0, 1.25, (0.0, -1.0)), ((37.5, -37.5), (37.5, 25.0), 30.0, 1.25, (1.0, 0.0)),
+    ((0.3, -27.64), (37.5, -27.64), 41.25, 1.25, (0.0, -1.0)), ((37.5, -27.64), (37.5, 27.36), 41.25, 1.25, (1.0, 0.0)),
+)
+RIB_START, RIB_SPACING = 1.0, 2.2
+ID_BOARDS = (((31.25, -37.2, 37.2), "-y", 7.2, 1.8), ((37.2, 4.5, 37.6), "+x", 7.2, 1.8))
 ATLAS_GRID = 4
 ATLAS_PAD = 3 / 2048
 ATLAS = {
@@ -68,6 +77,13 @@ ATLAS = {
     "h2s": (0, 1, 1, 1), "dial_a": (1, 1, 1, 1), "dial_b": (2, 1, 1, 1), "label_crude_f": (0, 2, 2, 1),
     "label_water_r": (2, 2, 2, 1), "label_gas_f": (0, 3, 2, 1), "label_foam_r": (2, 3, 2, 1),
 }
+
+
+def scuppers(p, q, every: int = 2) -> list[float]:
+    length = math.dist(p, q)
+    ribs = [RIB_START + RIB_SPACING * k for k in range(int((length - 0.5 - RIB_START) / RIB_SPACING) + 1)]
+    mids = [(a + b) / 2 for a, b in zip(ribs, ribs[1:])]
+    return mids[::every]
 
 
 def label_key(name: str, direction: int) -> str:
@@ -126,34 +142,42 @@ def near_damage(x: float, y: float, z: float, radius: float = 0.9) -> bool:
     return math.dist((x, y, z), DAMAGE) < radius
 
 
-def footprints() -> list[tuple[str, float, float, float]]:
+def footprints() -> list[tuple]:
     items = []
     for line, xs in NEW_FLANGES.items():
         y, z, _, _ = LINES[line]
-        items += [("flange", x, y, z) for x in xs]
+        items += [("flange", x, y, z, line) for x in xs]
     for line, xs in WELDS.items():
         y, z, _, _ = LINES[line]
-        items += [("weld", x, y, z) for x in xs]
+        items += [("weld", x, y, z, line) for x in xs]
     for line, x, _, _ in LABELS:
         y, z, _, _ = LINES[line]
-        items.append(("label", x, y, z))
+        items.append(("label", x, y, z, line))
     for line, x, _, _ in GAUGES:
         y, z, r, _ = LINES[line]
-        items.append(("gauge", x, y, z + r))
+        items.append(("gauge", x, y, z + r, line))
     for line, x, _ in HANDWHEELS:
         y, z, r, _ = LINES[line]
-        items.append(("handwheel", x, y, z + r))
-    items += [("transmitter", x, y, 0.0) for x, y, _, _ in TRANSMITTERS]
-    items += [("tubing", x, y, 0.1) for x in TUBING_X for y in TUBING_Y]
-    items += [("drain", x, y, 0.0) for x, y in DRAINS]
-    items += [(kind, x, y, 0.0) for kind, (x, y), _ in DEBRIS]
+        items.append(("handwheel", x, y, z + r, line))
+    items += [("support", x, MAIN["y"], 0.0, "main") for x in MAIN_SUPPORTS]
+    items += [("transmitter", x, y, 0.0, None) for x, y, _, _ in TRANSMITTERS]
+    items += [("tubing", x, y, 0.1, None) for x in TUBING_X for y in TUBING_Y]
+    items += [("drain", x, y, 0.0, None) for x, y in DRAINS]
+    items += [(kind, x, y, 0.0, None) for kind, (x, y), _ in DEBRIS]
     return items
+
+
+def brush_clear(kind: str, x: float) -> bool:
+    return abs(x - DAMAGE[0]) - HALF_LENGTH.get(kind, 0.15) >= BRUSH_CLEAR
 
 
 def layout_issues() -> list:
     issues = []
-    for kind, x, y, z in footprints():
-        if kind not in ALLOWED_IN_WORK and in_work_zone(x, y, 0.1):
+    for kind, x, y, z, line in footprints():
+        if line == "main":
+            if not brush_clear(kind, x):
+                issues.append((kind, x, y, z))
+        elif kind not in ALLOWED_IN_WORK and in_work_zone(x, y, 0.1):
             issues.append((kind, x, y, z))
         elif near_damage(x, y, z):
             issues.append((kind, x, y, z))

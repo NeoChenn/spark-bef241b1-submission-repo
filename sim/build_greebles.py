@@ -335,10 +335,19 @@ def welds(kit):
 
 
 def supports(kit):
+    y, z, r, _ = g.LINES["main"]
+    for x in g.MAIN_SUPPORTS:
+        h = z - r - 0.016
+        kit.box(MAT["steel"], (x, y, h / 2), (0.14, 0.36, h))
+        kit.box(MAT["steel"], (x, y, 0.015), (0.34, 0.5, 0.03))
+        kit.box(MAT["steel"], (x - 0.075, y, h / 2), (0.012, 0.3, h * 0.9))
+        for dx in (-0.13, 0.13):
+            for dy in (-0.19, 0.19):
+                kit.seg(MAT["galv"], "hex", (x + dx, y + dy, 0.03), (x + dx, y + dy, 0.05), 0.035)
     for line, xs in g.SUPPORTS.items():
         y, z, r, _ = g.LINES[line]
         s = r + 0.006
-        for x in xs:
+        for x in xs + (g.MAIN_SUPPORTS if line == "main" else ()):
             kit.add(MAT["galv"], "ubolt", (x, y, z), IDENT, (s, s, s))
             kit.box(MAT["steel"], (x, y, z - r - 0.008), (0.16, 2 * r + 0.12, 0.016))
             kit.box(MAT["steel"], (x, y, z - r + 0.012), (0.12, r * 0.9, 0.024))
@@ -615,6 +624,67 @@ def debris(kit):
                 kit.add(f"{LOOKS}/glove", "sphere", (x + dx + 0.1 * math.cos(a), y + dy + 0.1 * math.sin(a), 0.012), q, (0.04, 0.045, 0.012))
 
 
+def emissive_look(name, diffuse, emit, gain):
+    material = UsdShade.Material.Define(S(), f"{LOOKS}/{name}")
+    shader = UsdShade.Shader.Define(S(), f"{LOOKS}/{name}/surface")
+    shader.CreateIdAttr("UsdPreviewSurface")
+    shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.5)
+    reader = UsdShade.Shader.Define(S(), f"{LOOKS}/{name}/uv")
+    reader.CreateIdAttr("UsdPrimvarReader_float2")
+    reader.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
+    st = reader.CreateOutput("result", Sdf.ValueTypeNames.Float2)
+    for key, path, slot, scale in (("diff", diffuse, "diffuseColor", 1.0), ("emit", emit, "emissiveColor", gain)):
+        tex = UsdShade.Shader.Define(S(), f"{LOOKS}/{name}/{key}")
+        tex.CreateIdAttr("UsdUVTexture")
+        tex.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(rel(path))
+        tex.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(st)
+        tex.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB")
+        tex.CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(scale, scale, scale, 1.0))
+        shader.CreateInput(slot, Sdf.ValueTypeNames.Color3f).ConnectToSource(tex.CreateOutput("rgb", Sdf.ValueTypeNames.Float3))
+    material.CreateSurfaceOutput().ConnectToSource(shader.CreateOutput("surface", Sdf.ValueTypeNames.Token))
+    return material
+
+
+def fascia(kit):
+    root = f"{g.ROOT}/Topside/Fascia"
+    UsdGeom.Scope.Define(S(), root)
+    looks = [decal_look(f"fascia_streak_{tex}", None, ASSETS / "decals" / tex / "opacity.jpg", roughness=0.6,
+                        tint=(0.2, 0.085, 0.03), strength=0.95) for tex in ("Leaking008", "Leaking009", "Leaking001")]
+    n = 0
+    for p, q, z0, height, out in g.FASCIA:
+        p2, q2 = np.array(p, float), np.array(q, float)
+        u = (q2 - p2) / np.linalg.norm(q2 - p2)
+        o = np.array(out, float)
+        normal = np.array((o[0], o[1], 0.0))
+        across = np.cross((0.0, 0.0, 1.0), normal)
+        top = z0 + height - 0.12
+        for k, f in enumerate(g.scuppers(p, q)):
+            c = p2 + u * f
+            kit.box(MAT["black"], (c[0] + o[0] * 0.02, c[1] + o[1] * 0.02, top - 0.05), (0.06 if o[0] else 0.28, 0.06 if o[1] else 0.28, 0.12))
+            kit.box(MAT["steel"], (c[0] + o[0] * 0.12, c[1] + o[1] * 0.12, top - 0.11), (0.22 if o[0] else 0.1, 0.1 if o[0] else 0.22, 0.03))
+            length = 1.4 + 0.9 * ((k * 7) % 5) / 4
+            centre = (c[0] + o[0] * 0.015, c[1] + o[1] * 0.015, top - 0.08 - length / 2)
+            write_mesh(f"{root}/streak_{n:03d}", quad_mesh(centre, across, (0, 0, 1), 0.2 + 0.05 * (k % 3), length / 2), looks[n % 3])
+            n += 1
+    return n
+
+
+def id_boards(kit):
+    root = f"{g.ROOT}/Topside/Boards"
+    UsdGeom.Scope.Define(S(), root)
+    look = emissive_look("id_board", g.TEXTURES / "id_board.jpg", g.TEXTURES / "id_board_emit.jpg", 2.5)
+    for k, ((x, y, z), face, w, h) in enumerate(g.ID_BOARDS):
+        nx, ny = g.facing(face)
+        n = np.array((nx, ny, 0.0))
+        u = np.cross((0.0, 0.0, 1.0), n)
+        write_mesh(f"{root}/board_{k}", quad_mesh((x + nx * 0.03, y + ny * 0.03, z), u, (0, 0, 1), w / 2, h / 2), look)
+        kit.box(MAT["galv"], (x, y, z), (0.05 if nx else w + 0.2, 0.05 if ny else w + 0.2, h + 0.2))
+        for side in (-1, 1):
+            px, py = x + u[0] * side * w * 0.4, y + u[1] * side * w * 0.4
+            kit.seg(MAT["galv"], "box", (px - nx * 0.1, py - ny * 0.1, z - h / 2 - 0.1), (px - nx * 0.1, py - ny * 0.1, z + h / 2 + 0.1), 0.1, 0.1)
+            kit.seg(MAT["black"], "cyl", (px + nx * 0.4, py + ny * 0.4, z + h / 2 + 0.35), (px + nx * 0.1, py + ny * 0.1, z + h / 2 + 0.1), 0.05)
+
+
 def build_looks():
     UsdGeom.Scope.Define(S(), LOOKS)
     paint_look("cable_black", (0.025, 0.025, 0.028), chip=0.0, scale=0.3)
@@ -658,6 +728,8 @@ def build(path=g.LAYER) -> dict:
     UsdGeom.Xform.Define(stage, f"{g.ROOT}/Topside")
     UsdGeom.Xform.Define(stage, f"{g.OFFLINE}/Topside")
     topside_racks(top_live, top_off)
+    fascia(top_live)
+    id_boards(top_live)
     counts = {"zone_instances": kit.write(), "tray_instances": trays.write(), "topside_instances": top_live.write(),
               "topside_offline": top_off.write()}
     counts["prims"] = sum(1 for _ in Usd.PrimRange(stage.GetPrimAtPath(g.ROOT)))

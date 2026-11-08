@@ -11,9 +11,17 @@ def test_layout_keeps_work_zone_and_damage_clear():
     assert g.layout_issues() == []
 
 
-def test_pipe_details_stay_off_the_damage_spot():
-    for kind, x, y, z in g.footprints():
-        assert math.dist((x, y, z), g.DAMAGE) > 0.9
+def test_pipe_details_stay_off_the_damage_spot_and_brush_path():
+    for kind, x, y, z, line in g.footprints():
+        if line == "main":
+            assert abs(x - g.DAMAGE[0]) - g.HALF_LENGTH[kind] >= 0.5
+        else:
+            assert math.dist((x, y, z), g.DAMAGE) > 0.9
+
+
+def test_brush_clearance_counts_item_length():
+    assert g.brush_clear("weld", g.DAMAGE[0] + 0.52)
+    assert not g.brush_clear("flange", g.DAMAGE[0] + 0.55)
 
 
 def test_bolt_ring_sits_between_pipe_and_flange_rim():
@@ -77,3 +85,11 @@ def test_layer_only_overs_world():
 
 def test_layer_never_binds_repair_zone_materials():
     assert "/World/RepairZone/" not in g.LAYER.read_text()
+
+
+def test_scuppers_sit_between_edge_ribs():
+    for p, q, *_ in g.FASCIA:
+        for f in g.scuppers(p, q):
+            k = (f - g.RIB_START) / g.RIB_SPACING
+            assert abs(k - round(k)) > 0.3
+            assert 0.5 < f < math.dist(p, q) - 0.5
