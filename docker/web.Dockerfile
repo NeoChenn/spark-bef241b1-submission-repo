@@ -5,7 +5,9 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY rig ./rig
+COPY policy/__init__.py policy/gemini_verifier.py ./policy/
 COPY policy/fleet ./policy/fleet
+COPY policy/control ./policy/control
 COPY sim/output/full_rig_meta.json sim/output/leak_flanges_meta.json ./sim/output/
 COPY runs_sample/fleet/fleet_state.json runs_sample/fleet/fleet_map.json ./runs_sample/fleet/
 COPY runs_sample/bench/*.json ./runs_sample/bench/

@@ -17,6 +17,8 @@ with TestClient(create_app(sim_port=0, fleet=default_fleet())) as c:
     out["mock"] = [c.get(p).status_code for p in ("/api/mock", "/api/mock/shot/1", "/api/mock/shot/3")]
     out["bench"] = sorted(b["name"] for b in c.get("/api/bench").json())
     import policy.fleet
+    from rig.web.server import default_control
+    out["control"] = type(default_control()).__name__
     out["from_image"] = policy.fleet.__path__[0].startswith(os.getcwd())
     print(json.dumps(out))
 """
@@ -49,3 +51,4 @@ def test_web_image_serves_fleet_and_bench(tmp_path, fleet):
     assert got["/api/fleet"] == 200 and got["/api/fleet/map"] == 200 and got["from_image"]
     assert {"orch", "detect", "safety", "scrub"} <= set(got["bench"])
     assert got["mock"] == [200, 200, 200]
+    assert got["control"] == "ControlCentre"
