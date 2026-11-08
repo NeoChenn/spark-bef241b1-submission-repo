@@ -25,7 +25,7 @@
         + `<div class="legend col"><span><i class="lg r"></i>robot · heading</span><span><i class="lg t"></i>drone</span><span><i class="lg g"></i>gas plume</span><span><i class="lg p"></i>person · 3 m</span><span><i class="lg d"></i>dock</span><span><i class="lg n"></i>no-fly zone</span></div>`;
       if (x.side._h !== rows) { x.side._h = rows; x.side.innerHTML = (S.fleet ? "" : `<p class="none">No fleet snapshot yet</p>`) + rows; }
     } });
-  const KIND = { fpv: ["Camera", "cam"], rgb: ["Camera", "cam"], policy: ["Policy input", "target"], det: ["Detector boxes", "target"], ogi: ["OGI gas", "wind"], gas: ["OGI gas", "wind"], bev: ["Lidar BEV", "map"], lidar: ["Lidar BEV", "map"], depth: ["Depth", "layers"], thermal: ["Thermal", "sun"] };
+  const KIND = { fpv: ["Camera", "cam"], rgb: ["Camera", "cam"], policy: ["Policy input", "target"], det: ["Detector boxes", "target"], ogi: ["OGI gas", "wind"], gas: ["OGI gas", "wind"], bev: ["Lidar BEV", "map"], lidar: ["Lidar BEV", "map"], belief: ["Gas belief", "wind"], obs: ["Scrub obs", "target"], depth: ["Depth", "layers"], thermal: ["Thermal", "sun"] };
   const ORDER = Object.keys(KIND);
   const ROLE = { rust: "Rust localizer", gas: "OGI gas", inspection: "Depth", weld: "Weld seam" };
   const kname = (k, id) => (k === "policy" && ROLE[S.views?.[id]?.info?.role]) || KIND[k]?.[0] || String(k).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
