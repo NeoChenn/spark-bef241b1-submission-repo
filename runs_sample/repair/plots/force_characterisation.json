@@ -1,4 +1,14 @@
 {
+ "force_vs_time": {
+  "peak_n": 51.433,
+  "frac_scrub_over_40": 0.00036443148688046647,
+  "back_off_windows": [
+   [
+    62.9083,
+    64.2417
+   ]
+  ]
+ },
  "peak_hist": {
   "v1 (model_149), analytic force": {
    "n": 513,
