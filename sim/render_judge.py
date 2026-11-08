@@ -142,7 +142,7 @@ for t0 in times:
     for name in filter(None, args.views.split(",")):
         start = time.monotonic()
         eye, target, focal = VIEWS[name]
-        vl = look.view_look(name, float(np.linalg.norm(np.subtract(target, eye))), atm is not None)
+        vl = look.view_look(name, float(np.linalg.norm(np.subtract(target, eye))), atm is not None, args.preset)
         use_look(looks[0], vl["ev"], eye, target, vl["fstop"])
         aim(*VIEWS[name])
         for i in range(args.warm):

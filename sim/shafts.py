@@ -6,10 +6,10 @@ import numpy as np
 
 DECK_Z, SEA_Z = 42.5, 0.3
 PICKS = (
-    ("deck", 0, DECK_Z, 22.0, 1.0),
-    ("deck", 1, DECK_Z, 22.0, 1.0),
-    ("deck", 2, DECK_Z, 22.0, 1.0),
-    ("deck", 3, DECK_Z, 22.0, 1.0),
+    ("deck", 0, DECK_Z, 18.0, 1.0),
+    ("deck", 1, DECK_Z, 18.0, 1.0),
+    ("deck", 2, DECK_Z, 18.0, 1.0),
+    ("deck", 3, DECK_Z, 18.0, 1.0),
     ("area", 3, DECK_Z, 20.0, 0.8),
     ("area", 4, DECK_Z, 20.0, 0.8),
     ("sea", 0, SEA_Z, 24.0, 1.0),
@@ -59,7 +59,7 @@ def _ramp(e0: float, e1: float, x):
     return t * t * (3 - 2 * t)
 
 
-def layer(cam: dict, specs, t: float = 0.0, gain: float = 150.0, scale: int = 4, samples: int = 40,
+def layer(cam: dict, specs, t: float = 0.0, gain: float = 400.0, scale: int = 4, samples: int = 40,
           depth: np.ndarray | None = None) -> np.ndarray:
     from topside_frames import kelvin_rgb
 

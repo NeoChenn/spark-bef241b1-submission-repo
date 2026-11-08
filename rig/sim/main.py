@@ -276,7 +276,7 @@ def main() -> None:
 
         def expose(t: float) -> None:
             eye, target = getattr(cine_update, "eye_target", ((0.0, 0.0, 0.0), (0.0, 0.0, 30.0)))
-            ev = look.view_look(None, float(np.linalg.norm(np.subtract(target, eye))), bool(args.atmos))["ev"]
+            ev = look.view_look(None, float(np.linalg.norm(np.subtract(target, eye))), bool(args.atmos), args.cinematic)["ev"]
             for key, value in look.exposure(ev).items():
                 settings.set(key, value)
 
