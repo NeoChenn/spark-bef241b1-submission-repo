@@ -83,15 +83,14 @@ def force_vs_time(run: Path, out: Path):
     k = int(np.argmax(ff))
     ax.annotate(f"weld bead spike {ff[k]:.0f} N", (tt[k], ff[k]), xytext=(12, -4), textcoords="offset points",
                 color=INK, fontsize=9, va="center")
-    for a, b in bo[:1]:
-        ax.text((a + b) / 2, ax.get_ylim()[1] * 0.96, "BACK_OFF", color=CRIT, ha="center", va="top", fontsize=9,
-                weight="bold")
     ax.set_xlabel("sim time (s)")
     ax.set_ylabel("normal force (N)")
-    ax.set_title("Scrub contact force, live repair run (v2 policy, sensor in the loop)")
-    ax.text(0.0, 1.0, "grey: arm parked for re-detect / verify", transform=ax.transAxes, color=MUTED, fontsize=9,
-            va="bottom", ha="left", y=1.0)
-    ax.legend(loc="upper left", bbox_to_anchor=(0.0, 0.93))
+    ax.set_title("Scrub contact force, live repair run (v2 policy, sensor in the loop)", pad=30)
+    from matplotlib.patches import Patch
+
+    handles = ax.get_legend_handles_labels()[0] + [Patch(color=CRIT, alpha=0.3, label="BACK_OFF (retract 5 cm)"),
+                                                   Patch(color=AXIS, alpha=0.6, label="arm parked: re-detect / spray / verify")]
+    ax.legend(handles=handles, loc="lower left", bbox_to_anchor=(0.0, 1.0), ncol=3, fontsize=9)
     save(fig, out, "force_vs_time")
     preview(out, "force_vs_time")
     sc = ss == "SCRUB"
