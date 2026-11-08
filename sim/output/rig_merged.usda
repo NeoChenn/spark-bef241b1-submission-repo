@@ -25,97 +25,50 @@
 
 over "World"
 {
-    over "Looks"
-    {
-        def Material "metal_grate_rusty" (
-            prepend references = @./rig_deck.usda@</World/Looks/metal_grate_rusty>
-        )
-        {
-        }
-
-        def Material "rusty_metal_02" (
-            prepend references = @./rig_deck.usda@</World/Looks/rusty_metal_02>
-        )
-        {
-        }
-
-        def Material "metal_plate" (
-            prepend references = @./rig_deck.usda@</World/Looks/metal_plate>
-        )
-        {
-        }
-
-        def Material "rusty_painted_metal" (
-            prepend references = @./rig_deck.usda@</World/Looks/rusty_painted_metal>
-        )
-        {
-        }
-
-        def Material "safety_yellow" (
-            prepend references = @./rig_deck.usda@</World/Looks/safety_yellow>
-        )
-        {
-        }
-
-        def Material "green_metal_rust" (
-            prepend references = @./rig_deck.usda@</World/Looks/green_metal_rust>
-        )
-        {
-        }
-
-        def Material "blue_metal_plate" (
-            prepend references = @./rig_deck.usda@</World/Looks/blue_metal_plate>
-        )
-        {
-        }
-
-        def Material "pipe_grey" (
-            prepend references = @./rig_deck.usda@</World/Looks/pipe_grey>
-        )
-        {
-        }
-
-        def Material "pipe_orange" (
-            prepend references = @./rig_deck.usda@</World/Looks/pipe_orange>
-        )
-        {
-        }
-
-        def Material "rust_coarse_01" (
-            prepend references = @./rig_deck.usda@</World/Looks/rust_coarse_01>
-        )
-        {
-        }
-
-        def Material "zone_marking"
-        {
-            token outputs:surface.connect = </World/Looks/zone_marking/surface.outputs:surface>
-
-            def Shader "surface"
-            {
-                uniform token info:id = "UsdPreviewSurface"
-                color3f inputs:diffuseColor = (0.9, 0.62, 0.04)
-                float inputs:metallic = 0
-                float inputs:roughness = 0.5
-                token outputs:surface
-            }
-        }
-    }
-
-    def Xform "RepairZone"
+    def Xform "RepairZone" (
+        prepend references = @./rig_deck.usda@</World>
+    )
     {
         double3 xformOp:translate = (18.75, -5.75, 42.5)
         uniform token[] xformOpOrder = ["xformOp:translate"]
 
-        def Scope "Structure" (
-            prepend references = @./rig_deck.usda@</World/Structure>
+        over "Deck" (
+            active = false
         )
         {
         }
 
-        def Scope "Pipes" (
-            prepend references = @./rig_deck.usda@</World/Pipes>
+        over "Railing" (
+            active = false
         )
+        {
+        }
+
+        over "Environment" (
+            active = false
+        )
+        {
+        }
+
+        over "Cameras" (
+            active = false
+        )
+        {
+        }
+
+        over "Robots" (
+            active = false
+        )
+        {
+        }
+
+        over "PhysicsScene" (
+            active = false
+        )
+        {
+        }
+
+        over "Pipes"
         {
             over "main_pipe_073" (
                 active = false
@@ -130,10 +83,13 @@ over "World"
             }
         }
 
-        def Scope "Props" (
-            prepend references = @./rig_deck.usda@</World/Props>
-        )
+        over "Props"
         {
+            over "modular_fire_escape_stairs_159" (
+                active = false
+            )
+            {
+            }
         }
 
         def "Marking"
@@ -225,9 +181,11 @@ over "World"
             uniform token[] xformOpOrder = ["xformOp:translate"]
 
             def Mesh "geom" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
                 prepend references = @./rig_deck.usda@</World/Pipes/main_pipe_073>
             )
             {
+                rel material:binding = </World/RepairZone/Looks/green_metal_rust>
             }
         }
 
@@ -237,9 +195,28 @@ over "World"
             uniform token[] xformOpOrder = ["xformOp:translate"]
 
             def Mesh "geom" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
                 prepend references = @./rig_deck.usda@</World/Pipes/damage_patch>
             )
             {
+                rel material:binding = </World/RepairZone/Looks/rust_coarse_01>
+            }
+        }
+    }
+
+    over "Looks"
+    {
+        def Material "zone_marking"
+        {
+            token outputs:surface.connect = </World/Looks/zone_marking/surface.outputs:surface>
+
+            def Shader "surface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.9, 0.62, 0.04)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.5
+                token outputs:surface
             }
         }
     }
@@ -511,7 +488,7 @@ over "World"
 
                         over "lift_carriage"
                         {
-                            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0.55, 1) )
+                            matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0.1, 1) )
                             uniform token[] xformOpOrder = ["xformOp:transform"]
 
                             over "ur3_base_link"
@@ -521,32 +498,32 @@ over "World"
 
                                 over "ur3_shoulder_link"
                                 {
-                                    matrix4d xformOp:transform = ( (-0.5566197202158617, -0.830767408524682, 0, 0), (0.830767408524682, -0.5566197202158617, 0, 0), (0, 0, 0.9999999999999999, 0), (0, 0, 0.1519, 1) )
+                                    matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0.1519, 1) )
                                     uniform token[] xformOpOrder = ["xformOp:transform"]
 
                                     over "ur3_upper_arm_link"
                                     {
-                                        matrix4d xformOp:transform = ( (0.7050027957333799, 0, -0.7092045248079839, 0), (0, 1, 0, 0), (0.7092045248079839, 0, 0.7050027957333799, 0), (0, 0.1198, 0, 1) )
+                                        matrix4d xformOp:transform = ( (0.9999996829318346, 0, -0.0007963267107332021, 0), (0, 1, 0, 0), (0.0007963267107332021, 0, 0.9999996829318346, 0), (0, 0.1198, 0, 1) )
                                         uniform token[] xformOpOrder = ["xformOp:transform"]
 
                                         over "ur3_forearm_link"
                                         {
-                                            matrix4d xformOp:transform = ( (0.31656205726520137, 0, 0.9485718021847495, 0), (0, 1, 0, 0), (-0.9485718021847495, 0, 0.31656205726520137, 0), (0, -0.0925, 0.24365, 1) )
+                                            matrix4d xformOp:transform = ( (-0.7373937155412454, 0, -0.6754631805511511, 0), (0, 0.9999999999999999, 0, 0), (0.6754631805511511, 0, -0.7373937155412454, 0), (0, -0.0925, 0.24365, 1) )
                                             uniform token[] xformOpOrder = ["xformOp:transform"]
 
                                             over "ur3_wrist_1_link"
                                             {
-                                                matrix4d xformOp:transform = ( (0.12179461331712674, 0, -0.9925553244867168, 0), (0, 1, 0, 0), (0.9925553244867168, 0, 0.12179461331712674, 0), (0, 0, 0.21325, 1) )
+                                                matrix4d xformOp:transform = ( (0.6754631805511511, 0, 0.7373937155412454, 0), (0, 0.9999999999999999, 0, 0), (-0.7373937155412454, 0, 0.6754631805511511, 0), (0, 0, 0.21325, 1) )
                                                 uniform token[] xformOpOrder = ["xformOp:transform"]
 
                                                 over "ur3_wrist_2_link"
                                                 {
-                                                    matrix4d xformOp:transform = ( (0.34574152118785395, -0.9383297930507742, 0, 0), (0.9383297930507742, 0.34574152118785395, 0, 0), (0, 0, 1, 0), (0, 0.08505, 0, 1) )
+                                                    matrix4d xformOp:transform = ( (0.0007963267107332633, -0.9999996829318346, 0, 0), (0.9999996829318346, 0.0007963267107332633, 0, 0), (0, 0, 1, 0), (0, 0.08505, 0, 1) )
                                                     uniform token[] xformOpOrder = ["xformOp:transform"]
 
                                                     over "ur3_wrist_3_link"
                                                     {
-                                                        matrix4d xformOp:transform = ( (0.9990321561605888, 0, -0.043985804040905185, 0), (0, 1, 0, 0), (0.043985804040905185, 0, 0.9990321561605888, 0), (0, 0, 0.08535, 1) )
+                                                        matrix4d xformOp:transform = ( (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0.08535, 1) )
                                                         uniform token[] xformOpOrder = ["xformOp:transform"]
 
                                                         over "ur3_ee_link"

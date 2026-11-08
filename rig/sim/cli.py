@@ -1,4 +1,5 @@
 import argparse
+import os
 
 DEFAULT_SCENE = "/rig/sim/output/full_rig.usda"
 DEFAULT_CAMERA = "/World/Cameras/wide"
@@ -13,7 +14,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--orbit-z", type=float, default=1.0, help="height of the plane the orbit target is picked on")
     p.add_argument("--env", default="", help="sim.environment preset to add (ocean/sky); empty = none")
     p.add_argument("--cinematic", default="", help="sim/cinematic.py preset (night|golden|storm): cinematic scene, effects and camera sequence")
-    p.add_argument("--merged", action="store_true", help="with --cinematic: open sim/output/rig_merged.usda (repair zone on the top deck) and fly wide orbit -> pipe close-up")
+    p.add_argument("--merged", action=argparse.BooleanOptionalAction, default=os.environ.get("RIG_MERGED", "") == "1", help="with --cinematic: open sim/output/rig_merged.usda (repair zone on the top deck) and fly wide orbit -> pipe close-up")
     p.add_argument("--merged-hold", type=float, default=8.0, help="seconds at the pipe close-up before flying back out; 0 = stay at the close-up")
     p.add_argument("--merged-start", type=float, default=0.0, help="time offset into the merged camera path")
     p.add_argument("--orbit-target", type=vec3, default=None, metavar="X,Y,Z", help="orbit target; default = view ray hit on --orbit-z")

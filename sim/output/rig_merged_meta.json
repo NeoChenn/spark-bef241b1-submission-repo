@@ -144,7 +144,7 @@
     "prim": "/World/Robots/scrubber_dog",
     "usd": "./robot/go2_ur3_lift/go2_ur3_lift.usda",
     "links_posed": 56,
-    "brush_ik_error_m": 0.0003,
+    "arm": "ARM_STOWED",
     "q": {
       "FL_hip_joint": 0.1,
       "FL_thigh_joint": 0.8,
@@ -158,13 +158,13 @@
       "RR_hip_joint": -0.1,
       "RR_thigh_joint": 1.0,
       "RR_calf_joint": -1.5,
-      "ur3_shoulder_pan_joint": -2.1611,
-      "ur3_shoulder_lift_joint": -0.7824,
-      "ur3_elbow_joint": -1.2487,
-      "ur3_wrist_1_joint": -0.1221,
-      "ur3_wrist_2_joint": -1.2178,
-      "ur3_wrist_3_joint": 0.044,
-      "lift_joint": 0.45
+      "ur3_shoulder_pan_joint": 0.0,
+      "ur3_shoulder_lift_joint": -1.57,
+      "ur3_elbow_joint": 2.4,
+      "ur3_wrist_1_joint": -2.4,
+      "ur3_wrist_2_joint": -1.57,
+      "ur3_wrist_3_joint": 0.0,
+      "lift_joint": 0.0
     }
   }
 }

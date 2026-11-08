@@ -12,7 +12,7 @@ SIM = Path(__file__).resolve().parent
 REPO = SIM.parent
 sys.path[:0] = [str(REPO), str(SIM)]
 
-from integration.kinematics import ARM_JOINTS, LIFT_JOINT, RobotModel, pose
+from integration.kinematics import ARM_STOWED, RobotModel, pose
 from rig.sim.workzone import ZONE_TRANSLATION, merged_meta, to_world
 from scene_builder import OUTPUT, SceneBuilder
 
@@ -22,6 +22,7 @@ DECK = "./rig_deck.usda"
 ROBOT = "./robot/go2_ur3_lift/go2_ur3_lift.usda"
 ZONE = "/World/RepairZone"
 WIDE_TARGET = (4.0, -4.0, 30.0)
+DROP = ("Deck", "Railing", "Environment", "Cameras", "Robots", "PhysicsScene")
 
 
 def look(stage, path, eye, target, focal, clip=(0.05, 60000.0)):
@@ -49,38 +50,33 @@ def translated(stage, path, t):
 
 
 def add_zone(stage, deck_stage, t):
-    translated(stage, ZONE, t)
-    for group in ("Structure", "Pipes", "Props"):
-        ref(stage, f"{ZONE}/{group}", f"/World/{group}")
+    zone = translated(stage, ZONE, t)
+    zone.GetReferences().AddReference(DECK, Sdf.Path("/World"))
+    for group in DROP:
+        stage.OverridePrim(f"{ZONE}/{group}").SetActive(False)
+    for scope, keys in (("Pipes", ("main_pipe", "damage_patch")), ("Props", ("modular_fire_escape",))):
+        for child in deck_stage.GetPrimAtPath(f"/World/{scope}").GetChildren():
+            if child.GetName().startswith(keys):
+                stage.OverridePrim(f"{ZONE}/{scope}/{child.GetName()}").SetActive(False)
+    UsdGeom.Scope.Define(stage, "/World/Pipes")
     moved = {}
     for child in deck_stage.GetPrimAtPath("/World/Pipes").GetChildren():
-        name = child.GetName()
-        for key in ("main_pipe", "damage_patch"):
-            if name.startswith(key):
-                stage.OverridePrim(f"{ZONE}/Pipes/{name}").SetActive(False)
-                moved[key] = str(child.GetPath())
-    UsdGeom.Scope.Define(stage, "/World/Pipes")
-    for key, source in moved.items():
+        key = next((k for k in ("main_pipe", "damage_patch") if child.GetName().startswith(k)), None)
+        if key is None:
+            continue
         translated(stage, f"/World/Pipes/{key}", t)
-        ref(stage, f"/World/Pipes/{key}/geom", source, "Mesh")
+        geom = ref(stage, f"/World/Pipes/{key}/geom", str(child.GetPath()), "Mesh")
+        bound = UsdShade.MaterialBindingAPI(child).GetDirectBindingRel().GetTargets()[0]
+        target = Sdf.Path(str(bound).replace("/World/", f"{ZONE}/", 1))
+        UsdShade.MaterialBindingAPI.Apply(geom).Bind(UsdShade.Material(stage.GetPrimAtPath(target)))
+        moved[key] = str(child.GetPath())
     b = SceneBuilder(stage)
     paint = b.plain("zone_marking", (0.9, 0.62, 0.04), 0.5, 0.0)
-    x0, x1 = (-2.9, 2.9)
-    y0, y1 = (-2.5, 2.5)
-    w = 0.1
-    for name, c, s in (("mark", ((x0 + x1) / 2, y0, 0.003), (x1 - x0, w, 0.006)),
-                       ("mark", ((x0 + x1) / 2, y1, 0.003), (x1 - x0, w, 0.006)),
-                       ("mark", (x0, 0, 0.003), (w, y1 - y0, 0.006)),
-                       ("mark", (x1, 0, 0.003), (w, y1 - y0, 0.006))):
-        b.box(f"{ZONE}/Marking", name, c, s, paint, collide=None)
+    x0, x1, y0, y1, w = -2.9, 2.9, -2.5, 2.5, 0.1
+    for c, size in ((((x0 + x1) / 2, y0, 0.003), (x1 - x0, w, 0.006)), (((x0 + x1) / 2, y1, 0.003), (x1 - x0, w, 0.006)),
+                    ((x0, 0, 0.003), (w, y1 - y0, 0.006)), ((x1, 0, 0.003), (w, y1 - y0, 0.006))):
+        b.box(f"{ZONE}/Marking", "mark", c, size, paint, collide=None)
     return moved
-
-
-def add_looks(stage, deck_stage):
-    for child in deck_stage.GetPrimAtPath("/World/Looks").GetChildren():
-        path = f"/World/Looks/{child.GetName()}"
-        if not stage.GetPrimAtPath(path).IsValid():
-            ref(stage, path, str(child.GetPath()), "Material")
 
 
 def write_pipe_attrs(prim, w):
@@ -95,23 +91,11 @@ def write_pipe_attrs(prim, w):
         prim.CreateAttribute(name, kind, custom=True).Set(value)
 
 
-def robot_q(model, base, damage, normal):
-    q = model.default_q()
-    target = np.asarray(damage) + 0.15 * np.asarray(normal)
-    best = None
-    for lift in (0.42, 0.3, 0.45, 0.2):
-        seed = dict(q, **{LIFT_JOINT: lift})
-        r = model.solve_ik(base, seed, target, -np.asarray(normal), joints=ARM_JOINTS, iterations=150)
-        if best is None or r.position_error < best.position_error:
-            best = r
-    return best.q, best.position_error
-
-
 def add_robot(stage, w):
     model = RobotModel.from_urdf()
     spawn = w["robot_spawn"]["position_m"]
     base = pose(*spawn, w["robot_spawn"]["yaw_rad"])
-    q, err = robot_q(model, base, w["damage"]["position_m"], w["damage"]["surface_normal"])
+    q = dict(model.default_q(), **ARM_STOWED)
     prim = stage.DefinePrim("/World/Robots/scrubber_dog", "Xform")
     prim.GetReferences().AddReference(ROBOT)
     prim.GetVariantSets().AddVariantSet("Physics").SetVariantSelection("none")
@@ -134,7 +118,7 @@ def add_robot(stage, w):
         xf = UsdGeom.Xformable(p)
         xf.ClearXformOpOrder()
         xf.AddTransformOp().Set(Gf.Matrix4d(*local.T.reshape(-1)))
-    return {"prim": "/World/Robots/scrubber_dog", "usd": ROBOT, "links_posed": len(seen), "brush_ik_error_m": round(err, 4),
+    return {"prim": "/World/Robots/scrubber_dog", "usd": ROBOT, "links_posed": len(seen), "arm": "ARM_STOWED",
             "q": {k: round(float(v), 4) for k, v in q.items()}}
 
 
@@ -165,7 +149,6 @@ def build(t=ZONE_TRANSLATION, robot=True):
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     stage.SetDefaultPrim(stage.GetPrimAtPath("/World"))
-    add_looks(stage, deck_stage)
     add_zone(stage, deck_stage, t)
     meta = merged_meta(deck_meta, t)
     w = meta["world"]

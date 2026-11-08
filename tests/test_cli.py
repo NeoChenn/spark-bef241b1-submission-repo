@@ -45,3 +45,9 @@ def test_merged_flags():
     a = parse_args(["--cinematic", "night", "--merged", "--merged-hold", "0", "--merged-start", "2.5"])
     assert a.merged and a.merged_hold == 0.0 and a.merged_start == 2.5
     assert not parse_args([]).merged and parse_args([]).merged_hold == 8.0
+
+
+def test_merged_from_env(monkeypatch):
+    monkeypatch.setenv("RIG_MERGED", "1")
+    assert parse_args([]).merged
+    assert not parse_args(["--no-merged"]).merged
