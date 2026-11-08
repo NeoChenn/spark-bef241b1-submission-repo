@@ -32,8 +32,10 @@ class SourceEstimator:
         self.sigma0, self.reach = sigma0, reach_m
         self.n_hits = self.n_obs = self.n_bear = 0
 
-    def restrict(self, allowed: np.ndarray) -> None:
-        self.logp = np.where(allowed.ravel(), self.logp, -np.inf)
+    def prior(self, points, sigma: float = 0.6, floor: float = 0.3) -> None:
+        d = np.min(np.linalg.norm(self.cells[:, None, :] - np.asarray(points, float)[None, :, :2], axis=-1), 1)
+        self.logp += np.log(floor + np.exp(-d ** 2 / (2 * sigma ** 2)))
+        self._norm()
 
     def p_hit(self, pos, wind_unit) -> np.ndarray:
         w = unit(wind_unit)
@@ -162,7 +164,7 @@ class CastSurge:
         if t - self.last_hit_t > c.relocate_s:
             trusted = estimate is not None and estimate[1] < c.trust_sigma
             target = np.asarray(estimate[0], float)[:2] if trusted else self.last_hit_pos - 1.0 * up
-            if np.linalg.norm(target - p) > 0.4 and not blocked:
+            if np.linalg.norm(target - p) > 0.4 and not (blocked and self.mode == "RELOCATE" and not trusted):
                 self.mode = "RELOCATE"
                 return unit(target - p) * c.surge_speed
             self.last_hit_t = t - c.lost_s
@@ -176,6 +178,8 @@ class CastSurge:
             self.cast_dir = -self.cast_dir
             self.cast_width = min(self.cast_width * c.cast_grow, c.cast_max)
         v = self.cast_dir * side + c.upwind_drift * up
+        if estimate is not None and estimate[1] < c.trust_sigma:
+            v += c.estimate_w * unit(np.asarray(estimate[0], float)[:2] - p)
         if bearing is not None and snr_db > 6.0:
             v += 0.5 * np.array([math.cos(bearing), math.sin(bearing)])
         return unit(v) * c.cast_speed

@@ -157,7 +157,7 @@ def test_deck_clamp_and_route():
     total = sum(np.linalg.norm(np.subtract(deck.ROUTE[k], deck.ROUTE[k - 1])) for k in range(len(deck.ROUTE)))
     p, _, lap = r.step(p, total)
     assert lap and np.allclose(p, deck.ROUTE[0])
-    assert all(deck.BOUNDS[1][0] <= g.center[1] + 1.1 * g.normal[1] <= deck.BOUNDS[1][1] for g in deck.flanges())
+    assert all(deck.BOUNDS[1][0] <= deck.stand_pose(g)[0][1] <= deck.BOUNDS[1][1] for g in deck.flanges())
 
 
 def test_gas_bot_finds_and_fixes_a_loose_flange():

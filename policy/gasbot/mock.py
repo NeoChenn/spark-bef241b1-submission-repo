@@ -100,9 +100,8 @@ class GasMockBridge(GasBotMixin):
         return f[0] if f else None
 
     def approach_flange(self, fid) -> bool:
-        g = self.flange(fid)
-        stand = g.center[:2] + 1.1 * g.normal[:2]
-        if not self.walk_to(stand, math.atan2(-g.normal[1], -g.normal[0])):
+        stand, yaw = deck.stand_pose(self.flange(fid))
+        if not self.walk_to(stand, yaw):
             return False
         self.at_flange = fid
         self.perception.focus(fid)
@@ -143,7 +142,7 @@ def make_leak(rng, lw: LeakWorld, scenario: str, fid: str) -> float:
 
 
 def build(seed=0, scenario="loose", log_path=None, fid=None, wind_speed=None, wind_dir=None, h2s_ratio=None,
-          start=None, gas_cfg=None, seek_cfg=None):
+          start=None, gas_cfg=None, seek_cfg=None, acoustic=True):
     rng = np.random.default_rng(seed)
     geoms = deck.flanges()
     lw = LeakWorld(geoms)
@@ -163,6 +162,9 @@ def build(seed=0, scenario="loose", log_path=None, fid=None, wind_speed=None, wi
     perc = LeakPerception(lw)
     h2s = float(h2s_ratio if h2s_ratio is not None else (rng.choice([0.0, 0.0, 2e-4, 8e-4])))
     bridge = GasMockBridge(lw, wind, perc, pipe, seed, flow_full, h2s, start, err_db=float(rng.normal(0.0, 1.5)))
+    if not acoustic:
+        bridge.suite.acoustic.min_snr_db = math.inf
+        gas_cfg = gas_cfg or GasBotConfig(acoustic_snr=math.inf)
     arm = LeakArm(world, pipe, lw, seed=seed)
     loc = RustLocalizer(fake_colour_classifier, patch=16, stride=8, threshold=0.5, temperature=1.0)
     orch = GasBotOrchestrator(bridge, perc, loc, world, arm, GreedyScrub(pipe), OrchestratorConfig(log_path=log_path),
@@ -179,7 +181,7 @@ def run(orch, bridge, max_t=900.0, until_fixed=True, on_step=None) -> None:
         orch.step()
         if on_step is not None:
             on_step(orch)
-        if until_fixed and orch.state == S.PATROL and orch.resolved:
+        if until_fixed and orch.state == S.PATROL and orch.fixed_t is not None:
             break
 
 
@@ -194,7 +196,7 @@ def episode(seed, scenario="loose", max_t=900.0, **kw) -> dict:
                 for e in [float(np.hypot(x - src[0], y - src[1]))]]
         err = near[-1] if near else None
     return {"seed": seed, **truth, "detected": orch.detect_t is not None, "t_detect": orch.detect_t,
-            "t_found": orch.found_t, "t_fixed": orch.fixed_t, "loc_err": err, "flange_ok": orch.flange_id == truth["fid"]
-            if orch.found_t is not None else None, "final": orch.state.value, "flow_est": orch.flow, "flow_conc": orch.flow_conc,
+            "t_found": orch.found_t, "t_fixed": orch.fixed_t, "loc_err": err, "flange_ok": orch.handoffs[0] == truth["fid"] if orch.handoffs else None,
+            "handoffs": orch.handoffs, "final": orch.state.value, "flow_est": orch.flow, "flow_conc": orch.flow_conc,
             "alerts": [a["kind"] for a in orch.alerts], "track": track, "t_end": bridge.t,
             "path": np.round(np.array(bridge.path), 2).tolist()}

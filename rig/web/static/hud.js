@@ -13,6 +13,7 @@
     { id: "hud", name: "HUD", key: "h" }, { id: "map", name: "Pipe map", key: "m" },
     { id: "gemini", name: "Gemini", key: "g" }, { id: "log", name: "Decision log", key: "l" },
     { id: "force", name: "Force sensor", key: "f" }, { id: "pip", name: "Inspection PiP", key: "p" },
+    { id: "gas", name: "Gas sensors", key: "x" },
   ];
   const ACTIONS = [
     { id: "rust", label: "New rust", key: "1", ev: () => ({ name: "spawn_patch", args: {} }) },
@@ -273,6 +274,26 @@
     geminiTimer = setTimeout(() => $("gemini").classList.add("hide"), 11000 / (MOCK ? SPEED : 1));
   }
 
+  function showGas(g) {
+    $("gas").classList.remove("hide");
+    const lelCol = (v) => (v >= g.limits.stop_lel ? "var(--stop)" : v >= g.limits.alarm_lel ? "var(--warn)" : "var(--ok)");
+    const [tr, tp] = g.sensors;
+    [["trunk", tr], ["tip", tp]].forEach(([k, s]) => {
+      num($("gas-" + k), s.lel, 1);
+      $("gas-" + k + "-bar").style.width = Math.min(100, s.lel) + "%";
+      $("gas-" + k + "-bar").style.background = lelCol(s.lel);
+    });
+    num($("gas-h2s"), g.h2s_ppm, 1);
+    num($("gas-us"), g.acoustic ? g.acoustic.db : null, 0);
+    $("gas-src").textContent = g.source ? `${g.source.x.toFixed(1)}, ${g.source.y.toFixed(1)} ±${g.source.sigma_m.toFixed(1)} m` : "—";
+    num($("gas-flow"), g.flow_gs, 1);
+    $("gas-wind").textContent = `${g.wind.dir_deg.toFixed(0)}° ${g.wind.speed_ms.toFixed(1)}`;
+    $("gas-alarm").textContent = g.alarm;
+    $("gas-alarm").className = "chip " + g.alarm;
+    $("gas-unit").textContent = g.unit + (g.flange ? " · flange " + g.flange : "");
+    $("gas-mode").textContent = g.mode + (g.acoustic && g.acoustic.bearing_deg != null ? ` · US bearing ${g.acoustic.bearing_deg.toFixed(0)}°` : "");
+  }
+
   function apply(h) {
     if (h.state) setState(h.state);
     if (h.t != null) num($("st-time"), h.t, 1);
@@ -302,6 +323,7 @@
       $("pip-img").src = "data:image/jpeg;base64," + h.inspection.jpg;
     }
     if (h.gemini) showGemini(h.gemini);
+    if (h.gas) showGas(h.gas);
     $("pip").classList.toggle("hide", !S.insp || !PERCEIVE.has(S.state));
     const soak = h.soak;
     $("soak").classList.toggle("hide", !soak);

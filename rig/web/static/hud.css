@@ -219,3 +219,15 @@ kbd { font-family: var(--mono); letter-spacing: 0.02em; color: var(--faint); bor
 #help-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 #help-list li { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--dim); }
 #help-list kbd { min-width: 64px; text-align: center; color: var(--fg); }
+
+.gas { top: 190px; right: var(--edge); width: 248px; padding: 14px 16px; display: flex; flex-direction: column; gap: 5px; }
+.gas.hide { display: none; }
+.gas header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+.gas-sub { color: var(--faint); font-size: 11px; }
+.gas-row { display: flex; align-items: baseline; gap: 6px; font-size: 12px; }
+.gas-row i { color: var(--dim); font-style: normal; flex: 1; }
+.gas-row em { color: var(--faint); font-style: normal; font-size: 10px; min-width: 34px; }
+.gas-bar { height: 3px; border-radius: 2px; background: rgba(245,244,238,.08); overflow: hidden; }
+.gas-bar span { display: block; height: 100%; width: 0; background: var(--ok); transition: width 300ms; }
+#gas-alarm.DETECT { color: var(--warn); }
+#gas-alarm.ALARM, #gas-alarm.RETREAT { color: var(--stop); }

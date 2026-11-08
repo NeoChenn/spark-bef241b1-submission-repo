@@ -12,8 +12,8 @@ from policy.gasbot.mock import episode
 
 
 def _run(args):
-    seed, scenario, max_t = args
-    return episode(seed, scenario, max_t=max_t)
+    seed, scenario, max_t, *kw = args
+    return episode(seed, scenario, max_t=max_t, **(kw[0] if kw else {}))
 
 
 def summarise(rs: list[dict]) -> dict:
@@ -123,11 +123,14 @@ def main(argv=None) -> dict:
     jobs = {"leak": [(1000 + s, "loose", a.max_t) for s in range(a.n)],
             "none": [(5000 + s, "none", 300.0) for s in range(a.n_none)],
             "big": [(8000 + s, "big", a.max_t) for s in range(max(a.n // 5, 1))],
-            "crack": [(9000 + s, "crack", a.max_t) for s in range(max(a.n // 5, 1))]}
+            "crack": [(9000 + s, "crack", a.max_t) for s in range(max(a.n // 5, 1))],
+            "leak_no_ultrasound": [(1000 + s, "loose", a.max_t, {"acoustic": False}) for s in range(a.n)],
+            "none_no_ultrasound": [(5000 + s, "none", 300.0, {"acoustic": False}) for s in range(a.n_none)]}
     with ProcessPoolExecutor(a.workers) as ex:
         results = {k: list(ex.map(_run, v)) for k, v in jobs.items()}
     summary = {k: summarise(v) for k, v in results.items()}
-    summary["none"]["false_alarms"] = sum(r["detected"] for r in results["none"])
+    for k in ("none", "none_no_ultrasound"):
+        summary[k]["false_alarms"] = sum(r["detected"] for r in results[k])
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     (out / "eval_summary.json").write_text(json.dumps(summary, indent=2))

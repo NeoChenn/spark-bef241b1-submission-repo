@@ -29,10 +29,10 @@ class GasBotConfig:
     acoustic_confirm: int = 3
     seek_dt: float = 0.5
     seek_max_s: float = 240.0
-    found_sigma: float = 0.9
+    found_sigma: float = 0.75
     found_dist: float = 1.8
     found_hits: int = 6
-    snap_m: float = 2.2
+    snap_m: float = 1.5
     h2s_stop: float = 20.0
     deconv: float = 0.7
 
@@ -86,7 +86,7 @@ class GasBotMixin:
     def tip_pos(self) -> np.ndarray:
         if self.at_flange is not None:
             g = self.leak_world.flanges[self.at_flange].geom
-            return g.center + 0.2 * g.ref + 0.06 * g.normal
+            return g.center + 0.22 * g.ref + 0.05 * g.normal
         h = self.heading()
         side = 0.3 * math.sin(2 * math.pi * self.gas_t / 6.0)
         return np.r_[self.base_xy() + 0.5 * h + side * np.array([-h[1], h[0]]), deck.TIP_Z]
@@ -157,6 +157,7 @@ class GasBotOrchestrator(RigOrchestrator):
         self.fixed_t = None
         self.found_err = None
         self.est_track: list = []
+        self.handoffs: list = []
         self.seeker: Optional[CastSurge] = None
         self.est: Optional[SourceEstimator] = None
         self.estimate = None
@@ -222,6 +223,7 @@ class GasBotOrchestrator(RigOrchestrator):
         self.seek_t0 = self.t
         self.seeker = CastSurge(self.seek_cfg)
         self.est = SourceEstimator(deck.BOUNDS[0], (-0.4, 3.4))
+        self.est.prior([s.geom.center for f, s in self.bridge.leak_world.flanges.items() if f not in self.resolved])
         self.leak_resume = S.PATROL
 
     def _s_gas_seek(self):
@@ -255,7 +257,8 @@ class GasBotOrchestrator(RigOrchestrator):
         if sigma < c.found_sigma and dist < c.found_dist and evidence:
             near = self.bridge.nearest_flange_to(mean, exclude=self.resolved)
             if near is not None and near[1] <= c.snap_m:
-                self.found_t = self.t
+                self.found_t = self.found_t if self.found_t is not None else self.t
+                self.handoffs.append(near[0])
                 self._start_flange(near[0])
                 return (S.LEAK_APPROACH, f"source at ({mean[0]:.1f}, {mean[1]:.1f}) +/- {sigma:.1f} m, "
                         f"{near[1]:.1f} m from flange {near[0]} -> approach and inspect", self._evidence())

@@ -248,9 +248,6 @@ class IsaacRigBridge:
             self._roi_key, self._roi = key, hit
         return self._roi
 
-    def camera(self) -> CameraModel:
-        return self.last_camera or self._camera_model()
-
     def request_view(self, index: int) -> bool:
         if not 0 <= index < len(self.views):
             return False
@@ -322,8 +319,11 @@ class IsaacRigBridge:
         self.bumps.append((theta, z, height, radius))
         rs.add_weld_bead(self.stage, f"{rs.PIPE_SCOPE}/weld_bead_{len(self.bumps)}", self._pipe, theta, z, height, radius)
 
-    def camera(self, shot: int) -> None:
+    def camera(self, shot: Optional[int] = None) -> Optional[CameraModel]:
+        if shot is None:
+            return self.last_camera or self._camera_model()
         self.state.shot = int(shot)
+        return None
 
     def person_at(self, distance: Optional[float]) -> None:
         if distance is None:

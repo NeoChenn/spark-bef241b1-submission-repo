@@ -16,6 +16,7 @@ KEEP_OUT = (((3.2, 2.2), 0.45), ((3.6, 2.4), 0.45), ((5.7, 2.0), 0.85))
 MACHINERY = (((5.7, 2.0), 74.0),)
 ROUTE = ((-6.8, 1.25), (6.6, 1.25), (2.4, 2.05), (-6.8, 2.05))
 TRUNK_Z = 0.45
+STAND = 0.55
 TIP_Z = 0.95
 
 
@@ -26,6 +27,11 @@ def flanges() -> list[FlangeGeometry]:
         s = 1.0 if line == "main" else -1.0
         out.append(FlangeGeometry(fid, [x, p["y"] + s * (p["r"] + STUB), p["z"]], [0, s, 0], [0, 0, 1]))
     return out
+
+
+def stand_pose(g: FlangeGeometry) -> tuple[np.ndarray, float]:
+    face = math.atan2(-g.normal[1], -g.normal[0])
+    return g.center[:2] + STAND * g.normal[:2], face + math.pi / 2
 
 
 def leak_point(g: FlangeGeometry) -> np.ndarray:
