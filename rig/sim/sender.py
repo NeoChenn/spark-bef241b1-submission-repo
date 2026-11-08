@@ -3,12 +3,15 @@ import socket
 import threading
 
 from rig.frames import encode, read_message
+from rig.render.state import merge_messages
 
 
 class FrameSender:
-    def __init__(self, host: str, port: int, retry_s: float = 1.0) -> None:
+    def __init__(self, host: str, port: int, retry_s: float = 1.0, hello: dict | None = None, on_message=None) -> None:
         self.host, self.port, self.retry_s = host, port, retry_s
+        self.hello, self.on_message = hello, on_message
         self.connected = threading.Event()
+        self.connects = 0
         self.sent = 0
         self.dropped = 0
         self._lock = threading.Lock()
@@ -26,12 +29,13 @@ class FrameSender:
         with self._lock:
             if self._slot is not None:
                 self.dropped += 1
-                lost = self._slot[0].get("events")
-                if lost:
-                    header = {**header, "events": lost + list(header.get("events") or [])}
-                old = self._slot[0].get("plume")
-                if old:
-                    header = {**header, "plume": {**old, **(header.get("plume") or {})}}
+                old = self._slot[0]
+                if old.get("type") == "state" and header.get("type") == "state":
+                    header = merge_messages(old, header)
+                elif old.get("events"):
+                    header = {**header, "events": old["events"] + list(header.get("events") or [])}
+                if old.get("plume"):
+                    header = {**header, "plume": {**old["plume"], **(header.get("plume") or {})}}
             self._slot = (header, payload)
         self._ready.set()
 
@@ -55,6 +59,14 @@ class FrameSender:
                 continue
             sock.settimeout(None)
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            try:
+                if self.hello is not None:
+                    sock.sendall(encode(self.hello))
+            except OSError:
+                sock.close()
+                self._stop.wait(self.retry_s)
+                continue
+            self.connects += 1
             self.connected.set()
             threading.Thread(target=self._listen, args=(sock,), name="frame-sender-rx", daemon=True).start()
             try:
@@ -75,8 +87,10 @@ class FrameSender:
     def _listen(self, sock: socket.socket) -> None:
         try:
             while True:
-                header, _ = read_message(sock)
-                if header.get("type") == "event":
+                header, payload = read_message(sock)
+                if self.on_message is not None:
+                    self.on_message(header, payload)
+                elif header.get("type") == "event":
                     self.inbox.put({"name": header.get("name"), "args": header.get("args") or {}})
         except (ConnectionError, OSError, ValueError):
             pass

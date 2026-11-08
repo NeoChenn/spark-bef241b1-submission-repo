@@ -17,6 +17,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--merged", action=argparse.BooleanOptionalAction, default=os.environ.get("RIG_MERGED", "") == "1", help="with --cinematic: open sim/output/rig_merged.usda (repair zone on the top deck) and fly wide orbit -> pipe close-up")
     p.add_argument("--merged-hold", type=float, default=float(os.environ.get("RIG_MERGED_HOLD", "8")), help="seconds at the pipe close-up before flying back out; 0 = stay at the close-up")
     p.add_argument("--merged-start", type=float, default=0.0, help="time offset into the merged camera path")
+    p.add_argument("--atmos", default=os.environ.get("RIG_ATMOS", ""), choices=["", "live", "offline"], help="with --cinematic: volumetric haze, flare smoke, steam, embers, rain, spray at this quality tier")
+    p.add_argument("--weather", default=os.environ.get("RIG_WEATHER", ""), help="calm|wind|rain|fog|storm, a 0..1 level, or a schedule like calm@0,storm@20")
+    p.add_argument("--wind-dir", type=float, default=None, help="wind direction in degrees (towards), as set_weather")
+    p.add_argument("--gust", type=float, default=None, help="gust strength, as set_weather (18 = nominal)")
+    p.add_argument("--look", default=os.environ.get("RIG_LOOK", "live"), choices=["none", "live", "offline"], help="with --cinematic: sim/look.py exposure, tonemap and grade tier")
+    p.add_argument("--lens", action="store_true", help="with --atmos: rain droplets on the camera lens")
     p.add_argument("--fleet-log", default=os.environ.get("RIG_FLEET_LOG", ""), help="with --cinematic: replay a policy.fleet fleet_log.jsonl (obstacles, closures, weather, robot routes) in the scene")
     p.add_argument("--fleet-speed", type=float, default=4.0, help="fleet sim seconds per stream second for --fleet-log")
     p.add_argument("--path-radius", type=float, default=0.06, help="radius of the planned-route tube in metres")
@@ -48,6 +54,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--leak-dt", type=float, default=1 / 12, help="seconds of wall time between plume steps")
     p.add_argument("--pip-every", type=float, default=0.25)
     p.add_argument("--pip-size", type=size, default=(480, 270), metavar="WxH")
+    p.add_argument("--render-mode", choices=("local", "remote"), default=os.environ.get("RENDER_MODE") or "local",
+                   help="remote: skip the main view render and publish scene state for rig.render on another box")
     return p.parse_args(argv)
 
 

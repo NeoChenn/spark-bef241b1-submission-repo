@@ -6,7 +6,16 @@ import carb.settings
 import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
+import assets_hero
+import facade
+import flare_fx
+import greebles
+import look
 import ocean
+import hero_mat
+import ocean_fx
+import photoreal
+import structure
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
 from topside_frames import aim_from_down, kelvin_rgb
 
@@ -47,7 +56,7 @@ PRESETS = {
         "sun_color": (0.8, 0.88, 1.0),
         "fog_color": (0.2, 0.24, 0.27),
         "fog_height": 0.03,
-        "wave_height": 3.2,
+        "wave_height": 2.5,
         "lights": 0.8,
         "windows": 0.8,
         "sea_color": (0.008, 0.02, 0.024),
@@ -428,8 +437,112 @@ def build_stage() -> Usd.Stage:
     return stage
 
 
+def _relight(prim, f: dict) -> None:
+    light = prim.GetChild("light") if prim else None
+    if not light:
+        return
+    color = kelvin_rgb(f["kelvin"])
+    light.GetAttribute("inputs:color").Set(Gf.Vec3f(*color))
+    light.GetAttribute("inputs:intensity").Set(f["intensity"])
+    base = light.GetAttribute("spark:baseIntensity")
+    if base.IsValid():
+        base.Set(f["intensity"])
+    if f.get("cone") is not None:
+        shaping = UsdLux.ShapingAPI.Apply(light)
+        shaping.CreateShapingConeAngleAttr().Set(f["cone"])
+        shaping.CreateShapingConeSoftnessAttr().Set(f["softness"])
+        shaping.CreateShapingFocusAttr().Set(f["focus"])
+    lens = prim.GetChild("lens")
+    if lens:
+        glow = emissive_material(prim.GetStage(), f"fixture_glow_{int(f['kelvin'])}", tuple(c * 40 for c in color))
+        UsdShade.MaterialBindingAPI.Apply(lens).Bind(glow)
+
+
+def relight(stage) -> None:
+    lamps = "/World/Cinematic/Lamps"
+    for index, (kind, _, kelvin, intensity, _, shape) in enumerate(AREA_LIGHTS):
+        _relight(stage.GetPrimAtPath(f"{lamps}/area_{500 + index:03d}"),
+                 look.fixture(kind, kelvin, intensity, shape if kind == "spot" else None))
+    for index, (_, kelvin, intensity) in enumerate(BULBS):
+        _relight(stage.GetPrimAtPath(f"{lamps}/lamp_{index:03d}"), look.fixture("bulb", kelvin, intensity))
+
+
+def add_work_light(stage) -> None:
+    meta = OUTPUT / "rig_merged_meta.json"
+    if not stage.GetPrimAtPath("/World/Pipes/damage_patch") or not meta.exists():
+        return
+    import json
+
+    k = look.WORK_LIGHT
+    pos, aim = look.work_light(json.loads(meta.read_text())["world"]["damage"]["position_m"])
+    root = UsdGeom.Xform.Define(stage, "/World/Cinematic/Lamps/work_light")
+    w, x, y, z = aim_from_down(aim)
+    m = Gf.Matrix4d().SetRotate(Gf.Quatd(float(w), float(x), float(y), float(z)))
+    m.SetTranslateOnly(Gf.Vec3d(*pos))
+    root.MakeMatrixXform().Set(m)
+    light = UsdLux.SphereLight.Define(stage, "/World/Cinematic/Lamps/work_light/light")
+    light.CreateRadiusAttr().Set(k["radius"])
+    light.CreateIntensityAttr().Set(k["intensity"])
+    light.CreateColorAttr().Set(Gf.Vec3f(*kelvin_rgb(k["kelvin"])))
+    shaping = UsdLux.ShapingAPI.Apply(light.GetPrim())
+    shaping.CreateShapingConeAngleAttr().Set(k["cone"])
+    shaping.CreateShapingConeSoftnessAttr().Set(k["softness"])
+    base = light.GetPrim().GetAttribute("spark:baseIntensity")
+    if base.IsValid():
+        base.Set(k["intensity"])
+
+
+DECK_FLOODS = (
+    ((12.0, -2.0, 46.8), (14.5, -5.5, 42.5), SODIUM, 3.0e6, 28.0),
+    ((26.5, -11.0, 46.8), (23.5, -10.5, 42.5), SODIUM, 3.0e6, 28.0),
+    ((12.0, -11.5, 46.8), (15.0, -10.5, 42.5), SODIUM, 2.0e6, 28.0),
+    ((27.0, -1.5, 46.8), (24.0, -6.5, 42.5), SODIUM, 2.4e6, 28.0),
+)
+
+
+DECK_Z = 42.5
+ZONE_SPOT = ((20.2, -3.6, 44.8), (18.26, -5.25, 43.1), LED, 9.0e7, 12.0)
+
+
+def add_zone_spot(stage) -> None:
+    pos, target, kelvin, intensity, cone = ZONE_SPOT
+    path = "/World/Cinematic/Lamps/area_610"
+    if not stage.GetPrimAtPath(path):
+        add_fixture(stage, 610, "spot", pos, kelvin, intensity, tuple(np.subtract(target, pos)), cone)
+        UsdGeom.Xformable(stage.GetPrimAtPath(path)).AddScaleOp().Set(Gf.Vec3f(0.4, 0.4, 0.4))
+        b = SceneBuilder(stage)
+        b.tube("/World/Cinematic/Lamps", "zone_stand", (pos[0], pos[1], DECK_Z), (pos[0], pos[1], pos[2] - 0.05), 0.03,
+               b.plain("lamp_pole", (0.3, 0.32, 0.33), 0.5, 0.6), segments=12)
+    f = look.fixture("spot", kelvin, intensity, cone)
+    _relight(stage.GetPrimAtPath(path), {**f, "softness": 0.25})
+
+
+def add_deck_floods(stage, gain: float = 1.0) -> None:
+    b = SceneBuilder(stage)
+    steel = b.plain("lamp_pole", (0.3, 0.32, 0.33), 0.5, 0.6)
+    for k, (pos, target, kelvin, intensity, cone) in enumerate(DECK_FLOODS):
+        path = f"/World/Cinematic/Lamps/area_{600 + k:03d}"
+        if not stage.GetPrimAtPath(path):
+            add_fixture(stage, 600 + k, "spot", pos, kelvin, intensity, tuple(np.subtract(target, pos)), cone)
+            b.tube("/World/Cinematic/Lamps", f"deck_pole_{k}", (pos[0], pos[1], 42.5), (pos[0], pos[1], pos[2] + 0.3), 0.08,
+                   steel, segments=12)
+        _relight(stage.GetPrimAtPath(path), look.fixture("spot", kelvin, intensity * gain, cone))
+
+
 def apply_preset(stage, name: str) -> None:
     preset = PRESETS[name]
+    assets_hero.attach(stage)
+    facade.apply(stage, preset["windows"])
+    photoreal.apply(stage, name)
+    greebles.apply(stage)
+    structure.apply(stage, name)
+    hero_mat.apply(stage, name)
+    ocean_fx.apply(stage, name, preset["wave_height"])
+    flare_fx.attach(stage)
+    relight(stage)
+    add_deck_floods(stage)
+    add_zone_spot(stage)
+    add_work_light(stage)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))
     dome.GetIntensityAttr().Set(preset["dome"])
@@ -511,6 +624,7 @@ def animate_effects(stage, time: float) -> None:
         wave = math.sin(time * (7.0 + index * 1.7) + index * 2.1) * 0.5 + math.sin(time * 13.0 + index) * 0.5
         stretch = 2.2 + 0.32 * wave
         prim.GetAttribute("xformOp:scale").Set(Gf.Vec3f(1.0 + 0.12 * wave, 1.0 + 0.12 * wave, stretch))
+    flare_fx.update(stage, time)
     pulse = 0.55 + 0.45 * max(math.sin(time * 2.2), 0.0)
     strobe = 1.0 if (time % 1.6) < 0.12 else 0.02
     for index, level in [(b[0], pulse) for b in RED_BEACONS] + [(i, strobe) for i, _ in STROBES]:
@@ -527,3 +641,4 @@ def animate_ocean(stage, rest, distance, time: float, height: float) -> None:
     mesh.GetNormalsAttr().Set(Vt.Vec3fArray.FromNumpy(normals.astype(np.float32)))
     scroll = UsdShade.Shader.Get(stage, "/World/Looks/cinematic_sea/scroll")
     scroll.GetInput("translation").Set(Gf.Vec2f(time * 0.035, time * 0.02))
+    ocean_fx.animate(stage, time)

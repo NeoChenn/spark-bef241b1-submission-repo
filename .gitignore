@@ -24,3 +24,4 @@ Thumbs.db
 
 # Large assets kept out of Git; fetch with sim/tools/fetch_assets.py --only <id>
 sim/assets/third_party/hdris/*/*_8k.hdr
+sim/assets/go2_ur3/*_nocollide.urdf

@@ -1,0 +1,62 @@
+mdl 1.7;
+
+import ::anno::*;
+import ::df::*;
+import ::math::*;
+import ::state::*;
+import ::tex::*;
+
+float4 tile(uniform texture_2d atlas, float frame, float cols, float rows) {
+    float3 uv = state::texture_coordinate(0);
+    float f = math::floor(frame);
+    float n = cols * rows;
+    f = f - n * math::floor(f / n);
+    float r = math::floor(f / cols);
+    float c = f - cols * r;
+    float u = math::clamp(uv.x, 0.004, 0.996);
+    float v = math::clamp(uv.y, 0.004, 0.996);
+    float2 st = float2((c + u) / cols, 1.0 - (r + 1.0 - v) / rows);
+    return tex::lookup_float4(atlas, st, tex::wrap_clamp, tex::wrap_clamp);
+}
+
+float cut(float a, float floor_) {
+    return a < floor_ ? 0.0 : math::min(a, 1.0);
+}
+
+export material flare_card(
+    uniform texture_2d atlas = texture_2d(),
+    float frame = 0.0,
+    float cols = 8.0,
+    float rows = 4.0,
+    float gain = 1.0,
+    float alpha_gain = 1.0
+) = let {
+    float4 t = tile(atlas, frame, cols, rows);
+    color e = color(math::pow(math::max(float3(t.x, t.y, t.z), float3(0.0)), float3(2.2))) * gain;
+} in material(
+    thin_walled: true,
+    surface: material_surface(
+        emission: material_emission(emission: df::diffuse_edf(), intensity: e * math::PI, mode: intensity_radiant_exitance)
+    ),
+    backface: material_surface(
+        emission: material_emission(emission: df::diffuse_edf(), intensity: e * math::PI, mode: intensity_radiant_exitance)
+    ),
+    geometry: material_geometry(cutout_opacity: cut(t.w * alpha_gain, 0.02))
+);
+
+export material smoke_card(
+    uniform texture_2d puff = texture_2d(),
+    color tint = color(0.05),
+    color glow = color(0.0),
+    float alpha_gain = 1.0
+) = let {
+    float4 t = tile(puff, 0.0, 1.0, 1.0);
+    color e = glow * color(t.x, t.y, t.z) * math::PI;
+} in material(
+    thin_walled: true,
+    surface: material_surface(
+        scattering: df::diffuse_reflection_bsdf(tint: tint * color(t.x, t.y, t.z)),
+        emission: material_emission(emission: df::diffuse_edf(), intensity: e, mode: intensity_radiant_exitance)
+    ),
+    geometry: material_geometry(cutout_opacity: cut(t.w * alpha_gain, 0.05))
+);

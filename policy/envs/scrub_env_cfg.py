@@ -97,6 +97,13 @@ class ScrubEnvCfg(DirectRLEnvCfg):
     backdrop_usd: str = ""
     backdrop_translation: tuple = (0.0, 0.0, 0.0)
 
+    brush_sensor: bool = False
+    sensor_in_loop: bool = True
+    contact_stiffness: float = 2500.0
+    contact_damping: float = 80.0
+    brush_friction: float = 0.3
+    weld_bead_radius: float = 0.022
+
     spring_k_range: tuple = (1500.0, 4000.0)
     spring_k_nominal: float = 2500.0
     abrasion_coef_range: tuple = (0.7, 1.3)
