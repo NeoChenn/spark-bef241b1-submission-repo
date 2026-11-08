@@ -24,8 +24,9 @@ def smooth(s: float) -> float:
 
 
 class LabWorld:
-    def __init__(self, state):
+    def __init__(self, state, min_gap: float = 0.09):
         self.s = state
+        self.min_gap = min_gap
         self.painted = torch.zeros(1, state.H, state.W, dtype=torch.bool, device=state.device)
 
     def __getattr__(self, name):
@@ -66,6 +67,16 @@ class LabWorld:
         for _ in range(3):
             inner = inner & torch.roll(inner, 1, 0) & torch.roll(inner, -1, 0) & torch.roll(inner, 1, 1) & torch.roll(inner, -1, 1)
         mask = inner if inner.any() else reach
+        central = mask & (s.z_c.abs() < 0.2).view(-1, 1)
+        mask = central if central.any() else mask
+        rust = s.rust[0] > 0.05
+        if rust.any():
+            ii, jj = torch.nonzero(rust, as_tuple=True)
+            dth_r = (torch.remainder(s.theta_c.view(1, 1, -1) - s.theta_c[jj].view(-1, 1, 1) + math.pi, TWO_PI) - math.pi)
+            dz_r = s.z_c.view(1, -1, 1) - s.z_c[ii].view(-1, 1, 1)
+            clear = ((dth_r * float(s.radius[0])) ** 2 + dz_r ** 2).min(0).values
+            far = mask & (clear > self.min_gap ** 2)
+            mask = far if far.any() else mask & (clear >= clear[mask].max())
         i, j = divmod(int(torch.where(mask, d, torch.full_like(d, 1e9)).argmin()), s.W)
         return float(s.theta_c[j]), float(s.z_c[i])
 
@@ -150,6 +161,7 @@ class LabRepairBridge:
         self.worker_op, self.worker_yaw = rs.add_worker(stage)
         self.spray_cone, self.spray_op = rs.add_spray_cone(stage, "/World/Repair/spray_mist")
         self.last_inspection: Optional[np.ndarray] = None
+        self.inspections: list = []
         self.start = self.station.clone()
         self.start[0, 0] += start_x
         self._set_root(self.start)
@@ -357,6 +369,8 @@ class LabRepairBridge:
         if rgb is None or float(rgb.mean()) < 1.0:
             return None
         self.last_inspection = rgb
+        self.inspections.append((round(self.t, 2), rgb))
+        self.inspections = self.inspections[-40:]
         roi = self._pipe_roi()
         px = rgb[roi].astype(np.float32)
         if not len(px) or px.std() < 6.0 or px.mean() < 8.0:

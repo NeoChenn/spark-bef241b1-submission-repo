@@ -81,3 +81,23 @@ def test_colour_classifier_hue_threshold_rejects_olive_paint():
     strict = colour_classifier(0.3)
     assert (strict(olive) < 0).all() and (strict(rust) > 0).all()
     assert (fake_colour_classifier(rust) > 0).all()
+
+
+def test_injected_patch_lands_clear_of_existing_rust_and_reachable():
+    import torch
+
+    from integration.lab_bridge import LabWorld
+    from policy.envs.rust_state import RustState
+
+    s = RustState(1, 32, 64, 0.6)
+    s.radius[:] = 0.15
+    s.reachable[:] = False
+    s.reachable[0, 4:28, 5:30] = True
+    w = LabWorld(s)
+    s.rust = w.blob(1.2, 0.1, 0.05, 0.85)
+    th, z = w.inject_patch(1.2, 0.13, size=0.035)
+    gap = (((th - 1.2) * 0.15) ** 2 + (z - 0.1) ** 2) ** 0.5
+    assert gap > 0.09 and abs(z) < 0.2
+    i, j = s.H * (z + 0.3) / 0.6, th / (2 * 3.14159265) * s.W
+    assert 4 <= i < 28 and 5 <= j < 30
+    assert float(s.rust.sum()) > float(w.blob(1.2, 0.1, 0.05, 0.85).sum())

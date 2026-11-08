@@ -250,6 +250,9 @@ def worker(argv):
     for k, fr in keyframes.items():
         if not k.startswith("_"):
             Image.fromarray(fr).save(os.path.join(args.out_dir, f"key_{k}.png"))
+    os.makedirs(os.path.join(args.out_dir, "inspection"), exist_ok=True)
+    for t_i, img in bridge.inspections:
+        Image.fromarray(img).save(os.path.join(args.out_dir, "inspection", f"t{t_i:07.2f}.jpg"), quality=88)
     if bridge.last_inspection is not None:
         Image.fromarray(bridge.last_inspection).save(os.path.join(args.out_dir, "inspection_last.png"))
     ft = np.array([r["t"] for r in bridge.force_log])
