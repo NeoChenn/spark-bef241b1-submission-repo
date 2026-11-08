@@ -165,6 +165,7 @@ def test_coordinator_alarm_triggered_survey(rig):
     assert any("valve_05" in s for s in f.evidence["valves_skipped"])
     iso = f.follow_up[0]
     assert iso.kind == "valve_isolate" and iso.target == "valve_06" and iso.params["zone"] == "leak_01"
+    iso.params["approved"] = True  # as Coordinator.approve() sets it
     out = gv.ValveIsolateJob().run(iso, quad(), w)
     assert out.status == JobStatus.FINDING, out.log
     assert w.state["gas_leaks"][0]["isolated"]
