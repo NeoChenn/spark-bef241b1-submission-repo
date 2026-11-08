@@ -168,7 +168,7 @@ def test_film_edl_capture_plan_chime_and_frames(tmp_path):
     board = specs[("board", "board")]
     assert board[-2:] == [f"{by['board'].start:g}", f"{by['board_hold'].end:g}"] and "--sim" in board
     ff = {s for p, s in specs if p == "ff"}
-    assert ff == {s.name for s in shots if s.ff} and "walk_back" in ff
+    assert ff == {s.name for s in shots if s.ff} and any(n.startswith("walk_back") for n in ff)
     assert specs[("conclusion", "conclusion")][:2] == ["--cards", "short"]
     (tmp_path / "board" / "frames").mkdir(parents=True)
     Image.new("RGB", (8, 8)).save(tmp_path / "board" / "frames" / "00000.jpg")
