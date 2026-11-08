@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import random
 import threading
 
+from policy.fleet import barrel
 from policy.fleet.jobs import JobLibrary, JobTrace, run_orchestrator
 from policy.fleet.scenario import SCENARIOS
 
 LOG_KEEP = 300
+BARREL_EVERY_S = 60.0
 QUICK = {"rust": [(0, "DETECT", "rust confirmed"), (6, "SPRAY", "spray converter"), (14, "SOAK", "soak 30 s"),
                   (44, "SCRUB", "scrub, force-limited"), (90, "VERIFY", "on-board + second opinion"),
                   (100, "PAINT", "paint"), (120, "DONE", "repair complete")],
@@ -31,8 +34,10 @@ def quick_run(kind: str, scenario: str) -> JobTrace:
 
 
 class FleetLive:
-    def __init__(self, scenario: str = "judges", speed: float = 4.0, jobs=None, max_steps: int = 40):
+    def __init__(self, scenario: str = "judges", speed: float = 4.0, jobs=None, max_steps: int = 40,
+                 barrel_every_s: float = BARREL_EVERY_S, seed=None):
         jobs = jobs or JobLibrary(quick_run)
+        self.barrel_every_s, self.rng = barrel_every_s, random.Random(seed)
         self.scenario, self.speed, self.jobs, self.max_steps = scenario, speed, jobs, max_steps
         self.lock = threading.Lock()
         self.f = SCENARIOS[scenario](3, jobs=jobs, disturb=False) if scenario == "judges" else \
@@ -53,6 +58,8 @@ class FleetLive:
     def advance(self, wall_dt: float) -> dict:
         with self.lock:
             self.acc += wall_dt * self.speed
+            rolled = self.f.roll(wall_dt)
+            self._auto_barrel(wall_dt)
             k = 0
             while self.acc >= self.f.dt and k < self.max_steps:
                 self.f.step()
@@ -61,9 +68,25 @@ class FleetLive:
                 if self.f.done():
                     self.new_round()
             self.acc = min(self.acc, self.f.dt)
-            if k:
+            if k or rolled:
                 self.snap = self.f.snapshot()
             return self.snap
+
+    def _auto_barrel(self, dt: float) -> None:
+        hz = self.f.hz
+        if self.barrel_every_s <= 0 or hz.weather["wind"] < barrel.AUTO_WIND:
+            return
+        if self.rng.random() >= dt / self.barrel_every_s:
+            return
+        if sum(1 for o in hz.obstacles.values() if o.get("auto")) >= barrel.AUTO_MAX:
+            return
+        movers = [r.id for r in self.f.robots if not r.failed and r.legs]
+        if not movers:
+            return
+        try:
+            self.f.event("drop_obstacle", kind="barrel", at=self.rng.choice(movers), auto=True)
+        except ValueError:
+            pass
 
     def new_round(self) -> None:
         f = self.f

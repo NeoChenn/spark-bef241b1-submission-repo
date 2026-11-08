@@ -90,4 +90,31 @@
   C("catwalk", "Close the middle-deck catwalk", "block", "close_walkway", { edge: "catwalk_mid" }, "The narrow cross catwalk on the middle deck is shut.");
   C("worker", "Worker on the top-deck walkway", "person", "person_at", { xy: [-1, 4], deck: "top_deck", duration: 90 }, "Robots keep 3 m clear and route around the worker for 90 s.");
   C("clear", "Clear obstacles and closures", "x", "clear", { id: "all" }, "Removes every obstacle and closure; routes and cut-off jobs come back.");
+  C("barrel", "Roll a barrel at R1", "wind", "drop_obstacle", { kind: "barrel", at: "R1" }, "An oil drum breaks loose ahead of R1 and rolls with the wind. Its blocked segments move with it; robots re-plan until it comes to rest.");
+  const PAD = "https://rig.zeecloud.org/interactive";
+  let qrLib = null;
+  const qr = (el, size) => {
+    if (el._qr) return;
+    el._qr = 1;
+    qrLib = qrLib || new Promise((ok) => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; sc.onload = ok; document.head.appendChild(sc); });
+    qrLib.then(() => new QRCode(el, { text: PAD, width: size, height: size, colorDark: "#1d1a18", colorLight: "#F5F4EE", correctLevel: QRCode.CorrectLevel.M }));
+  };
+  const card = (el, size) => {
+    if (el._card) return;
+    el._card = 1;
+    el.innerHTML = `<div class="qr-card"><div class="qr-code"></div><div><b>Interactive controls</b><p>Scan to change the weather, roll a barrel or block a walkway from your phone.</p><a href="/interactive" target="_blank" rel="noopener">rig.zeecloud.org/interactive</a></div></div>`;
+    qr(el.querySelector(".qr-code"), size);
+  };
+  let pad = null;
+  H.command({ id: "interactive", group: "Unscripted change", label: "Interactive controls", icon: "spark", key: "⇧J", keys: "judge pad phone qr mobile interactive weather barrel obstacle",
+    desc: "Opens rig.zeecloud.org/interactive on a phone: weather, rolling barrel, obstacles and incidents, with the planner's reply.",
+    preview: (el) => card(el, 132), active: () => !!pad,
+    run: () => {
+      if (pad) { pad.remove(); pad = null; return; }
+      pad = document.createElement("div");
+      pad.className = "qr-pop glass hl";
+      card(pad, 200);
+      pad.onclick = (e) => { if (e.target.tagName !== "A") { pad.remove(); pad = null; } };
+      document.body.appendChild(pad);
+    } });
 })();

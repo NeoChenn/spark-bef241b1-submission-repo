@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#262624">
+  <title>Interactive controls</title>
+  <link rel="stylesheet" href="/static/interactive.css">
+</head>
+<body>
+  <header class="top">
+    <div><h1>Interactive controls</h1><p class="sub">Change the weather or drop something on a walkway. The fleet planner answers live.</p></div>
+    <span class="pill" id="health"><span class="dot"></span><span id="health-t">connecting</span></span>
+  </header>
+  <main class="grid">
+    <section class="live">
+      <figure class="card thumb">
+        <img id="frame" alt="Live hero view of the rig">
+        <figcaption><span class="chip" id="wx">Calm</span><span class="dim" id="frame-age"></span></figcaption>
+        <p class="wait" id="frame-wait">Waiting for the render…</p>
+      </figure>
+      <div class="card map">
+        <div class="map-head">
+          <div class="seg" id="decks" role="tablist">
+            <button data-deck="top_deck" role="tab">Top</button><button data-deck="middle_deck" role="tab">Middle</button><button data-deck="lower_deck" role="tab">Lower</button>
+          </div>
+          <span class="dim tnum" id="map-t"></span>
+        </div>
+        <canvas id="map" aria-label="Fleet map: robots, routes and hazards"></canvas>
+        <ul class="legend"><li><i class="l-route"></i>route</li><li><i class="l-ghost"></i>old route</li><li><i class="l-closed"></i>closed</li><li><i class="l-hz"></i>blocks</li><li><i class="l-soft"></i>soft cost</li></ul>
+      </div>
+    </section>
+    <section class="controls">
+      <div class="group">
+        <h2>Weather</h2>
+        <div class="wx">
+          <div class="seg big" id="time" role="group" aria-label="Time of day">
+            <button data-time="dusk">Dusk</button><button data-time="night">Night</button>
+          </div>
+          <div class="seg big" id="cond" role="group" aria-label="Conditions">
+            <button data-level="calm">Clear</button><button data-level="rain">Rain</button><button data-level="fog">Fog</button>
+          </div>
+        </div>
+      </div>
+      <div class="group">
+        <h2>Drop on a walkway</h2>
+        <div class="btns">
+          <button class="b hero" data-act="large"><b>Large can</b><span>A 205 L drum breaks loose and rolls</span></button>
+          <button class="b" data-act="puddle"><b>Puddle</b><span>Soft cost: around it or slowly through</span></button>
+          <button class="b" data-act="small"><b>Small can</b><span>A gripper robot comes to pick it up</span></button>
+        </div>
+      </div>
+      <details class="group more">
+        <summary><h2>More</h2><span class="dim">Obstacles and closures</span></summary>
+        <div class="btns small">
+          <button class="b" data-act="crate"><b>Crate</b><span>Blocks</span></button>
+          <button class="b" data-act="spill"><b>Oil spill</b><span>Slippery</span></button>
+          <button class="b" data-act="debris"><b>Debris</b><span>Blocks</span></button>
+          <button class="b" data-act="scaffold"><b>Scaffold</b><span>Blocks</span></button>
+          <button class="b" data-act="hose"><b>Hose</b><span>Slow</span></button>
+          <button class="b" data-act="stairs"><b>Close stairs</b><span>The flight in use</span></button>
+          <button class="b wide" data-act="walkway"><b>Close walkway</b><span>The segment ahead of a robot</span></button>
+        </div>
+      </details>
+      <button class="b clear" data-act="clear"><b>Clear all</b><span>Remove every obstacle and closure</span></button>
+    </section>
+  </main>
+  <div id="toasts" aria-live="polite"></div>
+  <script src="/static/interactive.js"></script>
+</body>
+</html>

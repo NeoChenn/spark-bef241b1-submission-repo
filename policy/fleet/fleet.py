@@ -11,6 +11,7 @@ import numpy as np
 from policy.fleet.api import corners
 from policy.fleet.assign import INF, assign, pick_responder
 from policy.fleet.battery import Battery
+from policy.fleet import barrel
 from policy.fleet.hazards import OBSTACLES, Hazards, seg_dist
 from policy.fleet.jobs import JobLibrary
 from policy.fleet.reservations import Leg, Reservations, plan_legs
@@ -107,6 +108,7 @@ class Fleet:
         self._hz_tick = False
         self._marks: dict[str, dict] = {}
         self.reroutes: list[dict] = []
+        self._rolled: dict[str, list[float]] = {}
 
     def add_robot(self, rid: str, node: int, soc: float = 1.0, caps=(), **battery) -> Robot:
         b = Battery(**battery)
@@ -204,11 +206,28 @@ class Fleet:
                 xyz = h["xyz"]
             else:
                 h = self.hz.drop(ob_kind, xyz, at)
-            what = {"block": "walkway blocked", "slow": "trip hazard, slow", "slip": "slippery, avoid stairs"}
+            what = {"block": "walkway blocked", "slow": "trip hazard, slow", "slip": "slippery, avoid stairs", "soft": "soft cost"}
             msg, cause = (f"{ob_kind} {h['id']} dropped at {np.round(xyz, 1).tolist()} -> {what[h['effect']]}",
                           f"{ob_kind} {h['id']}")
             if kind == "drop_can":
                 msg += f", {task.id} queued for the nearest gripper robot"
+            elif ob_kind == "barrel":
+                at = d.get("at") if d.get("at") is not None else self.robots[0].id
+                rid = at if isinstance(at, str) else at.get("robot") if isinstance(at, dict) else None
+                rob = next((r for r in self.robots if r.id == rid), None)
+                try:
+                    barrel.start(self.rm, h, None if rob is None else rob.pos, barrel.wind_xy(self.hz.weather))
+                except ValueError:
+                    del self.hz.obstacles[h["id"]]
+                    raise
+                h["auto"] = bool(d.get("auto"))
+                self._rolled[h["id"]] = list(h["xyz"])
+                msg = (f"{'gust knocks an oil drum loose' if h['auto'] else 'oil drum'} {h['id']} at "
+                       f"{np.round(h['xyz'], 1).tolist()} -> rolling{' with the wind' if self.hz.weather['wind'] > 0.05 else ' loose'}, walkway blocked")
+                cause = f"rolling barrel {h['id']}"
+            elif h["effect"] == "soft":
+                self.hz.apply(self.rm)
+                msg = f"{ob_kind} {h['id']} at {np.round(xyz, 1).tolist()} -> soft cost; {self._soft_reply()}"
         elif kind in ("close_walkway", "close_stairs"):
             target = d.get("edge", d.get("id")) or self._default_target(kind == "close_stairs")
             h = self.hz.close(self.rm, target, "stairs" if kind == "close_stairs" else None)
@@ -221,9 +240,10 @@ class Fleet:
             h = {"id": ",".join(gone) or "none"}
             msg, cause = f"cleared {h['id']} -> routes restored", f"cleared {h['id']}"
         else:
-            w = self.hz.set_weather(d.get("level", "calm"), d.get("wind_dir"), d.get("gust"))
+            w = self.hz.set_weather(d.get("level", "calm"), d.get("wind_dir"), d.get("gust"), d.get("time"))
             h = {"id": w["level"]}
-            msg = "weather calm -> normal speed and sight" if w["level"] == "calm" else (f"weather {w['level']}: wind {w['wind']:.1f} toward {w['wind_dir']:.0f} deg, wet {w['wet']:.1f}, "
+            when = f" at {w['time']}" if w.get("time") else ""
+            msg = f"weather calm{when} -> normal speed and sight" if w["level"] == "calm" else (f"weather {w['level']}{when}: wind {w['wind']:.1f} toward {w['wind_dir']:.0f} deg, wet {w['wet']:.1f}, "
                    f"fog {w['fog']:.1f} -> speed x{w['speed']['walk']:.2f}, stairs x{w['speed']['stairs']:.2f}, "
                    f"sight {w['perception_range_m']:.0f} m" + (", windward walkways closed" if w["closes_outer"] else ""))
             cause = f"weather {w['level']}"
@@ -231,6 +251,51 @@ class Fleet:
         self.hz.apply(self.rm)
         self._hz_tick = True
         self._log(kind, msg, hazard=h["id"])
+
+    def _soft_reply(self) -> str:
+        soft = set(self.rm.factor)
+        key = lambda u, v: (u, v) if u < v else (v, u)
+        out = []
+        for r in self.robots:
+            if r.failed or not r.legs or r.goal is None:
+                continue
+            old = [r.node] + [lg.v for lg in r.legs]
+            if not any(key(u, v) in soft for u, v in zip(old, old[1:])):
+                continue
+            _, path = self.rm.route(r.node, r.goal, self._blocked)
+            if not path:
+                continue
+            hit = [(u, v) for u, v in zip(path, path[1:]) if key(u, v) in soft]
+            if hit:
+                slow = sum(self.rm.edge_time(u, v) * (1 - self.rm.factor[key(u, v)]) for u, v in hit)
+                out.append(f"{r.id} walks through slowly, +{slow:.0f} s")
+            else:
+                extra = plen([self.rm.pos[n] for n in path]) - plen([self.rm.pos[n] for n in old])
+                out.append(f"{r.id} steps around it, {extra:+.0f} m")
+        return ", ".join(out) or "no robot on it, routes avoid it if the detour is cheap"
+
+    def roll(self, dt: float) -> bool:
+        wind = barrel.wind_xy(self.hz.weather)
+        moved = []
+        for ob in self.hz.obstacles.values():
+            if ob["kind"] != "barrel" or not ob.get("rolling"):
+                continue
+            if not barrel.step(self.rm, ob, wind, dt):
+                self._log("barrel_stopped", f"oil drum {ob['id']} came to rest at {np.round(ob['xyz'], 1).tolist()} "
+                          f"-> static obstacle until cleared", hazard=ob["id"])
+                moved.append(ob)
+            elif math.dist(self._rolled.get(ob["id"], ob["xyz"]), ob["xyz"]) >= barrel.MOVE_APPLY_M:
+                moved.append(ob)
+        if not moved:
+            return False
+        for ob in moved:
+            self._rolled[ob["id"]] = list(ob["xyz"])
+        before = set(self.rm.closed)
+        self.hz.apply(self.rm)
+        if set(self.rm.closed) != before:
+            self._mark(f"rolling barrel {moved[0]['id']}")
+            self._hz_tick = True
+        return True
 
     def _drop_can(self, xyz, at, d: dict):
         q, dv = self._snap_edge(xyz)
@@ -344,12 +409,16 @@ class Fleet:
             extra_s = round(r.legs[-1].t1 - m["end"], 1) if new else None
             task = r.task.id if r.task else None
             r.prev_path, r.reroute_t = corners(op), self.t
+            was = {self.rm.adj[u][v].corridor for u, v in zip(old, old[1:]) if v in self.rm.adj[u]}
+            via = next((lg.corridor for lg in r.legs if lg.corridor and lg.corridor not in was
+                        and lg.kind in ("stairs", "catwalk")), None)
             rec = {"robot": rid, "cause": m["cause"], "old_path": r.prev_path, "new_path": corners(nw) if new else [],
                    "extra_m": extra_m, "extra_s": extra_s, "task": task, "retask": task != m["task"],
-                   "backout": bool(r.legs and r.legs[0].back)}
+                   "backout": bool(r.legs and r.legs[0].back), "via": via}
             self.reroutes.append({"t": round(self.t, 2), **rec})
             if new:
-                msg = (f"{rid} re-routes around {m['cause']}: {extra_m:+.0f} m, {extra_s:+.0f} s"
+                msg = (f"{rid} re-routes around {m['cause']}" + (f" via {via.replace('_', ' ')}" if via else "")
+                       + f": {extra_m:+.0f} m, {extra_s:+.0f} s"
                        + (" (backs out of corridor)" if rec["backout"] else "") + (f" -> {task}" if rec["retask"] else ""))
             else:
                 msg = f"{rid} has no route around {m['cause']} -> holds"
