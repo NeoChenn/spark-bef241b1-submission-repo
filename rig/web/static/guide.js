@@ -35,6 +35,32 @@
   card.hidden = true;
   document.body.append(btn);
   let cur = +(Q.get("guide") || 0), open = false, shown = "";
+  const SCENES = [
+    { id: "rust", label: "Rust job", key: "4", ts: [2, 75.5], pins: ["vitals", "pipe"], what: ["spray, soak and scrub", "resume and paint"] },
+    { id: "pipe", label: "Pipe fix", key: "5", ts: [17.5, 60], pins: ["gas", "control"], what: ["the leak and the hold", "the re-torque"] },
+    { id: "dist", label: "Disturbances", key: "6", ts: [29.5, 37], pins: ["nav", "fleet"], what: ["the crate stop", "the push"] },
+  ];
+  let [scId, scIdx] = (Q.get("scene") || ".").split(".");
+  scIdx = +scIdx || 0;
+  function goTo(t, pins, hold, extra) {
+    S.guide = true;
+    if (H.replayed() && !H.jump(t)) {
+      const p = new URLSearchParams(location.search);
+      ["pin", "view", "t", "guide", "autostart", "lay", "hold", "scene"].forEach((k) => p.delete(k));
+      location.search = `${p}&t=${t}&autostart&view=&lay=${pins.join(",")}${hold ? "&hold" : ""}${open ? "&guide=" + cur : ""}${extra || ""}`;
+      return false;
+    }
+    H.openView(null); H.layout(pins); H.pause(!!hold);
+    return true;
+  }
+  function scene(id) {
+    const sc = SCENES.find((x) => x.id === id);
+    scIdx = scId === id && scIdx === 0 ? 1 : 0; scId = id;
+    goTo(sc.ts[scIdx], sc.pins, false, `&scene=${id}.${scIdx}`);
+    if (open) render();
+  }
+  SCENES.forEach((sc) => H.command({ id: "scene." + sc.id, group: "Views", label: "Scene: " + sc.label, icon: "film", key: sc.key, keys: "scene jump replay " + sc.label.toLowerCase(),
+    desc: `Jumps the replay to ${sc.ts[0]} s (${sc.what[0]}); press again for ${sc.ts[1]} s (${sc.what[1]}).`, active: () => scId === sc.id, run: () => scene(sc.id) }));
   const now_ = () => STEPS.reduce((k, st, i) => (st.t != null && S.started && S.t >= st.t ? i : k), -1);
   function render() {
     const st = STEPS[cur], n = now_(), say = typeof st.say === "function" ? st.say() : st.say;
@@ -42,21 +68,14 @@
       + `<div class="g-chips">${STEPS.map((x, i) => `<button data-i="${i}" class="${i === cur ? "on" : ""} ${i === n ? "now" : ""} ${x.t == null ? "live" : ""}">${i + 1}</button>`).join("")}</div>`
       + `<div class="g-step"><p class="g-t"><b>${esc(st.title)}</b><em>${esc(st.at)}</em></p><p class="g-say">${esc(say)}</p>`
       + `<p class="g-keys">${st.keys.map((k) => `<kbd>${esc(k)}</kbd>`).join("")}</p>`
-      + `<div class="g-act">${st.t != null ? `<button class="g-jump" data-a="jump">Jump to ${st.t} s</button>` : ""}<button data-a="play">${H.paused() ? "Play" : "Pause"} <kbd>K</kbd></button></div></div>`;
+      + `<div class="g-act">${st.t != null ? `<button class="g-jump" data-a="jump">Jump to ${st.t} s</button>` : ""}<button data-a="play">${H.paused() ? "Play" : "Pause"} <kbd>K</kbd></button></div></div>`
+      + `<div class="g-scenes"><span>Scenes</span>${SCENES.map((sc) => `<button data-s="${sc.id}" class="${scId === sc.id ? "on" : ""}"><kbd>${sc.key}</kbd>${esc(sc.label)}</button>`).join("")}</div>`;
     if (html !== shown) { shown = html; card.innerHTML = html; }
   }
   function go(i, jump) {
     cur = (i + STEPS.length) % STEPS.length;
     const st = STEPS[cur];
-    if (jump && st.t != null) {
-      if (H.replayed() && !H.jump(st.t)) {
-        const p = new URLSearchParams(location.search);
-        ["pin", "view", "t", "guide", "autostart"].forEach((k) => p.delete(k));
-        location.search = `${p}&t=${st.t}&guide=${cur}&autostart&view=`;
-        return;
-      }
-      H.openView(null); H.layout(st.pins || []); H.pause(!!st.pause);
-    }
+    if (jump && st.t != null && !goTo(st.t, st.pins || [], st.pause)) return;
     render();
   }
   function toggle(on = !open) {
@@ -67,7 +86,8 @@
     const b = e.target.closest("button");
     if (!b) return;
     const a = b.dataset.a;
-    if (b.dataset.i != null) go(+b.dataset.i, true);
+    if (b.dataset.s) scene(b.dataset.s);
+    else if (b.dataset.i != null) go(+b.dataset.i, true);
     else if (a === "prev" || a === "next") go(cur + (a === "next" ? 1 : -1), true);
     else if (a === "jump") go(cur, true);
     else if (a === "play") { H.pause(); render(); }
@@ -78,9 +98,7 @@
   H.command({ id: "pause", group: "Demo", label: "Pause or play the replay", icon: "play", key: "k", keys: "pause play stop freeze", desc: "Freezes the replay clock; press again to carry on.", active: () => H.paused(), run: () => { H.pause(); if (open) render(); } });
   setInterval(() => open && render(), 250);
   addEventListener("DOMContentLoaded", () => {
-    if (!Q.has("guide")) return;
-    toggle(true);
-    const st = STEPS[cur];
-    H.openView(null); H.layout(st.pins || []); H.pause(!!st.pause); render();
+    if (Q.has("lay")) { S.guide = true; H.openView(null); H.layout(Q.get("lay").split(",").filter(Boolean)); H.pause(Q.has("hold")); }
+    if (Q.has("guide")) toggle(true);
   });
 })();

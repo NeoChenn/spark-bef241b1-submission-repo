@@ -12,6 +12,16 @@ If port 9000 is taken by a running sim, add `SIM_PORT=9079` in front. Then open:
 
 **http://localhost:8080/?replay=runs_sample/fleet_demo**
 
+The recorded Isaac render plays behind the HUD, synced to the replay clock. The server picks the newest valid `runs/fleet_isaac/*/fleet_isaac.mp4` whose `fleet_isaac.json` names this timeline; `&video=runs/fleet_isaac/final2/fleet_isaac.mp4` forces one. Without a video the still rig image stays. Camera keys 1–3 only work in the live sim.
+
+**Scenes** (also on the Guide card). Press once for the first moment, and again for the second:
+
+| Key | Scene | Jumps to | Panels |
+|---|---|---|---|
+| 4 | Rust job | 2 s spray, soak, scrub → 75.5 s resume and paint | Vitals (brush force), Pipe map |
+| 5 | Pipe fix | 17.5 s leak and hold → 60 s re-torque | Gas, Control centre |
+| 6 | Disturbances | 29.5 s crate stop → 37 s push | Navigation, Fleet map |
+
 Press **T** (or click **Guide**, top left). Each step has a **Jump** button that seeks the replay and opens the right panels. **K** pauses and plays, and **H** lists every key.
 
 ## Steps
@@ -34,6 +44,7 @@ Press **T** (or click **Guide**, top left). Each step has a **Jump** button that
 | Key | Does |
 |---|---|
 | T | Guide |
+| 4 5 6 | Scenes: rust job, pipe fix, disturbances |
 | K | Pause / play |
 | Space | Start |
 | H or ? | All controls |

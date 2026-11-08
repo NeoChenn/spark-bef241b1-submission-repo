@@ -15,7 +15,7 @@
     } else if (r.type === "command") {
       S.commands.unshift(r); S.commands.length = Math.min(S.commands.length, 8);
       const [tone, label, ic] = CMD[r.kind] || ["act", r.kind, "bolt"], why = String(r.reason || "").split(" | ")[0];
-      relog(r, r.kind.toUpperCase(), r.kind.toUpperCase(), `${who(r.robot)} · ${aim(r)}${r.source === "edge" ? " (edge rule)" : ""} · ${r.reason}`, r.source === "edge" ? "Edge rule" : "Argon");
+      relog(r, r.kind.toUpperCase(), r.kind.toUpperCase(), `${who(r.robot)} ${aim(r)}${r.source === "edge" ? " (edge rule)" : ""} · ${r.reason}`, r.source === "edge" ? "Edge rule" : "Argon");
       H.banner(tone === "act" ? "run" : tone, `${r.source === "edge" ? "Edge rule" : "Argon"} · ${label} · ${who(r.robot)}`, why, ic, 3600);
     } else if (r.type === "ticket") {
       S.tickets.push(r);
@@ -73,6 +73,7 @@
       if (el._h !== html) { el._h = html; el.innerHTML = html; }
     } });
   H.on((h) => {
+    if (h.state && h.state !== S.lastState) { if (h.state === "HOLD" && (h.argon?.held || S.argon?.held)) H.banner("warn", "Holding · spark rule", "Rust job paused, not cancelled, while a detector nearby is not green", "hand"); S.lastState = h.state; }
     if (h.argon) S.argon = h.argon;
     if (h.detectors) S.detectors = h.detectors;
     if (Array.isArray(h.fusion)) S.fusionNow = Object.fromEntries(h.fusion.map((f) => [f.sensor, f]));
