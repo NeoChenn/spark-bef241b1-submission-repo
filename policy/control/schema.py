@@ -9,11 +9,13 @@ CLOUD_KINDS = ("dispatch", "second_view", "hold", "resume", "escalate", "evacuat
 EDGE_KINDS = ("back_off", "retreat", "pause", "evacuate")
 NEEDS_ROBOT = {"dispatch", "second_view", "hold", "resume"}
 SEVERITIES = ("info", "warn", "critical")
+PURPOSES = ("", "verify_sensor")
+VERIFY = "verify_sensor"
 LABELS = {
     "dispatch": "Dispatch {robot} to {target}", "second_view": "Second view of {target} by {robot}",
-    "hold": "Hold {robot}", "resume": "Resume {robot}", "escalate": "Escalate to control room",
+    "hold": "Hold {robot}", "resume": "Resume {robot}", "escalate": "Escalate {target} to control room",
     "evacuate": "Evacuate zone {target}", "back_off": "Back off {robot}", "retreat": "Retreat {robot} upwind",
-    "pause": "Pause {robot}",
+    "pause": "Pause {robot}", "verify_sensor": "Send {robot} to verify sensor {target}",
 }
 MAX_ACTIONS = 5
 MAX_LINES = 3
@@ -29,7 +31,10 @@ RESPONSE_SCHEMA = {
             "properties": {
                 "kind": {"type": "string", "enum": list(CLOUD_KINDS)},
                 "robot": {"type": "string", "description": "Robot id, or empty for fleet-wide actions."},
-                "target": {"type": "string", "description": "Job id, zone id or robot id the action is about."},
+                "target": {"type": "string", "description": "Job id, zone id, robot id or sensor id the action is about."},
+                "purpose": {"type": "string", "enum": list(PURPOSES),
+                            "description": "verify_sensor: dispatch the robot to read a suspect fixed sensor with "
+                                           "its own onboard sensor; target is then the sensor id."},
                 "confidence": {"type": "number", "minimum": 0, "maximum": 1},
                 "rationale": {"type": "string", "description": "One short sentence citing the sensor evidence."},
             },
@@ -65,6 +70,7 @@ class Action:
     rationale: str = ""
     source: str = "cloud"
     rule: str = ""
+    purpose: str = ""
 
     @property
     def id(self) -> str:
@@ -72,12 +78,15 @@ class Action:
 
     @property
     def label(self) -> str:
-        return LABELS.get(self.kind, self.kind).format(robot=self.robot or "fleet", target=self.target or "-")
+        label = LABELS.get(self.purpose or self.kind, self.kind)
+        if self.kind == "escalate" and not self.target:
+            label = label.replace("{target} ", "")
+        return label.format(robot=self.robot or "fleet", target=self.target or "-")
 
     def to_dict(self) -> dict:
         return {"id": self.id, "label": self.label, "kind": self.kind, "robot": self.robot, "target": self.target,
                 "confidence": round(self.confidence, 2), "rationale": self.rationale, "source": self.source,
-                "rule": self.rule}
+                "rule": self.rule, "purpose": self.purpose}
 
 
 @dataclass
@@ -123,10 +132,14 @@ def _action(d, snap: SensorSnapshot) -> Action:
     kind = _str(d, "kind")
     if kind not in CLOUD_KINDS:
         raise SchemaError(f"kind {kind!r} not in whitelist")
-    robot, target = _str(d, "robot"), _str(d, "target")
+    robot, target, purpose = _str(d, "robot"), _str(d, "target"), _str(d, "purpose")
     robots = {r.id for r in snap.robots}
     jobs = {j.get("id") for j in snap.jobs}
     zones = snap.zones()
+    if purpose not in PURPOSES:
+        raise SchemaError(f"purpose {purpose!r} not in whitelist")
+    if purpose == VERIFY:
+        return _verify(kind, robot, target, d, snap)
     if kind in NEEDS_ROBOT and robot not in robots:
         raise SchemaError(f"unknown robot {robot!r}")
     if robot and robot not in robots:
@@ -138,6 +151,23 @@ def _action(d, snap: SensorSnapshot) -> Action:
     if kind == "evacuate" and target not in zones:
         raise SchemaError(f"unknown zone {target!r}")
     return Action(kind, robot, target, _conf(d.get("confidence")), _str(d, "rationale", RATIONALE_CHARS))
+
+
+def _verify(kind: str, robot: str, target: str, d: dict, snap: SensorSnapshot) -> Action:
+    if kind != "dispatch":
+        raise SchemaError("verify_sensor is a dispatch purpose")
+    fault = next((h for h in snap.health if h.id == target), None)
+    if fault is None:
+        raise SchemaError(f"unknown sensor {target!r}")
+    if fault.status == "OK":
+        raise SchemaError(f"sensor {target} is healthy; nothing to verify")
+    cand = next((c for c in fault.candidates if c.get("robot") == robot), None)
+    if cand is None:
+        raise SchemaError(f"{robot!r} is not a candidate for {target}")
+    if not cand.get("ok"):
+        raise SchemaError(f"{robot} cannot verify {target}: {cand.get('why', 'not capable')}")
+    return Action(kind, robot, target, _conf(d.get("confidence")), _str(d, "rationale", RATIONALE_CHARS),
+                  purpose=VERIFY)
 
 
 def _anomaly(d) -> Anomaly:

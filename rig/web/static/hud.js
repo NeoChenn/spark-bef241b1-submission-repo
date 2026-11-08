@@ -1,6 +1,7 @@
 (() => {
   const Q = new URLSearchParams(location.search);
-  const MOCK = Q.has("mock");
+  const SESSION = Q.get("session");
+  const MOCK = Q.has("mock") || !!SESSION;
   const SPEED = parseFloat(Q.get("speed") || "1");
   const $ = (id) => document.getElementById(id);
   const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -276,7 +277,23 @@
     geminiTimer = setTimeout(() => $("gemini").classList.add("hide"), 11000 / (MOCK ? SPEED : 1));
   }
 
-  const CC_TOP = 3;
+  const CC_TOP = 3, HEALTH_TOP = 3;
+  const HEALTH_EV = (f) => {
+    const e = f.evidence || {}, u = e.unit ? " " + e.unit : "";
+    if (f.status === "STUCK") return `flat ${e.value}${u} · σ ${e.std} vs ${e.nbr_std}`;
+    if (f.status === "DEAD") return `silent ${e.silent_s} s`;
+    if (f.status === "DRIFT") return `bias ${e.bias > 0 ? "+" : ""}${e.bias}${u} > ${e.tol}`;
+    if (f.status === "NOISY") return `noise ${e.ratio}× peers`;
+    return `reads ${e.value}${u}`;
+  };
+  function showHealth(h) {
+    const el = $("cc-health");
+    if (!h || !h.total) { el.innerHTML = ""; return; }
+    const rows = (h.faults || []).slice(0, HEALTH_TOP).map((f) => `<li class="${f.hazard ? "hz" : ""}">
+      <span class="st ${f.status.toLowerCase()}">${f.status === "OUT_OF_RANGE" ? "RANGE" : f.status}</span><span class="id">${esc(f.id)}</span>
+      <span class="ev">${esc(f.hazard ? "hazard · treated as gas" : HEALTH_EV(f))}</span><span class="jb">${f.job ? esc(f.job) : "—"}</span></li>`).join("");
+    el.innerHTML = `<div class="hh"><i>Sensor health</i><span class="num ${h.faults.length ? "warn" : ""}">${h.ok}/${h.total} OK</span></div>` + (rows ? `<ul>${rows}</ul>` : "");
+  }
   const CUT = { mode: "EDGE", banner: "GEMINI LINK CUT — EDGE ONLY", pending: false, link: "CUT" };
   function showControl(raw) {
     S.control = raw;
@@ -290,6 +307,7 @@
     $("cc-model").textContent = c.model ? "Gemini 4 Argon" + (c.replay ? " · replay" : "") : "edge only";
     $("cc-banner").textContent = c.banner || "";
     $("cc-banner").classList.toggle("on", !!c.banner);
+    showHealth(c.health);
     const sit = c.situation && c.situation.length ? c.situation : ["Edge safety rules only; no cloud plan yet."];
     const sitKey = sit.join("|");
     if (sitKey !== S.ccSit) { S.ccSit = sitKey; $("cc-sit").innerHTML = sit.map((l) => `<p>${esc(l)}</p>`).join(""); }
@@ -592,7 +610,7 @@
   if (MOCK) {
     $("status").textContent = "mock replay";
     shot(1);
-    fetch("/api/mock").then((r) => r.json()).then((s) => { s.snapshots = s.snapshots.concat(s.fleet || []); session = s; if (playT0 != null && offset) seek(offset); });
+    fetch(SESSION ? `/api/session/${encodeURIComponent(SESSION)}` : "/api/mock").then((r) => r.json()).then((s) => { s.snapshots = s.snapshots.concat(s.fleet || []); session = s; if (playT0 != null && offset) seek(offset); });
   } else {
     liveState();
   }

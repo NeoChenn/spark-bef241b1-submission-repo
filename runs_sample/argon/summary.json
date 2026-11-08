@@ -1,0 +1,88 @@
+{
+ "mode": "replay",
+ "model": "gemini-4-argon (replay)",
+ "t_end": 720.0,
+ "wall_s": 5.34,
+ "argon_calls": 66,
+ "argon_ok": 66,
+ "latency_ms_mean": 1891,
+ "cost_usd": 0.589,
+ "events": {
+  "argon_call": 66,
+  "sensor_fault": 4,
+  "job_queued": 7,
+  "fault_dispatch": 4,
+  "verify_reading": 4,
+  "approval_requested": 3,
+  "job_closed": 7,
+  "maintenance_raised": 3,
+  "approved": 3,
+  "link_cut": 1,
+  "sensor_repaired": 3,
+  "sensor_ok": 4,
+  "link_restored": 1,
+  "gas_alarm": 1,
+  "escalation": 2,
+  "edge_rule": 1,
+  "leak_isolated": 1,
+  "fault_cleared": 1
+ },
+ "jobs": [
+  {
+   "id": "VERI-001",
+   "kind": "verify_sensor",
+   "target": "G-F1",
+   "status": "DONE",
+   "requested_by": "argon",
+   "robot": null
+  },
+  {
+   "id": "SENS-002",
+   "kind": "sensor_maintenance",
+   "target": "G-F1",
+   "status": "DONE",
+   "requested_by": "argon",
+   "robot": null
+  },
+  {
+   "id": "VERI-003",
+   "kind": "verify_sensor",
+   "target": "gauge_03",
+   "status": "DONE",
+   "requested_by": "argon",
+   "robot": null
+  },
+  {
+   "id": "SENS-004",
+   "kind": "sensor_maintenance",
+   "target": "gauge_03",
+   "status": "DONE",
+   "requested_by": "argon",
+   "robot": null
+  },
+  {
+   "id": "VERI-005",
+   "kind": "verify_sensor",
+   "target": "gauge_06",
+   "status": "DONE",
+   "requested_by": "argon",
+   "robot": null
+  },
+  {
+   "id": "VERI-006",
+   "kind": "verify_sensor",
+   "target": "G-F6",
+   "status": "DONE",
+   "requested_by": "argon",
+   "robot": null
+  },
+  {
+   "id": "SENS-007",
+   "kind": "sensor_maintenance",
+   "target": "G-F6",
+   "status": "DONE",
+   "requested_by": "argon",
+   "robot": null
+  }
+ ]
+}

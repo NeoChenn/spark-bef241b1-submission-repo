@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
-KIND_BASE = {"gas": 100.0, "crack": 50.0, "rust": 10.0, "leak_check": 3.0, "inspect": 1.0}
+KIND_BASE = {"gas": 100.0, "verify_sensor": 60.0, "crack": 50.0, "rust": 10.0, "leak_check": 3.0, "inspect": 1.0}
 DEADLINE_W = 5.0
 DEADLINE_WINDOW_S = 600.0
 OPEN = {"pending", "assigned", "active"}
@@ -28,10 +28,13 @@ class Task:
     finished: Optional[float] = None
     outcome: Optional[str] = None
     preemptions: int = 0
+    needs: frozenset = field(default_factory=frozenset)
+    pin: Optional[str] = None
+    priority_boost: float = 0.0
 
 
 def priority(task: Task, t: float) -> float:
-    base = KIND_BASE[task.kind] * (task.severity * task.exposure if task.kind == "rust" else 1.0)
+    base = KIND_BASE[task.kind] * (task.severity * task.exposure if task.kind == "rust" else 1.0) + task.priority_boost
     if task.deadline is None:
         return base
     slack = task.deadline - t

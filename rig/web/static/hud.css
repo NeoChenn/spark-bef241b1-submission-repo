@@ -219,6 +219,18 @@ kbd { font-family: var(--mono); letter-spacing: 0.02em; color: var(--faint); bor
 #cc-mode.pending::after { content: ""; display: inline-block; width: 5px; height: 5px; margin-left: 6px; border-radius: 50%; background: currentColor; vertical-align: 1px; animation: pulse .8s steps(2) infinite; }
 .cc-banner { display: none; font-size: 10px; letter-spacing: .09em; text-transform: uppercase; font-weight: 600; color: var(--stop); background: rgba(248,81,73,.14); border-radius: 7px; padding: 6px 9px; }
 .cc-banner.on { display: block; }
+.cc-health:empty { display: none; }
+.cc-health .hh { display: flex; justify-content: space-between; align-items: center; }
+.cc-health .hh span { font-size: 10.5px; color: var(--ok); }
+.cc-health .hh span.warn { color: var(--warn); }
+.cc-health ul { list-style: none; margin: 5px 0 0; padding: 0; display: grid; gap: 3px; }
+.cc-health li { display: grid; grid-template-columns: 52px 66px 1fr auto; column-gap: 7px; align-items: center; font-size: 11px; }
+.cc-health .st { font-size: 9px; letter-spacing: .07em; font-weight: 600; text-align: center; padding: 2px 0; border-radius: 5px; color: var(--warn); background: rgba(227,179,65,.14); }
+.cc-health .st.dead, .cc-health li.hz .st { color: var(--stop); background: rgba(248,81,73,.16); }
+.cc-health .id { font-family: var(--mono); color: var(--fg); }
+.cc-health .ev { color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-health li.hz .ev { color: var(--stop); }
+.cc-health .jb { font-family: var(--mono); font-size: 10px; color: var(--faint); }
 .cc-sit p { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--fg); }
 .cc-sit p + p { color: var(--dim); }
 .cc-acts { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
