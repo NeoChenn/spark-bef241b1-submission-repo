@@ -8,6 +8,7 @@ from policy.fleet.rigmap import DECKS
 from policy.fleet.tasks import OPEN, priority
 
 SCHEMA = "fleet_state.v1"
+PREV_KEEP_S = 45.0
 
 
 def _xyz(p) -> list[float]:
@@ -42,7 +43,9 @@ def robot_json(f, r) -> dict:
             "deck": deck_at(float(r.pos[2])),
             "battery": {"soc": round(b.soc, 4), "wh": round(b.wh, 2), "used_wh": round(b.used_wh, 2),
                         "charged_wh": round(b.charged_wh, 2)},
-            "path": path, "eta_s": round(max(r.legs[-1].t1 - f.t, 0.0), 1) if r.legs else 0.0,
+            "path": path,
+            "prev_path": r.prev_path if r.reroute_t is not None and f.t - r.reroute_t <= PREV_KEEP_S else None,
+            "reroute_t": r.reroute_t, "eta_s": round(max(r.legs[-1].t1 - f.t, 0.0), 1) if r.legs else 0.0,
             "dist_m": round(r.dist_m, 1)}
 
 
@@ -92,7 +95,12 @@ def metrics(f) -> dict:
             "energy_by_robot_wh": {r.id: round(r.battery.used_wh, 1) for r in f.robots},
             "distance_m": round(sum(r.dist_m for r in f.robots), 1),
             "preemptions": f.preemptions, "robot_failures": f.failures, "replans": f.replans,
-            "reservation_wait_s": round(f.wait_s, 1), "corridor_conflicts": f.conflicts, "late_tasks": late}
+            "reservation_wait_s": round(f.wait_s, 1), "corridor_conflicts": f.conflicts, "late_tasks": late,
+            "reroutes": len(f.reroutes),
+            "reroute_extra_m": round(sum(x["extra_m"] or 0.0 for x in f.reroutes), 1),
+            "reroute_extra_s": round(sum(x["extra_s"] or 0.0 for x in f.reroutes), 1),
+            "blocked_tasks": sum(1 for t in f.tasks.values() if t.outcome == "blocked_by_hazard"),
+            "weather": f.hz.weather["level"]}
 
 
 def snapshot(f) -> dict:
@@ -100,6 +108,7 @@ def snapshot(f) -> dict:
             "robots": [robot_json(f, r) for r in f.robots],
             "tasks": [task_json(f, t) for t in f.tasks.values()],
             "zones": zones_json(f),
+            "hazards": f.hz.to_json(f.rm),
             "alarms": [{"id": k, **{a: (round(v, 2) if isinstance(v, float) else v) for a, v in al.items()}}
                        for k, al in f.alarms.items()],
             "events": f.tick_events, "recent_events": f.event_log[-8:], "assignments": f.tick_assign,

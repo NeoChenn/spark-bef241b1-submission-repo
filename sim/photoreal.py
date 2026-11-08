@@ -38,9 +38,9 @@ PIPE_GREY = (0.33, 0.35, 0.36)
 BLACK = (0.035, 0.035, 0.04)
 
 RECIPES = {
-    "deck": {"kind": "tread", "texture": "DiamondPlate008C_4k", "rust_amount": 0.18, "metallic": 0.4, "scale": 1.6},
+    "deck": {"kind": "tread", "texture": "DiamondPlate008C_4k", "rust_amount": 0.08, "metallic": 0.4, "scale": 1.6},
     "helideck": _paint((0.05, 0.16, 0.1), chip=0.25, rust=0.08, streak_amount=0.0),
-    "concrete": {"kind": "concrete", "texture": "Concrete042C_4k", "rust_amount": 0.08, "scale": 3.0, "streak_amount": 0.75,
+    "concrete": {"kind": "concrete", "texture": "Concrete042C_4k", "rust_amount": 0.08, "scale": 3.0, "streak_amount": 1.0,
                  "salt_amount": 0.35},
     "splash_zone": {"kind": "concrete", "texture": "Concrete042C_4k", "rust_amount": 0.25, "scale": 2.0,
                     "tint": (0.22, 0.3, 0.22), "streak_amount": 0.4, "salt_amount": 0.5},
@@ -56,6 +56,8 @@ RECIPES = {
     "topside_yellow": _paint(YELLOW, chip=0.7, rust=0.3),
     "safety_yellow": _paint(YELLOW, chip=0.7, rust=0.3),
     "walkway_line": _paint(YELLOW, chip=0.9, rust=0.1, streak_amount=0.0),
+    "zone_marking": _paint(YELLOW, chip=0.9, rust=0.05, streak_amount=0.0),
+    "lamp_pole": _paint(GREY, chip=0.6, rust=0.3),
     "derrick": _paint(WHITE, chip=0.6, rust=0.3),
     "tank": _paint(WHITE, chip=0.45, rust=0.18),
     "module_white": _paint(WHITE, chip=0.45, rust=0.15),
@@ -63,21 +65,21 @@ RECIPES = {
     "module_blue": _paint(BLUE, chip=0.5, rust=0.2),
     "vessel": _paint(BLUE, chip=0.5, rust=0.22),
     "topside_machine_blue": _paint(BLUE, chip=0.5, rust=0.2),
-    "line_water": _paint(BLUE, chip=0.6, rust=0.25),
+    "line_water": _paint(BLUE, chip=0.6, rust=0.25, scale=0.6),
     "topside_machine_green": _paint(GREEN, chip=0.5, rust=0.2),
-    "topside_pipe_green": _paint(GREEN, chip=0.6, rust=0.3),
-    "pipe": _paint(ORANGE, chip=0.6, rust=0.3),
-    "line_process": _paint(ORANGE, chip=0.6, rust=0.3),
-    "pipe_orange": _paint(ORANGE, chip=0.6, rust=0.3),
+    "topside_pipe_green": _paint(GREEN, chip=0.6, rust=0.3, scale=0.6),
+    "pipe": _paint(ORANGE, chip=0.6, rust=0.3, scale=0.6),
+    "line_process": _paint(ORANGE, chip=0.6, rust=0.3, scale=0.6),
+    "pipe_orange": _paint(ORANGE, chip=0.6, rust=0.3, scale=0.6),
     "topside_lifeboat": _paint((0.85, 0.3, 0.03), chip=0.3, rust=0.05, streak_amount=0.2),
-    "line_gas": _paint(YELLOW, chip=0.6, rust=0.3),
-    "topside_pipe_yellow": _paint(YELLOW, chip=0.6, rust=0.3),
-    "topside_pipe_red": _paint(RED, chip=0.6, rust=0.3),
+    "line_gas": _paint(YELLOW, chip=0.6, rust=0.3, scale=0.6),
+    "topside_pipe_yellow": _paint(YELLOW, chip=0.6, rust=0.3, scale=0.6),
+    "topside_pipe_red": _paint(RED, chip=0.6, rust=0.3, scale=0.6),
     "topside_valve_red": _paint(RED, chip=0.5, rust=0.25),
     "module_grey": _paint(PIPE_GREY, chip=0.5, rust=0.2),
-    "topside_pipe_grey": _paint(PIPE_GREY, chip=0.6, rust=0.3),
+    "topside_pipe_grey": _paint(PIPE_GREY, chip=0.6, rust=0.3, scale=0.6),
     "topside_vessel_grey": _paint(PIPE_GREY, chip=0.5, rust=0.25),
-    "pipe_grey": _paint(PIPE_GREY, chip=0.6, rust=0.3),
+    "pipe_grey": _paint(PIPE_GREY, chip=0.6, rust=0.3, scale=0.6),
     "topside_galv": {"kind": "brushed", "base_color": (0.5, 0.52, 0.53), "roughness_along": 0.3, "roughness_across": 0.5},
     "topside_insulated": {"kind": "brushed", "base_color": (0.62, 0.64, 0.65), "roughness_along": 0.16,
                           "roughness_across": 0.4, "brush_axis": (0.0, 0.0, 1.0)},
@@ -110,12 +112,15 @@ COMMON = {
     "masks": GENERATED / "rig_masks.png",
     "streaks": GENERATED / "rig_streaks.png",
     "macro_scale": 23.0,
-    "puddle_scale": 9.0,
+    "puddle_scale": 4.5,
     "wetness": 0.0,
     "puddles": 0.0,
     "triplanar": False,
+    "lite": True,
+    "wet_coat": False,
     "paint_reference": 0.77,
 }
+CHIP_SCALE = 0.55
 OVERRIDES = ("grime_amount", "porosity", "normal_strength", "macro_scale", "streak_amount", "salt_amount")
 STREAK_RUST = (0.15, 0.075, 0.035)
 STREAK_DARK = (0.06, 0.05, 0.04)
@@ -139,7 +144,7 @@ def shader_inputs(recipe: dict) -> tuple[str, dict]:
               "porosity": 0.35, "grime_amount": 0.35}
     if kind == "paint":
         values.update(_set(PAINT, "paint"), tint_paint=True, paint_color=recipe["paint_color"],
-                      chip_amount=recipe.get("chip_amount", 0.6), paint_scale=recipe.get("scale", 2.0))
+                      chip_amount=round(CHIP_SCALE * recipe.get("chip_amount", 0.6), 3), paint_scale=recipe.get("scale", 1.1))
         values.update({k: recipe[k] for k in OVERRIDES if k in recipe})
         return "rig_weathered", values
     texture = recipe["texture"]
@@ -154,6 +159,49 @@ def shader_inputs(recipe: dict) -> tuple[str, dict]:
         values.update(streak_amount=0.0, porosity=0.6)
     values.update({k: recipe[k] for k in OVERRIDES if k in recipe})
     return "rig_weathered", values
+
+
+DECK_HEIGHTS = (20.0, 31.25, 42.5)
+FLOOR_LOOK = "/World/Photoreal/Looks/deck_floor"
+FLOOR_MESHES = ("upper_structure_frame", "legs_and_lower_deck_frame", "top_deck_rail")
+
+
+def floor_faces(points, tris, heights=DECK_HEIGHTS, tol: float = 0.06):
+    import numpy as np
+
+    t = np.asarray(points, float)[np.asarray(tris)]
+    n = np.cross(t[:, 1] - t[:, 0], t[:, 2] - t[:, 0])
+    up = n[:, 2] / np.maximum(np.linalg.norm(n, axis=1), 1e-12) > 0.95
+    z = t[:, :, 2].mean(1)
+    level = np.min(np.abs(z[:, None] - np.asarray(heights)[None, :]), axis=1) < tol
+    return np.flatnonzero(up & level)
+
+
+def bind_floors(stage) -> int:
+    import numpy as np
+    from pxr import UsdGeom, UsdShade
+
+    deck = UsdShade.Material(stage.GetPrimAtPath(FLOOR_LOOK))
+    if not deck:
+        return 0
+    count = 0
+    for name in FLOOR_MESHES:
+        prim = stage.GetPrimAtPath(f"/World/Rig/{name}")
+        if not prim.IsValid() or stage.GetPrimAtPath(f"{prim.GetPath()}/deck_floor").IsValid():
+            continue
+        mesh = UsdGeom.Mesh(prim)
+        counts = np.asarray(mesh.GetFaceVertexCountsAttr().Get())
+        if counts.size == 0 or (counts != 3).any():
+            continue
+        tris = np.asarray(mesh.GetFaceVertexIndicesAttr().Get()).reshape(-1, 3)
+        faces = floor_faces(np.asarray(mesh.GetPointsAttr().Get()), tris)
+        if faces.size == 0:
+            continue
+        subset = UsdGeom.Subset.CreateGeomSubset(mesh, "deck_floor", UsdGeom.Tokens.face, faces.tolist(),
+                                                 UsdShade.Tokens.materialBind)
+        UsdShade.MaterialBindingAPI.Apply(subset.GetPrim()).Bind(deck)
+        count += int(faces.size)
+    return count
 
 
 def material_paths(name: str) -> list[str]:
@@ -173,7 +221,7 @@ def rain_for(preset: str) -> float:
 
 def quality_settings(quality: str) -> dict:
     offline = quality == "offline"
-    return {"triplanar": offline, "offline_props": offline}
+    return {"triplanar": offline, "lite": not offline, "wet_coat": offline, "offline_props": offline}
 
 
 def current_quality() -> str:
@@ -216,7 +264,9 @@ def apply(stage, preset: str, quality: str | None = None) -> dict:
         if sub == "rig_weathered":
             shader.CreateInput("puddles", Sdf.ValueTypeNames.Float).Set(w["puddles"])
             shader.CreateInput("triplanar", Sdf.ValueTypeNames.Bool).Set(q["triplanar"])
+            shader.CreateInput("lite", Sdf.ValueTypeNames.Bool).Set(q["lite"])
+            shader.CreateInput("wet_coat", Sdf.ValueTypeNames.Bool).Set(q["wet_coat"])
     offline = stage.GetPrimAtPath(OFFLINE_SCOPE)
     if offline.IsValid():
         offline.SetActive(q["offline_props"])
-    return {**w, **q}
+    return {**w, **q, "floor_faces": bind_floors(stage)}

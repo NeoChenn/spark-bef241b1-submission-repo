@@ -113,7 +113,7 @@ def worker(argv):
     p.add_argument("--scene", default=os.path.join(ROOT, "sim/output/rig_deck.usda"))
     p.add_argument("--shots", default="push,close,medium")
     p.add_argument("--seed", type=int, default=7)
-    p.add_argument("--robot", default="lift", choices=["lift", "lift_v2"])
+    p.add_argument("--robot", default="lift", choices=["lift", "lift_v2", "lift_v3"])
     p.add_argument("--patch_when", type=float, default=0.25, help="inject a new patch once rust left < this")
     p.add_argument("--abrasion", type=float, default=0.7, help="abrasion coefficient (training DR 0.7-1.3)")
     p.add_argument("--preroll", type=float, default=1.5)
@@ -131,6 +131,9 @@ def worker(argv):
     p.add_argument("--lamp_gain", type=float, default=1.0)
     p.add_argument("--rig_gain", type=float, default=0.1)
     p.add_argument("--still_at", type=float, default=0.0)
+    p.add_argument("--storm", type=float, default=0.0)
+    p.add_argument("--gusts", default="3.5,8.5")
+    p.add_argument("--gust_peak", type=float, default=24.0)
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
@@ -155,6 +158,7 @@ def worker(argv):
     from policy.envs.scrub_env_cfg import ScrubPPORunnerCfg
     from policy.play_scrub import apply_meta
     from policy.rust_overlay import camera_path, rig_translation
+    from policy.storm import GustGate, scripted_gusts, storm_grade
 
     task, cfg_name = TASKS[args.robot]
     env_cfg = getattr(C, cfg_name)()
@@ -165,6 +169,10 @@ def worker(argv):
     env_cfg.init_joint_noise = 0.0
     env_cfg.episode_length_s = 120.0
     env_cfg.viz = False
+    if args.storm > 0:
+        env_cfg.storm_level_range = (args.storm, args.storm)
+        env_cfg.storm_deck_amp = (0.0, 0.0)
+        env_cfg.storm_trunk_sway = 0.0
     env_cfg.spawn_pipe_visual = False
     env_cfg.backdrop_usd = os.path.abspath(args.scene)
     env_cfg.backdrop_translation = tuple(rig_translation(meta))
@@ -238,8 +246,14 @@ def worker(argv):
         torch.manual_seed(args.seed)
         with torch.inference_mode():
             base.reset(seed=args.seed)
-            seed_rust(base, args.seed, args.abrasion)
+            seed_rust(base, args.seed, args.abrasion * (1 - 0.35 * args.storm))
         t_patch = None
+        gate, resumed_at, was_paused = GustGate(), None, False
+        if args.storm > 0:
+            e = base.pipe_e[0].cpu().tolist()
+            g = scripted_gusts([float(v) for v in args.gusts.split(",")], args.gust_peak, 2.5, 2.0,
+                               (-e[0], -e[1], 0.25))
+            base.gusts = {k: v.to(base.device) for k, v in g.items()}
         obs = env.get_observations()
         cam.GetAttribute("focalLength").Set(spec["focal"])
         v_aperture = float(cam.GetAttribute("verticalAperture").Get() or 15.2908)
@@ -262,12 +276,22 @@ def worker(argv):
                 t_patch, frac = t, float(base.rust.fraction_remaining()[0])
             if done_at is None and fired and frac < env_cfg.success_fraction:
                 done_at = t
+            gust = float(base.gust_n[0]) if args.storm > 0 else 0.0
+            paused = args.storm > 0 and k >= n_pre and done_at is None and gate.update(gust)
+            resumed_at = t if was_paused and not paused else resumed_at
+            was_paused = paused
             if k < n_pre:
                 act, state = zero, ("APPROACH  brush to rust", (120, 200, 255))
+            elif paused:
+                th = float(base.theta[0])
+                act = torch.tensor([[0.0, math.cos(th), math.sin(th), -1.0]], device=base.device)
+                state = (f"WAIT_LULL  gust {gust:.0f} N > {gate.limit:.0f} N: brush retracted", (255, 190, 60))
             elif done_at is None or t < done_at + 0.8:
                 with torch.inference_mode():
                     act = policy(obs)
                 state = ("SCRUB  removing rust", (120, 255, 140))
+                if resumed_at is not None and t - resumed_at < 2.0:
+                    state = (f"SCRUB  lull ({gust:.0f} N) - resumed", (120, 255, 140))
                 if fired and t - t_patch < 2.0:
                     state = ("RE-PLAN  new rust patch", (255, 190, 60))
                 if done_at is not None:
@@ -287,15 +311,19 @@ def worker(argv):
                 obs, _, _, _ = env.step(act)
             painter.update(base.rust.rust[0].cpu().numpy())
             eye, look = camera_path(spec["keys"], t)
+            if args.storm > 0:
+                eye = eye + np.array([0.0, 0.012 * math.sin(1.9 * t), 0.02 * math.sin(1.2 * t)]) * args.storm
             base.sim.set_camera_view((eye + origin).tolist(), (look + origin).tolist())
             rgb = render_frame()
+            if args.storm > 0 and rgb is not None and rgb.size:
+                rgb = storm_grade(rgb, args.storm, t)
             force = float(base.force[0])
             if rgb is not None and rgb.size and k > 0 and rgb[..., :3].mean() > 1:
                 frames.append(np.ascontiguousarray(rgb[..., :3]))
                 info.append({"t": round(t, 3), "frac": frac, "force": force, "state": state[0],
                              "brush": [round(float(v), 4) for v in base.brush_w[0]],
                              "eye": [round(float(v), 4) for v in eye], "look": [round(float(v), 4) for v in look],
-                             "focal": spec["focal"], "v_aperture": v_aperture})
+                             "focal": spec["focal"], "v_aperture": v_aperture, "gust": gust})
             k += 1
         wall = time.time() - t0
         fps = int(round(1 / dt))

@@ -1,6 +1,6 @@
 TONE = {
     "BACK_OFF": "warn", "HOLD": "warn", "GAS_CHECK": "warn", "WAIT": "warn", "BLOCKED": "warn", "PAUSED": "warn",
-    "TO_DOCK": "warn", "LEAK_APPROACH": "warn", "REPLAN": "warn",
+    "TO_DOCK": "warn", "LEAK_APPROACH": "warn", "REPLAN": "warn", "WIPE_LENS": "warn", "WAIT_LULL": "warn",
     "PAUSE_PERSON": "stop", "ESCALATE_TO_HUMAN": "stop", "GAS_RETREAT": "stop", "FAILED": "stop",
     "DONE": "ok", "DOCKED": "ok", "CHARGING": "ok",
 }
@@ -95,6 +95,16 @@ def _retreat(ev):
     return "Retreating", f" — gas {_pct(g)} LEL over the {_pct(stop)} limit"
 
 
+def _wipe(ev):
+    q = (ev.get("storm") or {}).get("lens_q")
+    return "Wiping the lens", " — rain on the camera" if q is None else f" — view {_pct(q)} clear"
+
+
+def _lull(ev):
+    g = (ev.get("storm") or {}).get("gust_n")
+    return "Waiting for a lull", " in the storm" if g is None else f" — gust {float(g):.0f} N"
+
+
 def _escalate(ev):
     g = ev.get("gas")
     if g is not None and float(g) >= float(ev.get("gas_stop") or GAS_STOP):
@@ -147,6 +157,7 @@ DYNAMIC = {
     "PAUSE_PERSON": _person, "ESCALATE_TO_HUMAN": _escalate,
     "GAS_CHECK": _gas_lead("pausing work to find the leak"), "LEAK_APPROACH": _gas_lead("tracing the source upwind"),
     "LEAK_INSPECT": _inspect, "RETORQUE": _retorque, "LEAK_VERIFY": _leak_verify, "GAS_RETREAT": _retreat,
+    "WIPE_LENS": _wipe, "WAIT_LULL": _lull,
     "DONE": _done, "TRANSIT": _transit, "TO_DOCK": _soc("Heading to dock", " — battery "), "CHARGING": _soc("Charging"),
 }
 

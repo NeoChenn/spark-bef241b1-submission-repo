@@ -1,0 +1,946 @@
+{
+ "benchmark": "scrub control",
+ "cpu_mock": {
+  "train": {
+   "cfg": {
+    "ctrl_dt": 0.03333333333333333,
+    "substeps": 4,
+    "episode_s": 15.0,
+    "base_height": 0.32,
+    "brush_offset": [
+     -0.025,
+     0.0,
+     0.0
+    ],
+    "brush_radius": 0.025,
+    "pipe_length": 0.6,
+    "radius_range": [
+     0.12,
+     0.18
+    ],
+    "height_range": [
+     1.05,
+     1.15
+    ],
+    "axis_dist_range": [
+     0.45,
+     0.55
+    ],
+    "axial_range": [
+     -0.1,
+     0.1
+    ],
+    "yaw_range": [
+     -0.1745,
+     0.1745
+    ],
+    "lift_range": [
+     0.38,
+     0.45
+    ],
+    "reach_range": [
+     0.12,
+     0.62
+    ],
+    "shoulder_offset": [
+     -0.01,
+     0.0,
+     0.3159
+    ],
+    "rust_theta_window": [
+     0.9006,
+     0.35
+    ],
+    "theta_limits": [
+     0.0,
+     2.0
+    ],
+    "spring_k_range": [
+     1500.0,
+     4000.0
+    ],
+    "spring_k_nominal": 2500.0,
+    "abrasion_coef_range": [
+     0.5,
+     1.5
+    ],
+    "n_patches_range": [
+     1,
+     4
+    ],
+    "prob_not_soaked": 0.15,
+    "contact_snap": 0.01,
+    "action_scale": 0.01,
+    "force_set_mid": 25.0,
+    "force_set_half": 20.0,
+    "force_set_max": 38.0,
+    "max_target_gap": 0.2,
+    "new_patch_time_range": [
+     3.0,
+     10.0
+    ],
+    "prob_new_patch": 1.0,
+    "success_fraction": 0.05,
+    "init_joint_noise": 0.1,
+    "joint_tau": 0.05
+   },
+   "seeds_first": [
+    1927673051,
+    4143869090,
+    3197638755
+   ],
+   "arms": {
+    "PPO v2 (ONNX)": {
+     "episodes": 200,
+     "success": {
+      "mean": 0.97,
+      "lo": 0.9361,
+      "hi": 0.9862,
+      "n": 200
+     },
+     "time_to_clean_s": {
+      "mean": 7.4495,
+      "lo": 7.0503,
+      "hi": 7.8487,
+      "n": 194
+     },
+     "peak_force_N": {
+      "mean": 34.8344,
+      "lo": 33.6524,
+      "hi": 36.0165,
+      "n": 200
+     },
+     "p95_peak_force_N": 43.08,
+     "over_40N": {
+      "mean": 0.195,
+      "lo": 0.1461,
+      "hi": 0.2554,
+      "n": 200
+     },
+     "fraction_removed": {
+      "mean": 0.9487,
+      "lo": 0.9456,
+      "hi": 0.9518,
+      "n": 200
+     },
+     "removed_pct_per_s": {
+      "mean": 14.8152,
+      "lo": 13.8267,
+      "hi": 15.8037,
+      "n": 200
+     },
+     "compute": "CPU, ONNX Runtime 1 thread, batch 1",
+     "decision_latency_ms": {
+      "median": 0.0127,
+      "p90": 0.0145,
+      "n": 87136
+     },
+     "api_cost_usd_per_episode": 0.0,
+     "wall_s": 9.7
+    },
+    "Greedy scripted": {
+     "episodes": 200,
+     "success": {
+      "mean": 0.32,
+      "lo": 0.2593,
+      "hi": 0.3875,
+      "n": 200
+     },
+     "time_to_clean_s": {
+      "mean": 10.8667,
+      "lo": 10.2515,
+      "hi": 11.4818,
+      "n": 64
+     },
+     "peak_force_N": {
+      "mean": 35.7937,
+      "lo": 34.3307,
+      "hi": 37.2568,
+      "n": 200
+     },
+     "p95_peak_force_N": 49.11,
+     "over_40N": {
+      "mean": 0.35,
+      "lo": 0.2873,
+      "hi": 0.4184,
+      "n": 200
+     },
+     "fraction_removed": {
+      "mean": 0.6809,
+      "lo": 0.6468,
+      "hi": 0.715,
+      "n": 200
+     },
+     "removed_pct_per_s": {
+      "mean": 5.492,
+      "lo": 5.0504,
+      "hi": 5.9336,
+      "n": 200
+     },
+     "compute": "CPU, Python",
+     "decision_latency_ms": {
+      "median": 0.0078,
+      "p90": 0.1469,
+      "n": 81928
+     },
+     "api_cost_usd_per_episode": 0.0,
+     "wall_s": 11.6
+    },
+    "Random": {
+     "episodes": 200,
+     "success": {
+      "mean": 0.0,
+      "lo": 0.0,
+      "hi": 0.0188,
+      "n": 200
+     },
+     "time_to_clean_s": {
+      "mean": null,
+      "lo": null,
+      "hi": null,
+      "n": 0
+     },
+     "peak_force_N": {
+      "mean": 42.5694,
+      "lo": 40.73,
+      "hi": 44.4087,
+      "n": 200
+     },
+     "p95_peak_force_N": 59.08,
+     "over_40N": {
+      "mean": 0.58,
+      "lo": 0.5107,
+      "hi": 0.6463,
+      "n": 200
+     },
+     "fraction_removed": {
+      "mean": 0.1499,
+      "lo": 0.1306,
+      "hi": 0.1693,
+      "n": 200
+     },
+     "removed_pct_per_s": {
+      "mean": 1.0019,
+      "lo": 0.8723,
+      "hi": 1.1314,
+      "n": 200
+     },
+     "compute": "CPU",
+     "decision_latency_ms": {
+      "median": 0.0213,
+      "p90": 0.0378,
+      "n": 1796
+     },
+     "api_cost_usd_per_episode": 0.0,
+     "wall_s": 7.4
+    },
+    "Gemini controller": {
+     "status": "not run - needs GEMINI_API_KEY",
+     "model_wanted": "gemini-4-argon"
+    }
+   }
+  },
+  "rig": {
+   "cfg": {
+    "ctrl_dt": 0.03333333333333333,
+    "substeps": 4,
+    "episode_s": 15.0,
+    "base_height": 0.32,
+    "brush_offset": [
+     -0.025,
+     0.0,
+     0.0
+    ],
+    "brush_radius": 0.025,
+    "pipe_length": 0.6,
+    "radius_range": [
+     0.15,
+     0.15
+    ],
+    "height_range": [
+     1.1,
+     1.1
+    ],
+    "axis_dist_range": [
+     0.5,
+     0.5
+    ],
+    "axial_range": [
+     0.0,
+     0.0
+    ],
+    "yaw_range": [
+     0.0,
+     0.0
+    ],
+    "lift_range": [
+     0.38,
+     0.45
+    ],
+    "reach_range": [
+     0.12,
+     0.62
+    ],
+    "shoulder_offset": [
+     -0.01,
+     0.0,
+     0.3159
+    ],
+    "rust_theta_window": [
+     0.9006,
+     0.35
+    ],
+    "theta_limits": [
+     0.0,
+     2.0
+    ],
+    "spring_k_range": [
+     1500.0,
+     4000.0
+    ],
+    "spring_k_nominal": 2500.0,
+    "abrasion_coef_range": [
+     0.5,
+     1.5
+    ],
+    "n_patches_range": [
+     1,
+     4
+    ],
+    "prob_not_soaked": 0.15,
+    "contact_snap": 0.01,
+    "action_scale": 0.01,
+    "force_set_mid": 25.0,
+    "force_set_half": 20.0,
+    "force_set_max": 38.0,
+    "max_target_gap": 0.2,
+    "new_patch_time_range": [
+     3.0,
+     10.0
+    ],
+    "prob_new_patch": 1.0,
+    "success_fraction": 0.05,
+    "init_joint_noise": 0.1,
+    "joint_tau": 0.05
+   },
+   "seeds_first": [
+    1968488154,
+    396843735,
+    3956667940
+   ],
+   "arms": {
+    "PPO v2 (ONNX)": {
+     "episodes": 200,
+     "success": {
+      "mean": 0.96,
+      "lo": 0.9231,
+      "hi": 0.9796,
+      "n": 200
+     },
+     "time_to_clean_s": {
+      "mean": 7.6955,
+      "lo": 7.315,
+      "hi": 8.0759,
+      "n": 192
+     },
+     "peak_force_N": {
+      "mean": 34.2088,
+      "lo": 33.4614,
+      "hi": 34.9562,
+      "n": 200
+     },
+     "p95_peak_force_N": 43.06,
+     "over_40N": {
+      "mean": 0.195,
+      "lo": 0.1461,
+      "hi": 0.2554,
+      "n": 200
+     },
+     "fraction_removed": {
+      "mean": 0.9477,
+      "lo": 0.9444,
+      "hi": 0.9511,
+      "n": 200
+     },
+     "removed_pct_per_s": {
+      "mean": 13.6644,
+      "lo": 12.919,
+      "hi": 14.4098,
+      "n": 200
+     },
+     "compute": "CPU, ONNX Runtime 1 thread, batch 1",
+     "decision_latency_ms": {
+      "median": 0.0124,
+      "p90": 0.014,
+      "n": 88896
+     },
+     "api_cost_usd_per_episode": 0.0,
+     "wall_s": 9.7
+    },
+    "Greedy scripted": {
+     "episodes": 200,
+     "success": {
+      "mean": 0.28,
+      "lo": 0.2224,
+      "hi": 0.3459,
+      "n": 200
+     },
+     "time_to_clean_s": {
+      "mean": 11.1446,
+      "lo": 10.4839,
+      "hi": 11.8053,
+      "n": 56
+     },
+     "peak_force_N": {
+      "mean": 35.2107,
+      "lo": 34.0278,
+      "hi": 36.3936,
+      "n": 200
+     },
+     "p95_peak_force_N": 49.31,
+     "over_40N": {
+      "mean": 0.325,
+      "lo": 0.2639,
+      "hi": 0.3927,
+      "n": 200
+     },
+     "fraction_removed": {
+      "mean": 0.656,
+      "lo": 0.6198,
+      "hi": 0.6922,
+      "n": 200
+     },
+     "removed_pct_per_s": {
+      "mean": 5.135,
+      "lo": 4.7154,
+      "hi": 5.5546,
+      "n": 200
+     },
+     "compute": "CPU, Python",
+     "decision_latency_ms": {
+      "median": 0.008,
+      "p90": 0.1613,
+      "n": 83379
+     },
+     "api_cost_usd_per_episode": 0.0,
+     "wall_s": 12.0
+    },
+    "Random": {
+     "episodes": 200,
+     "success": {
+      "mean": 0.0,
+      "lo": 0.0,
+      "hi": 0.0188,
+      "n": 200
+     },
+     "time_to_clean_s": {
+      "mean": null,
+      "lo": null,
+      "hi": null,
+      "n": 0
+     },
+     "peak_force_N": {
+      "mean": 41.3664,
+      "lo": 39.9161,
+      "hi": 42.8166,
+      "n": 200
+     },
+     "p95_peak_force_N": 57.27,
+     "over_40N": {
+      "mean": 0.55,
+      "lo": 0.4808,
+      "hi": 0.6174,
+      "n": 200
+     },
+     "fraction_removed": {
+      "mean": 0.1416,
+      "lo": 0.1225,
+      "hi": 0.1607,
+      "n": 200
+     },
+     "removed_pct_per_s": {
+      "mean": 0.946,
+      "lo": 0.8186,
+      "hi": 1.0734,
+      "n": 200
+     },
+     "compute": "CPU",
+     "decision_latency_ms": {
+      "median": 0.0186,
+      "p90": 0.0317,
+      "n": 1796
+     },
+     "api_cost_usd_per_episode": 0.0,
+     "wall_s": 7.2
+    },
+    "Gemini controller": {
+     "status": "not run - needs GEMINI_API_KEY",
+     "model_wanted": "gemini-4-argon"
+    }
+   }
+  }
+ },
+ "isaac_lab": {
+  "train": {
+   "PPO v2": {
+    "episodes": 256,
+    "success": {
+     "mean": 0.9531,
+     "lo": 0.9199,
+     "hi": 0.973,
+     "n": 256
+    },
+    "time_to_clean_s": {
+     "mean": 7.0531,
+     "lo": 6.7242,
+     "hi": 7.382,
+     "n": 244
+    },
+    "peak_force_N": {
+     "mean": 30.6504,
+     "lo": 29.6639,
+     "hi": 31.6368,
+     "n": 256
+    },
+    "p95_peak_force_N": 35.85,
+    "over_40N": {
+     "mean": 0.0195,
+     "lo": 0.0084,
+     "hi": 0.0449,
+     "n": 256
+    },
+    "fraction_removed": {
+     "mean": 0.9443,
+     "lo": 0.9356,
+     "hi": 0.953,
+     "n": 256
+    },
+    "removed_pct_per_s": {
+     "mean": 15.2172,
+     "lo": 14.3457,
+     "hi": 16.0887,
+     "n": 256
+    },
+    "compute": "Isaac Lab GPU, batched",
+    "api_cost_usd_per_episode": 0.0,
+    "scenario_hash": "71b8b0bd7eeb",
+    "seed": 20261108,
+    "batched_act_ms_median": 8.338811108842492
+   },
+   "Greedy scripted": {
+    "episodes": 256,
+    "success": {
+     "mean": 0.3203,
+     "lo": 0.2662,
+     "hi": 0.3798,
+     "n": 256
+    },
+    "time_to_clean_s": {
+     "mean": 10.9598,
+     "lo": 10.3288,
+     "hi": 11.5907,
+     "n": 82
+    },
+    "peak_force_N": {
+     "mean": 38.8291,
+     "lo": 37.3879,
+     "hi": 40.2703,
+     "n": 256
+    },
+    "p95_peak_force_N": 53.7,
+    "over_40N": {
+     "mean": 0.4648,
+     "lo": 0.4047,
+     "hi": 0.526,
+     "n": 256
+    },
+    "fraction_removed": {
+     "mean": 0.6867,
+     "lo": 0.6561,
+     "hi": 0.7173,
+     "n": 256
+    },
+    "removed_pct_per_s": {
+     "mean": 5.6453,
+     "lo": 5.1722,
+     "hi": 6.1185,
+     "n": 256
+    },
+    "compute": "Isaac Lab GPU, batched",
+    "api_cost_usd_per_episode": 0.0,
+    "scenario_hash": "71b8b0bd7eeb",
+    "seed": 20261108,
+    "batched_act_ms_median": 37.971791927702725
+   },
+   "Random": {
+    "episodes": 256,
+    "success": {
+     "mean": 0.0,
+     "lo": 0.0,
+     "hi": 0.0148,
+     "n": 256
+    },
+    "time_to_clean_s": {
+     "mean": null,
+     "lo": null,
+     "hi": null,
+     "n": 0
+    },
+    "peak_force_N": {
+     "mean": 49.2099,
+     "lo": 47.4066,
+     "hi": 51.0132,
+     "n": 256
+    },
+    "p95_peak_force_N": 68.95,
+    "over_40N": {
+     "mean": 0.6836,
+     "lo": 0.6243,
+     "hi": 0.7375,
+     "n": 256
+    },
+    "fraction_removed": {
+     "mean": 0.142,
+     "lo": 0.1255,
+     "hi": 0.1585,
+     "n": 256
+    },
+    "removed_pct_per_s": {
+     "mean": 0.9467,
+     "lo": 0.8366,
+     "hi": 1.0569,
+     "n": 256
+    },
+    "compute": "Isaac Lab GPU, batched",
+    "api_cost_usd_per_episode": 0.0,
+    "scenario_hash": "71b8b0bd7eeb",
+    "seed": 20261108,
+    "batched_act_ms_median": 8.869132027029991
+   },
+   "Gemini controller": {
+    "status": "not run in Isaac (CPU mock only)",
+    "why": "API latency would need a paused PhysX sim"
+   }
+  },
+  "rig": {
+   "PPO v2": {
+    "episodes": 256,
+    "success": {
+     "mean": 0.9727,
+     "lo": 0.9446,
+     "hi": 0.9867,
+     "n": 256
+    },
+    "time_to_clean_s": {
+     "mean": 7.0637,
+     "lo": 6.7391,
+     "hi": 7.3883,
+     "n": 249
+    },
+    "peak_force_N": {
+     "mean": 29.852,
+     "lo": 29.447,
+     "hi": 30.257,
+     "n": 256
+    },
+    "p95_peak_force_N": 34.91,
+    "over_40N": {
+     "mean": 0.0117,
+     "lo": 0.004,
+     "hi": 0.0339,
+     "n": 256
+    },
+    "fraction_removed": {
+     "mean": 0.9509,
+     "lo": 0.9493,
+     "hi": 0.9525,
+     "n": 256
+    },
+    "removed_pct_per_s": {
+     "mean": 15.3906,
+     "lo": 14.5572,
+     "hi": 16.2241,
+     "n": 256
+    },
+    "compute": "Isaac Lab GPU, batched",
+    "api_cost_usd_per_episode": 0.0,
+    "scenario_hash": "7d2d1fbc9b7f",
+    "seed": 20261108,
+    "batched_act_ms_median": 8.328555035404861
+   },
+   "Greedy scripted": {
+    "episodes": 256,
+    "success": {
+     "mean": 0.332,
+     "lo": 0.2772,
+     "hi": 0.3918,
+     "n": 256
+    },
+    "time_to_clean_s": {
+     "mean": 11.1718,
+     "lo": 10.5692,
+     "hi": 11.7743,
+     "n": 85
+    },
+    "peak_force_N": {
+     "mean": 38.2894,
+     "lo": 37.0824,
+     "hi": 39.4963,
+     "n": 256
+    },
+    "p95_peak_force_N": 53.03,
+    "over_40N": {
+     "mean": 0.4648,
+     "lo": 0.4047,
+     "hi": 0.526,
+     "n": 256
+    },
+    "fraction_removed": {
+     "mean": 0.7013,
+     "lo": 0.6708,
+     "hi": 0.7318,
+     "n": 256
+    },
+    "removed_pct_per_s": {
+     "mean": 5.6641,
+     "lo": 5.2398,
+     "hi": 6.0884,
+     "n": 256
+    },
+    "compute": "Isaac Lab GPU, batched",
+    "api_cost_usd_per_episode": 0.0,
+    "scenario_hash": "7d2d1fbc9b7f",
+    "seed": 20261108,
+    "batched_act_ms_median": 37.31873200740665
+   },
+   "Random": {
+    "episodes": 256,
+    "success": {
+     "mean": 0.0,
+     "lo": 0.0,
+     "hi": 0.0148,
+     "n": 256
+    },
+    "time_to_clean_s": {
+     "mean": null,
+     "lo": null,
+     "hi": null,
+     "n": 0
+    },
+    "peak_force_N": {
+     "mean": 48.5616,
+     "lo": 46.9279,
+     "hi": 50.1952,
+     "n": 256
+    },
+    "p95_peak_force_N": 70.03,
+    "over_40N": {
+     "mean": 0.6797,
+     "lo": 0.6202,
+     "hi": 0.7338,
+     "n": 256
+    },
+    "fraction_removed": {
+     "mean": 0.1393,
+     "lo": 0.1226,
+     "hi": 0.1561,
+     "n": 256
+    },
+    "removed_pct_per_s": {
+     "mean": 0.9288,
+     "lo": 0.8171,
+     "hi": 1.0404,
+     "n": 256
+    },
+    "compute": "Isaac Lab GPU, batched",
+    "api_cost_usd_per_episode": 0.0,
+    "scenario_hash": "7d2d1fbc9b7f",
+    "seed": 20261108,
+    "batched_act_ms_median": 7.41834903601557
+   },
+   "Gemini controller": {
+    "status": "not run in Isaac (CPU mock only)",
+    "why": "API latency would need a paused PhysX sim"
+   }
+  }
+ },
+ "isaac_lab_prior_evals": {
+  "v2 best (model_149, v2c)": {
+   "file": "runs/scrub_v2/eval_rig_meta_forcepatch.json",
+   "episodes": 1026,
+   "meta": true,
+   "success": {
+    "mean": 0.9756335282651072,
+    "lo": 0.9642768860601901,
+    "hi": 0.983441805628189
+   },
+   "mean_time_to_clean_s": 6.754013008528299,
+   "mean_peak_force_N": 29.88727891003644,
+   "p95_peak_force_N": 35.747859954833984,
+   "over_40N": {
+    "mean": 0.009746588693957114,
+    "lo": 0.005302662181498992,
+    "hi": 0.017847948639700392
+   }
+  },
+  "v2a ablation": {
+   "file": "runs/scrub_v2/eval_v2a.json",
+   "episodes": 512,
+   "meta": true,
+   "success": {
+    "mean": 0.998046875,
+    "lo": 0.9890207217875779,
+    "hi": 0.9996551422384565
+   },
+   "mean_time_to_clean_s": 5.983822877626363,
+   "mean_peak_force_N": 39.54166542366147,
+   "p95_peak_force_N": 53.220760345458984,
+   "over_40N": {
+    "mean": 0.431640625,
+    "lo": 0.38940389657104313,
+    "hi": 0.4748954946410697
+   }
+  },
+  "v2b ablation": {
+   "file": "runs/scrub_v2/eval_v2b.json",
+   "episodes": 512,
+   "meta": true,
+   "success": {
+    "mean": 0.990234375,
+    "lo": 0.977345524728445,
+    "hi": 0.9958216982932597
+   },
+   "mean_time_to_clean_s": 6.259763646878199,
+   "mean_peak_force_N": 32.92099963501096,
+   "p95_peak_force_N": 42.084716796875,
+   "over_40N": {
+    "mean": 0.076171875,
+    "lo": 0.05621959838153939,
+    "hi": 0.10243662713356044
+   }
+  },
+  "v1 (model_149)": {
+   "file": "runs/scrub_watson/eval_rig_meta_forcepatch.json",
+   "episodes": 513,
+   "meta": true,
+   "success": {
+    "mean": 1.0,
+    "lo": 0.9925674329039715,
+    "hi": 1.0
+   },
+   "mean_time_to_clean_s": 5.186744923480073,
+   "mean_peak_force_N": 49.85023357621875,
+   "p95_peak_force_N": 70.07991027832031,
+   "over_40N": {
+    "mean": 0.7680311890838206,
+    "lo": 0.729595243595875,
+    "hi": 0.8024828149783787
+   }
+  },
+  "v1 domain-rand": {
+   "file": "runs/scrub_watson/eval_dr.json",
+   "episodes": 513,
+   "meta": false,
+   "success": {
+    "mean": 1.0,
+    "lo": 0.9925674329039715,
+    "hi": 1.0
+   },
+   "mean_time_to_clean_s": 4.087654544712275,
+   "mean_peak_force_N": 49.793974770439995,
+   "p95_peak_force_N": 71.54745483398438,
+   "over_40N": {
+    "mean": 0.7875243664717348,
+    "lo": 0.7500566491424341,
+    "hi": 0.8207179955099471
+   }
+  }
+ },
+ "notes": {
+  "cpu_mock": "bench/scrub_sim.KinematicScrub: RustState abrasion + UR3 forward kinematics from the lift URDF, the env's DLS IK and virtual-spring contact, first-order joint lag tau=D/K=0.05 s instead of PhysX PD dynamics; builds the policy's exact 327-D observation. Every arm sees identical seeded scenarios (bench.stats.episode_seeds, make_scenario); every episode gets a new rust patch mid-run (3-10 s). Force setpoint clamped to <= 38 N for all arms.",
+  "target_interface": "Gemini, greedy and random choose [d_theta, d_z, press]; the brush moves to that target at the same 0.01 m/step limit as the PPO action, force setpoint 5+40*press N.",
+  "isaac_lab": "bench/isaac_scrub.py in Rig-Scrub-Go2UR3Lift-v2 on watson (PhysX), first episode of each of N envs with one env seed, so all arms get the same initial scenarios (scenario_hash)."
+ },
+ "cpu_mock_sensitivity_joint_lag": {
+  "PPO v2 (ONNX) tau=0.05": {
+   "success": {
+    "mean": 0.94,
+    "lo": 0.8752,
+    "hi": 0.9722,
+    "n": 100
+   },
+   "peak_force_N": {
+    "mean": 34.6604,
+    "lo": 33.5238,
+    "hi": 35.7971,
+    "n": 100
+   },
+   "over_40N": {
+    "mean": 0.21,
+    "lo": 0.1417,
+    "hi": 0.2998,
+    "n": 100
+   }
+  },
+  "Greedy scripted tau=0.05": {
+   "success": {
+    "mean": 0.31,
+    "lo": 0.2278,
+    "hi": 0.4063,
+    "n": 100
+   },
+   "peak_force_N": {
+    "mean": 35.9887,
+    "lo": 34.2356,
+    "hi": 37.7417,
+    "n": 100
+   },
+   "over_40N": {
+    "mean": 0.38,
+    "lo": 0.291,
+    "hi": 0.4779,
+    "n": 100
+   }
+  },
+  "PPO v2 (ONNX) tau=0.1": {
+   "success": {
+    "mean": 0.94,
+    "lo": 0.8752,
+    "hi": 0.9722,
+    "n": 100
+   },
+   "peak_force_N": {
+    "mean": 32.3437,
+    "lo": 31.5601,
+    "hi": 33.1274,
+    "n": 100
+   },
+   "over_40N": {
+    "mean": 0.05,
+    "lo": 0.0215,
+    "hi": 0.1118,
+    "n": 100
+   }
+  },
+  "Greedy scripted tau=0.1": {
+   "success": {
+    "mean": 0.1,
+    "lo": 0.0552,
+    "hi": 0.1744,
+    "n": 100
+   },
+   "peak_force_N": {
+    "mean": 34.0668,
+    "lo": 32.4403,
+    "hi": 35.6933,
+    "n": 100
+   },
+   "over_40N": {
+    "mean": 0.27,
+    "lo": 0.1927,
+    "hi": 0.3643,
+    "n": 100
+   }
+  }
+ }
+}

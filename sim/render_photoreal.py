@@ -19,6 +19,7 @@ parser.add_argument("--views", default="wide,deck_mid,repair,waterline")
 parser.add_argument("--prefix", default="pt")
 parser.add_argument("--out", default="/rig/runs/photoreal")
 parser.add_argument("--fps-seconds", type=float, default=0.0)
+parser.add_argument("--variants", default="")
 args = parser.parse_args()
 modes = [m for m in args.modes.split(",") if m]
 os.environ["RIG_PHOTOREAL"] = "1" if modes[0] == "after" else "0"
@@ -46,7 +47,7 @@ VIEWS = {
     "deck_mid": ((25.25, 3.25, 47.0), (18.25, -5.75, 43.5), 22.0),
     "waterline": ((75.0, -105.0, 4.0), (2.0, -8.0, 24.0), 18.0),
     "topdeck": ((30.0, -36.0, 52.0), (-6.0, 4.0, 44.0), 20.0),
-    "laydown": ((30.0, -2.0, 45.2), (16.0, -14.0, 43.0), 24.0),
+    "laydown": ((11.5, -3.2, 45.4), (3.0, -8.6, 43.0), 22.0),
 }
 
 settings = carb.settings.get_settings()
@@ -98,14 +99,23 @@ def look(eye, target, focal):
     op.Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*map(float, eye)), Gf.Vec3d(*map(float, target)), Gf.Vec3d(0, 0, 1)).GetInverse())
 
 
+last_shot = [None]
+
+
 def shoot(tag, name):
     start = clock.monotonic()
-    if args.renderer == "PathTracing":
-        rep.orchestrator.step(rt_subframes=max(args.spp // 16, 1) + 2, pause_timeline=False)
-    else:
-        for _ in range(40):
-            rep.orchestrator.step(rt_subframes=1, pause_timeline=False)
-    data = np.asarray(annotator.get_data())
+    for _ in range(3):
+        if args.renderer == "PathTracing":
+            rep.orchestrator.step(rt_subframes=2, pause_timeline=False)
+            rep.orchestrator.step(rt_subframes=max(args.spp // 16, 1) + 2, pause_timeline=False)
+        else:
+            for _ in range(40):
+                rep.orchestrator.step(rt_subframes=1, pause_timeline=False)
+        data = np.asarray(annotator.get_data())
+        sample = data[::16, ::16, :3].tobytes()
+        if sample != last_shot[0]:
+            break
+    last_shot[0] = sample
     out = f"{args.out}/{tag}_{name}.png"
     Image.fromarray(np.ascontiguousarray(data[:, :, :3], dtype=np.uint8)).save(out)
     print(f"VIEW {tag} {name} mean={data[:, :, :3].mean():.1f} s={clock.monotonic() - start:.1f}", flush=True)
@@ -146,4 +156,31 @@ for mode in modes:
         shoot(tag, name)
     if args.fps_seconds > 0:
         measure(tag)
+
+
+def set_inputs(name, value):
+    from pxr import Sdf
+
+    import photoreal
+
+    for shader in photoreal.rig_shaders(stage):
+        if shader.GetSourceAssetSubIdentifier("mdl") == "rig_weathered":
+            shader.CreateInput(name, Sdf.ValueTypeNames.Bool).Set(value)
+
+
+VARIANTS = {
+    "full": lambda: set_inputs("lite", False),
+    "lite": lambda: set_inputs("lite", True),
+    "nocoat": lambda: set_inputs("wet_coat", False),
+    "nodress": lambda: stage.GetPrimAtPath("/World/Photoreal").SetActive(False),
+    "coat": lambda: set_inputs("wet_coat", True),
+    "off": lambda: stage.GetRootLayer().subLayerPaths.remove("photoreal.usda"),
+    "on": lambda: stage.GetRootLayer().subLayerPaths.insert(0, "photoreal.usda"),
+}
+for variant in (v for v in args.variants.split(",") if v):
+    VARIANTS[variant]()
+    settle(300)
+    for _ in range(60):
+        rep.orchestrator.step(rt_subframes=1, pause_timeline=False)
+    measure(f"{args.prefix}_{variant}")
 os._exit(0)

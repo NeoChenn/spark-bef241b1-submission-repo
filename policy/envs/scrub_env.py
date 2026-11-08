@@ -12,6 +12,7 @@ from isaaclab.utils.math import matrix_from_quat, sample_uniform
 
 from policy.envs.rust_state import RustState
 from policy.envs.scrub_reward import force_setpoint, over_force_penalty
+from policy.storm import deck_offset, gust_force, sample_deck, sample_gusts
 from policy.envs.scrub_env_cfg import COARSE_H, COARSE_W, GRID_H, GRID_W, PATCH_K, ScrubEnvCfg
 
 
@@ -90,6 +91,16 @@ class ScrubEnv(DirectRLEnv):
         self.event_step = torch.full((N,), -1, dtype=torch.long, device=dev)
         self.event_fired = torch.zeros(N, dtype=torch.bool, device=dev)
         self.clean_step = torch.full((N,), -1, dtype=torch.long, device=dev)
+        self.storm_on = cfg.storm_level_range[1] > 0
+        self.storm = z1()
+        self.pipe_o0 = z3()
+        horizon = cfg.episode_length_s
+        self.gusts = sample_gusts(N, 0.0, horizon, device=dev, peak=cfg.storm_gust_peak, mean=cfg.storm_gust_mean)
+        self.deck = sample_deck(N, 0.0, device=dev, amp=cfg.storm_deck_amp, freq=cfg.storm_deck_freq)
+        self.gust_n = z1()
+        names = [b for b in cfg.storm_gust_bodies if b in self._robot.body_names]
+        self.gust_ids = torch.tensor(self._robot.find_bodies(names, preserve_order=True)[0] if names else [],
+                                     dtype=torch.long, device=dev)
         self._started = False
         self._markers = None
         if cfg.viz:
@@ -165,8 +176,23 @@ class ScrubEnv(DirectRLEnv):
         v = d.body_lin_vel_w[:, self.ee_idx] + torch.cross(d.body_ang_vel_w[:, self.ee_idx], r_off, dim=-1)
         return brush_w, v, r_off
 
+    def _storm_step(self):
+        t = self.episode_length_buf.float() * self.ctrl_dt
+        self.gust_n[:] = gust_force(self.gusts, t)
+        wind = self.gust_n[:, None] * self.gusts["dir"]
+        off = deck_offset(self.deck, t)
+        sway = off[:, 0] + self.cfg.storm_trunk_sway * (wind * self.pipe_e).sum(-1)
+        heave = off[:, 1] + self.cfg.storm_trunk_sway * wind[:, 2]
+        self.pipe_o[:] = self.pipe_o0 + sway[:, None] * self.pipe_e + heave[:, None] * self.pipe_b
+        if len(self.gust_ids):
+            f = (wind / len(self.gust_ids))[:, None, :].expand(-1, len(self.gust_ids), -1).contiguous()
+            self._robot.permanent_wrench_composer.set_forces_and_torques(
+                forces=f, torques=torch.zeros_like(f), body_ids=self.gust_ids, is_global=True)
+
     def _pre_physics_step(self, actions: torch.Tensor):
         c = self.cfg
+        if self.storm_on:
+            self._storm_step()
         a = actions.clamp(-1.0, 1.0)
         self.prev_actions[:] = self.actions
         self.actions[:] = a
@@ -280,6 +306,17 @@ class ScrubEnv(DirectRLEnv):
         self.pipe_a[env_ids] = torch.stack([torch.cos(yaw), torch.sin(yaw), torch.zeros_like(yaw)], -1)
         self.pipe_e[env_ids] = torch.stack([-torch.sin(yaw), torch.cos(yaw), torch.zeros_like(yaw)], -1)
         self.spring_k[env_ids] = sample_uniform(*c.spring_k_range, (n,), dev)
+        self.pipe_o0[env_ids] = self.pipe_o[env_ids]
+        lv = sample_uniform(*c.storm_level_range, (n,), dev) if self.storm_on else torch.zeros(n, device=dev)
+        self.storm[env_ids] = lv
+        if self.storm_on:
+            g = sample_gusts(n, lv, c.episode_length_s, k=self.gusts["t0"].shape[1], device=dev,
+                             peak=c.storm_gust_peak, mean=c.storm_gust_mean)
+            for key, val in g.items():
+                self.gusts[key][env_ids] = val
+            d = sample_deck(n, lv, device=dev, amp=c.storm_deck_amp, freq=c.storm_deck_freq)
+            for key, val in d.items():
+                self.deck[key][env_ids] = val
 
         jp = self._robot.data.default_joint_pos[env_ids].clone()
         lift = torch.zeros(n, device=dev)
@@ -293,7 +330,7 @@ class ScrubEnv(DirectRLEnv):
         soak = torch.where(torch.rand(n, device=dev) < c.prob_not_soaked,
                            sample_uniform(0.0, 25.0, (n,), dev), torch.full((n,), 60.0, device=dev))
         self.rust.reset(env_ids, radius=r, soak_time=soak, reachable=reach, n_patches=c.n_patches_range,
-                        abrasion_coef=sample_uniform(*c.abrasion_coef_range, (n,), dev))
+                        abrasion_coef=sample_uniform(*c.abrasion_coef_range, (n,), dev) * (1 - 0.35 * lv))
 
         jp[:, self.arm_ids] += sample_uniform(-c.init_joint_noise, c.init_joint_noise, (n, len(self.arm_ids)), dev)
         jp[:, self.arm_ids] = torch.maximum(torch.minimum(jp[:, self.arm_ids], self.q_hi), self.q_lo)
@@ -356,7 +393,7 @@ class ScrubEnv(DirectRLEnv):
         self.last_episode_stats = {
             "env_ids": env_ids.clone(), "fraction_removed": 1.0 - frac, "success": self.success[env_ids].clone(),
             "max_force": self.max_force[env_ids].clone(), "time_to_clean_s": t_clean,
-            "new_patch": self.event_fired[env_ids].clone(),
+            "new_patch": self.event_fired[env_ids].clone(), "storm": self.storm[env_ids].clone(),
         }
 
     def _get_observations(self) -> dict:
@@ -411,6 +448,7 @@ class ScrubEnv(DirectRLEnv):
 TASKS = {
     "lift": ("Rig-Scrub-Go2UR3Lift-v0", "ScrubLiftEnvCfg"),
     "lift_v2": ("Rig-Scrub-Go2UR3Lift-v2", "ScrubLiftV2EnvCfg"),
+    "lift_v3": ("Rig-Scrub-Go2UR3Lift-v3", "ScrubLiftV3EnvCfg"),
     "go2ur3": ("Rig-Scrub-Go2UR3-v0", "ScrubEnvCfg"),
     "franka": ("Rig-Scrub-Franka-v0", "ScrubFrankaEnvCfg"),
 }
