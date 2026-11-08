@@ -13,7 +13,7 @@ ROBOTS = "/World/Obstacles/Robots"
 EYE = (0.30, 0.0, 0.32)
 LOOK = (6.0, 0.0, -0.5)
 APERTURE = 20.955
-SETTLE = 2
+SETTLE = 3
 
 
 class SensorRig:
@@ -32,11 +32,12 @@ class SensorRig:
         self.main_ms = self.compose_ms = 0.0
         self.captures = 0
         self.on = True
+        self.rp = self.rp_prim = self.texture = None
+        self.read_ms = 0.0
         threading.Thread(target=self._work, daemon=True).start()
 
     def _mount(self, rid: str) -> dict:
-        import omni.replicator.core as rep
-        from pxr import Gf, Sdf, UsdGeom
+        from pxr import Gf, UsdGeom
 
         from rig.sim.orbit import look_at_rows
 
@@ -47,26 +48,41 @@ class SensorRig:
         cam.CreateVerticalApertureAttr(APERTURE * self.size[1] / self.size[0])
         cam.CreateClippingRangeAttr(Gf.Vec2f(0.05, 400.0))
         cam.AddTransformOp().Set(Gf.Matrix4d(look_at_rows(EYE, LOOK)))
-        rp = rep.create.render_product(path, self.size)
-        rgb = rep.AnnotatorRegistry.get_annotator("rgb")
-        rgb.attach(rp)
-        depth = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane")
-        depth.attach(rp)
-        rp_path = getattr(rp, "path", None)
-        prim = self.stage.GetPrimAtPath(rp_path) if rp_path else None
-        if self.mode and prim is not None and prim.IsValid():
-            prim.CreateAttribute("omni:rtx:rendermode", Sdf.ValueTypeNames.Token).Set(self.mode)
-        texture = getattr(rp, "hydra_texture", None)
-        c = {"path": path, "cam": cam, "rp": rp, "rgb": rgb, "depth": depth, "texture": texture,
-             "role": role_of(len(self.cams))}
-        self._enable(c, False)
-        print(f"rig sim: sensor cam {path} {self.size[0]}x{self.size[1]} role={c['role']} rp={rp_path}", flush=True)
+        if self.rp is None:
+            self._product(path)
+        c = {"path": path, "cam": cam, "role": role_of(len(self.cams))}
+        print(f"rig sim: sensor cam {path} {self.size[0]}x{self.size[1]} role={c['role']}", flush=True)
         return c
 
-    def _enable(self, c: dict, on: bool) -> None:
-        tex = c["texture"]
-        if tex is not None and hasattr(tex, "set_updates_enabled"):
-            tex.set_updates_enabled(bool(on))
+    def _product(self, path: str) -> None:
+        import omni.replicator.core as rep
+        from pxr import Sdf
+
+        self.rp = rep.create.render_product(path, self.size)
+        self.rgb = rep.AnnotatorRegistry.get_annotator("rgb")
+        self.rgb.attach(self.rp)
+        self.depth = rep.AnnotatorRegistry.get_annotator("distance_to_image_plane")
+        self.depth.attach(self.rp)
+        self.texture = getattr(self.rp, "hydra_texture", None)
+        self.rp_prim = self.stage.GetPrimAtPath(getattr(self.rp, "path", ""))
+        if self.mode and self.rp_prim.IsValid():
+            with self._session():
+                self.rp_prim.CreateAttribute("omni:rtx:rendermode", Sdf.ValueTypeNames.Token).Set(self.mode)
+        print(f"rig sim: sensor render product {getattr(self.rp, 'path', None)} valid={self.rp_prim.IsValid()} mode={self.mode}", flush=True)
+
+    def _session(self):
+        from pxr import Usd
+
+        return Usd.EditContext(self.stage, self.stage.GetSessionLayer())
+
+    def _aim(self, path: str) -> None:
+        if self.rp_prim is not None and self.rp_prim.IsValid():
+            with self._session():
+                self.rp_prim.GetRelationship("camera").SetTargets([path])
+
+    def _enable(self, on: bool) -> None:
+        if self.texture is not None and hasattr(self.texture, "set_updates_enabled"):
+            self.texture.set_updates_enabled(bool(on))
 
     def _header(self, c: dict) -> dict:
         from pxr import Usd
@@ -86,6 +102,7 @@ class SensorRig:
         a = ev.get("args") or {}
         if ev.get("name") == "views":
             self.on = bool(a.get("on", True))
+            self._enable(self.on)
             print(f"rig sim: views {'on' if self.on else 'off'}", flush=True)
             return True
         if ev.get("name") != "force":
@@ -107,8 +124,9 @@ class SensorRig:
             p["left"] -= 1
             if p["left"] <= 0:
                 c = self.cams[p["rid"]]
-                rgb, depth = np.asarray(c["rgb"].get_data()), np.asarray(c["depth"].get_data())
-                self._enable(c, False)
+                t1 = time.perf_counter()
+                rgb, depth = np.asarray(self.rgb.get_data()), np.asarray(self.depth.get_data())
+                self.read_ms = 0.8 * self.read_ms + 0.2 * (time.perf_counter() - t1) * 1e3
                 self.pending = None
                 if rgb.ndim == 3 and rgb.size and depth.size:
                     field = self.leak.plume.field() if self.leak is not None and c["role"] == "gas" else None
@@ -123,7 +141,7 @@ class SensorRig:
             rid = self.schedule.due(list(self.cams), t)
             if rid is not None:
                 c = self.cams[rid]
-                self._enable(c, True)
+                self._aim(c["path"])
                 path = (self.obstacles.paths.get(rid) or {}).get("path")
                 self.pending = {"rid": rid, "left": SETTLE, "cam": self._header(c), "pose": self._pose(rid), "path": path}
         self.main_ms = 0.9 * self.main_ms + 0.1 * (time.perf_counter() - t0) * 1e3
@@ -148,4 +166,4 @@ class SensorRig:
         return out or None
 
     def summary(self) -> str:
-        return f"views cams={len(self.cams)} caps={self.captures} main_ms={self.main_ms:.2f} compose_ms={self.compose_ms:.0f}"
+        return f"views cams={len(self.cams)} caps={self.captures} main_ms={self.main_ms:.2f} read_ms={self.read_ms:.1f} compose_ms={self.compose_ms:.0f}"
