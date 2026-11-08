@@ -27,17 +27,17 @@ def shot_at(t):
 def test_the_edl_tiles_sixty_seconds_in_story_order():
     names = [s.name for s in SHOTS]
     assert names[:5] == ["rig", "control_push", "board", "board_hold", "unit2_walk"]
-    assert names[-2:] == ["walk_back", "conclusion"]
+    assert names[-3:] == ["walk_back_u1", "walk_back_u2", "conclusion"]
     assert names.index("unit2_job") < names.index("unit1_walk") < names.index("unit1_spray")
     assert names.index("unit1_spray") < names.index("unit1_scrub") < names.index("unit1_paint")
     assert SHOTS[0].film[0] == 0.0 and SHOTS[-1].film[1] <= 60.0 + 1e-9
     for a, b in zip(SHOTS, SHOTS[1:]):
         assert a.film[1] == pytest.approx(b.film[0])
     assert [s.name for s in SHOTS if s.two_d] == ["board", "board_hold", "conclusion"]
-    assert next(s for s in SHOTS if s.name == "walk_back").rate == 2.5
+    assert all(s.rate == pytest.approx(2.5) for s in SHOTS if s.name.startswith("walk_back"))
     assert all(s.rate >= 0.99 for s in SHOTS if s.sim and s.sim[1] > s.sim[0])
     assert all(s.badge for s in SHOTS if s.rate > 1.05 and not s.two_d)
-    assert {s.t_in for s in SHOTS} <= {"cut", "xfade", "fade"} and '"walk_back"' in to_json(SHOTS)
+    assert {s.t_in for s in SHOTS} <= {"cut", "xfade", "fade"} and '"walk_back_u2"' in to_json(SHOTS)
 
 
 def test_short_and_long_cuts_share_every_3d_shot():
@@ -48,8 +48,8 @@ def test_short_and_long_cuts_share_every_3d_shot():
     assert long[-1].film[1] == 66.0 and long[-1].cards == 5
     assert long[-1].film[1] - long[-1].film[0] == pytest.approx(short[-1].film[1] - short[-1].film[0] + 6.0)
     both = FilmBeats.from_summary({**SUMMARY, "beats": {**SUMMARY["beats"], "u2_return": 114.5}})
-    walk = next(x for x in edl(both) if x.name == "walk_back")
-    assert walk.sim == (114.5, 124.5) and walk.rate == 2.5
+    walk = [x for x in edl(both) if x.name.startswith("walk_back")]
+    assert [w.sim for w in walk] == [(119.5, 124.5), (124.5, 129.5)] and all(w.rate == 2.5 for w in walk)
 
 
 def test_control_room_constants_describe_the_window_isaac_needs():
@@ -68,7 +68,8 @@ def test_sim_time_follows_the_recorded_beats():
     assert job.sim[0] < b.u2_engage and job.sim[1] > b.gf5_green and job.rate < 1.1
     assert shots["unit1_spray"].sim[0] < b.spray and shots["unit1_soak"].sim == (b.soak, b.scrub)
     assert shots["unit1_scrub"].sim == (b.scrub, b.scrub_done) and shots["unit1_paint"].sim[1] > b.paint_done
-    assert shots["walk_back"].sim == (b.u1_return, b.u1_return + 10.0)
+    assert shots["walk_back_u1"].sim == (b.u1_return + 5.0, b.u1_return + 10.0)
+    assert shots["walk_back_u2"].sim == (b.u1_return + 10.0, b.u1_return + 15.0)
     assert shots["board"].sim == (0.0, b.dispatch_u2 + 0.3) and shots["board"].film == (10.0, 18.5)
     hold = shots["board_hold"]
     assert hold.film == (18.5, 20.0) and hold.rate == 0.0 and hold.sim == (b.dispatch_u2 + 0.3,) * 2
@@ -97,17 +98,20 @@ def test_the_whole_rig_with_flare_and_derrick_stays_inside_the_orbit():
         assert inside_edges(e, g, f, [(-62.6, 8.0, 82.5), (20.0, 20.0, 81.3)], 0.05)
 
 
-def test_the_walk_back_tracks_both_robots_from_low_and_oblique():
-    shot = next(x for x in SHOTS if x.name == "walk_back")
-    for t in np.linspace(shot.film[0], shot.film[1] - 1e-3, 9):
-        e, g, f, st = camera_at_film(t, SHOTS)
-        assert 11.5 <= np.linalg.norm(np.subtract(e, g)) <= 17.0
-        assert 55.0 <= np.degrees(np.arcsin((e[2] - g[2]) / np.linalg.norm(np.subtract(e, g)))) <= 70.0
-        cam = view(e, g, f)
-        track = default_track(FilmBeats(), DEFAULT_FILM_SCENE)
-        for robot in ("unit1", "unit2"):
-            u, v, z = project(cam, track(robot, st))
-            assert z > 0 and 0 < u < cam["w"] and 0 < v < cam["h"], (t, robot)
+def test_the_walk_back_tracks_each_robot_high_oblique_and_large():
+    track = default_track(FilmBeats(), DEFAULT_FILM_SCENE)
+    for name, robot in (("walk_back_u1", "unit1"), ("walk_back_u2", "unit2")):
+        shot = next(x for x in SHOTS if x.name == name)
+        for t in np.linspace(shot.film[0], shot.film[1] - 1e-3, 7):
+            e, g, f, st = camera_at_film(t, SHOTS)
+            d = np.linalg.norm(np.subtract(e, g))
+            assert 8.0 <= d <= 10.0 and 50.0 <= np.degrees(np.arcsin((e[2] - g[2]) / d)) <= 60.0
+            cam = view(e, g, f)
+            p = track(robot, st)
+            u, v, z = project(cam, p)
+            assert z > 0 and 0.2 * cam["w"] < u < 0.8 * cam["w"] and 0.2 * cam["h"] < v < 0.8 * cam["h"], (t, robot)
+            top, bottom = project(cam, (p[0], p[1], p[2] + 0.3))[1], project(cam, (p[0], p[1], 42.5))[1]
+            assert abs(bottom - top) / cam["h"] >= 0.06
 
 
 def test_work_shots_frame_the_bolt_the_patch_and_the_arms():
@@ -115,8 +119,8 @@ def test_work_shots_frame_the_bolt_the_patch_and_the_arms():
     w = s.unit1_work
     unit1 = [s.patch, (w[0], w[1], w[2] + 1.1), (w[0] - 0.35, w[1], 42.5), (w[0] + 0.35, w[1], 42.5)]
     unit2 = [s.bolt, s.flange, (s.unit2_work[0], s.unit2_work[1], s.unit2_work[2] + 1.1)]
-    for name, pts, far in (("unit2_job", unit2, 4.5), ("unit1_spray", unit1, 6.2), ("unit1_scrub", unit1, 6.2),
-                           ("unit1_paint", unit1, 6.2)):
+    for name, pts, far in (("unit2_job", unit2, 4.5), ("unit1_spray", unit1, 4.0), ("unit1_scrub", unit1, 4.0),
+                           ("unit1_paint", unit1, 4.0)):
         shot = next(x for x in SHOTS if x.name == name)
         for t in np.linspace(shot.film[0] + 1.3, shot.film[1] - 0.01, 6):
             e, g, f, _ = camera_at_film(t, SHOTS)
@@ -144,7 +148,13 @@ def test_the_control_room_is_framed_from_inside_and_out():
     assert np.all(lo + 0.5 < inside) and np.all(inside < hi - 0.5)
     push = next(x for x in SHOTS if x.name == "control_push")
     end = np.array(camera_at_film(push.film[1] - 1e-3, SHOTS)[0])
-    assert CONTROL_ROOM["window_y"] + 2.0 < end[1] < CONTROL_ROOM["window_y"] + 6.0
+    assert CONTROL_ROOM["window_y"] + 7.0 <= end[1] <= CONTROL_ROOM["window_y"] + 9.0
+    e, g, f, _ = camera_at_film(push.film[1] - 1e-3, SHOTS)
+    cam = view(e, g, f)
+    for w0, w1 in CONTROL_ROOM["north_windows"]:
+        for p in (w0, w1):
+            u, v, z = project(cam, p)
+            assert z > 0 and 0.05 * cam["w"] < u < 0.95 * cam["w"] and 0.05 * cam["h"] < v < 0.95 * cam["h"]
 
 
 def test_the_camera_keeps_clear_of_the_repair_zone_boxes():
