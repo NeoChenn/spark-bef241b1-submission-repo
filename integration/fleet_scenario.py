@@ -42,7 +42,7 @@ def work_point(geom: FlangeGeometry, standoff: float = WORK_STANDOFF_M) -> np.nd
 
 
 class Scenario:
-    def __init__(self, t_leak: float = 6.0, t_fixed: float = 34.0, t_stuck: Optional[float] = 46.0,
+    def __init__(self, t_leak: float = 6.0, t_fixed: Optional[float] = None, t_stuck: Optional[float] = 46.0,
                  leak_flange: str = "F5", bolt: int = 3, loosen_rad: float = 0.27, stuck_flange: str = "F6",
                  stuck_lel: float = 14.0, rise_tau_s: float = 3.0, decay_tau_s: float = 4.0,
                  wind=(0.0, -1.0, 0.0), wind_stretch: float = 0.3, flanges=FLANGES, meta_path=LEAK_META,
@@ -64,14 +64,34 @@ class Scenario:
         self.peak = float(np.clip(loosen_rad / LEAK_FULL_RAD, 0.0, 1.0))
         self.script = self._script()
 
+    def start_leak(self, t: float) -> list[Event]:
+        self.t_leak = float(t)
+        if self.t_fixed is not None and self.t_fixed < self.t_leak:
+            self.t_fixed = None
+        self.script = self._script()
+        return self.at(t)
+
+    def fix(self, t: float) -> list[Event]:
+        if t < self.t_leak:
+            raise ValueError(f"retorque at {t:.2f} s is before the leak at {self.t_leak:.2f} s")
+        self.t_fixed = float(t)
+        self.script = self._script()
+        return self.at(t)
+
+    retorque_done = fix
+
+    @property
+    def _off(self) -> float:
+        return math.inf if self.t_fixed is None else self.t_fixed
+
     def level(self, t: float) -> float:
         if t < self.t_leak:
             return 0.0
-        on = self.peak * (1.0 - math.exp(-(min(t, self.t_fixed) - self.t_leak) / self.rise_tau_s))
-        return on if t < self.t_fixed else on * math.exp(-(t - self.t_fixed) / self.decay_tau_s)
+        on = self.peak * (1.0 - math.exp(-(min(t, self._off) - self.t_leak) / self.rise_tau_s))
+        return on if t < self._off else on * math.exp(-(t - self._off) / self.decay_tau_s)
 
     def bolt_angle(self, t: float) -> float:
-        return self.loosen_rad if self.t_leak <= t < self.t_fixed else 0.0
+        return self.loosen_rad if self.t_leak <= t < self._off else 0.0
 
     def gas_frac(self, point, t: float) -> float:
         r = np.asarray(point, float) - self.flanges[self.leak_flange].center
@@ -116,19 +136,22 @@ class Scenario:
         det = f"G-{self.leak_flange}"
         p = np.asarray(self.detector(det).pos, float)
         lel = lambda t: 100.0 * self.gas_frac(p, t)
-        amber = self._first(self.t_leak, self.t_fixed, lambda t: lel(t) >= CLEAR_LEL)
-        red = self._first(self.t_leak, self.t_fixed, lambda t: lel(t) >= ALARM_LEL)
-        clear = self._first(self.t_fixed, self.t_fixed + 120.0, lambda t: lel(t) < CLEAR_LEL)
+        tf = self.t_fixed
+        stop = self.t_leak + 60.0 if tf is None else tf
+        amber = self._first(self.t_leak, stop, lambda t: lel(t) >= CLEAR_LEL)
+        red = self._first(self.t_leak, stop, lambda t: lel(t) >= ALARM_LEL)
+        clear = None if tf is None else self._first(tf, tf + 120.0, lambda t: lel(t) < CLEAR_LEL)
         bolt = {"flange": self.leak_flange, "bolt": self.bolt, "loosen_rad": self.loosen_rad}
         ev = [Event("leak_start", self.t_leak, self.t_leak + 2.0, bolt),
-              Event("leak", self.t_leak, self.t_fixed, bolt)]
-        if amber is not None:
-            ev.append(Event(f"{det} amber", amber, red, {"detector": det}))
-        if red is not None:
-            ev.append(Event(f"{det} red", red, self.t_fixed, {"detector": det}))
-        ev += [Event("retorque_done", self.t_fixed, self.t_fixed + 2.0, bolt),
-               Event("source_off", self.t_fixed, self.t_fixed + 2.0, {"flange": self.leak_flange}),
-               Event("gas_decay", self.t_fixed, clear, {"flange": self.leak_flange, "tau_s": self.decay_tau_s})]
+              Event("leak", self.t_leak, tf, bolt)]
+        if amber is not None and (tf is None or amber < tf):
+            ev.append(Event(f"{det} amber", amber, red if red is not None else tf, {"detector": det}))
+        if red is not None and (tf is None or red < tf):
+            ev.append(Event(f"{det} red", red, tf, {"detector": det}))
+        if tf is not None:
+            ev += [Event("retorque_done", tf, tf + 2.0, bolt),
+                   Event("source_off", tf, tf + 2.0, {"flange": self.leak_flange}),
+                   Event("gas_decay", tf, clear, {"flange": self.leak_flange, "tau_s": self.decay_tau_s})]
         if clear is not None:
             ev.append(Event("gas_clear", clear, clear + 2.0, {"detector": det}))
         if self.t_stuck is not None:

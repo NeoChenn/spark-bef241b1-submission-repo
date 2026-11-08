@@ -13,7 +13,7 @@ UNIT1_SPAWN = (18.2567, -5.25)
 
 @pytest.fixture
 def s():
-    return Scenario()
+    return Scenario(t_fixed=34.0)
 
 
 def verdict(s, det_id, t, robots):
@@ -105,3 +105,42 @@ def test_positions_match_the_leak_flanges_and_detector_prims(s):
     assert np.allclose(s.detector("G-F5").pos, (20.153, -10.396, 43.46), atol=1e-3)
     assert np.allclose(s.detector("G-F6").pos, (31.198, -10.857, 43.46), atol=1e-3)
     assert s.coordinates()["source"]["flange"] == "F5"
+
+
+def lel_f5(s, t):
+    return s.detector_readings(t)["G-F5"]
+
+
+def test_without_a_fix_the_source_keeps_leaking():
+    s = Scenario()
+    assert s.leds(100.0)["G-F5"] == "red" and s.bolt_angle(100.0) == pytest.approx(0.27)
+    assert not {"retorque_done", "gas_clear"} & {e.name for e in s.script}
+    with pytest.raises(ValueError):
+        s.fix(s.t_leak - 1.0)
+
+
+def test_an_early_fix_cuts_the_source_when_unit2_tightens_the_bolt():
+    s, ref = Scenario(), Scenario()
+    t_fix = s.event("G-F5 red").t + 1.0
+    before = [lel_f5(s, t) for t in np.arange(0.0, t_fix, 0.25)]
+    s.retorque_done(t_fix)
+    assert [lel_f5(s, t) for t in np.arange(0.0, t_fix, 0.25)] == before
+    assert s.bolt_angle(t_fix) == 0.0 and s.bolt_angle(t_fix - 0.01) == pytest.approx(0.27)
+    assert lel_f5(s, t_fix + 2.0) < lel_f5(s, t_fix) < lel_f5(ref, t_fix + 2.0)
+    assert {"retorque_done", "source_off", "gas_decay"} <= {e.name for e in s.at(t_fix)}
+    assert t_fix < s.event("gas_clear").t <= t_fix + N_CLEAR_S
+    assert set(s.leds(t_fix + N_CLEAR_S).values()) == {"green"}
+
+
+def test_a_late_fix_keeps_the_alarm_up_until_unit2_finishes():
+    s = Scenario(t_stuck=None)
+    s.start_leak(10.0)
+    assert s.t_leak == 10.0 and s.leds(9.0)["G-F5"] == "green"
+    assert 10.0 < s.event("G-F5 amber").t < s.event("G-F5 red").t <= 14.0
+    t_fix = 55.0
+    assert s.leds(t_fix - 0.1)["G-F5"] == "red"
+    s.fix(t_fix)
+    assert s.leds(t_fix - 0.1)["G-F5"] == "red"
+    assert s.event("retorque_done").t == t_fix and s.event("leak").end == t_fix
+    assert t_fix < s.event("gas_clear").t <= t_fix + N_CLEAR_S
+    assert set(s.leds(t_fix + N_CLEAR_S).values()) == {"green"}
