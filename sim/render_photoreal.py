@@ -53,7 +53,7 @@ VIEWS = {
 settings = carb.settings.get_settings()
 base = {"/rtx/post/motionblur/enabled": False, "/rtx/post/dof/enabled": False, "/rtx/post/lensFlares/enabled": False}
 if args.renderer == "PathTracing":
-    base.update({"/rtx/rendermode": "PathTracing", "/rtx/pathtracing/spp": 16, "/rtx/pathtracing/totalSpp": args.spp,
+    base.update({"/rtx/rendermode": "PathTracing", "/rtx/pathtracing/spp": 4, "/rtx/pathtracing/totalSpp": args.spp,
                  "/rtx/pathtracing/maxBounces": 8, "/rtx/pathtracing/maxSpecularAndTransmissionBounces": 8,
                  "/rtx/pathtracing/optixDenoiser/enabled": True})
 else:
@@ -106,7 +106,7 @@ def shoot(tag, name):
     start = clock.monotonic()
     for _ in range(4):
         if args.renderer == "PathTracing":
-            rep.orchestrator.step(rt_subframes=max(args.spp // 16, 1) + 2, pause_timeline=False)
+            rep.orchestrator.step(rt_subframes=max(args.spp // 4, 1) + 2, pause_timeline=False)
         else:
             for _ in range(40):
                 rep.orchestrator.step(rt_subframes=1, pause_timeline=False)
