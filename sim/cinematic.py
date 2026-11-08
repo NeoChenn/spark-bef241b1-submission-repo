@@ -432,6 +432,14 @@ def build_stage() -> Usd.Stage:
 
 def apply_preset(stage, name: str) -> None:
     preset = PRESETS[name]
+    import os
+    order = os.environ.get("RIG_GREEBLES_ORDER", "early")
+    if order == "block":
+        with Sdf.ChangeBlock():
+            photoreal.attach(stage)
+            greebles.attach(stage)
+    elif order == "early":
+        greebles.attach(stage)
     photoreal.apply(stage, name)
     greebles.apply(stage)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
