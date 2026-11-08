@@ -60,9 +60,9 @@ is fine. Pass no-return beams as `inf`, `nan` or `>= 4.0`; they read as "free".
 
 ## 4. Policy I/O
 
-Files: `runs/patrol/<run>/policy.onnx`, `policy_meta.json`, `deploy.pt`, `eval.json`, `progress.jsonl`;
-the same files are on Modal volume `rust-ckpt:/patrol/<run>/` (workspace `neochenn`):
-`modal volume get rust-ckpt patrol/<run> runs/patrol/`.
+Files: the deployed policy is in the repo at `patrol/models/nav_v3a/` (`policy.onnx`, `deploy.pt`,
+`policy_meta.json`, `eval.json`), so no Modal access is needed. Training runs write
+`runs/patrol/<run>/` locally and `rust-ckpt:/patrol/<run>/` on the `neochenn` Modal workspace.
 
 ONNX: input `"obs"` float32 `[B, 53]`, output `"action"` float32 `[B, 2]` in [-1, 1]. The observation
 normaliser is baked in, so feed raw features. You normally don't build `obs` yourself:
