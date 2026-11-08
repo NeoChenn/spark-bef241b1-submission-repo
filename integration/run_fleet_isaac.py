@@ -48,6 +48,7 @@ def parse_args(argv=None):
     p.add_argument("--duration", type=float, default=0.0, help="seconds; 0 = to the end of the timeline")
     p.add_argument("--max-frames", type=int, default=0)
     p.add_argument("--every", type=int, default=1, help="render every n-th frame (quick tests)")
+    p.add_argument("--at", default="", help="comma-separated times: render only these frames (checks)")
     p.add_argument("--renderer", default="RaytracedLighting",
                    choices=["RaytracedLighting", "PathTracing", "RealTimePathTracing"])
     p.add_argument("--spp", type=int, default=16)
@@ -129,6 +130,7 @@ class Scenario:
     leds: list = field(default_factory=list)
     events: list = field(default_factory=list)
     masks: list = field(default_factory=list)
+    rows: list = field(default_factory=list)
     end: float = 0.0
 
     def add_pose(self, rid, t, x, y, yaw, state):
@@ -211,8 +213,16 @@ class Scenario:
         return out
 
 
+def grid(v):
+    if isinstance(v, list) and v and isinstance(v[0], str):
+        return np.array([[c == "1" for c in row] for row in v], float)
+    if isinstance(v, list) and v and isinstance(v[0], list):
+        return np.asarray(v, float)
+    return None
+
+
 def parse_rows(rows) -> Scenario:
-    scn = Scenario()
+    scn = Scenario(rows=list(rows))
     for r in rows:
         t = r.get("t", r.get("time"))
         if t is None:
@@ -230,11 +240,13 @@ def parse_rows(rows) -> Scenario:
             p = _xyyaw(r)
             if p:
                 scn.add_pose(rid, t, *p, _first(r, STATE_KEYS))
-        src = r.get("rust") if isinstance(r.get("rust"), dict) else (robots or {}).get("unit1", {}) \
-            if isinstance(robots, dict) else r
-        m = {k: src.get(k, r.get(k)) for k in MASK_KEYS if isinstance(src, dict)}
-        m = {k: np.asarray(v, float) for k, v in m.items() if isinstance(v, list) and v and isinstance(v[0], list)}
+        u1 = robots.get("unit1", {}) if isinstance(robots, dict) else {}
+        src = u1.get("surface") if isinstance(u1.get("surface"), dict) else u1 if isinstance(u1, dict) else {}
+        m = {k: grid(src.get(k)) for k in MASK_KEYS}
+        m = {k: v for k, v in m.items() if v is not None}
         if m:
+            if "nozzle_on" in src:
+                m["nozzle_on"] = bool(src["nozzle_on"])
             scn.masks.append((t, m))
         dets = r.get("detectors")
         if isinstance(dets, dict):
@@ -549,6 +561,14 @@ def bolt_target(f: dict, robot_xy, k: int = 0):
     return p + side * 0.05 * n, -side * n
 
 
+def fixer_stance(f: dict, xy, reach: float = 0.4):
+    c = np.asarray(f["center_m"][:2], float)
+    d = np.asarray(xy, float) - c
+    d = d / max(np.linalg.norm(d), 1e-6)
+    p = c + reach * d
+    return float(p[0]), float(p[1]), math.atan2(-d[1], -d[0])
+
+
 def nearest_flange(flanges: dict | None, xy, within: float = 3.5):
     best = None
     for f in (flanges or {}).get("flanges", []):
@@ -576,7 +596,8 @@ def beat_times(scn: Scenario, start: float = 0.0) -> dict:
     leds = [(t, st) for t, _, st in scn.leds if t >= start]
     s1 = [(t, st) for t, st in scn.states.get("unit1", []) if t >= start]
     s2 = [(t, st) for t, st in scn.states.get("unit2", []) if t >= start]
-    b = {"start": start, "amber": first(leds, lambda v: v == "warn")}
+    b = {"start": start, "spray": first(s1, lambda v: activity("unit1", v) == "spray"),
+         "scrub": first(s1, lambda v: activity("unit1", v) == "scrub"), "amber": first(leds, lambda v: v == "warn")}
     b["red"] = first(leds, lambda v: v == "alarm", b["amber"])
     b["step_back"] = first(s1, lambda v: activity("unit1", v) == "stow" and "DONE" not in v.upper(), b["amber"])
     b["arrive"] = first(s2, lambda v: activity("unit2", v) != "stow", b["red"])
@@ -585,15 +606,24 @@ def beat_times(scn: Scenario, start: float = 0.0) -> dict:
     red_id = next((d for t, d, st in scn.leds if st == "alarm" and t == b["red"]), None)
     b["green"] = first([(t, st) for t, d, st in scn.leds if d == red_id], lambda v: v == "ok", b["red"])
     b["resume"] = first(s1, lambda v: activity("unit1", v) != "stow", b["step_back"])
-    b["end"] = start + min(60.0, max(1.0, scn.end - start))
+    b["paint"] = first(s1, lambda v: activity("unit1", v) == "paint", b["resume"])
+    b["end"] = start + min(120.0, max(1.0, scn.end - start))
     out, prev = {}, None
-    for k in ("start", "push", "amber", "red", "step_back", "arrive", "fixed", "green", "resume"):
+    for k in ("start", "spray", "scrub", "amber", "red", "step_back", "arrive", "fixed", "green", "resume", "paint"):
         v = b.get(k)
         if v is None or (prev is not None and v <= prev + 0.2):
             continue
         out[k] = prev = v
     out["end"] = max(b["end"], (prev or start) + 1.0)
     return out
+
+
+def summary_for(timeline: str) -> str:
+    q = Path(timeline)
+    for name in (q.name.replace("timeline.jsonl", "summary.json"), "live_summary.json", "summary.json"):
+        if (q.parent / name).exists():
+            return str(q.parent / name)
+    return ""
 
 
 def camera_source(args, scn: Scenario, meta: dict):
@@ -619,7 +649,11 @@ def camera_source(args, scn: Scenario, meta: dict):
                     break
             if fn is not None and hasattr(fc, "Beats"):
                 try:
-                    beats = fc.Beats.from_events(beat_times(scn, args.start))
+                    try:
+                        beats = fc.Beats.from_events(json.loads(Path(summary_for(args.timeline_path)).read_text()))
+                    except Exception as exc:
+                        print(f"[fleet] summary beats unusable ({exc}), using timeline beats", flush=True)
+                        beats = fc.Beats.from_events(beat_times(scn, args.start))
                     base_fn = fn
                     fn = lambda t: base_fn(t, beats)
                     print(f"[fleet] camera beats {beats}", flush=True)
@@ -677,9 +711,14 @@ def main(argv=None):
         print(f"[fleet] wrote {out}", flush=True)
         return
     tl = pick_timeline(args.timeline)
+    args.timeline_path = tl
     scn = load_scenario(tl, meta, flanges)
     end = args.start + args.duration if args.duration > 0 else scn.end
     n_frames = int(round((end - args.start) * args.fps))
+    at_frames = None
+    if args.at:
+        at_frames = {int(round((float(v) - args.start) * args.fps)) for v in args.at.split(",") if v.strip()}
+        n_frames = min(n_frames, max(at_frames) + 1)
     if args.max_frames:
         n_frames = min(n_frames, args.max_frames * max(1, args.every))
     print(f"[fleet] timeline {tl} end={scn.end:.1f}s robots={sorted(scn.poses)} leds={len(scn.leds)} "
@@ -756,10 +795,6 @@ def main(argv=None):
                                                      lamp_gain=args.lamp_gain, rig_gain=args.rig_gain,
                                                      robot_root="/World/Fleet/unit1", robot_color="graphite",
                                                      rig_root="/World"), flush=True)
-        try:
-            night_look.paint_robot(stage, "/World/Fleet/unit2", "orange")
-        except Exception as exc:
-            print(f"[fleet] unit2 paint skipped: {exc}", flush=True)
 
     detectors = None
     try:
@@ -793,7 +828,10 @@ def main(argv=None):
     pipe_c = dict(pipe)
     pipe_c["origin"] = (np.asarray(pipe["origin"]) + z_rust * np.asarray(pipe["axis"])).tolist()
     pipe_c["z"] = 0.0
-    geom = PipeGeometry(pipe_c["origin"], pipe["axis"], pipe["ref"], pipe["radius"], seg_len, 32, 64)
+    shape0 = next((m["rust_grid"].shape for _, m in scn.masks if "rust_grid" in m), (40, 64))
+    if scn.masks:
+        pipe_c = dict(pipe)
+    geom = PipeGeometry(pipe_c["origin"], pipe["axis"], pipe["ref"], pipe["radius"], seg_len, *shape0)
     overlay = RustOverlay(stage, geom)
     cone, cone_op = add_spray_cone(stage)
     brush = None
@@ -841,6 +879,9 @@ def main(argv=None):
     out = resolve(args.out)
     frames_dir = out / "frames"
     frames_dir.mkdir(parents=True, exist_ok=True)
+    import omni.timeline
+
+    omni.timeline.get_timeline_interface().play()
     rp = rep.create.render_product(cam_path, (args.width, args.height))
     ann = rep.AnnotatorRegistry.get_annotator("rgb")
     ann.attach(rp)
@@ -852,7 +893,7 @@ def main(argv=None):
                                     codec="libx264", quality=9, macro_block_size=8, pixelformat="yuv420p")
     head = (out / "fleet_isaac_header.jsonl").open("w")
     nav_t = args.start
-    scrub_t, t_prev, rendered, work_w = 0.0, args.start, 0, 0.0
+    scrub_t, t_prev, rendered, work_w, fix_w, fix_pose = 0.0, args.start, 0, 0.0, 0.0, None
     seeds = {rid: dict(q[rid]) for rid in UNITS}
 
     def arm_target(rid, act, u, t):
@@ -887,10 +928,20 @@ def main(argv=None):
         t_prev = t
         working = acts["unit1"] in ("scrub", "spray", "paint")
         work_w = min(1.0, work_w + 1.0 / args.fps) if working else max(0.0, work_w - 1.0 / args.fps)
+        u2 = units["unit2"]
+        f2 = nearest_flange(flanges, (u2.x, u2.y)) if acts["unit2"] in ("inspect", "retorque") else None
+        fix_w = min(1.0, fix_w + 1.0 / args.fps) if f2 is not None else max(0.0, fix_w - 1.0 / args.fps)
+        if f2 is not None:
+            fix_pose = fixer_stance(f2, (u2.x, u2.y))
         for rid, u in units.items():
             model = models[rid]
             moving = abs(u.v) > 0.05 or abs(u.w) > 0.15
             bx, by, byaw = u.x, u.y, u.yaw
+            if rid == "unit2" and fix_w > 0 and fix_pose is not None:
+                s3 = fix_w * fix_w * (3 - 2 * fix_w)
+                bx, by = bx + s3 * (fix_pose[0] - bx), by + s3 * (fix_pose[1] - by)
+                byaw = wrap(byaw + s3 * wrap(fix_pose[2] - byaw))
+                moving = moving or 0 < fix_w < 1
             if rid == "unit1" and work_w > 0:
                 sx, sy, syaw = scrub_stance(pipe, (u.x, u.y))
                 s3 = work_w * work_w * (3 - 2 * work_w)
@@ -904,7 +955,8 @@ def main(argv=None):
                 target_q.update({j: v for j, v in legs.items() if "thigh" in j or "calf" in j})
             else:
                 target_q.update(gait(STANDING, u.dist / 0.18 * math.pi, 1.0 if moving else 0.0))
-            goal = arm_target(rid, acts[rid], u, t) if not moving else None
+            goal = arm_target(rid, acts[rid], u if rid == "unit1" else NavUnit(rid, bx, by, byaw), t) \
+                if not moving else None
             if goal is None:
                 target_q.update(ARM_STOWED)
             else:
@@ -932,7 +984,8 @@ def main(argv=None):
             if rid == "unit1":
                 tip = model.tool_pose(base, q[rid], "brush_tip")
                 act = acts["unit1"]
-                on = act in ("spray", "paint") and goal is not None and work_w >= 1.0
+                live = scn.masks_at(t) or {}
+                on = bool(live.get("nozzle_on", act in ("spray", "paint"))) and goal is not None and work_w >= 1.0
                 set_spray(cone, cone_op, tip[:3, 3], tip[:3, 0], 0.22 if act == "spray" else 0.14, on)
                 if brush is not None:
                     force = 25.0 if act == "scrub" and goal is not None and work_w >= 1.0 else 0.0
@@ -957,12 +1010,20 @@ def main(argv=None):
         c = cam_fn(t)
         cam.GetFocalLengthAttr().Set(float(c[2]))
         cam_op.Set(Gf.Matrix4d(*look_rows(c[0], c[1]).reshape(-1)))
-        if k % max(1, args.every):
+        if at_frames is not None and k not in at_frames:
+            continue
+        if at_frames is None and k % max(1, args.every):
             continue
         warm = args.warmup if rendered == 0 else 1
-        for _ in range(warm):
-            rep.orchestrator.step(rt_subframes=args.subframes, delta_time=0.0)
-        rgb = np.asarray(ann.get_data())[..., :3].astype(np.uint8)
+        rgb = None
+        for i_ in range(warm + 20):
+            rep.orchestrator.step(rt_subframes=args.subframes, pause_timeline=False, wait_for_render=True)
+            data = np.asarray(ann.get_data())
+            if i_ >= warm - 1 and data.size and data.ndim == 3:
+                rgb = np.ascontiguousarray(data[..., :3].astype(np.uint8))
+                break
+        if rgb is None:
+            raise RuntimeError(f"annotator stayed empty at t={t:.2f}")
         Image.fromarray(rgb).save(frames_dir / f"{rendered:05d}.jpg", quality=args.jpeg)
         if writer is not None:
             writer.append_data(rgb)
