@@ -228,10 +228,12 @@ def build_landing(stage, looks, kit, leg):
     kit.add("grating", "box", bl["deck"], zquat(bl["deck_angle"]), bl["deck_size"])
     u = np.array((math.cos(math.radians(LANDING_ANGLE)), math.sin(math.radians(LANDING_ANGLE)), 0.0))
     t = np.array((-u[1], u[0], 0.0))
-    for n, (dz, out, kelvin) in enumerate(((7.2, 0.6, 4000), (13.5, 0.6, 2300))):
+    for n, (dz, out, kelvin) in enumerate(((6.4, 2.2, 4000), (13.5, 0.6, 2300))):
         pos = sg.axis_at(leg, dz)
         pos = np.array((pos[0], pos[1], dz)) + u * (leg["radius"] + out) + t * (2.2 if n else -2.6)
         kit.add("steel", "box", pos + (0, 0, 0.2), zquat(LANDING_ANGLE), (0.5, 0.5, 0.3))
+        if n == 0:
+            kit.tube("landing", pos - (0, 0, dz - 4.8), pos + (0, 0, 0.35), 0.05)
         kit.add("lamp", "box", pos, zquat(LANDING_ANGLE), (0.45, 0.45, 0.04))
         light = UsdLux.SphereLight.Define(stage, f"{s.ROOT}/Lights/landing_{n:02d}")
         UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(*(pos + u * 0.6 - (0, 0, 0.3))))
