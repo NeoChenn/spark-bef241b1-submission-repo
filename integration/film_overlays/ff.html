@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fast forward</title>
+<link rel="stylesheet" href="film.css">
+<style>
+  #ff { position: absolute; right: 64px; top: 56px; display: flex; align-items: center; gap: 12px; padding: 12px 20px 12px 16px; border-radius: 999px; background: rgba(16, 18, 21, 0.42); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(16px); }
+  #ff svg { width: 30px; height: 20px; }
+  #ff svg path { fill: rgba(255, 255, 255, 0.85); }
+  #ff b { font: 500 24px/1 var(--mono); color: rgba(255, 255, 255, 0.88); }
+</style>
+</head>
+<body>
+<div id="ff"><svg viewBox="0 0 30 20"><path d="M1 2l13 8-13 8zM15 2l13 8-13 8z"/></svg><b id="rate"></b></div>
+<script src="film.js"></script>
+<script>
+  const { fade, $, data } = K, L = data.span || 4;
+  $("rate").textContent = `${data.rate || 2.5}×`;
+  window.render = (t) => { $("ff").style.opacity = 0.9 * fade(t, 0, 0.35) * (1 - fade(t, L - 0.35, L)); return true; };
+  window.render(0);
+</script>
+</body>
+</html>

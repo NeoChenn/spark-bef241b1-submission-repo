@@ -27,6 +27,7 @@ V_MIN, W_MAX = -0.3, 1.5
 U1_SPAWN = np.array([18.26, -5.25])
 LEAK, STUCK = "F5", "G-F6"
 FILM_CALM_S = 4.0
+STANDBY_CAPTION = "Unit 2 standing by at F5 while Unit 1 works"
 FILM_U1_DOCK = (12.2, -7.5, 0.0)
 RUST_SEGMENT = "F5-F6"
 CORROSION_LIMIT = 0.6
@@ -572,6 +573,16 @@ class Unit2:
                        stands=stands, config=FixerConfig(sniff_s=sniff_s))
         self.fixed_at: Optional[float] = None
         self.loose = False
+        self.standby = self.released = False
+
+    def stand_by(self) -> None:
+        self.standby = True
+        self.body.go(self.body.xy, self.body.yaw)
+        self.body.step(DT)
+
+    def release(self, why: str) -> None:
+        self.standby, self.released = False, True
+        self.f._return(why)
 
     def gas(self, p) -> float:
         p = np.asarray(p, float)
@@ -594,15 +605,24 @@ class Unit2:
             self.loose = True
             self.lw.loosen(self.scn.leak_flange, self.scn.bolt, self.scn.loosen_rad)
             self.lw.settle()
+        if self.standby:
+            self.f.t += DT
+            self.f.onboard_lel = self.f._read()
+            self.body.step(DT)
+            return
         self.f.step(DT)
 
     @property
     def state(self) -> str:
-        return self.f.state
+        return "STANDBY" if self.standby else self.f.state
+
+    @property
+    def caption(self) -> str:
+        return STANDBY_CAPTION if self.standby else self.f.caption
 
     def entry(self, lel: float) -> dict:
         ev = self.f.evidence
-        return {"state": self.f.state, "caption": self.f.caption, "job": self.f.job, "target": self.f.target,
+        return {"state": self.state, "caption": self.caption, "job": self.f.job, "target": self.f.target,
                 "bolt": ev.get("bolt"), "seek_mode": ev.get("seek_mode"), "diagnosis": ev.get("diagnosis"),
                 "force_n": round(12.0 * float(getattr(self.f.arm, "progress", 0.0)), 2) if self.f.torquing else 0.0,
                 "ev": {"gas": lel / 100.0, "gas_stop": 0.20, "flange": self.f.target, "bolt": ev.get("bolt"),
@@ -822,6 +842,13 @@ class FleetDemo:
         self.scn.detector_readings(t)
         self.u1.step(t + DT, self.scn.gas_frac((*self.u1.body.xy, SNIFF_Z), t))
         self.u2.step(t)
+        if self.film and not self.u2.released and not self.u2.standby and self.u2.f.state == "RETURN" \
+                and self.u2.fixed_at is not None:
+            self.u2.stand_by()
+            self.timeline.log("u2_standby", t, robot=FIXER, flange=LEAK, why=STANDBY_CAPTION)
+        if self.u2.standby and self.u1.phase == "RETURN":
+            self.u2.release("Unit 1 painted the F5 line")
+            self.timeline.log("u2_released", t, robot=FIXER, why="Unit 1 done: both walk home")
         if self.u2.fixed_at is not None and not self.torque_logged:
             self.torque_logged = True
             self.timeline.log("torque_done", self.u2.fixed_at, robot=FIXER, flange=LEAK, bolt=self.scn.bolt,
@@ -951,6 +978,9 @@ class FleetDemo:
                 "t_reply": round(c["t_request"] + (c.get("latency_ms") or 0.0) / 1000.0, 2),
                 "commands": [f"{x['kind']}:{x['robot']}:{x['target']}" for x in c.get("commands", [])]}
                 for c in self.link.calls], dock_unit1=list(FILM_U1_DOCK), board_modelled=BOARD_NOTE)
+            if self.control == "replay":
+                s["argon_source"] = ("replay of the live gemini-4-argon calls recorded in runs_sample/film at commit "
+                                     "3605823: same keys, replies, latencies and costs")
         if self.out:
             (self.out / "summary.json").write_text(json.dumps(s, indent=1, default=str))
         return s
@@ -1106,7 +1136,8 @@ def film_beats(rows: list[dict]) -> dict:
     at("paint", _state(SCRUBBER, "PAINT"), "scrub_done")
     at("paint_done", _state(SCRUBBER, "VERIFY_PAINT", "DONE"), "paint")
     at("u1_return", row("u1_phase", phase="RETURN"), "paint_done")
-    at("u2_return", _state(FIXER, "RETURN"), "torque_done")
+    at("u2_standby", _state(FIXER, "STANDBY"), "torque_done")
+    at("u2_return", _state(FIXER, "RETURN"), "paint_done")
     at("u1_docked", row("u1_phase", phase="HOME"), "u1_return")
     at("u2_docked", _state(FIXER, "DOCKED"), "u2_return")
     ds = [b["u1_docked"], b["u2_docked"]]

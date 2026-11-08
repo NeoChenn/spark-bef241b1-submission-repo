@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Readout</title>
+<link rel="stylesheet" href="film.css">
+<style>
+  #card { position: absolute; right: 64px; bottom: 64px; width: 400px; padding: 20px 24px 18px; }
+  #card.tl { left: 64px; top: 64px; right: auto; bottom: auto; }
+  .who { display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--label2); margin-bottom: 12px; }
+  .main { display: flex; align-items: baseline; gap: 10px; }
+  .main span { font-size: 17px; color: var(--label2); }
+  .main b { margin-left: auto; font: 400 46px/1 var(--mono); letter-spacing: -0.02em; transition: none; }
+  .main small { font-size: 16px; color: var(--label3); }
+  .sub { display: flex; align-items: baseline; justify-content: space-between; margin-top: 10px; font-size: 16px; color: var(--label2); }
+  .sub b { font: 400 22px/1 var(--mono); color: var(--label); }
+  .sub small { color: var(--label3); margin-left: 4px; }
+  svg { display: block; width: 100%; height: 46px; margin-top: 14px; }
+  svg path { fill: none; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+  svg line { stroke-width: 1; stroke-dasharray: 3 4; }
+  .state { margin-top: 10px; font-size: 15px; color: var(--label3); }
+  .nt { margin: 0; font-size: 19px; white-space: nowrap; }
+  .nt .dot { margin: 0 6px 0 2px; }
+</style>
+</head>
+<body>
+<div id="card" class="glass"><div class="who"><i class="dot" id="dot"></i><span id="who"></span></div><div class="main"><span id="lbl"></span><b id="val"></b><small id="unit"></small></div><div class="sub" id="sub"></div><svg viewBox="0 0 352 46" preserveAspectRatio="none"><line id="lim" x1="0" x2="352"/><path id="sp"/></svg><div class="state" id="state"></div></div>
+<script src="film.js"></script>
+<script>
+  const { at, spark, fade, $, data } = K, R = data.readout || {}, L = data.span || 15;
+  const gas = R.mode === "gas", note = R.mode === "note";
+  if (note) {
+    $("card").innerHTML = R.html ? `<div class="who"><span style="color:${R.source === "argon" ? "var(--accent)" : "var(--label2)"}">${R.source === "argon" ? "Argon" : "Edge rule"}</span></div><p class="nt">${R.html}</p>` : "";
+    $("card").style.width = "auto";
+    window.render = (t) => { $("card").style.opacity = R.html ? fade(t, 0, 0.4) * (1 - fade(t, L - 0.4, L)) : 0; return true; };
+  } else {
+  if (data.corner === "tl") $("card").classList.add("tl");
+  $("dot").className = "dot " + (gas ? "u2" : "u1");
+  $("who").textContent = gas ? "Unit 2 · Fixer at F5" : "Unit 1 · Scrubber on the F5 line";
+  $("lbl").textContent = gas ? "G-F5" : "Rust left";
+  $("unit").textContent = gas ? "% LEL" : "%";
+  const hi = gas ? 30 : 100, lim = gas ? 10 : null;
+  if (lim != null) { const y = 46 - 46 * lim / hi; $("lim").setAttribute("y1", y); $("lim").setAttribute("y2", y); $("lim").style.stroke = "rgba(242,139,130,.45)"; } else $("lim").style.display = "none";
+  const tone = (v) => (v >= 10 ? "#F28B82" : v >= 5 ? "#E3B341" : "#3FB950");
+  window.render = (t) => {
+    const v = at(R.series, t), c = gas ? tone(v) : "rgba(255,255,255,.92)";
+    $("val").textContent = v == null ? "—" : gas ? v.toFixed(1) : (v * 100).toFixed(0);
+    $("val").style.color = c;
+    const s = gas ? R.series : (R.series || []).map(([a, b]) => [a, b * 100]);
+    $("sp").setAttribute("d", spark(s, 0, L, t, 352, 46, 0, hi));
+    $("sp").style.stroke = gas ? c : "rgba(255,255,255,.7)";
+    if (!gas) { const f = at(R.force, t); $("sub").innerHTML = `<span>Brush force</span><span><b>${f == null ? "—" : f.toFixed(0)}</b><small>N avg · limit 40</small></span>`; }
+    const st = (R.states || []).filter(([a]) => a <= t).pop();
+    $("state").textContent = st ? st[1] : "";
+    $("card").style.opacity = fade(t, 0, 0.4) * (1 - fade(t, L - 0.4, L));
+    return true;
+  };
+  }
+  window.render(0);
+</script>
+</body>
+</html>

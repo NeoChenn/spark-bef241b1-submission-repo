@@ -1,0 +1,213 @@
+{
+  "board": {
+    "alarm_lel": 10,
+    "corrosion_limit": 0.6,
+    "segments": [
+      {
+        "id": "F1–F2",
+        "index": 0.18,
+        "coating": "good"
+      },
+      {
+        "id": "F2–F3",
+        "index": 0.22,
+        "coating": "good"
+      },
+      {
+        "id": "F3–F4",
+        "index": 0.31,
+        "coating": "fair"
+      },
+      {
+        "id": "F4–F5",
+        "index": 0.27,
+        "coating": "good"
+      },
+      {
+        "id": "F5–F6",
+        "index": 0.46,
+        "coating": "worn"
+      }
+    ],
+    "process": {
+      "pressure_bar": 41.8,
+      "temperature_c": 38.4,
+      "flow_m3h": 1240.0
+    },
+    "weather": {
+      "wind_ms": 7.5,
+      "wind_from_deg": 0,
+      "sea": "3 · slight"
+    },
+    "argon": {
+      "model": "gemini-4-argon",
+      "link": "UP"
+    },
+    "detectors": [
+      {
+        "id": "G-F1",
+        "flange": "F1",
+        "base": 2.0
+      },
+      {
+        "id": "G-F2",
+        "flange": "F2",
+        "base": 2.0
+      },
+      {
+        "id": "G-F3",
+        "flange": "F3",
+        "base": 2.0
+      },
+      {
+        "id": "G-F4",
+        "flange": "F4",
+        "base": 2.0
+      },
+      {
+        "id": "G-F5",
+        "flange": "F5",
+        "base": 2.0
+      },
+      {
+        "id": "G-F6",
+        "flange": "F6",
+        "base": 2.0
+      }
+    ],
+    "fleet": [
+      {
+        "id": "unit1",
+        "name": "Unit 1 · Scrubber",
+        "battery": 0.86,
+        "state": "Docked",
+        "pos": "Dock A",
+        "after": 1,
+        "state_after": "Held at dock · spark rule"
+      },
+      {
+        "id": "unit2",
+        "name": "Unit 2 · Fixer",
+        "battery": 0.92,
+        "state": "Docked",
+        "pos": "Dock B",
+        "after": 0,
+        "state_after": "Dispatched to F5"
+      }
+    ],
+    "decisions": [
+      {
+        "robot": "unit1",
+        "source": "edge",
+        "short": "Unit 1 held · spark rule"
+      },
+      {
+        "robot": "unit2",
+        "source": "argon",
+        "short": "Leak at F5 → Unit 2"
+      }
+    ],
+    "modelled": true
+  },
+  "readout": {
+    "gas": {
+      "series": [
+        [
+          0,
+          16.0
+        ],
+        [
+          9,
+          16.5
+        ],
+        [
+          10.5,
+          9.0
+        ],
+        [
+          12,
+          4.0
+        ],
+        [
+          15,
+          2.0
+        ]
+      ],
+      "states": [
+        [
+          0,
+          "Walking"
+        ],
+        [
+          2,
+          "Re-torquing"
+        ],
+        [
+          10,
+          "Verifying"
+        ]
+      ]
+    },
+    "rust": {
+      "series": [
+        [
+          0,
+          0.42
+        ],
+        [
+          4,
+          0.42
+        ],
+        [
+          12,
+          0.0
+        ],
+        [
+          15,
+          0.0
+        ]
+      ],
+      "force": [
+        [
+          0,
+          0
+        ],
+        [
+          4,
+          24
+        ],
+        [
+          12,
+          26
+        ],
+        [
+          12.5,
+          0
+        ]
+      ],
+      "states": [
+        [
+          0,
+          "Walking"
+        ],
+        [
+          2,
+          "Spraying"
+        ],
+        [
+          4,
+          "Scrubbing"
+        ],
+        [
+          12,
+          "Painting"
+        ]
+      ]
+    }
+  },
+  "run": {
+    "alarm_to_fixed_s": null,
+    "argon_cost_usd": null,
+    "argon_calls": null
+  }
+}

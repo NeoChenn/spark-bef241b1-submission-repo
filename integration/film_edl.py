@@ -9,7 +9,7 @@ from typing import Callable, Optional
 import numpy as np
 
 from integration.film_camera import (DEFAULT_FILM_SCENE, TRUNK_Z, FilmScene, conclusion, control_push,
-                                     control_room, follow, rig_orbit, unit1_job, unit2_job, walk_home)
+                                     control_room, follow, rig_orbit, unit1_close, unit1_job, unit2_job, walk_home)
 from rig.sim.zoom import ease
 
 REPO = Path(__file__).resolve().parent.parent
@@ -145,7 +145,9 @@ def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE
         length: float | str | None = LENGTH) -> list[Shot]:
     b, s = beats or FilmBeats(), scene
     tr = track or default_track(b, s)
-    j2, j1 = _still(unit2_job(s)), _still(unit1_job(s))
+    j2, j1, c1 = _still(unit2_job(s)), _still(unit1_job(s)), _still(unit1_close(s))
+    scrub_cut = b.scrub + 1.5 * (b.scrub_done - b.scrub) / 8.0
+    paint_cut = b.scrub_done + 3.1 * (b.paint_done + 0.3 - b.scrub_done) / 4.6
     home = min(b.u1_return, b.u2_return) if b.u2_return >= b.paint_done else b.u1_return
     p2, p1 = _pan(tr, "unit2", j2(0, 0)[0], b.u2_arrive), _pan(tr, "unit1", j1(0, 0)[0], b.u1_arrive)
     plan = [
@@ -159,8 +161,10 @@ def edl(beats: Optional[FilmBeats] = None, scene: FilmScene = DEFAULT_FILM_SCENE
         ("unit1_walk", 1.5, (b.u1_arrive - 1.5, b.u1_arrive), p1, "cut", "cut", False),
         ("unit1_spray", 3.4, (b.spray - 0.3, b.soak), j1, "cut", "cut", False),
         ("unit1_soak", 1.0, (b.soak, b.scrub), j1, "cut", "cut", False),
-        ("unit1_scrub", 8.0, (b.scrub, b.scrub_done), j1, "cut", "cut", False),
-        ("unit1_paint", 4.6, (b.scrub_done, b.paint_done + 0.3), j1, "cut", "xfade", False),
+        ("unit1_scrub_wide", 1.5, (b.scrub, scrub_cut), j1, "cut", "cut", False),
+        ("unit1_scrub_close", 6.5, (scrub_cut, b.scrub_done), c1, "cut", "cut", False),
+        ("unit1_paint", 3.1, (b.scrub_done, paint_cut), j1, "cut", "cut", False),
+        ("unit1_paint_close", 1.5, (paint_cut, b.paint_done + 0.3), c1, "cut", "xfade", False),
         ("walk_back_u1", 2.0, (home + 5.0, home + 10.0),
          lambda u, t: walk_home("unit1", tr("unit1", home + 10.0 if t is None else t)), "xfade", "cut", False),
         ("walk_back_u2", 2.0, (home + 10.0, home + 15.0),

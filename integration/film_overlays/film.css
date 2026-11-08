@@ -1,0 +1,32 @@
+@font-face { font-family: "Inter"; font-weight: 300; font-style: normal; font-display: block; src: url("fonts/Inter-Light.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 400; font-style: normal; font-display: block; src: url("fonts/Inter-Regular.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 500; font-style: normal; font-display: block; src: url("fonts/Inter-Medium.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 600; font-style: normal; font-display: block; src: url("fonts/Inter-SemiBold.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: normal; font-display: block; src: url("fonts/JetBrainsMono-Regular.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 500; font-style: normal; font-display: block; src: url("fonts/JetBrainsMono-Medium.woff2") format("woff2"); }
+:root {
+  --label: rgba(255, 255, 255, 0.92);
+  --label2: rgba(235, 235, 245, 0.62);
+  --label3: rgba(235, 235, 245, 0.36);
+  --hair: rgba(255, 255, 255, 0.08);
+  --fill: rgba(255, 255, 255, 0.06);
+  --glass: rgba(16, 18, 21, 0.62);
+  --accent: #2EC4B6;
+  --ok: #3FB950;
+  --warn: #E3B341;
+  --alarm: #F28B82;
+  --unit1: #2D55C8;
+  --unit2: #EFE8D6;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; color: var(--label); font: 400 18px/1.4 var(--sans); -webkit-font-smoothing: antialiased; letter-spacing: -0.005em; }
+.glass { background: var(--glass); border: 1px solid var(--hair); border-radius: 22px; box-shadow: 0 24px 60px -18px rgba(0, 0, 0, 0.55); backdrop-filter: blur(24px) saturate(150%); }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.dim { color: var(--label2); }
+.faint { color: var(--label3); }
+.dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: 0; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25); }
+.dot.u1 { background: var(--unit1); }
+.dot.u2 { background: var(--unit2); }
+svg { overflow: visible; }
