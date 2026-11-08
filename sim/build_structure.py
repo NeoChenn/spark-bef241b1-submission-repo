@@ -302,6 +302,15 @@ def build_underside(stage, looks, kit, legs):
             kit.member("steel", "ibeam", (x, a + 0.4, z - 1.1), (x, b - 0.4, z - 1.1), (0.8, 2.2))
     for (x0, y0), (x1, y1) in zip(OUTLINE, OUTLINE[1:] + OUTLINE[:1]):
         kit.member("steel", "ibeam", (x0, y0, z - 0.7), (x1, y1, z - 0.7), (0.5, 1.4))
+        d = np.array((x1 - x0, y1 - y0))
+        length = float(np.linalg.norm(d))
+        u = d / length
+        out = np.array((u[1], -u[0])) * 0.06
+        angle = math.degrees(math.atan2(u[1], u[0]))
+        for f in np.arange(1.0, length - 0.5, 2.2):
+            x, y = np.array((x0, y0)) + u * f + out
+            kit.add("steel", "box", (x, y, z + 0.62), zquat(angle), (0.1, 0.14, 1.24))
+        kit.member("seam", "box", (x0 + out[0], y0 + out[1], z + 1.2), (x1 + out[0], y1 + out[1], z + 1.2), (0.12, 0.1))
     for y in (-3.0, -1.6):
         for a, b in sg.scanline(OUTLINE, y, axis="x"):
             a, b = a + 1.0, b - 1.0

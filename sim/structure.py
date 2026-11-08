@@ -16,8 +16,8 @@ BAND_NAMES = ("growth", "splash", "column")
 COLUMN = (0.42, 0.3, 0.075)
 
 RECIPES = {
-    "column": {"kind": "paint", "paint_color": COLUMN, "chip_amount": 0.22, "rust_amount": 0.36, "streak_amount": 1.0,
-               "salt_amount": 0.3, "macro_scale": 11.0, "scale": 2.4},
+    "column": {"kind": "paint", "paint_color": COLUMN, "chip_amount": 0.22, "rust_amount": 0.26, "streak_amount": 1.0,
+               "salt_amount": 0.3, "macro_scale": 19.0, "scale": 2.4},
     "seam": {"kind": "paint", "paint_color": COLUMN, "chip_amount": 0.9, "rust_amount": 0.62, "streak_amount": 1.0,
              "salt_amount": 0.2, "macro_scale": 4.0, "scale": 1.2},
     "splash": {"kind": "textured", "texture": "rusty_metal_02", "tint": (0.5, 0.4, 0.33), "rust_amount": 0.4,
