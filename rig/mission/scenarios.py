@@ -645,9 +645,9 @@ class DemoGas(Demo):
     robots = (("R1", [-21.0, 4.0, 31.25], 0.9), ("R2", [17.3, -10.0, 42.5], 0.9), ("R3", [10.0, 12.0, 20.0], 0.8))
     weather = DEMO_WEATHER
     fid, src, wheel = "F7", (19.06, -9.3, 43.2), (20.4, -9.15, 43.5)
-    start, box = (17.3, -10.0), {"xmin": 15.6, "xmax": 22.0, "ymin": -11.2, "ymax": -8.6}
+    start, box = (17.3, -10.0), {"xmin": 15.6, "xmax": 21.5, "ymin": -11.2, "ymax": -8.6}
     hide = ["/World/Greebles/Zone/Clutter/tarp", "/World/Greebles/Zone/Clutter/strap_0", "/World/Greebles/Zone/Clutter/strap_1"]
-    alarm_s, seek_wait_s, seek_min_s, seek_max_s, turn_s, walk_ms, near_m = 3.0, 1.5, 10.0, 24.0, 6.0, 0.8, 0.9
+    alarm_s, seek_wait_s, search_s, turn_s, walk_ms, near_m = 3.0, 1.5, (5.0, 9.0), 5.0, 0.8, 0.9
     cam = {"mode": "zoom", "at": [18.8, -9.7, 42.5], "lens": {"dist": 7.0, "elev": 42.0, "focal": 18.0, "az": [-35.0, -50.0, -20.0]}}
     close = {"mode": "zoom", "at": [19.9, -9.5, 42.6], "lens": {"dist": 4.5, "elev": 40.0, "focal": 20.0, "az": [-80.0, -65.0, -95.0]}}
 
@@ -682,9 +682,10 @@ class DemoGas(Demo):
             m.note("Sensor", "GAS_ALARM", f"GD-{self.fid} above {ALARM_LEL * 100:.0f} %LEL -> alarm, Unit 2 dispatched")
         if self.trip_t is not None and self.seek is None and e >= self.trip_t + self.seek_wait_s:
             self.seek = lk.seek = QuietSeek(lk, [*self.start, self.deck], self.deck, self.box, lk.seed)
+            self.seek_e = e
             m.note("Unit 2", "GAS_SEEK", f"localising the leak -> {METHODS[lk.method]}")
         sk = self.seek
-        if sk is not None and self.found_t is None and (sk.t >= self.seek_max_s or sk.t >= self.seek_min_s and (
+        if sk is not None and self.found_t is None and (e - self.seek_e >= self.search_s[1] or e - self.seek_e >= self.search_s[0] and (
                 sk.hit is not None or float(np.linalg.norm(sk.pos - self.src[:2])) < self.near_m)):
             sk.done, self.found_t, self.from_xy = True, e, sk.pos.copy()
             m.note("Unit 2", "LEAK_FOUND", f"leak localised on the orange line in {sk.t:.0f} s -> isolating the valve")
@@ -695,7 +696,7 @@ class DemoGas(Demo):
                 self.pose(self.main, sk.pos, sk.yaw, state="WORK", task="gas:demo", job_state="LEAK_APPROACH")
         else:
             d = float(np.linalg.norm(np.asarray(self.stop) - self.from_xy))
-            walk_s = max(1.0, d / self.walk_ms)
+            walk_s = min(max(1.0, d / self.walk_ms), 2.5)
             u = (e - self.found_t) / walk_s
             if u < 1:
                 yaw = math.atan2(self.stop[1] - self.from_xy[1], self.stop[0] - self.from_xy[0])

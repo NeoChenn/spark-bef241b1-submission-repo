@@ -96,7 +96,7 @@ def test_gas_demo_searches_isolates_and_stops_the_vapour():
         xs.append((r2["pose"]["x"], r2["pose"]["y"]))
         states.add(r2.get("job_state"))
     s = m.scen.cur
-    assert s.id == "demo_gas" and 15 < w < 28 and not m.leak.on and not m.for_sim()["leak"]["on"]
+    assert s.id == "demo_gas" and 15 < w < 22 and not m.leak.on and not m.for_sim()["leak"]["on"]
     assert {"LEAK_APPROACH", "VALVE_TURN"} <= states and not m.port.extra
     a = np.asarray(xs)
     assert a[:, 0].min() >= 17.2 and a[:, 0].max() <= 21.05 and -10.3 < a[:, 1].min() and a[:, 1].max() < -9.5
