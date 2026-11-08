@@ -9,7 +9,7 @@ EV_KEYS = ((1.9, -0.2), (8.0, 0.0), (40.0, 0.4), (120.0, 0.8), (330.0, 1.0))
 VIEWS = {
     "wide": {"ev": 1.0, "fstop": 0.0},
     "deck_mid": {"ev": 0.0, "fstop": 0.0},
-    "repair": {"ev": -0.2, "fstop": 2.0},
+    "repair": {"ev": -0.2, "fstop": 0.0},
     "waterline": {"ev": 0.8, "fstop": 0.0},
     "flare": {"ev": 0.3, "fstop": 0.0},
 }
@@ -18,7 +18,7 @@ BASE_ISO = 100.0
 KELVIN = {2000.0: 2100.0, 4000.0: 4500.0, 6000.0: 7000.0}
 FIXTURES = {
     "rect": {"gain": 0.6, "cone": 70.0, "softness": 0.6, "focus": 2.0},
-    "spot": {"gain": 1.0, "cone": None, "softness": 0.65, "focus": 1.0},
+    "spot": {"gain": 1.0, "cone": None, "cone_max": 40.0, "softness": 0.5, "focus": 1.0},
     "bulb": {"gain": 1.0},
 }
 TONEMAP = {
@@ -74,7 +74,8 @@ def fixture(kind: str, kelvin: float, intensity: float, cone: float | None = Non
     f = FIXTURES[kind]
     out = {"kelvin": KELVIN.get(float(kelvin), float(kelvin)), "intensity": float(intensity) * f["gain"]}
     if "softness" in f:
-        out.update(cone=f["cone"] if f["cone"] is not None else cone, softness=f["softness"], focus=f["focus"])
+        c = f["cone"] if f["cone"] is not None else min(cone, f.get("cone_max", cone))
+        out.update(cone=c, softness=f["softness"], focus=f["focus"])
     return out
 
 

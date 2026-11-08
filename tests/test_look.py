@@ -76,7 +76,8 @@ def test_fixture_retunes_colour_and_shapes_rects():
     assert r["kelvin"] == look.KELVIN[4000.0]
     assert r["intensity"] == pytest.approx(100.0 * look.FIXTURES["rect"]["gain"])
     assert r["cone"] > 0 and 0 < r["softness"] <= 1
-    s = look.fixture("spot", 2000.0, 10.0, 50.0)
-    assert s["cone"] == 50.0 and s["kelvin"] < 2500
+    s = look.fixture("spot", 2000.0, 10.0, 30.0)
+    assert s["cone"] == 30.0 and s["kelvin"] < 2500
+    assert look.fixture("spot", 2000.0, 10.0, 60.0)["cone"] == look.FIXTURES["spot"]["cone_max"]
     b = look.fixture("bulb", 6000.0, 5.0)
     assert "cone" not in b and b["kelvin"] > 6000
