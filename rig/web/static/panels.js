@@ -89,6 +89,7 @@
     if (a) out.push(`US ${Math.round(a.db)} dB${a.snr_db > 0 ? ` (+${Math.round(a.snr_db)})` : ""}${a.bearing_deg != null ? ` → ${Math.round(a.bearing_deg)}°` : ""}`);
     if (src) out.push(`source ${src.x.toFixed(1)}, ${src.y.toFixed(1)} ±${src.sigma_m.toFixed(1)} m`);
     if (g.flow_gs != null) out.push(`flow ${g.flow_gs.toFixed(1)} g/s`);
+    if (g.belief) out.push(`PF belief σ=${g.belief.sigma_m.toFixed(2)} m · ${g.belief.area_m2.toFixed(1)} m² · ${g.belief.n} particles`);
     if (g.mode) out.push(String(g.mode).toLowerCase());
     return out.join(" · ");
   };

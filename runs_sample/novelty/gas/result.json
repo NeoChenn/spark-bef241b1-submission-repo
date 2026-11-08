@@ -1,0 +1,2531 @@
+{
+ "benchmark": "policy/gasbot/evaluate.py 'leak' seeds 1000..1059, loose flange, max_t 600 s",
+ "summary": {
+  "ch4_only": {
+   "cast_surge": {
+    "n": 60,
+    "detected": 22,
+    "success": 14,
+    "success_rate": 0.636,
+    "escalated": 6,
+    "wrong_flange": 2,
+    "t_source_s": {
+     "median": 16.25,
+     "mean": 23.97,
+     "p90": 58.25
+    },
+    "loc_err_m": {
+     "median": 0.57,
+     "p90": 2.24
+    },
+    "truth_inside_2sigma_at_handoff": 0.688
+   },
+   "infotaxis": {
+    "n": 60,
+    "detected": 22,
+    "success": 19,
+    "success_rate": 0.864,
+    "escalated": 3,
+    "wrong_flange": 0,
+    "t_source_s": {
+     "median": 11.5,
+     "mean": 24.0,
+     "p90": 47.9
+    },
+    "loc_err_m": {
+     "median": 0.37,
+     "p90": 0.64
+    },
+    "truth_inside_2sigma_at_handoff": 0.947
+   }
+  },
+  "ch4_ultrasound": {
+   "cast_surge": {
+    "n": 60,
+    "detected": 60,
+    "success": 60,
+    "success_rate": 1.0,
+    "escalated": 0,
+    "wrong_flange": 0,
+    "t_source_s": {
+     "median": 5.0,
+     "mean": 6.01,
+     "p90": 8.05
+    },
+    "loc_err_m": {
+     "median": 0.18,
+     "p90": 0.48
+    },
+    "truth_inside_2sigma_at_handoff": 0.967
+   },
+   "infotaxis": {
+    "n": 60,
+    "detected": 60,
+    "success": 60,
+    "success_rate": 1.0,
+    "escalated": 0,
+    "wrong_flange": 0,
+    "t_source_s": {
+     "median": 5.0,
+     "mean": 5.47,
+     "p90": 7.0
+    },
+    "loc_err_m": {
+     "median": 0.19,
+     "p90": 0.43
+    },
+    "truth_inside_2sigma_at_handoff": 0.983
+   }
+  }
+ },
+ "median_ellipse_area_m2_at_s": {
+  "t_s": [
+   5.0,
+   10.0,
+   20.0,
+   30.0
+  ],
+  "ch4_only": {
+   "cast_surge": [
+    11.277,
+    5.0,
+    2.34,
+    2.34
+   ],
+   "infotaxis": [
+    23.743,
+    9.5,
+    5.532,
+    3.237
+   ]
+  },
+  "ch4_ultrasound": {
+   "cast_surge": [
+    0.616,
+    0.491,
+    0.484,
+    0.484
+   ],
+   "infotaxis": [
+    0.447,
+    0.409,
+    0.409,
+    0.409
+   ]
+  }
+ },
+ "per_seed": {
+  "ch4_only": {
+   "cast_surge": [
+    {
+     "seed": 1000,
+     "fid": "M2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1001,
+     "fid": "S2",
+     "detected": true,
+     "t_found": null,
+     "t_detect": 78.0,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "ESCALATE_TO_HUMAN"
+    },
+    {
+     "seed": 1002,
+     "fid": "M4",
+     "detected": true,
+     "t_found": null,
+     "t_detect": 138.0,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "ESCALATE_TO_HUMAN"
+    },
+    {
+     "seed": 1003,
+     "fid": "M2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1004,
+     "fid": "S1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1005,
+     "fid": "M3",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1006,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1007,
+     "fid": "M1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1008,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 252.5,
+     "t_detect": 250.0,
+     "loc_err": 0.5026129854457507,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1009,
+     "fid": "S1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1010,
+     "fid": "S1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1011,
+     "fid": "M2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1012,
+     "fid": "S1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1013,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 67.0,
+     "t_detect": 20.0,
+     "loc_err": 0.5933342591782448,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1014,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1015,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1016,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 243.5,
+     "t_detect": 230.0,
+     "loc_err": 1.0922243787153432,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1017,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 54.0,
+     "t_detect": 35.0,
+     "loc_err": 0.13829469676573825,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1018,
+     "fid": "S2",
+     "detected": true,
+     "t_found": null,
+     "t_detect": 210.0,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "ESCALATE_TO_HUMAN"
+    },
+    {
+     "seed": 1019,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 30.5,
+     "t_detect": 10.0,
+     "loc_err": 0.41111279414369756,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1020,
+     "fid": "S2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1021,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 175.0,
+     "t_detect": 148.0,
+     "loc_err": 0.8005075594044173,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1022,
+     "fid": "S2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1023,
+     "fid": "M2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1024,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1025,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 116.5,
+     "t_detect": 47.0,
+     "loc_err": 1.4907765188278457,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1026,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1027,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1028,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1029,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1030,
+     "fid": "M3",
+     "detected": true,
+     "t_found": null,
+     "t_detect": 108.0,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "ESCALATE_TO_HUMAN"
+    },
+    {
+     "seed": 1031,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 4.5,
+     "t_detect": 2.0,
+     "loc_err": 0.2981185904965825,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1032,
+     "fid": "M3",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1033,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1034,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1035,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 59.5,
+     "t_detect": 37.0,
+     "loc_err": 2.9829120454546585,
+     "flange_ok": false,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1036,
+     "fid": "M3",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1037,
+     "fid": "M3",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1038,
+     "fid": "M3",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1039,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 13.5,
+     "t_detect": 11.0,
+     "loc_err": 0.492349674636617,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1040,
+     "fid": "M2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1041,
+     "fid": "S2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1042,
+     "fid": "S1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1043,
+     "fid": "S1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1044,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 84.5,
+     "t_detect": 45.0,
+     "loc_err": 0.43619336227457267,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1045,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 13.0,
+     "t_detect": 10.0,
+     "loc_err": 0.5461293320052246,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1046,
+     "fid": "M1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1047,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 30.5,
+     "t_detect": 28.0,
+     "loc_err": 0.9058132400415976,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1048,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 249.5,
+     "t_detect": 143.0,
+     "loc_err": 3.5635734947334425,
+     "flange_ok": false,
+     "final": "DONE"
+    },
+    {
+     "seed": 1049,
+     "fid": "S2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1050,
+     "fid": "M3",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1051,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 47.5,
+     "t_detect": 45.0,
+     "loc_err": 0.5399834377050249,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1052,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1053,
+     "fid": "M2",
+     "detected": true,
+     "t_found": null,
+     "t_detect": 151.0,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "ESCALATE_TO_HUMAN"
+    },
+    {
+     "seed": 1054,
+     "fid": "M2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1055,
+     "fid": "M3",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1056,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 12.0,
+     "t_detect": 9.0,
+     "loc_err": 0.8010740621126303,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1057,
+     "fid": "S2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1058,
+     "fid": "S2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1059,
+     "fid": "M4",
+     "detected": true,
+     "t_found": null,
+     "t_detect": 226.0,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "ESCALATE_TO_HUMAN"
+    }
+   ],
+   "infotaxis": [
+    {
+     "seed": 1000,
+     "fid": "M2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1001,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 84.0,
+     "t_detect": 78.0,
+     "loc_err": 0.29940543328189256,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1002,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 172.5,
+     "t_detect": 138.0,
+     "loc_err": 0.41164572888209994,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1003,
+     "fid": "M2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1004,
+     "fid": "S1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1005,
+     "fid": "M3",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1006,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1007,
+     "fid": "M1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1008,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 253.5,
+     "t_detect": 250.0,
+     "loc_err": 0.48157875124660293,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1009,
+     "fid": "S1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1010,
+     "fid": "S1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1011,
+     "fid": "M2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1012,
+     "fid": "S1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1013,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 26.5,
+     "t_detect": 20.0,
+     "loc_err": 0.3736311635681919,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1014,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1015,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1016,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 276.0,
+     "t_detect": 230.0,
+     "loc_err": 0.2596569819562985,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1017,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 62.0,
+     "t_detect": 35.0,
+     "loc_err": 0.24064648606482925,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1018,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 248.0,
+     "t_detect": 210.0,
+     "loc_err": 1.4632166903249852,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1019,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 15.0,
+     "t_detect": 10.0,
+     "loc_err": 0.10857286341155255,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1020,
+     "fid": "S2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1021,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 157.5,
+     "t_detect": 148.0,
+     "loc_err": 0.5137123578879322,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1022,
+     "fid": "S2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1023,
+     "fid": "M2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1024,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1025,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 131.5,
+     "t_detect": 47.0,
+     "loc_err": 0.4039417962496661,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1026,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1027,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1028,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1029,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1030,
+     "fid": "M3",
+     "detected": true,
+     "t_found": null,
+     "t_detect": 108.0,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "ESCALATE_TO_HUMAN"
+    },
+    {
+     "seed": 1031,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 5.5,
+     "t_detect": 2.0,
+     "loc_err": 0.7976783844433126,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1032,
+     "fid": "M3",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1033,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1034,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1035,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 92.5,
+     "t_detect": 37.0,
+     "loc_err": 0.2500393115006393,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1036,
+     "fid": "M3",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1037,
+     "fid": "M3",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1038,
+     "fid": "M3",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1039,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 20.5,
+     "t_detect": 11.0,
+     "loc_err": 0.3160817325578122,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1040,
+     "fid": "M2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1041,
+     "fid": "S2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1042,
+     "fid": "S1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1043,
+     "fid": "S1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1044,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 78.0,
+     "t_detect": 45.0,
+     "loc_err": 0.03985360828591342,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1045,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 56.0,
+     "t_detect": 10.0,
+     "loc_err": 0.4708849788206557,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1046,
+     "fid": "M1",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1047,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 30.5,
+     "t_detect": 28.0,
+     "loc_err": 0.6042291187020715,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1048,
+     "fid": "S1",
+     "detected": true,
+     "t_found": null,
+     "t_detect": 143.0,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "ESCALATE_TO_HUMAN"
+    },
+    {
+     "seed": 1049,
+     "fid": "S2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1050,
+     "fid": "M3",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1051,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 76.5,
+     "t_detect": 45.0,
+     "loc_err": 0.29019613779483017,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1052,
+     "fid": "M4",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1053,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 162.5,
+     "t_detect": 151.0,
+     "loc_err": 0.32391979301714174,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1054,
+     "fid": "M2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1055,
+     "fid": "M3",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1056,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 11.5,
+     "t_detect": 9.0,
+     "loc_err": 0.49902524991170916,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1057,
+     "fid": "S2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1058,
+     "fid": "S2",
+     "detected": false,
+     "t_found": null,
+     "t_detect": null,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "DONE"
+    },
+    {
+     "seed": 1059,
+     "fid": "M4",
+     "detected": true,
+     "t_found": null,
+     "t_detect": 226.0,
+     "loc_err": null,
+     "flange_ok": null,
+     "final": "ESCALATE_TO_HUMAN"
+    }
+   ]
+  },
+  "ch4_ultrasound": {
+   "cast_surge": [
+    {
+     "seed": 1000,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 18.0,
+     "t_detect": 3.0,
+     "loc_err": 0.10816053554637543,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1001,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 13.0,
+     "t_detect": 8.0,
+     "loc_err": 0.04229748482654523,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1002,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 10.0,
+     "t_detect": 5.0,
+     "loc_err": 0.03044395039076127,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1003,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 20.0,
+     "t_detect": 12.0,
+     "loc_err": 0.17943271596949634,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1004,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 36.0,
+     "t_detect": 31.0,
+     "loc_err": 0.14578320463300315,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1005,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 14.0,
+     "t_detect": 3.0,
+     "loc_err": 0.06221585893488971,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1006,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 39.0,
+     "t_detect": 34.0,
+     "loc_err": 0.2945027237054882,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1007,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.05958870222387387,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1008,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 16.0,
+     "t_detect": 11.0,
+     "loc_err": 0.1679692185741443,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1009,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 33.0,
+     "t_detect": 28.0,
+     "loc_err": 0.1852339265322974,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1010,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 7.5,
+     "t_detect": 3.0,
+     "loc_err": 0.12049287393529617,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1011,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 12.0,
+     "t_detect": 7.0,
+     "loc_err": 0.1116883308235722,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1012,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 13.0,
+     "t_detect": 8.0,
+     "loc_err": 0.030216549224260123,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1013,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 16.5,
+     "t_detect": 12.0,
+     "loc_err": 0.18697688101402246,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1014,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 13.5,
+     "t_detect": 8.0,
+     "loc_err": 0.8555838766250233,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1015,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 19.0,
+     "t_detect": 14.0,
+     "loc_err": 0.7787858104832058,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1016,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 38.0,
+     "t_detect": 31.0,
+     "loc_err": 0.029053330179514808,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1017,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 19.0,
+     "t_detect": 14.0,
+     "loc_err": 0.0035878621592350165,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1018,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 25.5,
+     "t_detect": 3.0,
+     "loc_err": 0.22471860415490252,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1019,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 11.5,
+     "t_detect": 8.0,
+     "loc_err": 0.27585485241548,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1020,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.22646427910828118,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1021,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 12.0,
+     "t_detect": 7.0,
+     "loc_err": 0.40509593789435905,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1022,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 16.0,
+     "t_detect": 11.0,
+     "loc_err": 0.19802235449589248,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1023,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 11.0,
+     "t_detect": 4.0,
+     "loc_err": 0.05227504823230291,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1024,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 7.0,
+     "t_detect": 3.0,
+     "loc_err": 0.29506764473909947,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1025,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.014751675564794576,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1026,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 16.0,
+     "t_detect": 11.0,
+     "loc_err": 0.40614764192784886,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1027,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 52.0,
+     "t_detect": 46.0,
+     "loc_err": 0.8280139205052198,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1028,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 10.0,
+     "t_detect": 3.0,
+     "loc_err": 0.5022143245683303,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1029,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 18.5,
+     "t_detect": 13.0,
+     "loc_err": 0.21830847348761054,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1030,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 14.0,
+     "t_detect": 9.0,
+     "loc_err": 0.3254914053948167,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1031,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 4.5,
+     "t_detect": 2.0,
+     "loc_err": 0.20981739542767247,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1032,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 15.0,
+     "t_detect": 10.0,
+     "loc_err": 0.24300743050329662,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1033,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 19.0,
+     "t_detect": 14.0,
+     "loc_err": 0.38141549218167364,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1034,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 33.0,
+     "t_detect": 28.0,
+     "loc_err": 0.04100133420807969,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1035,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 9.5,
+     "t_detect": 3.0,
+     "loc_err": 0.21987435483500042,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1036,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 19.0,
+     "t_detect": 13.0,
+     "loc_err": 0.6748080550761283,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1037,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 12.0,
+     "t_detect": 7.0,
+     "loc_err": 0.09263185579109785,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1038,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 17.0,
+     "t_detect": 12.0,
+     "loc_err": 0.06526457555611183,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1039,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 12.0,
+     "t_detect": 5.0,
+     "loc_err": 0.414718415363353,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1040,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 11.5,
+     "t_detect": 3.0,
+     "loc_err": 0.31799874764656405,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1041,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 13.0,
+     "t_detect": 8.0,
+     "loc_err": 0.4013862429377664,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1042,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 34.0,
+     "t_detect": 29.0,
+     "loc_err": 0.01611697976287594,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1043,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 23.0,
+     "t_detect": 18.0,
+     "loc_err": 0.14860248072194512,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1044,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 13.0,
+     "t_detect": 3.0,
+     "loc_err": 0.08718355193544121,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1045,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 6.0,
+     "t_detect": 3.0,
+     "loc_err": 0.13622173221771783,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1046,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 26.0,
+     "t_detect": 21.0,
+     "loc_err": 0.06105826124825451,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1047,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 26.0,
+     "t_detect": 21.0,
+     "loc_err": 0.47769259945697096,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1048,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 7.5,
+     "t_detect": 3.0,
+     "loc_err": 0.12277833321764138,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1049,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 13.5,
+     "t_detect": 8.0,
+     "loc_err": 0.037110495262931274,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1050,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 21.0,
+     "t_detect": 16.0,
+     "loc_err": 0.35051068774655575,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1051,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.030229480462723193,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1052,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 10.0,
+     "t_detect": 3.0,
+     "loc_err": 0.239988678602141,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1053,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 19.0,
+     "t_detect": 5.0,
+     "loc_err": 0.058230204032434695,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1054,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 19.0,
+     "t_detect": 14.0,
+     "loc_err": 0.035785535750439496,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1055,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.034335289829009887,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1056,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 12.0,
+     "t_detect": 7.0,
+     "loc_err": 0.2284620428703648,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1057,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.0037027829502749316,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1058,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 14.0,
+     "t_detect": 9.0,
+     "loc_err": 0.17316116560430467,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1059,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.6939481830709457,
+     "flange_ok": true,
+     "final": "PATROL"
+    }
+   ],
+   "infotaxis": [
+    {
+     "seed": 1000,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.07570176911890786,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1001,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 13.0,
+     "t_detect": 8.0,
+     "loc_err": 0.0500731634818856,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1002,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 10.0,
+     "t_detect": 5.0,
+     "loc_err": 0.01919227559925656,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1003,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 17.0,
+     "t_detect": 12.0,
+     "loc_err": 0.046804628473843826,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1004,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 36.0,
+     "t_detect": 31.0,
+     "loc_err": 0.3485509678317135,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1005,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.26241130005658586,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1006,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 39.0,
+     "t_detect": 34.0,
+     "loc_err": 0.20160528207760436,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1007,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.21422194894003999,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1008,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 16.0,
+     "t_detect": 11.0,
+     "loc_err": 0.048469247234366575,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1009,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 33.0,
+     "t_detect": 28.0,
+     "loc_err": 0.16722182907089395,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1010,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.03170553241103516,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1011,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 12.0,
+     "t_detect": 7.0,
+     "loc_err": 0.09326777849150138,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1012,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 13.0,
+     "t_detect": 8.0,
+     "loc_err": 0.4190548583378598,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1013,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 17.0,
+     "t_detect": 12.0,
+     "loc_err": 0.03211052082286008,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1014,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 14.5,
+     "t_detect": 8.0,
+     "loc_err": 0.36015836654051153,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1015,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 21.0,
+     "t_detect": 14.0,
+     "loc_err": 0.08100825946655908,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1016,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 38.0,
+     "t_detect": 31.0,
+     "loc_err": 0.26369140795513335,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1017,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 19.0,
+     "t_detect": 14.0,
+     "loc_err": 0.2608619509594123,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1018,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 7.5,
+     "t_detect": 3.0,
+     "loc_err": 0.2718747548154452,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1019,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 11.0,
+     "t_detect": 8.0,
+     "loc_err": 0.5594423949755309,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1020,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.23984457285691893,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1021,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 12.0,
+     "t_detect": 7.0,
+     "loc_err": 0.036436873029918895,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1022,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 16.0,
+     "t_detect": 11.0,
+     "loc_err": 0.22219099175995408,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1023,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 9.0,
+     "t_detect": 4.0,
+     "loc_err": 0.15942499272681118,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1024,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 10.0,
+     "t_detect": 3.0,
+     "loc_err": 0.4643644673532709,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1025,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.03193746858581676,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1026,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 16.0,
+     "t_detect": 11.0,
+     "loc_err": 0.6844846868498602,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1027,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 65.5,
+     "t_detect": 46.0,
+     "loc_err": 0.7072140567978952,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1028,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 10.0,
+     "t_detect": 3.0,
+     "loc_err": 0.12824478991601712,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1029,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 18.5,
+     "t_detect": 13.0,
+     "loc_err": 0.18504118889685334,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1030,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 14.0,
+     "t_detect": 9.0,
+     "loc_err": 0.3479961285315085,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1031,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 5.5,
+     "t_detect": 2.0,
+     "loc_err": 0.22782481899403714,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1032,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 15.0,
+     "t_detect": 10.0,
+     "loc_err": 0.3032440205959141,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1033,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 21.0,
+     "t_detect": 14.0,
+     "loc_err": 0.3256371277652462,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1034,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 33.5,
+     "t_detect": 28.0,
+     "loc_err": 0.1693433877751672,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1035,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 8.5,
+     "t_detect": 3.0,
+     "loc_err": 0.1731996056291433,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1036,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 18.0,
+     "t_detect": 13.0,
+     "loc_err": 0.03572370085161173,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1037,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 12.0,
+     "t_detect": 7.0,
+     "loc_err": 0.23751328404844055,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1038,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 17.0,
+     "t_detect": 12.0,
+     "loc_err": 0.09081766558290398,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1039,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 10.5,
+     "t_detect": 5.0,
+     "loc_err": 0.22114444278339432,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1040,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 10.0,
+     "t_detect": 3.0,
+     "loc_err": 0.11924172977000462,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1041,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 13.0,
+     "t_detect": 8.0,
+     "loc_err": 0.39772508729109135,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1042,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 34.0,
+     "t_detect": 29.0,
+     "loc_err": 0.12523070928623128,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1043,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 23.0,
+     "t_detect": 18.0,
+     "loc_err": 0.3577963269289988,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1044,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.2556748162226811,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1045,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 7.0,
+     "t_detect": 3.0,
+     "loc_err": 0.0407365605163238,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1046,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 26.0,
+     "t_detect": 21.0,
+     "loc_err": 0.18511005141273773,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1047,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 26.0,
+     "t_detect": 21.0,
+     "loc_err": 0.18390656194386723,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1048,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.02441226849334376,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1049,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 13.0,
+     "t_detect": 8.0,
+     "loc_err": 0.4246399941318105,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1050,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 21.0,
+     "t_detect": 16.0,
+     "loc_err": 0.13603876463908524,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1051,
+     "fid": "M1",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.28645843712080793,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1052,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 11.0,
+     "t_detect": 3.0,
+     "loc_err": 0.13966296853105015,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1053,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 10.0,
+     "t_detect": 5.0,
+     "loc_err": 0.16340751274026466,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1054,
+     "fid": "M2",
+     "detected": true,
+     "t_found": 19.0,
+     "t_detect": 14.0,
+     "loc_err": 0.12207801232967258,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1055,
+     "fid": "M3",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.10158091321080726,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1056,
+     "fid": "S1",
+     "detected": true,
+     "t_found": 10.5,
+     "t_detect": 7.0,
+     "loc_err": 0.5062691523052157,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1057,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 10.0,
+     "t_detect": 3.0,
+     "loc_err": 0.5449373878480479,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1058,
+     "fid": "S2",
+     "detected": true,
+     "t_found": 14.0,
+     "t_detect": 9.0,
+     "loc_err": 0.19427875188885207,
+     "flange_ok": true,
+     "final": "PATROL"
+    },
+    {
+     "seed": 1059,
+     "fid": "M4",
+     "detected": true,
+     "t_found": 8.0,
+     "t_detect": 3.0,
+     "loc_err": 0.415929145730037,
+     "flange_ok": true,
+     "final": "PATROL"
+    }
+   ]
+  }
+ }
+}

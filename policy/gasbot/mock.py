@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 
 import numpy as np
 import torch
@@ -142,7 +143,7 @@ def make_leak(rng, lw: LeakWorld, scenario: str, fid: str) -> float:
 
 
 def build(seed=0, scenario="loose", log_path=None, fid=None, wind_speed=None, wind_dir=None, h2s_ratio=None,
-          start=None, gas_cfg=None, seek_cfg=None, acoustic=True):
+          start=None, gas_cfg=None, seek_cfg=None, acoustic=True, search=None):
     rng = np.random.default_rng(seed)
     geoms = deck.flanges()
     lw = LeakWorld(geoms)
@@ -165,6 +166,8 @@ def build(seed=0, scenario="loose", log_path=None, fid=None, wind_speed=None, wi
     if not acoustic:
         bridge.suite.acoustic.min_snr_db = math.inf
         gas_cfg = gas_cfg or GasBotConfig(acoustic_snr=math.inf)
+    if search is not None:
+        gas_cfg = replace(gas_cfg or GasBotConfig(), search=search)
     arm = LeakArm(world, pipe, lw, seed=seed)
     loc = RustLocalizer(fake_colour_classifier, patch=16, stride=8, threshold=0.5, temperature=1.0)
     orch = GasBotOrchestrator(bridge, perc, loc, world, arm, GreedyScrub(pipe), OrchestratorConfig(log_path=log_path),
@@ -200,6 +203,7 @@ def episode(seed, scenario="loose", max_t=900.0, **kw) -> dict:
             "flange_ok": orch.handoffs[0] == truth["fid"] if orch.handoffs else None,
             "handoffs": orch.handoffs, "final": orch.state.value, "flow_est": orch.flow, "flow_conc": orch.flow_conc,
             "alerts": [a["kind"] for a in orch.alerts], "track": track, "t_end": bridge.t,
+            "belief": [(t - orch.detect_t, a) for t, a in orch.belief_track],
             "path": np.round(np.array(bridge.path), 2).tolist()}
 
 
