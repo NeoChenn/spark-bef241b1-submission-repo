@@ -248,7 +248,7 @@ class GasBotOrchestrator(RigOrchestrator):
         qs = [acoustic_flow(db, bg, float(np.linalg.norm(mean - p)), a.l1m_db, a.absorb_db_m)
               for p, db, bg in self.ac_flows]
         qs = [math.log(q) for q in qs if q is not None]
-        self.flow = math.exp(float(np.median(qs))) if qs else self.flow_conc
+        self.flow = (math.exp(float(np.median(qs))) if qs else self.flow_conc) if sigma < self.seek_cfg.trust_sigma else None
         self._check_alarm(max(s["raw"]))
         prev = self.seeker.mode
         v = self.seeker.command(self.t, s["pos"], s["lel_trunk"], s["lel_tip"], s["tip_rel"], s["wind"],

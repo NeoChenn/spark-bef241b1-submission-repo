@@ -154,11 +154,11 @@ def run(app, rep, stage, args, out: Path, hero, hero_size, encode) -> None:
         cm = camera_from_usd(hero.world_matrix(), hero.focal, hero.aperture, W, H)
         from detection.localize import pixel_rays
         o, dirs = pixel_rays(cm)
-        gy, gx = np.linspace(0, H - 1, 72).astype(int), np.linspace(0, W - 1, 128).astype(int)
+        gy, gx = np.linspace(0, H - 1, 54).astype(int), np.linspace(0, W - 1, 96).astype(int)
         col = column_density(b.field, np.broadcast_to(o, dirs.shape)[gy][:, gx].reshape(-1, 3),
-                             dirs[gy][:, gx].reshape(-1, 3), 14.0, 24).reshape(72, 128)
+                             dirs[gy][:, gx].reshape(-1, 3), 14.0, 20).reshape(54, 96)
         up = np.asarray(Image.fromarray(col.astype(np.float32), mode="F").resize((W, H), Image.BILINEAR))
-        im = Image.fromarray(plume_tint(rgb, up, 2500.0, 60000.0))
+        im = Image.fromarray(plume_tint(rgb, up, 8000.0, 200000.0))
         d = ImageDraw.Draw(im, "RGBA")
         if orch.estimate is not None and orch.state in (S.GAS_SEEK, S.LEAK_APPROACH):
             m, sig, _ = orch.estimate
@@ -173,7 +173,8 @@ def run(app, rep, stage, args, out: Path, hero, hero_size, encode) -> None:
         gas_panel(im, orch.gas_telemetry())
         imgs = st.get("images", {})
         if imgs.get("ogi") is not None:
-            ogi, stats = ogi_view(imgs["ogi"], b.ogi_camera(*OGI_SIZE), b.field, threshold=2500.0)
+            ogi, stats = ogi_view(imgs["ogi"], b.ogi_camera(*OGI_SIZE), b.field, threshold=8000.0, top=200000.0,
+                                  grid=(80, 45))
             b.ogi_stats = stats
             paste(im, ogi, "left", "unit 2 OGI camera (gas false colour)", W // 4)
         if b.leak_mode and b.last_inspection is not None:
