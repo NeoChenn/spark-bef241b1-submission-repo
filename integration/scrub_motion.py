@@ -25,6 +25,8 @@ AIM = (0.7, 2.0)
 SEAT = 0.08
 DEPLOY_S = 3.2
 FORCE_RATE = 40.0
+CLEANUP_S = 3.2
+CLEAN_EPS = 1e-4
 LIFT_SPEED = 0.15
 ARM_LINKS = ("ur3_upper_arm_link", "ur3_forearm_link", "ur3_wrist_1_link", "ur3_wrist_2_link", "ur3_wrist_3_link")
 ARM_LINK_RADIUS = 0.045
@@ -600,13 +602,13 @@ class ScrubJob:
         before = [v for t, v in pts if t <= w["scrub"]]
         tr = np.asarray([(w["scrub"], before[-1] if before else 1.0)] + [(t, v) for t, v in pts if t > w["scrub"]],
                         float)
-        t_fin = w["verify"] - 1.9
+        t_fin = w["verify"] - CLEANUP_S
         t = np.arange(w["scrub"], w["verify"] + self.dt, self.dt)
         base = np.interp(t, tr[:, 0], tr[:, 1])
         low = np.flatnonzero(base <= 0.077)
-        t0 = t[low[0]] if len(low) else t_fin
-        tail = np.interp(t, [t0, t_fin], [0.077, 0.062]) * (t <= t_fin)
-        return t, np.maximum(base, tail), base
+        t0 = min(t[low[0]] if len(low) else t_fin, t_fin)
+        tail = np.interp(t, [t0, t_fin], [0.077, 0.05]) * (t <= t_fin)
+        return t, np.maximum(base, tail), base, t_fin
 
     def _scrub_control(self, ts, sprayed, target):
         r, (zc, amp) = self.pipe.radius, self.stroke
@@ -622,7 +624,9 @@ class ScrubJob:
             if i:
                 phi_new = phi + omega * self.dt
                 if math.floor(phi_new / math.pi) > math.floor(phi / math.pi):
-                    dirty = [j for j in range(len(rows)) if cur[owner == j].max(initial=0.0) > 0.03]
+                    clean_up = target is not None and t >= target[3]
+                    lim = CLEAN_EPS if clean_up else 0.03
+                    dirty = [j for j in range(len(rows)) if cur[owner == j].max(initial=0.0) > lim]
                     if k not in dirty and dirty:
                         k = min(dirty, key=lambda j: (abs(j - k), -j))
                 phi = phi_new
@@ -630,6 +634,8 @@ class ScrubJob:
                 z = zc - amp * math.cos(phi)
             if target is None:
                 f = self.force_mean + self.force_amp * math.sin(2 * math.pi * 1.3 * (t - ts[0]))
+            elif t >= target[3]:
+                f = 20.0 if cur.max() > CLEAN_EPS else 3.0
             else:
                 goal = float(np.interp(t, target[0], target[1]))
                 err = cur.sum() / total0 - goal
