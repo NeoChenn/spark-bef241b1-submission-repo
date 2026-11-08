@@ -85,7 +85,8 @@ def flame_frames(n: int = FRAMES, w: int = TILE_W, h: int = TILE_H, seed: int = 
     side = fbm(h, w, 3, 4, 3, rng)
     u = np.linspace(-1.0, 1.0, w)[None, :]
     v = np.linspace(1.0, 0.0, h)[:, None]
-    width = 0.85 * (v + 0.02) ** 0.85 * (1.02 - v) ** 0.8 / (0.5**0.85 * 0.52**0.8)
+    prof = (v + 0.03) ** 0.75 * (1.02 - v) ** 0.8
+    width = 0.85 * prof / prof.max()
     edge = smoothstep(0.0, 0.08, 1.0 - np.abs(u)) * smoothstep(0.0, 0.06, 1.0 - v)
     out = np.zeros((n, h, w, 4))
     for k in range(n):
@@ -360,7 +361,9 @@ def update(stage, t: float, wind=WIND) -> None:
     line = centerline(np.linspace(0, 1, rows), t, wind)
     level = flicker(t)
     for k, (yaw, ws, hs, phase, rate) in enumerate(CARDS):
-        sub = centerline(np.linspace(0, 1, rows) * hs, t + phase, wind)
+        v = np.linspace(0, 1, rows)
+        sub = centerline(0.03 * abs(np.sign(yaw)) + v * hs, t + phase, wind)
+        sub = sub + np.outer(0.4 + 1.6 * v, facing_right(line[rows // 3], eye)) * np.sign(yaw)
         pts = card_points(sub, facing_right(line[rows // 3], eye, yaw), WIDTH * ws * (0.96 + 0.06 * level))
         UsdGeom.Mesh(stage.GetPrimAtPath(f"{ROOT}/flame_{k}")).GetPointsAttr().Set(
             Vt.Vec3fArray.FromNumpy(pts.astype(np.float32)))
