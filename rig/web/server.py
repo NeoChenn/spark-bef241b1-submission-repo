@@ -287,6 +287,9 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Pat
             if mission is not None:
                 await asyncio.to_thread(mission.advance, now - last)
                 hub.publish_mission(await asyncio.to_thread(mission.header))
+                if hasattr(mission, "take_sim"):
+                    pending.extend(mission.take_sim())
+                    flush()
             else:
                 await asyncio.to_thread(fleet.advance, now - last)
             last = now
