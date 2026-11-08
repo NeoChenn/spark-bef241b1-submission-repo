@@ -120,6 +120,7 @@ Tests (no network): `tests/test_gemini_verifier.py`.
 | `occlude_camera(on)` | shows / hides a dark card 3 cm in front of the inspection lens (lens mist) |
 | `force_spike(height, radius)` | adds a weld bead prim under the brush and a bump in the spring surface (default 10 mm: +25 N, trips the 40 N limit once) |
 | `person_at(distance)` | moves the high-vis worker prim `/World/People/worker` near the base; `None` removes it |
+| `storm_level(level)` | 0-1 storm (`policy/storm.py` `Weather`): gusts add `0.9 x gust_n` to the brush force, rain drops collect on the inspection lens and haze the frame (`Lens`), wet pipe scales abrasion by `1 - 0.35 x level`; `weather()` reports gust/rain/deck, `wipe_lens()` clears the drops; 0 ends the storm |
 
 With events on, `run_repair.py` schedules: a new patch 12 s after SPRAY, a weld bead 4 s into SCRUB, and on
 SCRUB -> VERIFY lens mist for 1.5 s plus a worker at 2.4 m from 0.5 s to 2.5 s.

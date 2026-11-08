@@ -35,6 +35,7 @@ parser.add_argument("--fps", type=int, default=12, help="video frame rate")
 parser.add_argument("--hero-size", default="1280x720")
 parser.add_argument("--no-events", action="store_true", help="skip the unscripted scene changes")
 parser.add_argument("--glare", action="store_true", help="add glare on the nominal inspection view")
+parser.add_argument("--storm", type=float, default=0.0, help="storm level 0-1 that starts 20 s into the soak")
 parser.add_argument("--no-gemini", action="store_true",
                     help="skip the Gemini second opinion even if GEMINI_API_KEY is set")
 args = parser.parse_args()
@@ -207,6 +208,9 @@ def main() -> None:
         now = bridge.sim_time()
         if args.no_events:
             continue
+        if args.storm > 0 and prev == S.SPRAY and "storm" not in fired:
+            fired.add("storm")
+            bridge.schedule(now + 20.0, f"storm_level {args.storm:.1f}", lambda: bridge.storm_level(args.storm))
         if prev == S.SPRAY and "patch" not in fired:
             fired.add("patch")
             th_new, z_new = theta + 0.28, 0.12
