@@ -168,9 +168,9 @@ def soft_texture(size: int, seed: int = 0, octaves: int = 5) -> np.ndarray:
     return (np.clip(acc * 1.3 - 0.05, 0, 1) * edge * 255).astype(np.uint8)
 
 
-FIRE_MAP = ([(0.012, 0.012, 0.012, 0.0), (0.025, 0.024, 0.022, 0.45), (0.035, 0.033, 0.03, 0.5), (1.0, 0.16, 0.013, 0.8),
+FIRE_MAP = ([(0.02, 0.02, 0.02, 0.3), (0.025, 0.024, 0.022, 0.45), (0.035, 0.033, 0.03, 0.5), (1.0, 0.16, 0.013, 0.8),
              (13.5, 3.0, 0.126, 0.8), (78.0, 39.0, 6.1, 0.7)], [0, 0.05, 0.15, 0.6, 0.85, 1])
-STEAM_MAP = ([(0.35, 0.36, 0.38, 0.0), (0.45, 0.46, 0.48, 0.12), (0.5, 0.51, 0.53, 0.22), (0.55, 0.55, 0.57, 0.3)], [0, 0.2, 0.6, 1])
+STEAM_MAP = ([(0.5, 0.51, 0.53, 0.22), (0.5, 0.51, 0.53, 0.22), (0.55, 0.55, 0.57, 0.25), (0.6, 0.6, 0.62, 0.3)], [0, 0.2, 0.6, 1])
 
 
 def billboard_quats(pos, eye) -> np.ndarray:
@@ -187,16 +187,16 @@ def fade_bucket(age, ttl, n: int) -> np.ndarray:
     return np.clip((level * n).astype(int), 0, n - 1)
 
 
-def flow_overrides(flare, vent, wind, cell: float, flame_radius: float = 1.1, fuel: float = 0.8, cooling: float = 2.5,
-                   steam: float = 0.8, smoke_fade: float = 0.3) -> dict:
+def flow_overrides(flare, vent, wind, cell: float, flame_radius: float = 1.4, fuel: float = 0.8, cooling: float = 2.0,
+                   steam: float = 0.8, smoke_fade: float = 0.3, jet: float = 10.0) -> dict:
     s = flame_radius / 10.0
-    lean = (float(wind[0]) * 0.3, float(wind[1]) * 0.3, 0.0)
+    lean = (float(wind[0]) * 0.3, float(wind[1]) * 0.3)
 
-    def group(layer, pos, radius, emit, advection, colormap, fade):
+    def group(layer, pos, radius, emit, advection, colormap, fade, up):
         rgba, xs = colormap
         return {
             "flowEmitterSphere": {"layer": layer, "position": tuple(map(float, pos)), "radius": float(radius),
-                                  "velocity": lean, "velocityIsWorldSpace": True, **emit},
+                                  "velocity": (lean[0], lean[1], up), "velocityIsWorldSpace": True, **emit},
             "flowSimulate": {"layer": layer, "densityCellSize": float(cell)},
             "flowSimulate/advection": {"gravity": (0.0, 0.0, -100.0 * s), **advection},
             "flowSimulate/advection/smoke": {"fade": fade},
@@ -208,7 +208,7 @@ def flow_overrides(flare, vent, wind, cell: float, flame_radius: float = 1.1, fu
 
     return {
         "fire": group(0, flare, flame_radius, {"fuel": fuel, "temperature": 2.0},
-                      {"coolingRate": cooling, "combustionEnabled": True}, FIRE_MAP, smoke_fade),
+                      {"coolingRate": cooling, "combustionEnabled": True}, FIRE_MAP, smoke_fade, jet),
         "steam": group(1, vent, 1.0, {"fuel": 0.0, "temperature": 0.0, "smoke": steam, "coupleRateSmoke": 2.0},
-                       {"combustionEnabled": False, "buoyancyPerSmoke": 40.0 * s}, STEAM_MAP, 1.2),
+                       {"combustionEnabled": False, "buoyancyPerSmoke": 40.0 * s}, STEAM_MAP, 1.2, 3.0),
     }

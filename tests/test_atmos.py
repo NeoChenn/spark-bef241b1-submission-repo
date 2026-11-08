@@ -187,4 +187,4 @@ def test_flow_overrides_retarget_preset_for_fire_and_steam():
     assert fire["flowSimulate/advection"]["gravity"][2] < 0 and fire["flowSimulate/advection"]["gravity"][1] == 0
     assert steam["flowSimulate/advection"]["combustionEnabled"] is False
     assert {steam[k]["layer"] for k in ("flowEmitterSphere", "flowSimulate", "flowOffscreen", "flowRender")} == {1}
-    assert fire["flowEmitterSphere"]["velocity"][0] > 0
+    assert fire["flowEmitterSphere"]["velocity"][0] > 0 and fire["flowEmitterSphere"]["velocity"][2] > 0
