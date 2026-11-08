@@ -184,7 +184,7 @@ def eval_patrol(args, meta, full):
     with torch.inference_mode():
         env.reset()
         place(base, start, yaw0)
-    followers = [WaypointFollower(path, gyaw, v_max=args.v_max, pos_tol=args.pos_tol, yaw_tol=0.06, v_min=0.12) for _ in range(base.num_envs)]
+    followers = [WaypointFollower(path, gyaw, v_max=args.v_max, pos_tol=args.pos_tol, yaw_tol=0.06, v_min=args.v_min) for _ in range(base.num_envs)]
     obs = env.get_observations()
     dt = base.step_dt
     t, t_done = 0.0, [None] * base.num_envs
@@ -322,7 +322,7 @@ def render(args, meta, full):
     k0 = int(np.searchsorted(s, s[-1] - args.start_back))
     sub = np.vstack([dense[k0:]])
     yaw0 = math.atan2(sub[min(10, len(sub) - 1)][1] - sub[0][1], sub[min(10, len(sub) - 1)][0] - sub[0][0])
-    follower = WaypointFollower(sub, gyaw, v_max=args.v_max, pos_tol=args.pos_tol, yaw_tol=0.06, v_min=0.12)
+    follower = WaypointFollower(sub, gyaw, v_max=args.v_max, pos_tol=args.pos_tol, yaw_tol=0.06, v_min=args.v_min)
     with torch.inference_mode():
         env.reset()
         place(base, sub[0], yaw0)
@@ -409,7 +409,8 @@ def main(argv):
     p.add_argument("--v_max", type=float, default=1.0)
     p.add_argument("--start_back", type=float, default=10.0)
     p.add_argument("--focal", type=float, default=24.0)
-    p.add_argument("--pos_tol", type=float, default=0.10)
+    p.add_argument("--pos_tol", type=float, default=0.06)
+    p.add_argument("--v_min", type=float, default=0.25)
     p.add_argument("--blend_m", type=float, default=4.0)
     p.add_argument("--settle_s", type=float, default=0.6)
     p.add_argument("--deploy_s", type=float, default=3.0)
