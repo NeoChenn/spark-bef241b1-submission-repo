@@ -29,6 +29,15 @@ HELIDECK = ((-36.93, -22.5), (-29.7, -35.0), (-15.3, -35.0), (-8.07, -22.5), (-1
 HELI_Z = 51.25
 LIFEBOATS = ((-19.0, -40.6, 27.6, 1), (-9.0, -40.6, 27.6, 2))
 STAIR = ((0.65, -37.3), 31.25, 42.5)
+FLOODS = (
+    ((-21.0, -39.3, 41.6), (-21.0, -37.8, 33.0), 4000.0), ((-12.0, -39.3, 41.6), (-12.0, -37.8, 33.0), 2100.0),
+    ((-3.0, -39.3, 41.6), (-3.0, -37.8, 33.0), 4000.0), ((-14.0, -39.2, 29.6), (-14.0, -37.8, 22.0), 2100.0),
+    ((-4.0, -39.2, 29.6), (-4.0, -37.8, 22.0), 4000.0), ((-19.0, -42.6, 33.0), (-19.0, -40.6, 27.6), 3000.0),
+    ((-9.0, -42.6, 33.0), (-9.0, -40.6, 27.6), 3000.0), ((2.1, -26.0, 41.6), (0.62, -26.0, 33.0), 2100.0),
+    ((2.9, -33.5, 41.6), (0.62, -33.5, 33.0), 4000.0), ((2.0, -31.0, 29.6), (0.62, -31.0, 22.0), 4000.0),
+    ((-19.9, -32.5, 29.6), (-18.42, -32.5, 22.0), 2100.0), ((-26.8, -30.0, 41.6), (-25.32, -30.0, 33.0), 4000.0),
+)
+FLOOD_POWER = 260000.0
 SIGNS = {"muster": 0, "boat1": 1, "boat2": 2, "refuge": 3, "exit": 4, "smoking": 5, "deck": 6, "fire": 7}
 
 
@@ -145,8 +154,8 @@ def materials(stage) -> dict:
         "trim": paint(stage, "trim", (0.46, 0.48, 0.49), chip=0.5, rust=0.25),
         "frame": paint(stage, "frame", (0.08, 0.085, 0.09), chip=0.15, rust=0.05, metallic=0.4),
         "door": paint(stage, "door", (0.16, 0.24, 0.3), chip=0.55, rust=0.3),
-        "unit": paint(stage, "unit", (0.55, 0.57, 0.56), chip=0.4, rust=0.2),
-        "hull": paint(stage, "hull", (0.86, 0.3, 0.03), chip=0.3, rust=0.06, streak_amount=0.3),
+        "unit": paint(stage, "unit", (0.62, 0.63, 0.61), chip=0.4, rust=0.2),
+        "hull": paint(stage, "hull", (0.95, 0.3, 0.015), chip=0.2, rust=0.04, streak_amount=0.2, grime_amount=0.2),
         "fender": paint(stage, "fender", (0.03, 0.03, 0.03), chip=0.0, rust=0.0, streak_amount=0.0),
         "interior": preview(stage, "interior", (0.004, 0.004, 0.005), roughness=0.03, emit=TEX / "interiors.png"),
         "sign": preview(stage, "sign", roughness=0.35, emit=TEX / "signs.png", diffuse_tex=TEX / "signs.png"),
@@ -232,13 +241,12 @@ def build_wall(b, w, lamps, extra_signs):
             for side in (1, -1):
                 if add_sign(b, w, o["along"] + side * 1.05, hole[1] + 1.6, (0.8, 0.4), tile, taken):
                     break
-        elif fl.unit(o["key"] + "u") < 0.55:
-            ua, uz = o["along"], o["z0"] - 0.6
-            b.box("unit", *fl.wall_box(w, ua - 0.5, uz, ua + 0.5, uz + 0.75, D, D + 0.55))
-            b.quad("louvre", fl.quad(w, ua - 0.42, uz + 0.06, ua + 0.42, uz + 0.69, D + 0.551))
-            for dz in (0.0, 0.7):
-                b.box("frame", *fl.wall_box(w, ua - 0.45, uz - 0.06 + dz, ua + 0.45, uz - 0.02 + dz, D, D + 0.6))
-            taken.append((ua - 0.5, uz, ua + 0.5, uz + 0.75))
+        elif fl.unit(o["key"] + "u") < 0.35:
+            ua, uz = o["along"], o["z0"] - 0.4
+            b.box("unit", *fl.wall_box(w, ua - 0.4, uz, ua + 0.4, uz + 0.55, D, D + 0.4))
+            b.quad("louvre", fl.quad(w, ua - 0.34, uz + 0.05, ua + 0.34, uz + 0.5, D + 0.401))
+            b.box("frame", *fl.wall_box(w, ua - 0.35, uz - 0.05, ua + 0.35, uz, D, D + 0.45))
+            taken.append((ua - 0.4, uz, ua + 0.4, uz + 0.55))
     for along, zc, size, tile in extra_signs.get(w["name"], ()):
         add_sign(b, w, along, zc, size, tile, taken)
     return len(items)
@@ -321,6 +329,28 @@ def stair(b):
                 b.beam("yellow", p, q, 0.05, 0.05)
 
 
+def floods(stage, b):
+    UsdGeom.Scope.Define(stage, f"{facade.ROOT}/Lights")
+    for i, (pos, target, kelvin) in enumerate(FLOODS):
+        d = np.array(target) - np.array(pos)
+        d /= np.linalg.norm(d)
+        root = UsdGeom.Xform.Define(stage, f"{facade.ROOT}/Lights/flood_{i:02d}")
+        ops = UsdGeom.Xformable(root)
+        ops.AddTranslateOp().Set(Gf.Vec3d(*pos))
+        w, x, y, z = tf.aim_from_down(d)
+        ops.AddOrientOp().Set(Gf.Quatf(float(w), float(x), float(y), float(z)))
+        light = UsdLux.SphereLight.Define(stage, f"{root.GetPath()}/light")
+        light.CreateRadiusAttr(0.12)
+        light.CreateIntensityAttr(FLOOD_POWER)
+        light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(kelvin)))
+        shaping = UsdLux.ShapingAPI.Apply(light.GetPrim())
+        shaping.CreateShapingConeAngleAttr().Set(55.0)
+        shaping.CreateShapingConeSoftnessAttr().Set(0.5)
+        p = np.array(pos)
+        b.box("frame", tuple(p - (0.25, 0.25, -0.05)), tuple(p + (0.25, 0.25, 0.25)))
+        b.box("lamp", tuple(p - (0.2, 0.2, 0.02)), tuple(p + (0.2, 0.2, 0.05)))
+
+
 def offline_lights(stage, lamps):
     UsdGeom.Scope.Define(stage, facade.OFFLINE)
     for i, p in enumerate(lamps):
@@ -349,6 +379,7 @@ def build() -> Path:
         lifeboat(b, x, y, z)
     helideck(b)
     stair(b)
+    floods(stage, b)
     quads = b.write(stage, looks)
     offline_lights(stage, lamps)
     world = stage.GetRootLayer().GetPrimAtPath("/World")

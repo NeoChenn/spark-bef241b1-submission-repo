@@ -9,7 +9,7 @@ LAYER = pr.OUTPUT / "facade.usda"
 ROOT = "/World/Facade"
 LOOKS = f"{ROOT}/Looks"
 OFFLINE = f"{ROOT}/Offline"
-GLOW = {"interior": 2.2, "sign": 0.04, "lamp": 14.0, "heli_green": 9.0}
+GLOW = {"interior": 1.0, "sign": 0.04, "lamp": 14.0, "heli_green": 9.0}
 COLORS = {"lamp": (1.0, 0.8, 0.55), "heli_green": (0.15, 1.0, 0.3)}
 
 
