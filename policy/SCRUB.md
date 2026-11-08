@@ -128,3 +128,22 @@ L ~ U(0, 1). Rig-geometry eval (`--meta --force_patch`, about 1024 episodes each
 * **Gust gate** (`--gust_gate 12 6`): this is the orchestrator's rule, which retracts above 12 N and resumes below
   6 N. With v2 it halves the > 40 N rate (6.6 %). Inside a fixed 15 s episode it costs success (48 %), but in the
   real loop the robot simply waits out the gust.
+
+## CBF force shield (`--cbf`, `policy/cbf_shield.py`)
+
+A runtime safety filter on the brush's normal penetration command. Recursive least squares fits the contact
+stiffness k from (force, penetration). The one-step disturbance w is the tracking residual. The shield then enforces
+the discrete CBF h = F_max - F >= 0, with h_{k+1} >= (1 - gamma) h_k, by clipping the penetration command to the
+closed-form bound (a 1-D QP). The retraction is capped at 2 cm per step. The measured normal tracking gain is only
+about 0.06 per 33 ms step, so with alpha = 0.15 the shield acts early.
+
+v2, `--meta --force_patch`, 512 episodes, held-out seed 11 (tuned on seed 7), see `runs_sample/novelty/scrub/`:
+
+| storm | shield | success | p95 ep-max F | > 40 N | max F |
+|---|---|---|---|---|---|
+| 0 | off | 99.2 % | 35.3 N | 0.8 % | 47 N |
+| 0 | on | 98.8 % | 33.8 N | 0.0 % | 37 N |
+| 1.0 | off | 90.6 % | 44.5 N | 11.5 % | 210 N |
+| 1.0 | on | 92.0 % | 41.0 N | 6.6 % | 252 N |
+
+The remaining storm spikes come from gust and deck motion together, and they are faster than the arm can retract.

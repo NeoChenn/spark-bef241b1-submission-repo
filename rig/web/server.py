@@ -118,6 +118,7 @@ class FrameHub:
         self._bump()
 
     def publish_mission(self, h: dict) -> None:
+        h = self.take_plume(h)
         self.log.extend(h.get("events") or [])
         self.mission = {k: v for k, v in h.items() if k != "events"}
         self._trim()

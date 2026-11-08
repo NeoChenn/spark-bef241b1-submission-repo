@@ -12,7 +12,7 @@ from isaaclab.sensors import ContactSensor, ContactSensorCfg
 from isaaclab.utils.math import sample_uniform
 
 from policy.envs.pickcan_env_cfg import CANS, PickCanEnvCfg, can_spawn_cfg
-from policy.pickcan import core
+from policy.pickcan import core, geom
 
 DOWN = (0.0, 0.0, -1.0)
 READY_TIP = (0.1, 0.2, 0.55)
@@ -62,6 +62,10 @@ class PickCanEnv(DirectRLEnv):
         self.new_seal = zb()
         self.lost_seal = zb()
         self.wrench_f, self.wrench_t = z3(), z3()
+        self.break_why = torch.zeros(N, 4, device=dev)
+        self.phi_prev = torch.full((N,), float("nan"), device=dev)
+        self.rays = geom.ray_grid(cfg.depth_rays, cfg.depth_fov, dev)
+        self.geom_fit = None
         self._started = False
         self._randomize_bodies()
 
@@ -141,13 +145,13 @@ class PickCanEnv(DirectRLEnv):
         jac = self._robot.root_physx_view.get_jacobians()[:, self.jac_idx][:, :, self.arm_ids]
         err_p = self.p_tgt - tip_p
         n = err_p.norm(dim=-1, keepdim=True)
-        err_p = err_p * torch.clamp(0.05 / n.clamp_min(1e-6), max=1.0)
+        err_p = err_p * torch.clamp(c.ik_step / n.clamp_min(1e-6), max=1.0)
         err_r = torch.cross(tip_R[:, :, 0], self.down, dim=-1) * c.rot_weight
         e = torch.cat([err_p, err_r], -1)
         lam2 = 0.05 ** 2
         JJt = torch.bmm(jac, jac.transpose(1, 2)) + lam2 * torch.eye(6, device=self.device)
         dq = torch.bmm(jac.transpose(1, 2), torch.linalg.solve(JJt, e.unsqueeze(-1))).squeeze(-1)
-        q = d.joint_pos[:, self.arm_ids] + dq.clamp(-0.2, 0.2)
+        q = d.joint_pos[:, self.arm_ids] + dq.clamp(-c.max_dq, c.max_dq)
         q = torch.maximum(torch.minimum(q, self.q_hi), self.q_lo)
         self._robot.set_joint_position_target(q, joint_ids=self.arm_ids)
         self._robot.set_joint_position_target(self.lift_tgt[:, None], joint_ids=[self.lift_id])
@@ -175,8 +179,10 @@ class PickCanEnv(DirectRLEnv):
             self.seals[ids] += 1
         F, T, t_c, tear = core.suction_wrench(tip_p, tip_R, tip_v, tip_w, can_p, can_R, can_v, can_w, self.rel_p,
                                               self.rel_R, self.mass, self.inertia)
-        broke = self.sealed & ((F.norm(dim=-1) > c.suction_force_cap) | (t_c.norm(dim=-1) > c.suction_torque_cap)
-                               | (tear > c.seal_tear) | ~self.suction)
+        why = torch.stack([F.norm(dim=-1) > c.suction_force_cap, t_c.norm(dim=-1) > c.suction_torque_cap,
+                           tear > c.seal_tear, ~self.suction], -1) & self.sealed[:, None]
+        self.break_why += why.float()
+        broke = why.any(-1)
         if broke.any():
             over_tote = core.in_tote(torch.cat([can_p[:, :2], torch.full_like(can_p[:, :1], core.TOTE_RIM)], -1), 0.01)
             dropped = broke & ~over_tote & (can_p[:, 2] > self.rest_z + 0.03)
@@ -221,21 +227,23 @@ class PickCanEnv(DirectRLEnv):
         lifted = ((can_p[:, 2] - self.rest_z) / c.lift_goal).clamp(0.0, 1.0) * self.sealed
         carry_pt = torch.tensor([core.TOTE_CENTER[0], core.TOTE_CENTER[1], c.carry_z - 0.1], device=self.device)
         carry = (1 - torch.tanh((can_p - carry_pt).norm(dim=-1) / 0.2)) * self.sealed * (self.lift_max >= c.lift_goal)
-        placed = core.in_tote(can_p).float()
+        placed = core.in_tote(can_p) & ~self.sealed & (self.lift_max >= c.lift_goal)
+        up = self.lift_max >= c.lift_goal
+        phi = (c.w_reach * reach * ~self.sealed * ~placed
+               + self.sealed * (c.w_hold + c.w_lift * lifted + c.w_carry * carry * up)
+               + c.w_place * placed)
+        prev = torch.where(torch.isnan(self.phi_prev), phi, self.phi_prev)
+        self.phi_prev[:] = phi
         act_rate = ((self.actions - self.prev_actions) ** 2).sum(-1)
         over = (self.tool_force - c.force_limit).clamp_min(0.0) + (self.deck_force - c.force_limit).clamp_min(0.0)
         idle = self.suction & ~self.sealed & ((g - tip_p).norm(dim=-1) > 0.05)
-        return (c.w_reach * reach * ~self.ever_sealed
-                + c.w_seal_bonus * self.new_seal.float()
-                + c.w_hold * self.sealed.float()
-                + c.w_lift * lifted
-                + c.w_carry * carry
-                + c.w_place * placed * (self.lift_max >= c.lift_goal)
+        return (c.w_progress * (phi - prev)
                 + c.w_success * self.success.float()
                 - c.w_drop * self.lost_seal.float()
                 - c.w_action_rate * act_rate
                 - c.w_force * over
-                - c.w_idle_suction * idle.float())
+                - c.w_idle_suction * idle.float()
+                - c.w_time)
 
     def grasp_estimate(self):
         can_p, can_R, _, _ = self._can_state()
@@ -253,7 +261,38 @@ class PickCanEnv(DirectRLEnv):
         yaw = torch.atan2(ax[:, 1], ax[:, 0]) + self.det_yaw_bias * near
         return p, yaw, ax[:, 2].abs() < 0.7
 
+    def sense_geometry(self):
+        c = self.cfg
+        can_p, can_R, _, _ = self._can_state()
+        lift = self._robot.data.joint_pos[:, self.lift_id]
+        eye = torch.stack([torch.full_like(lift, c.shoulder_xy[0]), torch.full_like(lift, c.shoulder_xy[1]),
+                           c.depth_cam_z + lift], -1)
+        aim = can_p + self.det_bias
+        Rc = geom.look_basis(eye, aim)
+        pts, hit = geom.raycast_can(eye, Rc, self.rays, can_p, can_R, self.can_r, self.can_h)
+        pts = pts + (pts - eye[:, None, :]) * c.depth_noise * torch.randn_like(pts[..., :1])
+        hit = hit & (torch.rand_like(pts[..., 0]) > c.depth_dropout)
+        self.geom_fit = geom.fit_cylinder(pts, hit)
+        return self.geom_fit
+
+    def geom_grasp(self):
+        f = self.geom_fit
+        return torch.where((f["conf"] > 0.1)[:, None], f["grasp"], self.grasp_estimate())
+
+    def geo_obs(self):
+        c = self.cfg
+        d = self._robot.data
+        tip_p, _, tip_v, _ = self._tip()
+        tote = torch.tensor([core.TOTE_CENTER[0], core.TOTE_CENTER[1], c.carry_z], device=self.device)
+        o = torch.cat([
+            geom.geom_obs(self.geom_fit, tip_p), tip_p * 2.0, tip_v, (self.p_tgt - tip_p) * 10.0,
+            d.joint_pos[:, [self.lift_id]] * 3.0, d.joint_pos[:, self.arm_ids],
+            self.sealed[:, None].float(), self.suction[:, None].float(), (tote - tip_p) * 3.0,
+            (self.tool_force / 40.0)[:, None], self.actions], -1)
+        return torch.nan_to_num(o).clamp(-10.0, 10.0)
+
     def _get_observations(self) -> dict:
+        self.sense_geometry()
         c = self.cfg
         d = self._robot.data
         tip_p, tip_R, tip_v, _ = self._tip()
@@ -305,6 +344,8 @@ class PickCanEnv(DirectRLEnv):
                     self.deck_force):
             buf[env_ids] = 0.0
         self.success_step[env_ids] = -1
+        self.break_why[env_ids] = 0.0
+        self.phi_prev[env_ids] = float("nan")
         self.wrench_f[env_ids] = 0.0
         self.wrench_t[env_ids] = 0.0
 
@@ -370,6 +411,10 @@ class PickCanEnv(DirectRLEnv):
             "sealed": self.ever_sealed[env_ids].clone(), "seals": self.seals[env_ids].clone(),
             "lying": self.lying[env_ids].clone(), "kind": self.can_kind[env_ids].clone(),
             "mass": self.mass[env_ids].clone(), "friction": self.friction[env_ids].clone(),
+            "break_force": self.break_why[env_ids, 0].clone(), "break_torque": self.break_why[env_ids, 1].clone(),
+            "break_tear": self.break_why[env_ids, 2].clone(), "release": self.break_why[env_ids, 3].clone(),
+            "end_x": self._can_state()[0][env_ids, 0].clone(), "end_y": self._can_state()[0][env_ids, 1].clone(),
+            "end_z": self._can_state()[0][env_ids, 2].clone(),
         }
 
 

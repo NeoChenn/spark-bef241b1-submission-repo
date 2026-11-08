@@ -30,6 +30,7 @@ DOCK_STATES = {"CHARGING", "DOCKED", "DOCK_QUEUE"}
 HAZARD_EVENTS = ("drop_obstacle", "drop_can", "close_walkway", "close_stairs", "clear", "set_weather", "person_at")
 BLOCKED = "blocked_by_hazard"
 AHEAD_M = 7.0
+NEAR_M = 3.0
 CAN_STANDOFF_M = 0.9
 CAN_SIZES = ("small", "large")
 PERSON_S = 120.0
@@ -215,15 +216,20 @@ class Fleet:
                 at = d.get("at") if d.get("at") is not None else self.robots[0].id
                 rid = at if isinstance(at, str) else at.get("robot") if isinstance(at, dict) else None
                 rob = next((r for r in self.robots if r.id == rid), None)
+                spur = next((c for c in self.rm.coarse if c["id"] == rid and c["kind"] == "spur"), None)
+                if spur is not None:
+                    u = np.subtract(spur["b"], spur["a"])
+                    h["xyz"] = (np.asarray(spur["a"]) + u * 0.3 / max(float(np.linalg.norm(u)), 1e-9)).tolist()
+                toward = rob.pos if rob is not None else spur["b"] if spur is not None else None
                 try:
-                    barrel.start(self.rm, h, None if rob is None else rob.pos, barrel.wind_xy(self.hz.weather))
+                    barrel.start(self.rm, h, toward, barrel.wind_xy(self.hz.weather))
                 except ValueError:
                     del self.hz.obstacles[h["id"]]
                     raise
                 h["auto"] = bool(d.get("auto"))
                 self._rolled[h["id"]] = list(h["xyz"])
                 msg = (f"{'gust knocks an oil drum loose' if h['auto'] else 'oil drum'} {h['id']} at "
-                       f"{np.round(h['xyz'], 1).tolist()} -> rolling{' with the wind' if self.hz.weather['wind'] > 0.05 else ' loose'}, walkway blocked")
+                       f"{np.round(h['xyz'], 1).tolist()} -> rolling{' with the wind' if self.hz.weather['wind'] >= 0.5 else ' loose'}, walkway blocked")
                 cause = f"rolling barrel {h['id']}"
             elif h["effect"] == "soft":
                 self.hz.apply(self.rm)
@@ -240,10 +246,11 @@ class Fleet:
             h = {"id": ",".join(gone) or "none"}
             msg, cause = f"cleared {h['id']} -> routes restored", f"cleared {h['id']}"
         else:
-            w = self.hz.set_weather(d.get("level", "calm"), d.get("wind_dir"), d.get("gust"), d.get("time"))
+            w = self.hz.set_weather(d.get("level", "calm"), d.get("wind_dir"), d.get("gust"), d.get("time"),
+                                    d.get("rain"), d.get("fog"))
             h = {"id": w["level"]}
             when = f" at {w['time']}" if w.get("time") else ""
-            msg = f"weather calm{when} -> normal speed and sight" if w["level"] == "calm" else (f"weather {w['level']}{when}: wind {w['wind']:.1f} toward {w['wind_dir']:.0f} deg, wet {w['wet']:.1f}, "
+            msg = f"weather clear{when} -> normal speed and sight" if w["label"] == "calm" else (f"weather {w['label']}{when}: wind {w['wind']:.1f} toward {w['wind_dir']:.0f} deg, wet {w['wet']:.1f}, "
                    f"fog {w['fog']:.1f} -> speed x{w['speed']['walk']:.2f}, stairs x{w['speed']['stairs']:.2f}, "
                    f"sight {w['perception_range_m']:.0f} m" + (", windward walkways closed" if w["closes_outer"] else ""))
             cause = f"weather {w['level']}"
@@ -318,6 +325,16 @@ class Fleet:
         h["task"] = task.id
         return h, task
 
+    def _beside(self, r: Robot, m: float) -> list[float]:
+        deck = self.rm.deck_of(float(r.pos[2]))
+        cs = [c for c in self.rm.coarse if c["kind"] in ("walk", "catwalk") and c["deck"] == deck]
+        c = min(cs, key=lambda c: seg_dist(r.pos, c["a"], c["b"]))
+        a, b = np.asarray(c["a"], float), np.asarray(c["b"], float)
+        L = float(np.linalg.norm(b - a))
+        s = float(np.clip(np.dot(r.pos - a, b - a) / max(L * L, 1e-12), 0.0, 1.0)) * L
+        s = s + m if s + m <= L else max(s - m, 0.0)
+        return [round(float(v), 3) for v in a + (b - a) * s / max(L, 1e-9)]
+
     def _random_walkway(self, seed) -> list[float]:
         rng = random.Random(f"can{seed}")
         cs = [c for c in self.rm.coarse if c["kind"] in ("walk", "catwalk")]
@@ -361,7 +378,10 @@ class Fleet:
             at = at.get("edge", at.get("xyz", at.get("xy")))
         if isinstance(at, str):
             if any(r.id == at for r in self.robots):
-                return self._ahead(self._robot(at), AHEAD_M)
+                try:
+                    return self._ahead(self._robot(at), AHEAD_M)
+                except ValueError:
+                    return self._beside(self._robot(at), NEAR_M)
             c = self.rm.coarse[self.hz.targets(self.rm, at)[0]]
             return [round(float(v), 3) for v in (np.array(c["a"]) + np.array(c["b"])) / 2]
         if at is None:

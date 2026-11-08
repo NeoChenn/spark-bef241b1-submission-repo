@@ -33,20 +33,23 @@ def seg_dist(p, a, b) -> float:
     return float(np.linalg.norm(p - (a + s * d)))
 
 
-def weather_state(level="calm", wind_dir=None, gust=None, time=None) -> dict:
+def weather_state(level="calm", wind_dir=None, gust=None, time=None, rain=None, fog=None) -> dict:
     if isinstance(level, (int, float)):
         x = float(np.clip(level, 0.0, 1.0))
-        name, (lv, gs, rain), fog = f"{x:.2f}", (x, x, x), 0.6 * x
+        name, (lv, gs, rain_), fog_ = f"{x:.2f}", (x, x, x), 0.6 * x
     else:
         if level not in WEATHER:
             raise ValueError(f"unknown weather {level!r}; expected one of {list(WEATHER)}")
-        name, (lv, gs, rain), fog = level, WEATHER[level], FOG.get(level, 0.0)
+        name, (lv, gs, rain_), fog_ = level, WEATHER[level], FOG.get(level, 0.0)
+    rain = float(np.clip(rain, 0.0, 1.0)) if rain is not None else rain_
+    fog = float(np.clip(fog, 0.0, 1.0)) if fog is not None else fog_
     wind = gs * (float(gust) / GUST_REF_N if gust is not None else 1.0)
     wdir = float(wind_dir if wind_dir is not None else WIND_DIR.get(name, 90.0)) % 360.0
     base = (1 - 0.2 * fog) * (1 - 0.1 * min(wind, 1.5))
     if time is not None and time not in TIMES:
         raise ValueError(f"unknown time {time!r}; expected one of {TIMES}")
-    return {"level": name, "time": time, "intensity": round(lv, 3), "wind_dir": wdir, "gust": gust, "wind": round(wind, 3),
+    label = "+".join(k for k, v in (("rain", rain), ("fog", fog)) if v > 0) or name
+    return {"level": name, "label": label, "time": time, "rain": round(rain, 3), "intensity": round(lv, 3), "wind_dir": wdir, "gust": gust, "wind": round(wind, 3),
             "wet": round(rain, 3), "fog": round(fog, 3),
             "speed": {"walk": round(base * (1 - 0.2 * rain), 3), "catwalk": round(base * (1 - 0.2 * rain), 3),
                       "spur": round(base * (1 - 0.2 * rain), 3), "stairs": round(base * (1 - 0.5 * rain), 3)},
@@ -140,8 +143,8 @@ class Hazards:
             raise ValueError(f"no obstacle or closure {hid!r}; active: {list(self.obstacles) + list(self.closures)}")
         return [hid]
 
-    def set_weather(self, level, wind_dir=None, gust=None, time=None) -> dict:
-        self.weather = weather_state(level, wind_dir, gust, time if time is not None else self.weather.get("time"))
+    def set_weather(self, level, wind_dir=None, gust=None, time=None, rain=None, fog=None) -> dict:
+        self.weather = weather_state(level, wind_dir, gust, time if time is not None else self.weather.get("time"), rain, fog)
         return self.weather
 
     def work_slow(self, kind: str) -> float:
