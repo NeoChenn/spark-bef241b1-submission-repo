@@ -91,7 +91,7 @@ if args.spawn_puddles:
 
     zt = meta["zone_to_world"]["translation"]
     UsdGeom.Scope.Define(stage, "/World/JudgePuddles")
-    for k, (x, y, r) in enumerate(((0.9, 2.9, 0.45), (-0.6, 2.75, 0.35), (2.0, 3.6, 0.55))):
+    for k, (x, y, r) in enumerate(((-2.2, 1.0, 0.55), (-1.1, 1.7, 0.45), (0.5, 1.9, 0.5))):
         photoreal.make_puddle(stage, f"/World/JudgePuddles/p{k}", (zt[0] + x, zt[1] + y, zt[2]), r, seed=40 + k)
 if args.rain is not None:
     import photoreal
