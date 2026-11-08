@@ -390,12 +390,13 @@ class Body:
         return {"vx": round(self.v, 3), "wz": round(self.wz, 3), "lidar_min": self.lidar_min, "state": self.nav_state}
 
 
-DWELL = {"DETECT": 0.5, "APPROACH": 1.0, "SPRAY": 2.0, "VERIFY": 1.0, "PAINT": 3.0, "VERIFY_PAINT": 0.5}
+DWELL = {"DETECT": 0.5, "APPROACH": 1.5, "SPRAY": 3.0, "VERIFY": 1.5, "PAINT": 4.0, "VERIFY_PAINT": 1.0}
+LEAK_AFTER_SCRUB_S = 5.0
 HOP_M = 1.2
 
 
 class Unit1:
-    def __init__(self, scn: Scenario, deck, fallback: DeckMap, soak_s: float = 3.0, scrub_steps: int = 120,
+    def __init__(self, scn: Scenario, deck, fallback: DeckMap, soak_s: float = 6.0, scrub_steps: int = 200,
                  others=lambda: ()):
         from policy.fleet_units.scrubber import stub_safe_pose
 
@@ -539,7 +540,7 @@ class FleetDemo:
     def __init__(self, control: str = "edge", out: Optional[Path] = None, cut_link_at: Optional[float] = None,
                  replay_from: Optional[str] = None, stuck_at=2.0,
                  drop_at: Optional[float] = None, push_at: Optional[float] = None, log_hz: float = 5.0,
-                 max_t: float = 150.0, t_leak: float = 7.5):
+                 max_t: float = 150.0, t_leak: float = 18.0):
         self.out = Path(out) if out else None
         self.timeline = Timeline(self.out / "timeline.jsonl" if self.out else None)
         self.hud_path = self.out / "hud.jsonl" if self.out else None
@@ -559,7 +560,8 @@ class FleetDemo:
         self.every = max(1, round(1.0 / (log_hz * DT)))
         self.max_t, self.drop_at, self.push_at = max_t, drop_at, push_at
         self.t, self.k, self.seen = 0.0, 0, 0
-        self.scn = Scenario(t_leak=t_leak, t_stuck=None, decay_tau_s=2.5)
+        self.leak_min, self.leak_at, self.scrub_t = t_leak, None, None
+        self.scn = Scenario(t_leak=1e6, t_stuck=None, decay_tau_s=2.5)
         if not hasattr(self.scn, "fix"):
             self.scn.t_fixed = 1e9
             self.scn.script = self.scn._script()
@@ -690,6 +692,18 @@ class FleetDemo:
                     self.timeline.log("nav_event", self.t, robot=rid, event="resume", was=body.state)
                     body.w.resume()
 
+    def _start_leak(self, t: float) -> None:
+        if self.scrub_t is None and self.u1.state == "SCRUB":
+            self.scrub_t = t
+        if self.leak_at is not None or self.scrub_t is None or t < max(self.leak_min, self.scrub_t + LEAK_AFTER_SCRUB_S):
+            return
+        self.leak_at = t
+        if hasattr(self.scn, "start_leak"):
+            self.scn.start_leak(t)
+        else:
+            self.scn.t_leak = t
+            self.scn.script = self.scn._script()
+
     def objects(self) -> list:
         return [] if self.deck is None else [n for n in self.deck.names if n == "box"]
 
@@ -697,6 +711,7 @@ class FleetDemo:
         t = self.t
         if self.cut is not None:
             self.cut.tick(t)
+        self._start_leak(t)
         self._script_events()
         self.scn.detector_readings(t)
         self.u1.step(t + DT, self.scn.gas_frac((*self.u1.body.xy, SNIFF_Z), t))
@@ -842,7 +857,10 @@ def beats(rows: list[dict]) -> dict:
         b[name] = _first(rows, pred, t0)
 
     g = f"G-{LEAK}"
-    at("1_unit1_scrubbing", _state(SCRUBBER, "SCRUB"))
+    at("1_unit1_spray", _state(SCRUBBER, "SPRAY"))
+    at("1_unit1_soak", _state(SCRUBBER, "SOAK"), "1_unit1_spray")
+    at("1_unit1_scrub", _state(SCRUBBER, "SCRUB"), "1_unit1_soak")
+    b["1_unit1_scrubbing"] = b["1_unit1_scrub"]
     at("1_unit2_docked", _state(FIXER, "DOCKED"))
     at("2_leak_start", lambda r: r["type"] == "scenario" and r.get("name") == "leak_start")
     at("2_gf5_amber", _det(g, "amber"), "2_leak_start")
@@ -859,7 +877,9 @@ def beats(rows: list[dict]) -> dict:
     at("4_gf5_green", _det(g, "green"), "4_retorque")
     at("5_resume_rust", _cmd(RESUME_RUST, SCRUBBER), "4_retorque")
     at("5_unit1_scrubs_again", _state(SCRUBBER, "SCRUB"), "5_resume_rust")
-    at("5_unit1_done", _state(SCRUBBER, "DONE"), "5_resume_rust")
+    at("5_unit1_verify", _state(SCRUBBER, "VERIFY"), "5_unit1_scrubs_again")
+    at("5_unit1_paint", _state(SCRUBBER, "PAINT"), "5_unit1_verify")
+    at("5_unit1_done", _state(SCRUBBER, "DONE"), "5_unit1_paint")
     at("5_unit2_returns", _state(FIXER, "RETURN"), "4_retorque")
     at("5_unit2_docked", _state(FIXER, "DOCKED"), "5_unit2_returns")
     at("6_gf6_stuck", lambda r: r["type"] == "tick" and r["stuck"]["led"] != "green" and

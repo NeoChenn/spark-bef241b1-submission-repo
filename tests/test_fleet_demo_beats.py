@@ -6,11 +6,12 @@ import pytest
 from integration.dual_argon import ALARM_LEL, FIX_LEAK, FIXER, RESUME_RUST, SCRUBBER, SPARK_RADIUS_M
 from integration.run_fleet_demo import FleetDemo, beats
 
-ORDER = ["6_gf6_stuck", "6_gf6_fault", "6_ticket", "1_unit1_scrubbing", "2_leak_start", "2_gf5_amber",
+ORDER = ["6_gf6_stuck", "1_unit1_spray", "6_gf6_fault", "6_ticket", "1_unit1_soak", "1_unit1_scrub", "2_leak_start",
+         "2_gf5_amber",
          "3_spark_hold", "2_gf5_red", "3_unverified", "3_dispatch_unit2", "4_unit2_walks", "4_leak_confirmed",
          "4_fix_leak", "4_unit2_sniffs", "4_retorque", "4_gf5_green", "5_resume_rust", "5_unit1_scrubs_again",
-         "5_unit1_done", "5_unit2_docked"]
-BUDGET_S = 75.0
+         "5_unit1_verify", "5_unit1_paint", "5_unit1_done", "5_unit2_docked"]
+BUDGET_S = 90.0
 RUST = ["SPRAY", "SOAK", "SCRUB", "HOLD", "SCRUB", "VERIFY", "PAINT", "DONE"]
 SAMPLE = Path(__file__).resolve().parent.parent / "runs_sample/fleet_demo/live_timeline.jsonl"
 
@@ -126,14 +127,14 @@ def test_header_jsonl_has_the_hud_shape(edge):
 
 
 def test_cut_link_edge_rule_makes_the_same_calls(tmp_path):
-    demo = FleetDemo("edge", None, cut_link_at=7.5)
+    demo = FleetDemo("edge", None, cut_link_at=19.5)
     s = demo.run()
     b = s["beats"]
     assert b["6_link_cut"] is not None and b["3_dispatch_unit2"] and b["5_resume_rust"] and b["6_ticket"]
 
 
 def test_object_on_the_walkway_is_stopped_for_reported_and_cleared():
-    demo = FleetDemo("edge", None, drop_at=14.0)
+    demo = FleetDemo("edge", None, drop_at=24.0)
     s = demo.run()
     rows = demo.timeline.rows
     rep = [r for r in rows if r["type"] == "object_report"]
