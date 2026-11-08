@@ -260,15 +260,17 @@ def run_offline(args) -> None:
     for deltas, state in replay_plan(log, args.fps):
         for d in deltas:
             applier.apply(d)
+        t = state.get("t", 0.0)
+        if t < args.start:
+            continue
+        if args.end and t > args.end:
+            break
         if args.fps:
             applier.apply({"attrs": state["attrs"]})
         if state.get("view"):
             set_view(state["view"])
-        t = state.get("t", 0.0)
         if tick is not None:
             tick(t)
-        if t < args.start or (args.end and t > args.end):
-            continue
         if first:
             for _ in range(WARMUP_STEPS):
                 renderer.frame(True)
