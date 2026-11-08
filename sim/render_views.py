@@ -11,6 +11,7 @@ parser.add_argument("--times", default="0,6,12,16,20,23")
 parser.add_argument("--settle", type=int, default=40)
 parser.add_argument("--fps-seconds", type=float, default=12.0)
 parser.add_argument("--tag", default="v")
+parser.add_argument("--extras", default="lower,middle,topdeck,west")
 args = parser.parse_args()
 
 from isaacsim import SimulationApp
@@ -90,8 +91,8 @@ for t in (float(v) for v in args.times.split(",") if v):
     cinematic.animate_effects(stage, t)
     cinematic.set_camera(stage, path, t)
     shoot(f"seq{t:04.1f}")
-for name, view in EXTRA.items():
-    look(*view)
+for name in (v for v in args.extras.split(",") if v):
+    look(*EXTRA[name])
     shoot(name)
 
 start = clock.monotonic()
