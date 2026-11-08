@@ -14,7 +14,11 @@ Vec3 = tuple[float, float, float]
 TRUNK_Z = 42.82
 RIG_CENTER = (5.0, 0.0, 44.0)
 CONTROL_ROOM = {"prim": "/World/Rig/module_n83_40_module_white", "windows": "/World/Details/windows_module_n83_40",
-                "box": ((-21.0, 10.1, 31.2), (-11.4, 21.1, 41.2)), "floor_z": 38.2, "window_y": 21.1,
+                "box": ((-21.0, 10.1, 31.2), (-11.4, 21.1, 41.2)),
+                "interior": ((-21.0, 10.1, 38.2), (-11.4, 21.1, 41.2)), "floor_z": 38.2, "ceiling_z": 41.2,
+                "window_y": 21.1, "window_rows_z": ((32.75, 33.9), (35.95, 37.1), (39.15, 40.3)),
+                "north_windows": (((-19.8, 21.08, 39.15), (-18.2, 21.08, 40.3)),
+                                  ((-16.8, 21.08, 39.15), (-15.2, 21.08, 40.3))),
                 "interior_eye": (-16.2, 12.6, 39.7), "window_target": (-16.2, 21.1, 39.5)}
 
 
