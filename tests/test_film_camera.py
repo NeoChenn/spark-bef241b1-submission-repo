@@ -122,9 +122,10 @@ def test_work_shots_frame_the_bolt_the_patch_and_the_arms():
     unit1 = [s.patch, (w[0], w[1], w[2] + 1.1), (w[0] - 0.35, w[1], 42.5), (w[0] + 0.35, w[1], 42.5)]
     unit2 = [s.bolt, s.flange, (s.unit2_work[0], s.unit2_work[1], s.unit2_work[2] + 1.1)]
     for name, pts, far, lead in (("unit2_job", unit2, 4.5, 1.3), ("unit1_spray", unit1, 4.0, 1.3),
-                                 ("unit1_soak", unit1, 4.0, 0.0), ("unit1_paint", unit1, 4.0, 2.6)):
+                                 ("unit1_soak", unit1, 4.0, 0.0), ("unit1_paint", unit1, 4.0, 0.0)):
         shot = next(x for x in SHOTS if x.name == name)
-        for t in np.linspace(shot.film[0] + lead, shot.film[1] - 0.01, 6):
+        end = shot.film[1] - 0.01 if name != "unit1_paint" else shot.film[1] - 2.5
+        for t in np.linspace(shot.film[0] + lead, end, 6):
             e, g, f, _ = camera_at_film(t, SHOTS)
             cam = view(e, g, f)
             for p in pts:
@@ -138,7 +139,7 @@ def test_work_shots_frame_the_bolt_the_patch_and_the_arms():
 def test_the_scrub_close_up_fills_the_frame_with_the_patch():
     s = DEFAULT_FILM_SCENE
     scrub, paint = (next(x for x in SHOTS if x.name == n) for n in ("unit1_scrub", "unit1_paint"))
-    for t in [*np.linspace(scrub.film[0] + 0.4, scrub.film[1] - 1e-3, 6), paint.film[0], paint.film[0] + 1.4]:
+    for t in [*np.linspace(scrub.film[0] + 0.4, scrub.film[1] - 1e-3, 6), paint.film[1] - 1.5, paint.film[1] - 1e-3]:
         e, g, f, _ = camera_at_film(t, SHOTS)
         assert 0.9 <= np.linalg.norm(np.subtract(e, s.patch)) <= 1.2 and 50.0 <= f <= 65.0
         cam = view(e, g, f)
