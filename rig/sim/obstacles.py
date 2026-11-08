@@ -82,8 +82,10 @@ STATIC_DOG = "/World/Robots/scrubber_dog"
 RUST_SLEW = 0.25
 VAPOUR_N, VAPOUR_LIFE, VAPOUR_MS, VAPOUR_JET = 90, 2.4, 0.8, 1.3
 VAPOUR_ALPHA = (0.12, 0.08, 0.05, 0.025)
-ARC_W, POOL_W, ARC_R, POOL_R = 1.2e7, 7.2e5, 0.004, 0.008
-BEAD_GLOW, SPARK_GLOW, CORE_GLOW = 60.0, (80.0, 30.0), 300.0
+ARC_W, POOL_W, ARC_R, POOL_R = 3.0e7, 2.5e6, 0.004, 0.008
+BEAD_GLOW, CORE_GLOW = 60.0, 900.0
+SPARK_LOOK = (((1.0, 0.85, 0.55), 220.0, 1.3), ((1.0, 0.5, 0.12), 90.0, 1.0), ((0.9, 0.16, 0.03), 35.0, 0.7))
+HALO = ((0.02, 0.3, 120.0), (0.045, 0.12, 40.0))
 
 
 class ObstacleScene:
@@ -440,22 +442,25 @@ class ObstacleScene:
         mats = [_emissive(self.stage, "obst_weld_crack", (0.0, 0.0, 0.0))[0]]
         mats += [_emissive(self.stage, f"obst_weld_hot{k}", rgb, e * BEAD_GLOW)[0] for k, (rgb, e) in enumerate(W.HOT)]
         mats += [self._mat("obst_weld_cool", W.COOLED, 0.28, 1.0), mats[0]]
-        sparks = [_emissive(self.stage, "obst_spark_hot", (1.0, 0.78, 0.4), SPARK_GLOW[0])[0],
-                  _emissive(self.stage, "obst_spark_dim", (1.0, 0.45, 0.12), SPARK_GLOW[1])[0],
-                  _emissive(self.stage, "obst_arc_core", W.ARC_RGB, CORE_GLOW)[0]]
+        from sim.plume.isaac import omnipbr
+
+        sparks = [_emissive(self.stage, f"obst_spark{k}", rgb, e)[0] for k, (rgb, e, _) in enumerate(SPARK_LOOK)]
+        sparks += [_emissive(self.stage, "obst_arc_core", W.ARC_RGB, CORE_GLOW)[0]]
+        sparks += [omnipbr(self.stage, f"/World/Looks/obst_arc_halo{k}", W.ARC_RGB, a, e) for k, (_, a, e) in enumerate(HALO)]
+        radii = {"bead": [1.0] * (len(mats) - 1) + [1e-5], "sparks": [r for _, _, r in SPARK_LOOK] + [1.0] * 3}
         out = {"key": None, "on": False, "idx": None, "sp": False}
         for name, ms in (("bead", mats), ("sparks", sparks)):
             inst = UsdGeom.PointInstancer.Define(self.stage, f"{root}/{name}")
             protos = []
             for k, m in enumerate(ms):
                 sp = UsdGeom.Sphere.Define(self.stage, f"{root}/{name}/p{k}")
-                sp.CreateRadiusAttr(1e-5 if name == "bead" and k == len(ms) - 1 else 1.0)
+                sp.CreateRadiusAttr(radii[name][k])
                 _bind(sp.GetPrim(), m)
                 protos.append(sp.GetPath())
             inst.CreatePrototypesRel().SetTargets(protos)
             out[name] = inst
         sc = W.spark_scales()
-        out["sparks"].GetScalesAttr().Set(Vt.Vec3fArray([Gf.Vec3f(float(x)) for x in np.r_[sc, 0.005]]))
+        out["sparks"].GetScalesAttr().Set(Vt.Vec3fArray([Gf.Vec3f(float(x)) for x in np.r_[sc, 0.007, HALO[0][0], HALO[1][0]]]))
         lights = []
         for name, r, rgb in (("arc", ARC_R, W.ARC_RGB), ("pool", POOL_R, W.POOL_RGB)):
             lt = UsdLux.SphereLight.Define(self.stage, f"{root}/{name}")
@@ -499,15 +504,16 @@ class ObstacleScene:
             fx["idx"] = idx
             fx["bead"].GetProtoIndicesAttr().Set(Vt.IntArray(idx.tolist()))
         arc = bool(cl.arc(c))
-        pos, hot, alive = W.sparks(cl, c, 0.005)
+        pos, ages, alive = W.sparks(cl, c, 0.005)
         if alive.any() or arc or fx["sp"]:
             fx["sp"] = bool(alive.any() or arc)
             tip = cl.tip_at(c)
             core = tip - cl.normals(tip[None])[0] * 0.006
             fl = W.arc_flicker(c)
-            pts = np.concatenate([np.where(alive[:, None], W.to_world(pos, at), W.OFF), W.to_world(core[None], at) if arc else [W.OFF]])
-            fx["sparks"].GetPositionsAttr().Set(v3(pts))
-            fx["sparks"].GetProtoIndicesAttr().Set(Vt.IntArray(np.r_[np.where(hot, 0, 1), 2].astype(int).tolist()))
+            pts = np.concatenate([np.where(alive[:, None], W.to_world(pos, at), W.OFF),
+                                  np.repeat(W.to_world(core[None], at) if arc else [W.OFF], 3, axis=0)])
+            fx["sparks"].GetPositionsAttr().Set(v3(np.round(pts, 3)))
+            fx["sparks"].GetProtoIndicesAttr().Set(Vt.IntArray(np.r_[ages, 3, 4, 5].astype(int).tolist()))
             p = W.to_world(core, at)
             for (attr, op), w in zip(fx["lights"], (ARC_W * fl, POOL_W * (0.85 + 0.15 * fl))):
                 op.Set(Gf.Vec3d(*map(float, p)))

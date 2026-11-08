@@ -15,8 +15,9 @@ COOLED = (0.62, 0.58, 0.52)
 ARC_RGB = (0.75, 0.85, 1.0)
 POOL_RGB = (1.0, 0.45, 0.12)
 OFF = (0.0, 0.0, -50.0)
-SPARKS, TRAIL, TRAIL_S = 30, 3, 0.012
-SPARK_LIFE, SPARK_V, SPARK_R = (0.2, 0.6), (1.2, 3.6), 0.0035
+SPARKS, TRAIL, TRAIL_S = 110, 5, 0.006
+SPARK_LIFE, SPARK_V, SPARK_R = (0.3, 1.2), (0.8, 3.2), 0.0045
+SPARK_AGES, BOUNCE, SKID, BOUNCES = (0.2, 0.55), 0.35, 0.55, 2
 GRAVITY = np.array([0.0, 0.0, -9.81])
 CRACK_R, CRACK_STEP = 0.0022, 0.0015
 LEAD_S = 1.0
@@ -134,6 +135,22 @@ def bead_state(clip: WeldClip, c: float):
     return shown, np.searchsorted(AGE_EDGES, np.maximum(c - clip.bead_t, 0.0))
 
 
+def ballistic(p0, v, t, floor: float):
+    p0, v, t = p0.copy(), v.copy(), t.copy()
+    g = -GRAVITY[2]
+    for _ in range(BOUNCES):
+        th = (v[:, 2] + np.sqrt(v[:, 2] ** 2 + 2 * g * np.maximum(p0[:, 2] - floor, 0.0))) / g
+        hit = t > th
+        ph = p0 + v * th[:, None] + 0.5 * GRAVITY * (th * th)[:, None]
+        vh = v + GRAVITY * th[:, None]
+        vh[:, :2] *= SKID
+        vh[:, 2] *= -BOUNCE
+        p0[hit], v[hit], t[hit] = ph[hit], vh[hit], (t - th)[hit]
+    p = p0 + v * t[:, None] + 0.5 * GRAVITY * (t * t)[:, None]
+    p[:, 2] = np.maximum(p[:, 2], floor)
+    return p
+
+
 def sparks(clip: WeldClip, c: float, floor: float = -1e9):
     i = np.arange(SPARKS)
     life = SPARK_LIFE[0] + (SPARK_LIFE[1] - SPARK_LIFE[0]) * _hash(i, 3)
@@ -144,18 +161,26 @@ def sparks(clip: WeldClip, c: float, floor: float = -1e9):
     nrm = clip.normals(p0)
     side = np.cross(nrm, clip.axis)
     a = 2 * math.pi * _hash(i, 7)
-    spread = 0.35 + 0.75 * _hash(i, 9)
-    d = nrm + spread[:, None] * (np.cos(a)[:, None] * side + np.sin(a)[:, None] * clip.axis) - 0.35 * clip.axis
+    spread = 0.2 + 0.9 * _hash(i, 9)
+    d = nrm + spread[:, None] * (np.cos(a)[:, None] * side + np.sin(a)[:, None] * clip.axis) - 0.3 * clip.axis
     d /= np.linalg.norm(d, axis=1, keepdims=True)
-    v = d * (SPARK_V[0] + (SPARK_V[1] - SPARK_V[0]) * _hash(i, 11))[:, None]
-    pos = []
+    v = d * (SPARK_V[0] + (SPARK_V[1] - SPARK_V[0]) * _hash(i, 11) ** 2)[:, None]
+    start = p0 + nrm * 0.004
+    pos, ages = [], []
     for k in range(TRAIL):
-        t = np.maximum(age - k * TRAIL_S, 0.0)[:, None]
-        p = p0 + nrm * 0.004 + v * t + 0.5 * GRAVITY * t * t
-        p[:, 2] = np.maximum(p[:, 2], floor)
+        t = np.maximum(age - k * TRAIL_S, 0.0)
+        p = ballistic(start, v, t, floor)
+        dd = p - clip.origin
+        along = dd @ clip.axis
+        rad = dd - np.outer(along, clip.axis)
+        r = np.linalg.norm(rad, axis=1)
+        inside = r < clip.radius + 0.002
+        p[inside] = (clip.origin + np.outer(along, clip.axis) + rad / np.maximum(r, 1e-9)[:, None] * (clip.radius + 0.002))[inside]
         pos.append(p)
-    return np.concatenate(pos), np.tile(age / life < 0.45, TRAIL), np.tile(alive, TRAIL)
+        ages.append(np.searchsorted(SPARK_AGES, age / life) + (k >= 3))
+    return np.concatenate(pos), np.minimum(np.concatenate(ages), 2), np.tile(alive, TRAIL)
 
 
 def spark_scales() -> np.ndarray:
-    return np.concatenate([np.full(SPARKS, SPARK_R * (1.0 - 0.3 * k)) for k in range(TRAIL)])
+    size = SPARK_R * (0.7 + 0.6 * _hash(np.arange(SPARKS), 13))
+    return np.concatenate([size * (1.0 - 0.12 * k) for k in range(TRAIL)])

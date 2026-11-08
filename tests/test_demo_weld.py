@@ -7,7 +7,7 @@ import pytest
 
 from rig.mission.live import MissionLive
 from rig.sim.gait import ARM
-from rig.sim.weld import WeldClip, bead_state, export, sparks, to_world
+from rig.sim.weld import SPARKS, TRAIL, WeldClip, bead_state, export, sparks, to_world
 
 ROOT = Path(__file__).resolve().parents[1]
 PIPE = json.loads((ROOT / "sim/output/rig_merged_meta.json").read_text())["world"]["main_pipe"]
@@ -68,9 +68,14 @@ def test_bead_cools_behind_the_torch_and_sparks_fall_only_while_the_arc_is_on():
     assert np.all(np.diff(bins[shown]) <= 0)
     assert bead_state(cl, cl.off + 4.0)[1].min() == 5
     assert not sparks(cl, cl.on - 0.1)[2].any()
-    p0, _, a0 = sparks(cl, 5.0)
-    assert a0.mean() > 0.8 and len(p0) <= 100 and p0[a0][:, 2].min() < cl.tip_at(5.0)[2]
-    assert not sparks(cl, cl.off + 1.0)[2].any()
+    far, low = [], []
+    for c in np.arange(2.0, 10.0, 0.1):
+        p, ages, alive = sparks(cl, c, 0.005)
+        assert alive.mean() > 0.9 and len(p) == SPARKS * TRAIL and set(ages.tolist()) <= {0, 1, 2}
+        far.append(np.linalg.norm(p[alive] - cl.tip_at(c), axis=1).max())
+        low.append(p[alive][:, 2].min())
+    assert 0.5 < np.median(far) < 3.0 and min(low) == pytest.approx(0.005)
+    assert not sparks(cl, cl.off + 1.3)[2].any()
 
 
 def test_clip_joints_put_the_torch_tip_on_the_planned_tip():
