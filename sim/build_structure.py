@@ -44,7 +44,7 @@ EDGES = (
     ((37.5, -27.64), (37.5, 27.36), 41.25, 1.25, (1.0, 0.0)),
 )
 TOP_UNDERSIDE = ((0.3, -27.6), (25.3, -14.2), 41.25)
-FLOODS_CALM = ((150000.0, 2400), (110000.0, 4500), (70000.0, 3400))
+FLOODS_CALM = ((230000.0, 2400), (160000.0, 4500), (95000.0, 3400))
 LIGHT_SPOTS = ((0.0, -17.5), (0.0, 17.5), (-17.5, 0.0), (17.5, 0.0), (-9.0, -9.0), (9.0, 9.0), (9.0, -26.0), (-9.0, 9.0))
 
 
@@ -115,8 +115,8 @@ def calm_floods(stage):
         prim.CreateAttribute("spark:baseIntensity", Sdf.ValueTypeNames.Float, custom=True).Set(intensity)
         light.CreateColorAttr(Gf.Vec3f(*tf.kelvin_rgb(kelvin)))
         shaping = UsdLux.ShapingAPI.Apply(prim)
-        shaping.CreateShapingConeAngleAttr(50.0)
-        shaping.CreateShapingConeSoftnessAttr(0.6)
+        shaping.CreateShapingConeAngleAttr(72.0)
+        shaping.CreateShapingConeSoftnessAttr(0.7)
 
 
 def light_path(kind, n, live):
@@ -275,7 +275,7 @@ def build_landing(stage, looks, kit, leg):
         if n == 0:
             kit.tube("landing", pos - (0, 0, dz - 4.8), pos + (0, 0, 0.35), 0.05)
         kit.add("lamp", "box", pos, zquat(LANDING_ANGLE), (0.45, 0.45, 0.04))
-        add_light(stage, light_path("landing", n, n == 0), pos + u * 0.6 - (0, 0, 0.3), 150000.0, kelvin, 65.0)
+        add_light(stage, light_path("landing", n, n == 0), pos + u * 0.6 - (0, 0, 0.3), 200000.0, kelvin, 80.0)
     for side in (-3.6, 0.0, 3.6):
         kit.add("landing", "box", bl["deck"] + t * side - (0, 0, 0.18), zquat(LANDING_ANGLE), (3.0, 0.14, 0.26))
 
@@ -309,7 +309,7 @@ def build_overhang(stage, looks, kit):
     for n, (x, y) in enumerate(((31.25, -30.0), (31.25, -12.0), (31.25, 6.0), (31.25, 20.0))):
         kit.add("steel", "box", (x, y, z - 1.75), scale=(0.7, 0.35, 0.22))
         kit.add("lamp", "box", (x, y, z - 1.87), scale=(0.6, 0.28, 0.03))
-        add_light(stage, light_path("overhang", n, n == 1), (x, y, z - 2.2), 90000.0, KELVINS[n % len(KELVINS)], 50.0)
+        add_light(stage, light_path("overhang", n, n == 1), (x, y, z - 2.2), 130000.0, KELVINS[n % len(KELVINS)], 80.0)
 
 
 def build_underside(stage, looks, kit, legs):
@@ -371,7 +371,7 @@ def build_underside(stage, looks, kit, legs):
         zl = z - 2.35 if (abs(abs(x) - 17.5) < 0.1 or abs(abs(y) - 17.5) < 0.1) else z - 0.9
         kit.add("steel", "box", (x, y, zl + 0.12), scale=(0.7, 0.35, 0.22))
         kit.add("lamp", "box", (x, y, zl), scale=(0.6, 0.28, 0.03))
-        add_light(stage, light_path("under", n, n < 4), (x, y, zl - 0.35), 100000.0, KELVINS[n % len(KELVINS)], 45.0)
+        add_light(stage, light_path("under", n, n < 4), (x, y, zl - 0.35), 170000.0, KELVINS[n % len(KELVINS)], 80.0)
 
 
 def add_stair(kit, origin, z0, z1, axis):
@@ -428,7 +428,7 @@ def build_top_underside(stage, kit):
     for n, x in enumerate((7.0, 18.0)):
         kit.add("steel", "box", (x, -24.0, z - 0.95), scale=(0.7, 0.35, 0.22))
         kit.add("lamp", "box", (x, -24.0, z - 1.07), scale=(0.6, 0.28, 0.03))
-        add_light(stage, light_path("top", n, False), (x, -24.0, z - 1.4), 70000.0, KELVINS[n + 1], 55.0)
+        add_light(stage, light_path("top", n, False), (x, -24.0, z - 1.4), 110000.0, KELVINS[n + 1], 80.0)
 
 
 def build_drips(stage, looks, legs, seed=7):

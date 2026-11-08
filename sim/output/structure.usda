@@ -1058,9 +1058,9 @@ def "World"
             )
             {
                 color3f inputs:color = (1, 0.80712247, 0.6512994)
-                float inputs:intensity = 150000
+                float inputs:intensity = 200000
                 float inputs:radius = 0.25
-                float inputs:shaping:cone:angle = 65
+                float inputs:shaping:cone:angle = 80
                 float inputs:shaping:cone:softness = 0.5
                 double3 xformOp:translate = (18.575127514067454, -25.89870422177223, 6.1000000000000005)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -1071,9 +1071,9 @@ def "World"
             )
             {
                 color3f inputs:color = (1, 0.7200783, 0.48282117)
-                float inputs:intensity = 100000
+                float inputs:intensity = 170000
                 float inputs:radius = 0.25
-                float inputs:shaping:cone:angle = 45
+                float inputs:shaping:cone:angle = 80
                 float inputs:shaping:cone:softness = 0.5
                 double3 xformOp:translate = (0, -17.5, 16.049999999999997)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -1084,9 +1084,9 @@ def "World"
             )
             {
                 color3f inputs:color = (1, 0.8353334, 0.70307255)
-                float inputs:intensity = 100000
+                float inputs:intensity = 170000
                 float inputs:radius = 0.25
-                float inputs:shaping:cone:angle = 45
+                float inputs:shaping:cone:angle = 80
                 float inputs:shaping:cone:softness = 0.5
                 double3 xformOp:translate = (0, 17.5, 16.049999999999997)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -1097,9 +1097,9 @@ def "World"
             )
             {
                 color3f inputs:color = (1, 0.6538038, 0.34276664)
-                float inputs:intensity = 100000
+                float inputs:intensity = 170000
                 float inputs:radius = 0.25
-                float inputs:shaping:cone:angle = 45
+                float inputs:shaping:cone:angle = 80
                 float inputs:shaping:cone:softness = 0.5
                 double3 xformOp:translate = (-17.5, 0, 16.049999999999997)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -1110,9 +1110,9 @@ def "World"
             )
             {
                 color3f inputs:color = (1, 0.89416665, 0.8075703)
-                float inputs:intensity = 100000
+                float inputs:intensity = 170000
                 float inputs:radius = 0.25
-                float inputs:shaping:cone:angle = 45
+                float inputs:shaping:cone:angle = 80
                 float inputs:shaping:cone:softness = 0.5
                 double3 xformOp:translate = (17.5, 0, 16.049999999999997)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -1123,9 +1123,9 @@ def "World"
             )
             {
                 color3f inputs:color = (1, 0.8353334, 0.70307255)
-                float inputs:intensity = 90000
+                float inputs:intensity = 130000
                 float inputs:radius = 0.25
-                float inputs:shaping:cone:angle = 50
+                float inputs:shaping:cone:angle = 80
                 float inputs:shaping:cone:softness = 0.5
                 double3 xformOp:translate = (31.25, -12, 27.8)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -3717,9 +3717,9 @@ def "World"
                 )
                 {
                     color3f inputs:color = (1, 0.5912571, 0.19704382)
-                    float inputs:intensity = 150000
+                    float inputs:intensity = 200000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 65
+                    float inputs:shaping:cone:angle = 80
                     float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (22.22946698427441, -22.06517904688414, 13.2)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -3730,9 +3730,9 @@ def "World"
                 )
                 {
                     color3f inputs:color = (1, 0.7200783, 0.48282117)
-                    float inputs:intensity = 100000
+                    float inputs:intensity = 170000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 45
+                    float inputs:shaping:cone:angle = 80
                     float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (-9, -9, 17.5)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -3743,9 +3743,9 @@ def "World"
                 )
                 {
                     color3f inputs:color = (1, 0.8353334, 0.70307255)
-                    float inputs:intensity = 100000
+                    float inputs:intensity = 170000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 45
+                    float inputs:shaping:cone:angle = 80
                     float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (9, 9, 17.5)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -3756,9 +3756,9 @@ def "World"
                 )
                 {
                     color3f inputs:color = (1, 0.6538038, 0.34276664)
-                    float inputs:intensity = 100000
+                    float inputs:intensity = 170000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 45
+                    float inputs:shaping:cone:angle = 80
                     float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (9, -26, 17.5)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -3769,9 +3769,9 @@ def "World"
                 )
                 {
                     color3f inputs:color = (1, 0.89416665, 0.8075703)
-                    float inputs:intensity = 100000
+                    float inputs:intensity = 170000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 45
+                    float inputs:shaping:cone:angle = 80
                     float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (-9, 9, 17.5)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -3782,9 +3782,9 @@ def "World"
                 )
                 {
                     color3f inputs:color = (1, 0.7200783, 0.48282117)
-                    float inputs:intensity = 90000
+                    float inputs:intensity = 130000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 50
+                    float inputs:shaping:cone:angle = 80
                     float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (31.25, -30, 27.8)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -3795,9 +3795,9 @@ def "World"
                 )
                 {
                     color3f inputs:color = (1, 0.6538038, 0.34276664)
-                    float inputs:intensity = 90000
+                    float inputs:intensity = 130000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 50
+                    float inputs:shaping:cone:angle = 80
                     float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (31.25, 6, 27.8)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -3808,9 +3808,9 @@ def "World"
                 )
                 {
                     color3f inputs:color = (1, 0.89416665, 0.8075703)
-                    float inputs:intensity = 90000
+                    float inputs:intensity = 130000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 50
+                    float inputs:shaping:cone:angle = 80
                     float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (31.25, 20, 27.8)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -3821,9 +3821,9 @@ def "World"
                 )
                 {
                     color3f inputs:color = (1, 0.8353334, 0.70307255)
-                    float inputs:intensity = 70000
+                    float inputs:intensity = 110000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 55
+                    float inputs:shaping:cone:angle = 80
                     float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (7, -24, 39.85)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -3834,9 +3834,9 @@ def "World"
                 )
                 {
                     color3f inputs:color = (1, 0.6538038, 0.34276664)
-                    float inputs:intensity = 70000
+                    float inputs:intensity = 110000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 55
+                    float inputs:shaping:cone:angle = 80
                     float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (18, -24, 39.85)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
@@ -3883,10 +3883,10 @@ def "World"
                 )
                 {
                     color3f inputs:color = (1, 0.60785884, 0.23729977)
-                    float inputs:intensity = 150000
-                    float inputs:shaping:cone:angle = 50
-                    float inputs:shaping:cone:softness = 0.6
-                    custom float spark:baseIntensity = 150000
+                    float inputs:intensity = 230000
+                    float inputs:shaping:cone:angle = 72
+                    float inputs:shaping:cone:softness = 0.7
+                    custom float spark:baseIntensity = 230000
                 }
             }
 
@@ -3897,10 +3897,10 @@ def "World"
                 )
                 {
                     color3f inputs:color = (1, 0.85306746, 0.7350351)
-                    float inputs:intensity = 110000
-                    float inputs:shaping:cone:angle = 50
-                    float inputs:shaping:cone:softness = 0.6
-                    custom float spark:baseIntensity = 110000
+                    float inputs:intensity = 160000
+                    float inputs:shaping:cone:angle = 72
+                    float inputs:shaping:cone:softness = 0.7
+                    custom float spark:baseIntensity = 160000
                 }
             }
 
@@ -3911,10 +3911,10 @@ def "World"
                 )
                 {
                     color3f inputs:color = (1, 0.74372685, 0.53008634)
-                    float inputs:intensity = 70000
-                    float inputs:shaping:cone:angle = 50
-                    float inputs:shaping:cone:softness = 0.6
-                    custom float spark:baseIntensity = 70000
+                    float inputs:intensity = 95000
+                    float inputs:shaping:cone:angle = 72
+                    float inputs:shaping:cone:softness = 0.7
+                    custom float spark:baseIntensity = 95000
                 }
             }
         }
