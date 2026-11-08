@@ -213,21 +213,22 @@ class ObstacleScene:
     def _animate(self, t: float) -> None:
         t0 = time.perf_counter()
         motion = {"gait": self.gait.source} if self.gait else {}
-        for rid, rb in self.robots.items():
-            if "walker" not in rb:
-                continue
-            (x, y, z, yaw), q, bob = rb["walker"].step(t)
-            top, rz = rb["ops"]
-            if rb["q"].changed("pos", (x, y, z + bob)):
-                top.Set(Gf.Vec3d(round(x, 3), round(y, 3), round(z + self.gait.zmean + bob, 3)))
-            if rb["qy"].changed("yaw", math.degrees(yaw)):
-                rz.Set(round(math.degrees(yaw), 2))
-            rb["pose"] = (x, y, z)
-            rb["joints"].set(LEGS, q)
-            arm = rb["arm"]
-            rb["joints"].set(ARM, arm.step(rb.get("r") if rid == self.selected else None, t))
-            if rid == self.selected and arm.source:
-                motion[rid] = arm.source
+        with Sdf.ChangeBlock():
+            for rid, rb in self.robots.items():
+                if "walker" not in rb:
+                    continue
+                (x, y, z, yaw), q, bob = rb["walker"].step(t)
+                top, rz = rb["ops"]
+                if rb["q"].changed("pos", (x, y, z + bob)):
+                    top.Set(Gf.Vec3d(round(x, 3), round(y, 3), round(z + self.gait.zmean + bob, 3)))
+                if rb["qy"].changed("yaw", math.degrees(yaw)):
+                    rz.Set(round(math.degrees(yaw), 2))
+                rb["pose"] = (x, y, z)
+                rb["joints"].set(LEGS, q)
+                arm = rb["arm"]
+                rb["joints"].set(ARM, arm.step(rb.get("r") if rid == self.selected else None, t))
+                if rid == self.selected and arm.source:
+                    motion[rid] = arm.source
         self.motion = motion
         self.anim_ms += ((time.perf_counter() - t0) * 1e3 - self.anim_ms) * 0.05
 

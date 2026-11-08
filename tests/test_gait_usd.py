@@ -61,3 +61,16 @@ def test_capture_streams_joint_attrs(stage):
     assert len(attrs) == 19
     j.set(LEGS, [STAND[n] for n in LEGS])
     assert cap.collect()["attrs"] == []
+
+
+def test_change_block_writes_still_stream(stage):
+    from pxr import Sdf
+
+    j = RobotJoints(stage, BODY)
+    j.set(LEGS, [STAND[n] for n in LEGS])
+    cap = StageCapture(stage)
+    with Sdf.ChangeBlock():
+        n = j.set(LEGS, [STAND[n] + 0.1 for n in LEGS])
+    attrs = cap.collect()["attrs"]
+    assert n == 12 and len(attrs) == 12
+    assert stage.GetPrimAtPath(f"{BODY}/{JOINTS['FL_thigh_joint'][0]}").GetAttribute("xformOp:orient").Get().GetReal() < 0.92
