@@ -27,38 +27,42 @@ def ceiling_of(deck):
     return min((d for d in DECKS if d > deck + 1.0), default=None)
 
 
-def fixed_shot(at, kind, blocked=None):
+def fixed_shot(at, kind, blocked=None, lens=None):
+    lens = lens or {}
     look = (at[0], at[1], at[2] + LOOK_Z)
-    d, el = DIST[kind], ELEV[kind]
+    d, el, focal = lens.get("dist", DIST[kind]), lens.get("elev", ELEV[kind]), lens.get("focal", FOCAL[kind])
+    if lens.get("eye"):
+        return tuple(float(v) for v in lens["eye"]), look, focal
     top = ceiling_of(deck_of(at[2]))
     if top is not None:
         el = math.degrees(math.asin(max(min((top - 1.0 - look[2]) / d, math.sin(math.radians(el))), 0.05)))
     best = None
-    for az in AZ:
+    for az in tuple(lens.get("az") or ()) + AZ:
         b = view_dir(az, el)
         eye = (look[0] + d * b[0], look[1] + d * b[1], look[2] + d * b[2])
         hit = blocked(look, eye) if blocked is not None else None
         if hit is None or hit >= d:
-            return eye, look, FOCAL[kind]
+            return eye, look, focal
         if best is None or hit > best[0]:
             best = (hit, b)
     k = max(best[0] - 0.5, 1.5)
     b = best[1]
-    return (look[0] + k * b[0], look[1] + k * b[1], look[2] + k * b[2]), look, FOCAL[kind]
+    return (look[0] + k * b[0], look[1] + k * b[1], look[2] + k * b[2]), look, focal
 
 
 class HeroCam:
     def __init__(self):
         self.mode, self.view, self.sid = "flyby", None, None
         self.at_xyz, self.shot = None, None
+        self.lens = None
         self.poses = None
         self.blocked = None
 
     def meta(self):
         return {"mode": self.mode, "robot": None, "view": self.view}
 
-    def _cut(self, mode, at=None, view=None):
-        self.mode, self.view, self.at_xyz, self.shot = mode, view, at, None
+    def _cut(self, mode, at=None, view=None, lens=None):
+        self.mode, self.view, self.at_xyz, self.shot, self.lens = mode, view, at, None, lens
 
     def event(self, name, args):
         args = args or {}
@@ -72,7 +76,7 @@ class HeroCam:
                 at = DECK_AT[self.sid]
             if mode not in FOCAL or at is None:
                 return False
-            self._cut(mode, tuple(float(v) for v in at[:3]), args.get("view"))
+            self._cut(mode, tuple(float(v) for v in at[:3]), args.get("view"), args.get("lens"))
             return True
         if name == "scenario":
             sid = args.get("id")
@@ -90,7 +94,7 @@ class HeroCam:
         if self.at_xyz is None or self.mode not in FOCAL:
             return None
         if self.shot is None:
-            self.shot = fixed_shot(self.at_xyz, self.mode, self.blocked)
+            self.shot = fixed_shot(self.at_xyz, self.mode, self.blocked, self.lens)
         return self.shot
 
 

@@ -134,6 +134,7 @@ def _soc(lead, prefix=" — "):
 
 
 FIXED = {
+    "ROLLOUT": ("Picking up the can", " — learned pick-up policy, suction cup to the back tote"),
     "PATROL": ("Patrolling", " the deck — scanning pipework for rust"),
     "SECOND_VIEW": ("Taking a second look", " — moving the camera for a clearer view"),
     "APPROACH": ("Approaching", " the rust patch"),

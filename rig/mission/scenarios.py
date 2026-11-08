@@ -13,6 +13,7 @@ from rig.mission.gas import ALARM_LEL, FLOW_GS, INFOTAXIS, METHODS, GasLeak
 IDS = ("gas", "patrol", "repair", "flyby")
 NAMES = {"gas": "Gas leak", "patrol": "Deck patrol", "repair": "Pipe repair", "flyby": "Fly-by"}
 WEATHER = {"level": "rain", "time": "dusk", "rain": 0.8, "fog": 0.6, "wind_dir": 240.0}
+DEMO_WEATHER = {"level": "calm", "time": "dusk", "rain": 0.0, "fog": 0.0, "wind_dir": 240.0}
 ALERTS_KEEP = 10
 OPEN = ("pending", "assigned", "active")
 BEAT_S = 6.0
@@ -38,6 +39,7 @@ class Script:
     disturbances: tuple = ()
     robots: tuple = ()
     specs: tuple = ()
+    weather = WEATHER
 
     def __init__(self, run: "Scenarios"):
         self.run = run
@@ -437,7 +439,100 @@ class Flyby(Script):
         return False
 
 
-SCRIPTS = {"gas": Gas, "patrol": Patrol, "repair": Repair, "flyby": Flyby}
+class Demo(Script):
+    deck = 42.5
+    cam: dict = {}
+
+    def setup(self) -> None:
+        self.t0 = self.run.clock()
+        with self.m.fleet.lock:
+            self.f.hz.clear("all")
+            self.f.tasks = {}
+            self.f.hz.apply(self.f.rm)
+            self.m.fleet.snap = self.f.snapshot()
+        for r in self.f.robots:
+            if r.id != self.main:
+                self.pose(r.id, r.pos[:2], 0.0, float(r.pos[2]))
+
+    def e(self) -> float:
+        return self.run.clock() - self.t0
+
+    def pose(self, rid, xy, yaw, z=None, state="IDLE", task=None, job_state=None, rollout=None) -> None:
+        self.m.override[rid] = {"xy": np.asarray(xy, float)[:2].copy(), "yaw": float(yaw), "z": self.deck if z is None else z,
+                                "mode": "DEMO", "state": state, "task": task, "job_state": job_state, "rollout": rollout}
+
+    def sim_events(self) -> list:
+        return [{"name": "camera", "args": dict(self.cam)}, {"name": "select", "args": {"robot": self.main}},
+                {"name": "views", "args": {"robot": self.main, "on": True, "kind": "fpv"}}]
+
+    def done(self) -> bool:
+        return self.i == len(self.steps) - 1
+
+
+def walk(a, b, u: float) -> np.ndarray:
+    u = min(max(u, 0.0), 1.0)
+    return np.asarray(a, float) + (np.asarray(b, float) - np.asarray(a, float)) * u
+
+
+class DemoCan(Demo):
+    id, name, main = "demo_can", "Demo: Can pick-up", "R3"
+    steps = ("A can drops on the walkway", "Unit 3 walks to the can", "Suction cup seals on the can",
+             "Learned pick-up carries it to the back tote", "Can stowed, Unit 3 moves on")
+    robots = (("R1", [-21.0, 4.0, 31.25], 0.9), ("R2", [10.0, 12.0, 20.0], 0.9), ("R3", [2.0, -4.6, 42.5], 0.95))
+    weather = DEMO_WEATHER
+    start, stop, away, yaw = (2.0, -4.6), (5.5, -4.6), (7.0, -4.6), 0.0
+    drop_s, walk_s, rep_s, away_s = 0.8, (1.5, 6.0), 6.5, 1.8
+    cam = {"mode": "zoom", "at": [4.4, -4.3, 42.5], "lens": {"dist": 5.5, "elev": 32.0, "focal": 24.0, "az": [-65.0, 65.0, -115.0, 115.0]}}
+
+    def setup(self) -> None:
+        from rig.sim.taskmotion import Rollout
+
+        super().setup()
+        ro = self.ro = Rollout.load()
+        self.f0, self.f1 = 40, len(ro.arm) - 25
+        self.seal, self.tote = ro.first("LIFT"), ro.first("DONE")
+        self.end_s = self.rep_s + (self.f1 - self.f0) / ro.hz
+        self.can = None
+        self.pose(self.main, self.start, self.yaw)
+
+    def tick(self) -> None:
+        e, ro = self.e(), self.ro
+        k = self.f0 + (e - self.rep_s) * ro.hz
+        if self.can is None and e >= self.drop_s:
+            c, q = ro.can[self.f0], self.yaw
+            xy = np.asarray(self.stop) + [c[0] * math.cos(q) - c[1] * math.sin(q), c[0] * math.sin(q) + c[1] * math.cos(q)]
+            with self.m.fleet.lock:
+                self.can = self.f.hz.drop("can", [*xy, self.deck], None, size="small", colour="red", radius=0.0,
+                                          rollout=self.main, anchor=[*self.stop, self.deck, self.yaw],
+                                          frames=[self.f0, self.f1], phase="ground")
+                self.m.fleet.snap = self.f.snapshot()
+            self.run.mine.add(self.can["id"])
+        if e < self.walk_s[0]:
+            self.pose(self.main, self.start, self.yaw)
+        elif e < self.walk_s[1]:
+            u = (e - self.walk_s[0]) / (self.walk_s[1] - self.walk_s[0])
+            self.pose(self.main, walk(self.start, self.stop, u), self.yaw, state="TRANSIT", task="pick_can:demo")
+        elif e < self.rep_s or k >= self.f1 and e < self.end_s + 0.5:
+            self.pose(self.main, self.stop, self.yaw)
+        elif k < self.f1:
+            self.pose(self.main, self.stop, self.yaw, state="WORK", task="pick_can:demo", job_state="ROLLOUT",
+                      rollout=[self.f0, self.f1])
+        else:
+            u = (e - self.end_s - 0.5) / self.away_s
+            self.pose(self.main, walk(self.stop, self.away, u), self.yaw, state="TRANSIT" if u < 1 else "IDLE")
+        ph = "ground" if e < self.rep_s else "held" if k < self.f1 else "tote"
+        if self.can is not None and self.can["phase"] != ph:
+            self.can["phase"] = ph
+            with self.m.fleet.lock:
+                self.m.fleet.snap = self.f.snapshot()
+        self.i = 0 if e < self.walk_s[0] else 1 if e < self.rep_s else 2 if k < self.seal else 3 if k < self.tote else 4
+
+    def key(self) -> dict:
+        return {"label": "cans", "value": int(self.i >= 4), "unit": "in the tote"}
+
+
+SCRIPTS = {"gas": Gas, "patrol": Patrol, "repair": Repair, "flyby": Flyby, "demo_can": DemoCan}
+DEMOS = {"can": "demo_can", "reset": "flyby"}
 
 
 class Scenarios:
@@ -480,10 +575,11 @@ class Scenarios:
         if sid == "flyby":
             m.fleet.specs = [(t.kind, t.poi, t.scenario, t.severity, t.exposure) for t in m.fleet.f.tasks.values()
                              if t.kind != "pick_can"]
-        self.hazard("set_weather", **WEATHER)
-        m.sim_out.append({"name": "set_weather", "args": dict(WEATHER)})
+        self.hazard("set_weather", **s.weather)
+        m.sim_out.append({"name": "set_weather", "args": dict(s.weather)})
+        m.sim_out.extend(s.sim_events() if hasattr(s, "sim_events") else [])
         self.selected = s.main or None
-        self.camera = {"mode": "flyby" if sid == "flyby" else "deck", "robot": None, "view": None}
+        self.camera = {"mode": "flyby" if sid == "flyby" else "zoom" if sid in DEMOS.values() else "deck", "robot": None, "view": None}
         self.last_i = None
         self.alerts = []
         m.note("Operator", "SCENARIO", f"{s.name} started")
@@ -540,6 +636,11 @@ class Scenarios:
         if m.control is not None and getattr(m.control, "link_cut", False):
             m.control.cut_link(False)
         m._flash = None
+
+    def demo(self, did: str) -> dict:
+        if did not in DEMOS:
+            raise ValueError(f"unknown demo {did!r}; expected one of {tuple(DEMOS)}")
+        return self.start(DEMOS[did])
 
     def disturb(self) -> dict:
         s = self.cur

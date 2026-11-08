@@ -17,7 +17,7 @@ from rig.mission.jobs import MissionPort
 from rig.mission.obsviews import ObsViews
 from rig.mission.scenarios import Scenarios, gust_force, highlight, shielded
 
-SCEN_EVENTS = ("scenario", "disturb", "select", "camera")
+SCEN_EVENTS = ("scenario", "disturb", "select", "camera", "demo")
 FLEET_EVENTS = ("drop_obstacle", "drop_can", "close_walkway", "close_stairs", "clear", "set_weather", "weld_job")
 ROLE = {"pick_can": "pick-up", "weld": "weld", "rust": "rust", "gas": "gas", "leak_check": "leak check", "inspect": "inspection", "crack": "crack"}
 RUST = ("DETECT", "SPRAY", "SOAK", "SCRUB", "VERIFY", "PAINT", "APPROACH", "BACK_OFF", "GRIND", "WELD", "INSPECT_WELD")
@@ -267,6 +267,7 @@ class MissionLive:
             if name in SCEN_EVENTS:
                 out = self.scen.start(str(args.get("id") or "")) if name == "scenario" else \
                     self.scen.disturb() if name == "disturb" else self.scen.set_camera(args) if name == "camera" else \
+                    self.scen.demo(str(args.get("id") or "")) if name == "demo" else \
                     self.scen.select(args.get("robot"))
                 self._fleet_events()
                 return out
@@ -514,7 +515,10 @@ class MissionLive:
                 d["pose"] = {"x": round(float(o["xy"][0]), 2), "y": round(float(o["xy"][1]), 2), "z": round(o["z"], 2),
                              "yaw": round(float(o["yaw"]), 3)}
                 d["path"] = [[d["pose"]["x"], d["pose"]["y"], d["pose"]["z"]]]
-                if o["mode"] != "RETURN":
+                d["prev_path"] = None
+                if o["mode"] == "DEMO":
+                    d.update({k: o.get(k) for k in ("state", "task", "job_state", "rollout")})
+                elif o["mode"] != "RETURN":
                     d["job_state"] = "LEAK_APPROACH"
                     d["seek"] = o["mode"]
             kind = inf.get("kind")
@@ -684,7 +688,7 @@ class MissionLive:
     def for_sim(self) -> dict:
         s = self.snapshot_fleet()
         return {"t": s["t"], "hazards": s["hazards"],
-                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state", "task", "job_state")}
+                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state", "task", "job_state", "rollout")}
                            for r in s["robots"]]}
 
     def state(self) -> dict:
