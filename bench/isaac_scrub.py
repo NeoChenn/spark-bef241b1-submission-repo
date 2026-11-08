@@ -102,6 +102,8 @@ def main(argv):
         with torch.inference_mode():
             obs, _, dones, _ = env.step(a)
         step += 1
+        if step % 50 == 0:
+            print(f"[bench] step {step} recorded {len(recs)} act_ms {ms[-1]:.1f} wall {time.time() - t0:.0f}s", flush=True)
         st = getattr(base, "last_episode_stats", None)
         if dones.any() and st is not None:
             for j, eid in enumerate(st["env_ids"].tolist()):
