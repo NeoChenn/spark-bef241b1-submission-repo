@@ -51,3 +51,10 @@ def test_merged_from_env(monkeypatch):
     monkeypatch.setenv("RIG_MERGED", "1")
     assert parse_args([]).merged
     assert not parse_args(["--no-merged"]).merged
+
+
+def test_atmosphere_flags():
+    a = parse_args([])
+    assert a.atmos == "" and a.weather == "" and a.wind_dir is None and a.gust is None and not a.lens
+    b = parse_args(["--atmos", "live", "--weather", "calm@0,storm@20", "--wind-dir", "120", "--gust", "30", "--lens"])
+    assert (b.atmos, b.weather, b.wind_dir, b.gust, b.lens) == ("live", "calm@0,storm@20", 120.0, 30.0, True)
