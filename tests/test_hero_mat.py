@@ -132,3 +132,13 @@ def test_set_state_can_drive_wetness_only():
     assert hm.set_state(stage, "SCRUB", 0.9, keys=("wetness",)) == {"wetness": 0.75}
     shader = UsdShade.Shader.Get(stage, f"{hm.OVERLAY_MATERIAL}/{hm.SHADER}")
     assert shader.GetInput("amount").Get() == 1.0
+
+
+def test_bind_overlay_accepts_a_file_mask():
+    from pxr import Usd, UsdGeom, UsdShade
+
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Mesh.Define(stage, "/World/RustOverlay")
+    hm.bind_overlay(stage, "/World/RustOverlay", "/tmp/mask.png", 0.154, 1.2)
+    shader = UsdShade.Shader.Get(stage, f"{hm.OVERLAY_MATERIAL}/{hm.SHADER}")
+    assert shader.GetInput("mask").Get().path == "/tmp/mask.png"

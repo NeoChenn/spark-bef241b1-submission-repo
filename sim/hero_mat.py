@@ -186,7 +186,7 @@ def _inputs(shader, values: dict) -> None:
     from pxr import Gf, Sdf
 
     for key, value in values.items():
-        if isinstance(value, Path) or (isinstance(value, str) and "://" in value):
+        if isinstance(value, (Path, str)):
             attr = shader.CreateInput(key, Sdf.ValueTypeNames.Asset)
             attr.Set(Sdf.AssetPath(str(value)))
             attr.GetAttr().SetColorSpace("sRGB" if key.endswith("_diff") else "raw")
