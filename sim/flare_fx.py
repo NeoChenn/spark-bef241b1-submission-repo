@@ -11,6 +11,7 @@ LAYER = SIM_DIR / "output" / "flare_fx.usda"
 TEX_DIR = SIM_DIR / "assets" / "generated"
 FLAME_TEX = TEX_DIR / "flare_flame_atlas.png"
 SMOKE_TEX = TEX_DIR / "flare_smoke_puff.png"
+HALO_TEX = TEX_DIR / "flare_halo.png"
 ROOT = "/World/FlareFx"
 LIGHT = "/World/Cinematic/Lamps/lamp_400"
 CAMERAS = ("/World/Judge/Cam", "/World/Cinematic/Cameras/stream")
@@ -29,6 +30,7 @@ CARDS = (
 )
 SEGMENTS = 12
 SMOKE_N, SMOKE_LIFE, SMOKE_LEVELS = 40, 10.0, 5
+HALO_SIZE, HALO_GAIN, HALO_ALPHA = 70.0, 1.2, 0.5
 STOPS = (
     (0.0, (0.35, 0.03, 0.0)),
     (0.3, (1.0, 0.18, 0.01)),
@@ -129,6 +131,15 @@ def smoke_puff(size: int = 256, seed: int = 3) -> np.ndarray:
     return (np.clip(img, 0, 1) * 255 + 0.5).astype(np.uint8)
 
 
+def halo(size: int = 256) -> np.ndarray:
+    y, x = np.mgrid[-1:1:size * 1j, -1:1:size * 1j]
+    r = np.hypot(x, y)
+    a = np.exp(-(r / 0.28) ** 2) * 0.6 + np.exp(-(r / 0.55) ** 2) * 0.4
+    a = a * smoothstep(1.0, 0.85, r)
+    img = np.dstack([np.ones_like(r), np.full_like(r, 0.45), np.full_like(r, 0.12), a])
+    return (np.clip(img, 0, 1) * 255 + 0.5).astype(np.uint8)
+
+
 def tile_transform(frame: int, cols: int = COLS, rows: int = ROWS):
     frame %= cols * rows
     r, c = divmod(frame, cols)
@@ -206,9 +217,11 @@ def write_textures() -> None:
     TEX_DIR.mkdir(parents=True, exist_ok=True)
     Image.fromarray(atlas(flame_frames())).save(FLAME_TEX, optimize=True)
     Image.fromarray(smoke_puff()).save(SMOKE_TEX, optimize=True)
+    Image.fromarray(halo()).save(HALO_TEX, optimize=True)
 
 
-def _texture_material(stage, path: str, texture: str, emissive: bool, diffuse=(0.0, 0.0, 0.0), alpha: float = 1.0):
+def _texture_material(stage, path: str, texture: str, emissive: bool, diffuse=(0.0, 0.0, 0.0), alpha: float = 1.0,
+                      gain: float = EMISSION, atlas_uv: bool = True):
     from pxr import Gf, Sdf, UsdShade
 
     mat = UsdShade.Material.Define(stage, path)
@@ -222,7 +235,7 @@ def _texture_material(stage, path: str, texture: str, emissive: bool, diffuse=(0
     rd.CreateIdAttr("UsdPrimvarReader_float2")
     rd.CreateInput("varname", Sdf.ValueTypeNames.Token).Set("st")
     st = rd.CreateOutput("result", Sdf.ValueTypeNames.Float2)
-    if emissive:
+    if emissive and atlas_uv:
         xf = UsdShade.Shader.Define(stage, f"{path}/tile")
         xf.CreateIdAttr("UsdTransform2d")
         xf.CreateInput("in", Sdf.ValueTypeNames.Float2).ConnectToSource(st)
@@ -236,7 +249,7 @@ def _texture_material(stage, path: str, texture: str, emissive: bool, diffuse=(0
     tex.CreateInput("wrapS", Sdf.ValueTypeNames.Token).Set("clamp")
     tex.CreateInput("wrapT", Sdf.ValueTypeNames.Token).Set("clamp")
     tex.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("sRGB" if emissive else "raw")
-    gain = EMISSION if emissive else 1.0
+    gain = gain if emissive else 1.0
     tex.CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(gain, gain, gain, alpha))
     sh.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(tex.CreateOutput("a", Sdf.ValueTypeNames.Float))
     rgb = tex.CreateOutput("rgb", Sdf.ValueTypeNames.Float3)
@@ -265,7 +278,7 @@ def _quad(stage, path: str):
 def build_layer(path: Path = LAYER) -> Path:
     from pxr import Sdf, Usd, UsdGeom, UsdShade
 
-    if not FLAME_TEX.exists() or not SMOKE_TEX.exists():
+    if not all(p.exists() for p in (FLAME_TEX, SMOKE_TEX, HALO_TEX)):
         write_textures()
     if path.exists():
         path.unlink()
@@ -297,6 +310,11 @@ def build_layer(path: Path = LAYER) -> Path:
         UsdGeom.PrimvarsAPI(m).CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex).Set(st)
         m.GetPrim().CreateAttribute("primvars:doNotCastShadows", Sdf.ValueTypeNames.Bool).Set(True)
         UsdShade.MaterialBindingAPI.Apply(m.GetPrim()).Bind(mat)
+    h = _quad(stage, f"{ROOT}/halo")
+    h.GetPrim().CreateAttribute("primvars:doNotCastShadows", Sdf.ValueTypeNames.Bool).Set(True)
+    UsdShade.MaterialBindingAPI.Apply(h.GetPrim()).Bind(
+        _texture_material(stage, f"{ROOT}/Looks/halo", rel(HALO_TEX), True, alpha=HALO_ALPHA, gain=HALO_GAIN,
+                          atlas_uv=False))
     inst = UsdGeom.PointInstancer.Define(stage, f"{ROOT}/smoke")
     protos = []
     for k in range(SMOKE_LEVELS):
@@ -315,9 +333,20 @@ def build_layer(path: Path = LAYER) -> Path:
     return path
 
 
+RTX = {"/rtx/raytracing/fractionalCutoutOpacity": True, "/rtx/pathtracing/fractionalCutoutOpacity": True,
+       "/rtx/shadows/fractionalCutoutOpacity": True}
+
+
 def attach(stage) -> bool:
     if not LAYER.exists() or os.environ.get("RIG_FLARE_FX", "1") == "0":
         return False
+    try:
+        import carb.settings
+
+        for k, v in RTX.items():
+            carb.settings.get_settings().set(k, v)
+    except ImportError:
+        pass
     root = stage.GetRootLayer()
     target = os.path.relpath(LAYER, Path(root.realPath).parent) if root.realPath else str(LAYER)
     if any(Path(p).name == LAYER.name for p in root.subLayerPaths):
@@ -369,6 +398,17 @@ def update(stage, t: float, wind=WIND) -> None:
     inst.GetScalesAttr().Set(Vt.Vec3fArray.FromNumpy(np.repeat(scale[:, None], 3, 1).astype(np.float32)))
     inst.GetProtoIndicesAttr().Set(Vt.IntArray.FromNumpy(fade_level(alpha).astype(np.int32)))
     inst.GetOrientationsAttr().Set(Vt.QuathArray([Gf.Quath(*map(float, q)) for q in billboard_quats(pos, eye)]))
+    centre = line[int(rows * 0.4)]
+    right = facing_right(centre, eye) * HALO_SIZE * 0.5
+    toward = np.asarray(eye, float) - centre
+    toward /= max(np.linalg.norm(toward), 1e-6)
+    up = np.cross(toward, right / max(np.linalg.norm(right), 1e-6)) * HALO_SIZE * 0.5
+    up = up if up[2] >= 0 else -up
+    base = centre - toward * 8.0
+    quad = np.array([base - right - up, base + right - up, base + right + up, base - right + up])
+    UsdGeom.Mesh(stage.GetPrimAtPath(f"{ROOT}/halo")).GetPointsAttr().Set(Vt.Vec3fArray.FromNumpy(quad.astype(np.float32)))
+    g = HALO_GAIN * level
+    UsdShade.Shader.Get(stage, f"{ROOT}/Looks/halo/tex").GetInput("scale").Set(Gf.Vec4f(g, g, g, HALO_ALPHA))
     lamp = stage.GetPrimAtPath(LIGHT)
     if lamp:
         c = line[rows // 4]

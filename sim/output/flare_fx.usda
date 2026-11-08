@@ -178,6 +178,43 @@ over "World"
                 }
             }
 
+            def Material "halo"
+            {
+                token outputs:surface.connect = </World/FlareFx/Looks/halo/surface.outputs:surface>
+
+                def Shader "surface"
+                {
+                    uniform token info:id = "UsdPreviewSurface"
+                    color3f inputs:diffuseColor = (0, 0, 0)
+                    color3f inputs:emissiveColor.connect = </World/FlareFx/Looks/halo/tex.outputs:rgb>
+                    float inputs:opacity.connect = </World/FlareFx/Looks/halo/tex.outputs:a>
+                    float inputs:roughness = 1
+                    color3f inputs:specularColor = (0, 0, 0)
+                    int inputs:useSpecularWorkflow = 1
+                    token outputs:surface
+                }
+
+                def Shader "uv"
+                {
+                    uniform token info:id = "UsdPrimvarReader_float2"
+                    token inputs:varname = "st"
+                    float2 outputs:result
+                }
+
+                def Shader "tex"
+                {
+                    uniform token info:id = "UsdUVTexture"
+                    asset inputs:file = @../assets/generated/flare_halo.png@
+                    float4 inputs:scale = (1.2, 1.2, 1.2, 0.5)
+                    token inputs:sourceColorSpace = "sRGB"
+                    float2 inputs:st.connect = </World/FlareFx/Looks/halo/uv.outputs:result>
+                    token inputs:wrapS = "clamp"
+                    token inputs:wrapT = "clamp"
+                    float outputs:a
+                    float3 outputs:rgb
+                }
+            }
+
             def Material "smoke_0"
             {
                 token outputs:surface.connect = </World/FlareFx/Looks/smoke_0/surface.outputs:surface>
@@ -402,6 +439,22 @@ over "World"
             point3f[] points = [(-62.360466, 9.241168, 70.5), (-58.6, 8, 70.5), (-54.839535, 6.758832, 70.5), (-64.42869, 9.319806, 74.062874), (-60.668224, 8.078638, 74.062874), (-56.907757, 6.83747, 74.062874), (-65.72951, 9.493124, 77.08067), (-61.969044, 8.251956, 77.08067), (-58.20858, 7.010788, 77.08067), (-66.47046, 9.739446, 79.70791), (-62.70999, 8.498278, 79.70791), (-58.949524, 7.2571096, 79.70791), (-66.79095, 10.049763, 82.05529), (-63.030483, 8.808594, 82.05529), (-59.270016, 7.5674257, 82.05529), (-66.78965, 10.418492, 84.202156), (-63.029182, 9.177324, 84.202156), (-59.268715, 7.936156, 84.202156), (-66.53722, 10.8416815, 86.205345), (-62.77675, 9.600513, 86.205345), (-59.016285, 8.3593445, 86.205345), (-66.08459, 11.316313, 88.105576), (-62.324123, 10.075145, 88.105576), (-58.56366, 8.833977, 88.105576), (-65.46867, 11.839975, 89.93204), (-61.708206, 10.598807, 89.93204), (-57.947742, 9.357639, 89.93204), (-64.716324, 12.410675, 91.70565), (-60.955856, 11.169507, 91.70565), (-57.19539, 9.928339, 91.70565), (-63.84719, 13.026724, 93.44138), (-60.086727, 11.785555, 93.44138), (-56.32626, 10.544387, 93.44138), (-62.87576, 13.686664, 95.14998), (-59.115295, 12.445496, 95.14998), (-55.354828, 11.204327, 95.14998), (-61.812767, 14.389219, 96.83913), (-58.0523, 13.148051, 96.83913), (-54.291836, 11.906882, 96.83913)]
             custom bool primvars:doNotCastShadows = 1
             texCoord2f[] primvars:st = [(0, 0), (0.5, 0), (1, 0), (0, 0.083333336), (0.5, 0.083333336), (1, 0.083333336), (0, 0.16666667), (0.5, 0.16666667), (1, 0.16666667), (0, 0.25), (0.5, 0.25), (1, 0.25), (0, 0.33333334), (0.5, 0.33333334), (1, 0.33333334), (0, 0.41666666), (0.5, 0.41666666), (1, 0.41666666), (0, 0.5), (0.5, 0.5), (1, 0.5), (0, 0.5833333), (0.5, 0.5833333), (1, 0.5833333), (0, 0.6666667), (0.5, 0.6666667), (1, 0.6666667), (0, 0.75), (0.5, 0.75), (1, 0.75), (0, 0.8333333), (0.5, 0.8333333), (1, 0.8333333), (0, 0.9166667), (0.5, 0.9166667), (1, 0.9166667), (0, 1), (0.5, 1), (1, 1)] (
+                interpolation = "vertex"
+            )
+            uniform token subdivisionScheme = "none"
+        }
+
+        def Mesh "halo" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            uniform bool doubleSided = 1
+            int[] faceVertexCounts = [4]
+            int[] faceVertexIndices = [0, 1, 2, 3]
+            rel material:binding = </World/FlareFx/Looks/halo>
+            point3f[] points = [(-0.5, 0, -0.5), (0.5, 0, -0.5), (0.5, 0, 0.5), (-0.5, 0, 0.5)]
+            custom bool primvars:doNotCastShadows = 1
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
                 interpolation = "vertex"
             )
             uniform token subdivisionScheme = "none"
