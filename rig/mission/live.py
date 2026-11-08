@@ -15,8 +15,8 @@ from rig.captions import caption, fleet_robots
 from rig.mission.gas import ALARM_LEL, FLOW_GS, SUB_S, WALK_MS, GasLeak, wind_from_weather
 from rig.mission.jobs import MissionPort
 
-FLEET_EVENTS = ("drop_obstacle", "close_walkway", "close_stairs", "clear", "set_weather", "weld_job")
-ROLE = {"weld": "weld", "rust": "rust", "gas": "gas", "leak_check": "leak check", "inspect": "inspection", "crack": "crack"}
+FLEET_EVENTS = ("drop_obstacle", "drop_can", "close_walkway", "close_stairs", "clear", "set_weather", "weld_job")
+ROLE = {"pick_can": "pick-up", "weld": "weld", "rust": "rust", "gas": "gas", "leak_check": "leak check", "inspect": "inspection", "crack": "crack"}
 RUST = ("DETECT", "SPRAY", "SOAK", "SCRUB", "VERIFY", "PAINT", "APPROACH", "BACK_OFF", "GRIND", "WELD", "INSPECT_WELD")
 GAS = ("LEAK_APPROACH", "LEAK_INSPECT", "RETORQUE", "LEAK_VERIFY", "GAS_CHECK")
 RANK = {"stop": 4, "warn": 3, "act": 2, "ok": 1}
@@ -279,6 +279,10 @@ class MissionLive:
         if name in ("drop_obstacle", "close_walkway", "close_stairs"):
             log = ((out.get("fleet") or {}).get("log") or [{}])[-1]
             return ("Walkway blocked", f" — {log.get('message', 'units re-route')}", "warn", "BLOCKED")
+        if name == "drop_can":
+            log = ((out.get("fleet") or {}).get("log") or [{}])[-1]
+            return ("Can on the walkway", f" — {log.get('message', 'nearest gripper unit sent to pick it up')}", "warn",
+                    "BLOCKED")
         if name == "clear":
             return ("Routes clear", " — hazards removed, units take the short way again", "ok", "DONE")
         if name == "gas_leak":

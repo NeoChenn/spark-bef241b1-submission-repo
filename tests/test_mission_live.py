@@ -279,3 +279,11 @@ def test_planner_requests_for_a_fixed_leak_are_superseded(m):
     run(m, 1)
     assert m.port.job(jid)["status"] == "CANCELLED"
     assert m.port.job(other)["status"] == "WAITING_APPROVAL"
+
+
+def test_drop_can_dispatches_a_pickup_and_flashes(m):
+    m.header()
+    m.event("drop_can", {})
+    h = m.header()
+    assert h["caption"]["lead"] == "Can on the walkway"
+    assert any(j["kind"] == "pick_can" for j in h["orchestrator"]["jobs"])
