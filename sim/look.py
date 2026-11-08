@@ -21,17 +21,20 @@ FIXTURES = {
     "spot": {"gain": 1.0, "cone": None, "cone_max": 40.0, "softness": 0.5, "focus": 1.0},
     "bulb": {"gain": 1.0},
 }
+WORK_LIGHT = {"offset": (0.05, 0.65, 0.88), "kelvin": 6500.0, "intensity": 4.0e5, "radius": 0.05, "cone": 24.0,
+              "softness": 0.7}
 TONEMAP = {
     "/rtx/post/tonemap/op": 6,
     "/rtx/post/histogram/enabled": False,
 }
+GRADE = {"contrast": 0.3, "toe": 1.15, "lift": (0.0, 0.002, 0.004), "shadow": (-0.03, 0.008, 0.035),
+         "highlight": (0.035, 0.01, -0.04), "vignette": 0.3}
 TIERS = {
     "none": {"rtx": {}, "grade": None},
     "live": {
         "rtx": {**TONEMAP, "/rtx/post/lensFlares/enabled": True, "/rtx/post/lensFlares/physicalSettings": False,
                 "/rtx/post/lensFlares/flareScale": 0.08},
-        "grade": {"contrast": 0.1, "gamma": (1.2, 0.98, 0.78), "gain": (1.08, 1.0, 0.86), "lift": (0.0, 0.015, 0.025),
-                  "vignette": 0.35, "saturation": 1.0, "grain": 0.0},
+        "grade": {**GRADE, "saturation": 1.0, "grain": 0.0},
     },
     "offline": {
         "rtx": {**TONEMAP, "/rtx/post/lensFlares/enabled": True, "/rtx/post/lensFlares/physicalSettings": True,
@@ -39,8 +42,7 @@ TIERS = {
                 "/rtx/post/motionblur/enabled": True, "/rtx/post/chromaticAberration/enabled": True,
                 "/rtx/post/chromaticAberration/strengthR": -0.006, "/rtx/post/chromaticAberration/strengthG": 0.0,
                 "/rtx/post/chromaticAberration/strengthB": 0.006},
-        "grade": {"contrast": 0.1, "gamma": (1.2, 0.98, 0.78), "gain": (1.08, 1.0, 0.86), "lift": (0.0, 0.015, 0.025),
-                  "vignette": 0.35, "saturation": 0.9, "grain": 0.025},
+        "grade": {**GRADE, "saturation": 0.95, "grain": 0.012},
     },
 }
 
@@ -79,6 +81,12 @@ def fixture(kind: str, kelvin: float, intensity: float, cone: float | None = Non
     return out
 
 
+def work_light(target) -> tuple:
+    pos = np.add(target, WORK_LIGHT["offset"])
+    aim = np.subtract(target, pos)
+    return tuple(float(v) for v in pos), tuple(float(v) for v in aim / np.linalg.norm(aim))
+
+
 def lens(distance: float, fstop: float) -> dict:
     return {"fStop": float(fstop) * LENS_SCALE, "focusDistance": float(distance)}
 
@@ -86,11 +94,11 @@ def lens(distance: float, fstop: float) -> dict:
 def curves(p: dict) -> np.ndarray:
     x = np.linspace(0.0, 1.0, 256)
     s = x * x * (3 - 2 * x)
-    base = x + p["contrast"] * (s - x)
-    out = []
-    for gamma, gain, lift in zip(p["gamma"], p["gain"], p["lift"]):
-        c = lift + (1 - lift) * np.clip(gain * base ** gamma, 0, 1)
-        out.append(c)
+    base = (x + p["contrast"] * (s - x)) ** p["toe"]
+    low = 6.75 * base * (1 - base) ** 2
+    high = 6.75 * base ** 2 * (1 - base)
+    out = [lift + (1 - lift) * np.clip(base + sh * low + hi * high, 0, 1)
+           for lift, sh, hi in zip(p["lift"], p["shadow"], p["highlight"])]
     return np.clip(np.rint(np.stack(out) * 255), 0, 255).astype(np.uint8)
 
 

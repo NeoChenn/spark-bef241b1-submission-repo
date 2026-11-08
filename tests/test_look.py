@@ -48,8 +48,9 @@ def test_curves_monotone_split_tone():
     c = look.curves(look.TIERS["offline"]["grade"]).astype(int)
     assert c.shape == (3, 256)
     assert (np.diff(c, axis=1) >= 0).all()
-    assert c[2, 40] > c[0, 40]
-    assert c[0, 220] > c[2, 220]
+    assert c[2, 70] > c[0, 70]
+    assert c[0, 200] > c[2, 200]
+    assert c[:, 4].max() <= 5
 
 
 def test_grade_none_is_identity():
@@ -81,3 +82,10 @@ def test_fixture_retunes_colour_and_shapes_rects():
     assert look.fixture("spot", 2000.0, 10.0, 60.0)["cone"] == look.FIXTURES["spot"]["cone_max"]
     b = look.fixture("bulb", 6000.0, 5.0)
     assert "cone" not in b and b["kelvin"] > 6000
+
+
+def test_work_light_aims_at_target_from_above():
+    pos, aim = look.work_light((1.0, 2.0, 3.0))
+    assert pos[2] > 3.0
+    assert np.allclose(np.add(pos, np.multiply(aim, np.linalg.norm(look.WORK_LIGHT["offset"]))), (1.0, 2.0, 3.0))
+    assert np.linalg.norm(aim) == pytest.approx(1.0)
