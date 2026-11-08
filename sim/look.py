@@ -5,7 +5,7 @@ import math
 import numpy as np
 from PIL import Image, ImageChops
 
-EV_KEYS = ((1.9, 0.2), (8.0, 0.0), (40.0, 0.4), (120.0, 0.8), (330.0, 1.0))
+EV_KEYS = ((1.9, 0.2), (8.0, 0.2), (40.0, 0.4), (120.0, 0.8), (330.0, 1.0))
 VIEWS = {
     "wide": {"ev": 1.0, "fstop": 0.0},
     "deck_mid": {"ev": 0.0, "fstop": 0.0},
