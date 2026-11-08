@@ -138,10 +138,13 @@ def paint_robot(stage, robot_root, color="graphite"):
     from pxr import Usd, UsdGeom, UsdShade
 
     body = _material(stage, "/World/Looks/robot_body", ROBOT_COLORS[color], 0.42, 0.3, 0.6)
-    pad = _material(stage, "/World/Looks/robot_brush", CORAL_LIN, 0.55, 0.0, 0.2, emissive=tuple(c * 0.06 for c in CORAL_LIN))
+    pad = _material(stage, "/World/Looks/robot_brush", CORAL_LIN, 0.55, 0.0, 0.2, emissive=tuple(c * 0.02 for c in CORAL_LIN))
     root = stage.GetPrimAtPath(robot_root)
-    for prim in Usd.PrimRange(root):
-        if prim.IsInstanceable():
+    while True:
+        inst = [p for p in Usd.PrimRange(root) if p.IsInstanceable()]
+        if not inst:
+            break
+        for prim in inst:
             prim.SetInstanceable(False)
     n = {"body": 0, "brush": 0}
     for prim in Usd.PrimRange(root):
@@ -173,6 +176,9 @@ def apply(stage, zone_root, work, full=False, dome=220.0, moon=25.0, lamp_gain=1
         sea.GetInput("roughness").Set(0.07)
     wet_down(stage, rig_root if full else deck_root)
     if full:
+        sky = UsdLux.DomeLight(stage.GetPrimAtPath(rig_root + "/Environment/sky"))
+        if sky:
+            sky.GetIntensityAttr().Set(dome)
         for prim in Usd.PrimRange(stage.GetPrimAtPath(rig_root + "/Cinematic")):
             if prim.IsA(UsdLux.SphereLight):
                 a = prim.GetAttribute("inputs:intensity")

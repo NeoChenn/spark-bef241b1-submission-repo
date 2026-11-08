@@ -126,10 +126,10 @@ def worker(argv):
     p.add_argument("--no_flip_v", action="store_true")
     p.add_argument("--look", default="night", choices=["day", "night"])
     p.add_argument("--robot_color", default="graphite")
-    p.add_argument("--dome", type=float, default=220.0)
+    p.add_argument("--dome", type=float, default=120.0)
     p.add_argument("--moon", type=float, default=25.0)
     p.add_argument("--lamp_gain", type=float, default=1.0)
-    p.add_argument("--rig_gain", type=float, default=0.15)
+    p.add_argument("--rig_gain", type=float, default=0.1)
     p.add_argument("--still_at", type=float, default=0.0)
     from isaaclab.app import AppLauncher
 
