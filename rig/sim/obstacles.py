@@ -9,12 +9,14 @@ if str(SIM) not in sys.path:
     sys.path.insert(0, str(SIM))
 
 import carb.settings
+import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade
 
 from rig.sim.obstacle_math import (DROP_S, DRUM_R, dashes, drop_offset, drum_pose, flame_offset, ghost_alpha, lerp,
                                    puddle_edge, seg_frame, segments, weather_params)
-from rig.sim.gait import ARM, LEGS, PARK, STAND, GaitLoop, Quantiser, Walker
+from rig.sim.gait import ARM, LEGS, PARK, STAND, GaitLoop, Quantiser, Walker, smoothstep
 from rig.sim.taskmotion import Rollout, TaskMotion
+from rig.sim import weld as W
 from rig.sim.zoom import ease
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
 
@@ -80,6 +82,8 @@ STATIC_DOG = "/World/Robots/scrubber_dog"
 RUST_SLEW = 0.25
 VAPOUR_N, VAPOUR_LIFE, VAPOUR_MS, VAPOUR_JET = 90, 2.4, 0.8, 1.3
 VAPOUR_ALPHA = (0.12, 0.08, 0.05, 0.025)
+ARC_W, POOL_W, ARC_R, POOL_R = 1.2e7, 7.2e5, 0.004, 0.008
+BEAD_GLOW, SPARK_GLOW, CORE_GLOW = 60.0, (80.0, 30.0), 300.0
 
 
 class ObstacleScene:
@@ -114,6 +118,8 @@ class ObstacleScene:
         self.rust, self.rust_q, self.rust_attrs, self.dog = 1.0, Quantiser(0.005), None, None
         self.leak, self.vap, self.vap_on, self.vap_t = None, None, False, -1e9
         self.hidden = []
+        self.weld_clip = W.WeldClip.load() if self.gait else None
+        self.wfx = None
 
     def _roots(self):
         UsdGeom.Scope.Define(self.stage, ROOT)
@@ -125,7 +131,7 @@ class ObstacleScene:
     def republish(self):
         for p in (ROOT, "/World/Looks/obst_coral", "/World/Looks/obst_closed"):
             self.stage.RemovePrim(p)
-        self.props, self.paths, self.robots, self.closed_key, self.vap = {}, {}, {}, None, None
+        self.props, self.paths, self.robots, self.closed_key, self.vap, self.wfx = {}, {}, {}, None, None, None
         self.b.materials = {k: v for k, v in self.b.materials.items() if not k.startswith("obst_")}
         self._roots()
 
@@ -222,6 +228,7 @@ class ObstacleScene:
                                         arm=TaskMotion(self.clips), q=Quantiser(), qy=Quantiser(0.05))
         rb = self.robots[rid]
         rb["r"] = r
+        self._weld_sync(rid, rb, r)
         if "walker" in rb:
             rb["walker"].target((p["x"], p["y"], p["z"], p.get("yaw", 0.0)), self.now)
             return
@@ -263,6 +270,16 @@ class ObstacleScene:
                 rb["root"] = (x, y, z + (self.rollout.base_z if ro else self.gait.zmean + bob), yaw)
                 rb["joints"].set(LEGS, q)
                 if ro is not None:
+                    continue
+                wd = rb.get("weld")
+                if wd is not None and wd["arm"]:
+                    c = t - wd["t0"]
+                    aq = self.weld_clip.arm(c - W.LEAD_S)
+                    if wd["from"] is not None:
+                        aq = wd["from"] + (aq - wd["from"]) * smoothstep(c / W.LEAD_S)
+                    rb["arm"].out, rb["arm"].key = aq, "weld"
+                    rb["joints"].set(ARM, aq)
+                    motion[rid] = self.weld_clip.source
                     continue
                 arm = rb["arm"]
                 live = rid == self.selected or str(r.get("task") or "").endswith(":demo")
@@ -372,6 +389,130 @@ class ObstacleScene:
         self.vap.GetScalesAttr().Set(Vt.Vec3fArray([Gf.Vec3f(*c) for c in scl]))
         self.vap.GetProtoIndicesAttr().Set(Vt.IntArray(idx))
 
+    def _weld_sync(self, rid, rb, r) -> None:
+        w = r.get("weld") if self.weld_clip is not None and "arm" in rb else None
+        cur = rb.get("weld")
+        if w is None:
+            if cur is not None:
+                rb["weld"] = None
+                self._torch(rid, rb, False)
+            return
+        c = float(w["c"])
+        if cur is None or cur["id"] != w["id"]:
+            cur = rb["weld"] = {"id": w["id"], "t0": self.now - c, "from": rb["arm"].out.copy() if c < W.LEAD_S else None}
+            self._torch(rid, rb, True)
+        elif abs(self.now - cur["t0"] - c) > 0.5:
+            cur["t0"] = self.now - c
+        cur.update(at=tuple(float(v) for v in w["at"]), arm=bool(w.get("arm", True)))
+
+    def _torch(self, rid, rb, on: bool) -> None:
+        ee = f"{ROOT}/Robots/{rid}/body/{EE_LINK}"
+        if "torch" not in rb:
+            rb["torch"] = None
+            if not self.stage.GetPrimAtPath(ee).IsValid():
+                return
+            dark = self._mat("obst_torch", (0.08, 0.08, 0.09), 0.5, 0.6)
+            copper = self._mat("obst_torch_tip", (0.72, 0.42, 0.2), 0.35, 1.0)
+            UsdGeom.Xform.Define(self.stage, f"{ee}/torch")
+            for k, (rr, a, b, m) in enumerate(((0.017, 0.0, 0.075, dark), (0.011, 0.075, 0.108, copper),
+                                               (0.0035, 0.108, 0.117, copper))):
+                c = UsdGeom.Cylinder.Define(self.stage, f"{ee}/torch/part_{k}")
+                c.CreateAxisAttr("X")
+                c.CreateRadiusAttr(rr)
+                c.CreateHeightAttr(b - a)
+                UsdGeom.Xformable(c).AddTranslateOp().Set(Gf.Vec3d((a + b) / 2, 0, 0))
+                _bind(c.GetPrim(), m)
+            brush = self.stage.GetPrimAtPath(f"{ee}/scrubber_link")
+            rb["torch"] = (UsdGeom.Imageable(self.stage.GetPrimAtPath(f"{ee}/torch")),
+                           UsdGeom.Imageable(brush) if brush.IsValid() and rid not in GRIP_ROBOTS else None)
+        if rb["torch"] is None:
+            return
+        torch, brush = rb["torch"]
+        torch.MakeVisible() if on else torch.MakeInvisible()
+        if brush is not None:
+            brush.MakeInvisible() if on else brush.MakeVisible()
+
+    def _weld_prims(self) -> dict:
+        from pxr import Vt
+
+        root = f"{ROOT}/Weld"
+        UsdGeom.Xform.Define(self.stage, root)
+        mats = [_emissive(self.stage, "obst_weld_crack", (0.0, 0.0, 0.0))[0]]
+        mats += [_emissive(self.stage, f"obst_weld_hot{k}", rgb, e * BEAD_GLOW)[0] for k, (rgb, e) in enumerate(W.HOT)]
+        mats += [self._mat("obst_weld_cool", W.COOLED, 0.28, 1.0), mats[0]]
+        sparks = [_emissive(self.stage, "obst_spark_hot", (1.0, 0.78, 0.4), SPARK_GLOW[0])[0],
+                  _emissive(self.stage, "obst_spark_dim", (1.0, 0.45, 0.12), SPARK_GLOW[1])[0],
+                  _emissive(self.stage, "obst_arc_core", W.ARC_RGB, CORE_GLOW)[0]]
+        out = {"key": None, "on": False, "idx": None, "sp": False}
+        for name, ms in (("bead", mats), ("sparks", sparks)):
+            inst = UsdGeom.PointInstancer.Define(self.stage, f"{root}/{name}")
+            protos = []
+            for k, m in enumerate(ms):
+                sp = UsdGeom.Sphere.Define(self.stage, f"{root}/{name}/p{k}")
+                sp.CreateRadiusAttr(1e-5 if name == "bead" and k == len(ms) - 1 else 1.0)
+                _bind(sp.GetPrim(), m)
+                protos.append(sp.GetPath())
+            inst.CreatePrototypesRel().SetTargets(protos)
+            out[name] = inst
+        sc = W.spark_scales()
+        out["sparks"].GetScalesAttr().Set(Vt.Vec3fArray([Gf.Vec3f(float(x)) for x in np.r_[sc, 0.005]]))
+        lights = []
+        for name, r, rgb in (("arc", ARC_R, W.ARC_RGB), ("pool", POOL_R, W.POOL_RGB)):
+            lt = UsdLux.SphereLight.Define(self.stage, f"{root}/{name}")
+            lt.CreateRadiusAttr(r)
+            lt.CreateColorAttr(Gf.Vec3f(*rgb))
+            lt.CreateIntensityAttr(0.0)
+            lights.append((lt.GetIntensityAttr(), UsdGeom.Xformable(lt).AddTranslateOp()))
+        out["lights"] = lights
+        self.wfx = out
+        return out
+
+    def _weld(self, t: float) -> None:
+        from pxr import Vt
+
+        rb = next((rb for rb in self.robots.values() if rb.get("weld")), None)
+        fx, cl = self.wfx, self.weld_clip
+        v3 = lambda a: Vt.Vec3fArray([Gf.Vec3f(*map(float, p)) for p in a])
+        if rb is None:
+            if fx is not None and fx["on"]:
+                for name in ("bead", "sparks"):
+                    n = len(fx[name].GetPositionsAttr().Get() or [])
+                    fx[name].GetPositionsAttr().Set(v3([W.OFF] * n))
+                    fx[name].GetProtoIndicesAttr().Set(Vt.IntArray([0] * n))
+                for attr, _ in fx["lights"]:
+                    attr.Set(0.0)
+                fx.update(on=False, key=None, idx=None, sp=False)
+            return
+        wd = rb["weld"]
+        fx = fx or self._weld_prims()
+        at = wd["at"]
+        if fx["key"] != (wd["id"], at):
+            r = cl.bead_w / 2
+            bead = W.to_world(cl.bead - cl.normals(cl.bead) * (0.55 * r)[:, None], at)
+            fx["bead"].GetPositionsAttr().Set(v3(np.concatenate([W.to_world(cl.crack - cl.normals(cl.crack) * 0.0006, at), bead])))
+            fx["bead"].GetScalesAttr().Set(v3([(W.CRACK_R,) * 3] * len(cl.crack) + [(x, x, x) for x in r]))
+            fx.update(key=(wd["id"], at), idx=None, on=True)
+        c = t - wd["t0"] - W.LEAD_S
+        shown, bins = W.bead_state(cl, c)
+        idx = np.concatenate([np.zeros(len(cl.crack), int), np.where(shown, 1 + bins, len(W.HOT) + 2)])
+        if fx["idx"] is None or not np.array_equal(idx, fx["idx"]):
+            fx["idx"] = idx
+            fx["bead"].GetProtoIndicesAttr().Set(Vt.IntArray(idx.tolist()))
+        arc = bool(cl.arc(c))
+        pos, hot, alive = W.sparks(cl, c, 0.005)
+        if alive.any() or arc or fx["sp"]:
+            fx["sp"] = bool(alive.any() or arc)
+            tip = cl.tip_at(c)
+            core = tip - cl.normals(tip[None])[0] * 0.006
+            fl = W.arc_flicker(c)
+            pts = np.concatenate([np.where(alive[:, None], W.to_world(pos, at), W.OFF), W.to_world(core[None], at) if arc else [W.OFF]])
+            fx["sparks"].GetPositionsAttr().Set(v3(pts))
+            fx["sparks"].GetProtoIndicesAttr().Set(Vt.IntArray(np.r_[np.where(hot, 0, 1), 2].astype(int).tolist()))
+            p = W.to_world(core, at)
+            for (attr, op), w in zip(fx["lights"], (ARC_W * fl, POOL_W * (0.85 + 0.15 * fl))):
+                op.Set(Gf.Vec3d(*map(float, p)))
+                attr.Set(round(float(w), -2) if arc else 0.0)
+
     def hide_prims(self, paths) -> None:
         for p in self.hidden:
             if p.IsValid():
@@ -385,6 +526,7 @@ class ObstacleScene:
         self.now = t
         self._animate(t)
         self._vapour(t)
+        self._weld(t)
         for o in self.props.values():
             age = t - o["t0"]
             if "o" in o:

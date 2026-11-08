@@ -12,6 +12,7 @@
   const SCEN = [["gas", "Gas leak", "Leak search, valve isolation, hot-work stop", "⇧1"], ["patrol", "Deck patrol", "Patrol route, re-routes, can pick-up", "⇧2"],
     ["repair", "Pipe repair", "Rust scrub, verify, paint, weld crack", "⇧3"], ["flyby", "Fly-by", "Ambient camera, no robot selected", "esc"]];
   const DEMOS = [["can", "Demo: Can pick-up", "Unit 3 walks to a dropped can, learned pick-up into the tote", "⇧C", "R3"], ["gas", "Demo: Gas leak", "Vapour from the orange line, Unit 2 finds the leak and closes the valve", "⇧G", "R2"], ["rust", "Demo: Rust scrub", "Unit 1 scrubs the rusted pipe clean", "⇧R", "R1"],
+    ["weld", "Demo: Weld", "Unit 1 walks to a cracked pipe and seam-tracks a weld over the crack", "⇧W", "R1"],
     ["nav", "Demo: Navigation", "Unit 3 walks a deck loop; drop a crate ahead and it re-routes", "⇧N", "R3"],
     ["deck", "Demo: Deck", "One deck camera; drop a can or add rust and the robots answer", "⇧D", null],
     ["reset", "Demo: Reset", "Back to the normal fleet", "⇧X", null]];
@@ -403,7 +404,7 @@
   addEventListener("pointerdown", (e) => { if (S.spot && !spot.contains(e.target)) closeSpot(); });
 
   const HELP = [["⌘K", "Spotlight"], ["0", "Rig ↔ Deck camera"], ["Z", "Next close-up"], ["1 2 3", "Select a robot"], ["F", "Head camera"], ["B", "Detection boxes"], ["L", "Lidar"], ["D", "Depth"], ["S", "Sensor strip"],
-    ["G", "Gemini panel"], ["I", "Next disturbance"], ["⇧1 ⇧2 ⇧3", "Start a scenario"], ["⇧C ⇧G ⇧R ⇧N ⇧D", "Demo: can pick-up, gas leak, rust scrub, navigation, deck"], ["⇧X", "Demo reset"], ["esc", "Back to fly-by"], ["M", "Mute"], ["?", "This card"]];
+    ["G", "Gemini panel"], ["I", "Next disturbance"], ["⇧1 ⇧2 ⇧3", "Start a scenario"], ["⇧C ⇧G ⇧R ⇧W ⇧N ⇧D", "Demo: can pick-up, gas leak, rust scrub, weld, navigation, deck"], ["⇧X", "Demo reset"], ["esc", "Back to fly-by"], ["M", "Mute"], ["?", "This card"]];
   function help() {
     const el = $("help");
     el.classList.toggle("on", S.help);
