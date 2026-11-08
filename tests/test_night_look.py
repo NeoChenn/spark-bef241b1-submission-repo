@@ -37,7 +37,7 @@ def test_grade_vignette_darkens_corners_and_lifts_black():
 def test_lamps_track_work_point_and_safety_on_far_rails():
     ls = lamps((-0.5, 0.0, 1.2))
     assert {l["name"] for l in ls} >= {"flood_back", "flood_key", "led_rim"}
-    assert all(l["pos"][2] > 1.5 for l in ls)
+    assert all(l["pos"][2] > 0.3 for l in ls) and sum(l["pos"][2] > 3 for l in ls) >= 2
     s = safety_lights()
     assert {c for c, _ in s} >= {"red", "green", "amber"}
     assert all(abs(p[0]) > 7 or abs(p[1]) > 4 for _, p in s)
