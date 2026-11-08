@@ -151,16 +151,16 @@ if args.weather:
     import weather as weather_mod
 
     wx = weather_mod.Controller(stage, getattr(cine_update, "wave", None), args.preset, atm)
-    wx_level = float(args.weather) if args.weather.replace(".", "", 1).isdigit() else args.weather
+    wx_args = weather_mod.parse_default(args.weather)
 
 
 def tick(t):
     if wx is not None:
         if not wx.args and t >= args.weather_at:
             wx.now = args.weather_at
-            wx.set(wx_level)
+            wx.set(**wx_args)
             if atm is not None:
-                atm.set_weather(level=wx_level)
+                atm.set_weather(level=weather_mod.atmos_kind(args.weather))
         wx.tick(t)
     cine_update(t)
     if atm is not None:
