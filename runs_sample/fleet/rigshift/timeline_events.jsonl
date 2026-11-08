@@ -1,0 +1,149 @@
+{"t": 0.0, "event": "job_queued", "job": "gauge_read-001", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_01", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "gauge_read-002", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_02", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "gauge_read-003", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_03", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "gauge_read-004", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_04", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "gauge_read-005", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_05", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "gauge_read-006", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_06", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "gauge_read-007", "robot": null, "detail": {"kind": "gauge_read", "target": "gauge_07", "level": "AUTO", "priority": 5}}
+{"t": 0.0, "event": "job_queued", "job": "flange_leak_check-008", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F1", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "flange_leak_check-009", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F2", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "flange_leak_check-010", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F3", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "flange_leak_check-011", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F4", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "flange_leak_check-012", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F5", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "flange_leak_check-013", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F6", "level": "AUTO", "priority": 4}}
+{"t": 0.0, "event": "job_queued", "job": "rust_repair-014", "robot": null, "detail": {"kind": "rust_repair", "target": "rust_top_pipe", "level": "SUPV", "priority": 4}}
+{"t": 0.0, "event": "approval_requested", "job": "rust_repair-014", "robot": null, "detail": {"kind": "rust_repair", "target": "rust_top_pipe", "by": "coordinator", "note": ""}}
+{"t": 0.0, "event": "job_queued", "job": "rust_repair-015", "robot": null, "detail": {"kind": "rust_repair", "target": "rust_mid_east", "level": "SUPV", "priority": 4}}
+{"t": 0.0, "event": "approval_requested", "job": "rust_repair-015", "robot": null, "detail": {"kind": "rust_repair", "target": "rust_mid_east", "by": "coordinator", "note": ""}}
+{"t": 0.0, "event": "job_queued", "job": "rust_repair-016", "robot": null, "detail": {"kind": "rust_repair", "target": "rust_mid_west", "level": "SUPV", "priority": 4}}
+{"t": 0.0, "event": "approval_requested", "job": "rust_repair-016", "robot": null, "detail": {"kind": "rust_repair", "target": "rust_mid_west", "by": "coordinator", "note": ""}}
+{"t": 0.0, "event": "job_queued", "job": "rust_repair-017", "robot": null, "detail": {"kind": "rust_repair", "target": "rust_low_splash", "level": "SUPV", "priority": 3}}
+{"t": 0.0, "event": "approval_requested", "job": "rust_repair-017", "robot": null, "detail": {"kind": "rust_repair", "target": "rust_low_splash", "by": "coordinator", "note": ""}}
+{"t": 0.0, "event": "job_queued", "job": "rust_repair-018", "robot": null, "detail": {"kind": "rust_repair", "target": "rust_low_east", "level": "SUPV", "priority": 4}}
+{"t": 0.0, "event": "approval_requested", "job": "rust_repair-018", "robot": null, "detail": {"kind": "rust_repair", "target": "rust_low_east", "by": "coordinator", "note": ""}}
+{"t": 0.0, "event": "assigned", "job": "flange_leak_check-009", "robot": "R1", "detail": {"cost_s": 31.5, "bids": {"R1": 31.5, "R2": 90.8, "R3": 185.1}, "route_m": 18.5}}
+{"t": 0.0, "event": "assigned", "job": "flange_leak_check-012", "robot": "R2", "detail": {"cost_s": 55.0, "bids": {"R1": 64.7, "R2": 55.0, "R3": 163.7}, "route_m": 17.5}}
+{"t": 0.0, "event": "assigned", "job": "flange_leak_check-008", "robot": "R3", "detail": {"cost_s": 170.4, "bids": {"R1": 34.7, "R2": 97.2, "R3": 170.4}, "route_m": 66.0}}
+{"t": 18.0, "event": "job_started", "job": "flange_leak_check-012", "robot": "R2", "detail": {"kind": "flange_leak_check", "target": "F5"}}
+{"t": 25.0, "event": "job_started", "job": "flange_leak_check-009", "robot": "R1", "detail": {"kind": "flange_leak_check", "target": "F2"}}
+{"t": 30.0, "event": "approved", "job": "rust_repair-014", "robot": null, "detail": {"by": "operator"}}
+{"t": 30.0, "event": "approved", "job": "rust_repair-015", "robot": null, "detail": {"by": "operator"}}
+{"t": 30.0, "event": "approved", "job": "rust_repair-016", "robot": null, "detail": {"by": "operator"}}
+{"t": 30.0, "event": "approved", "job": "rust_repair-017", "robot": null, "detail": {"by": "operator"}}
+{"t": 30.0, "event": "approved", "job": "rust_repair-018", "robot": null, "detail": {"by": "operator"}}
+{"t": 36.0, "event": "job_done", "job": "flange_leak_check-012", "robot": "R2", "detail": {"status": "DONE", "findings": 0, "log": "view 0 read 2/3: 8 bolts read, crack p=0.00"}}
+{"t": 37.0, "event": "assigned", "job": "rust_repair-017", "robot": "R2", "detail": {"cost_s": 168.3, "bids": {"R2": 168.3}, "route_m": 88.5}}
+{"t": 43.0, "event": "job_done", "job": "flange_leak_check-009", "robot": "R1", "detail": {"status": "DONE", "findings": 0, "log": "view 0 read 2/3: 8 bolts read, crack p=0.00"}}
+{"t": 44.0, "event": "assigned", "job": "flange_leak_check-010", "robot": "R1", "detail": {"cost_s": 28.7, "bids": {"R1": 28.7}, "route_m": 14.0}}
+{"t": 66.0, "event": "job_started", "job": "flange_leak_check-010", "robot": "R1", "detail": {"kind": "flange_leak_check", "target": "F3"}}
+{"t": 84.0, "event": "job_done", "job": "flange_leak_check-010", "robot": "R1", "detail": {"status": "DONE", "findings": 0, "log": "view 0 read 2/3: 8 bolts read, crack p=0.00"}}
+{"t": 85.0, "event": "assigned", "job": "flange_leak_check-011", "robot": "R1", "detail": {"cost_s": 36.5, "bids": {"R1": 36.5}, "route_m": 17.6}}
+{"t": 90.0, "event": "new_rust", "job": "rust_repair-019", "robot": null, "detail": {"poi": "rust_low_north", "severity": 0.9, "exposure": 1.0}}
+{"t": 90.0, "event": "job_queued", "job": "rust_repair-019", "robot": null, "detail": {"kind": "rust_repair", "target": "rust_low_north", "level": "SUPV", "priority": 3}}
+{"t": 90.0, "event": "approval_requested", "job": "rust_repair-019", "robot": null, "detail": {"kind": "rust_repair", "target": "rust_low_north", "by": "coordinator", "note": ""}}
+{"t": 93.0, "event": "job_started", "job": "flange_leak_check-008", "robot": "R3", "detail": {"kind": "flange_leak_check", "target": "F1"}}
+{"t": 111.0, "event": "job_done", "job": "flange_leak_check-008", "robot": "R3", "detail": {"status": "DONE", "findings": 0, "log": "view 0 read 2/3: 8 bolts read, crack p=0.00"}}
+{"t": 112.0, "event": "assigned", "job": "rust_repair-014", "robot": "R3", "detail": {"cost_s": 122.8, "bids": {"R3": 122.8}, "route_m": 40.4}}
+{"t": 114.0, "event": "job_started", "job": "flange_leak_check-011", "robot": "R1", "detail": {"kind": "flange_leak_check", "target": "F4"}}
+{"t": 120.0, "event": "approved", "job": "rust_repair-019", "robot": null, "detail": {"by": "operator"}}
+{"t": 132.0, "event": "job_done", "job": "flange_leak_check-011", "robot": "R1", "detail": {"status": "DONE", "findings": 0, "log": "view 0 read 2/3: 8 bolts read, crack p=0.00"}}
+{"t": 133.0, "event": "assigned", "job": "rust_repair-019", "robot": "R1", "detail": {"cost_s": 157.9, "bids": {"R1": 157.9}, "route_m": 101.7}}
+{"t": 156.0, "event": "job_started", "job": "rust_repair-014", "robot": "R3", "detail": {"kind": "rust_repair", "target": "rust_top_pipe"}}
+{"t": 168.0, "event": "job_started", "job": "rust_repair-017", "robot": "R2", "detail": {"kind": "rust_repair", "target": "rust_low_splash"}}
+{"t": 226.0, "event": "job_done", "job": "rust_repair-014", "robot": "R3", "detail": {"status": "DONE", "findings": 1, "log": "outcome DONE (success): paint coverage 99.2% >= 98% and no rust visible -> repair complete"}}
+{"t": 226.0, "event": "finding", "job": "rust_repair-014", "robot": "R3", "detail": {"kind": "corrosion_repaired", "severity": "info", "summary": "rust removed and painted, 3.4% left", "position": [-1.8, 4.0, 43.0]}}
+{"t": 227.0, "event": "assigned", "job": "flange_leak_check-013", "robot": "R3", "detail": {"cost_s": 132.9, "bids": {"R3": 132.9}, "route_m": 44.7}}
+{"t": 238.0, "event": "job_done", "job": "rust_repair-017", "robot": "R2", "detail": {"status": "DONE", "findings": 1, "log": "outcome DONE (success): paint coverage 99.6% >= 98% and no rust visible -> repair complete"}}
+{"t": 238.0, "event": "finding", "job": "rust_repair-017", "robot": "R2", "detail": {"kind": "corrosion_repaired", "severity": "info", "summary": "rust removed and painted, 3.4% left", "position": [-10.0, -4.8, 21.0]}}
+{"t": 239.0, "event": "assigned", "job": "rust_repair-018", "robot": "R2", "detail": {"cost_s": 81.4, "bids": {"R2": 81.4}, "route_m": 40.8}}
+{"t": 240.0, "event": "gas_leak_injected", "job": null, "robot": null, "detail": {"position": [20.46, -10.504, 43.4], "source": "F5", "rate_g_s": 3.5}}
+{"t": 240.0, "event": "gas_alarm", "job": "flange_leak_check-020", "robot": null, "detail": {"position": [20.46, -10.504, 43.4], "source": "fixed gas detector"}}
+{"t": 240.0, "event": "job_queued", "job": "flange_leak_check-020", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F5", "level": "AUTO", "priority": 1}}
+{"t": 240.0, "event": "preempted", "job": "flange_leak_check-013", "robot": "R3", "detail": {"reason": "preempted by flange_leak_check-020 (priority 1)"}}
+{"t": 240.0, "event": "priority_change", "job": "flange_leak_check-020", "robot": "R3", "detail": {"explanation": "flange_leak_check at F5 (priority 1) takes R3 from flange_leak_check at F6; that job is back in the queue.", "used_gemini": false}}
+{"t": 240.0, "event": "assigned", "job": "flange_leak_check-020", "robot": "R3", "detail": {"cost_s": 105.5, "bids": {"R1": 134.4, "R2": 174.0, "R3": 105.5}, "route_m": 22.8}}
+{"t": 255.0, "event": "replanned", "job": "rust_repair-019", "robot": "R1", "detail": {"reason": "obstacle on route", "old_m": 27.5, "new_m": 81.3}}
+{"t": 264.0, "event": "job_started", "job": "flange_leak_check-020", "robot": "R3", "detail": {"kind": "flange_leak_check", "target": "F5"}}
+{"t": 280.0, "event": "job_started", "job": "rust_repair-018", "robot": "R2", "detail": {"kind": "rust_repair", "target": "rust_low_east"}}
+{"t": 282.0, "event": "job_done", "job": "flange_leak_check-020", "robot": "R3", "detail": {"status": "FINDING", "findings": 1, "log": "view 0 read 2/3: 8 bolts read, crack p=0.00"}}
+{"t": 282.0, "event": "finding", "job": "flange_leak_check-020", "robot": "R3", "detail": {"kind": "flange_leak", "severity": "warning", "summary": "F5: bolt preload loss, gas above clear level", "position": [20.46, -10.504, 43.4]}}
+{"t": 282.0, "event": "job_queued", "job": "flange_leak_check-020-torque", "robot": null, "detail": {"kind": "flange_retorque", "target": "F5", "level": "SUPV", "priority": 1, "parent": "flange_leak_check-020"}}
+{"t": 282.0, "event": "approval_requested", "job": "flange_leak_check-020-torque", "robot": null, "detail": {"kind": "flange_retorque", "target": "F5", "by": "coordinator", "note": ""}}
+{"t": 283.0, "event": "assigned", "job": "flange_leak_check-013", "robot": "R3", "detail": {"cost_s": 102.4, "bids": {"R3": 102.4}, "route_m": 12.2}}
+{"t": 303.0, "event": "job_started", "job": "flange_leak_check-013", "robot": "R3", "detail": {"kind": "flange_leak_check", "target": "F6"}}
+{"t": 312.0, "event": "approved", "job": "flange_leak_check-020-torque", "robot": null, "detail": {"by": "operator"}}
+{"t": 312.0, "event": "preempted", "job": "flange_leak_check-013", "robot": "R3", "detail": {"reason": "preempted by flange_leak_check-020-torque (priority 1)"}}
+{"t": 312.0, "event": "priority_change", "job": "flange_leak_check-020-torque", "robot": "R3", "detail": {"explanation": "flange_retorque at F5 (priority 1) takes R3 from flange_leak_check at F6; that job is back in the queue.", "used_gemini": false}}
+{"t": 312.0, "event": "assigned", "job": "flange_leak_check-020-torque", "robot": "R3", "detail": {"cost_s": 102.9, "bids": {"R1": 154.3, "R3": 102.9}, "route_m": 12.2}}
+{"t": 330.0, "event": "requeued", "job": "rust_repair-018", "robot": "R2", "detail": {"reason": "robot failure: drive fault"}}
+{"t": 330.0, "event": "robot_failure", "job": "rust_repair-018", "robot": "R2", "detail": {"reason": "drive fault"}}
+{"t": 332.0, "event": "job_started", "job": "flange_leak_check-020-torque", "robot": "R3", "detail": {"kind": "flange_retorque", "target": "F5"}}
+{"t": 336.0, "event": "job_started", "job": "rust_repair-019", "robot": "R1", "detail": {"kind": "rust_repair", "target": "rust_low_north"}}
+{"t": 355.0, "event": "job_done", "job": "flange_leak_check-020-torque", "robot": "R3", "detail": {"status": "DONE", "findings": 1, "log": "patrol complete: no rust perceived at any pose"}}
+{"t": 355.0, "event": "finding", "job": "flange_leak_check-020-torque", "robot": "R3", "detail": {"kind": "flange_retorqued", "severity": "info", "summary": "F5 re-torqued, gas back under the clear level", "position": [20.46, -10.504, 43.4]}}
+{"t": 356.0, "event": "assigned", "job": "flange_leak_check-013", "robot": "R3", "detail": {"cost_s": 103.6, "bids": {"R3": 103.6}, "route_m": 12.2}}
+{"t": 376.0, "event": "job_started", "job": "flange_leak_check-013", "robot": "R3", "detail": {"kind": "flange_leak_check", "target": "F6"}}
+{"t": 394.0, "event": "job_done", "job": "flange_leak_check-013", "robot": "R3", "detail": {"status": "DONE", "findings": 0, "log": "view 0 read 2/3: 8 bolts read, crack p=0.00"}}
+{"t": 395.0, "event": "assigned", "job": "rust_repair-015", "robot": "R3", "detail": {"cost_s": 152.9, "bids": {"R3": 152.9}, "route_m": 42.5}}
+{"t": 406.0, "event": "job_done", "job": "rust_repair-019", "robot": "R1", "detail": {"status": "DONE", "findings": 1, "log": "outcome DONE (success): paint coverage 100.0% >= 98% and no rust visible -> repair complete"}}
+{"t": 406.0, "event": "finding", "job": "rust_repair-019", "robot": "R1", "detail": {"kind": "corrosion_repaired", "severity": "info", "summary": "rust removed and painted, 3.4% left", "position": [10.0, 12.8, 21.0]}}
+{"t": 407.0, "event": "assigned", "job": "rust_repair-016", "robot": "R1", "detail": {"cost_s": 96.4, "bids": {"R1": 96.4}, "route_m": 60.0}}
+{"t": 420.0, "event": "crack_reported", "job": "flange_leak_check-021", "robot": null, "detail": {"flange": "F3"}}
+{"t": 420.0, "event": "job_queued", "job": "flange_leak_check-021", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F3", "level": "AUTO", "priority": 2}}
+{"t": 420.0, "event": "preempted", "job": "rust_repair-016", "robot": "R1", "detail": {"reason": "preempted by flange_leak_check-021 (priority 2)"}}
+{"t": 420.0, "event": "priority_change", "job": "flange_leak_check-021", "robot": "R1", "detail": {"explanation": "flange_leak_check at F3 (priority 2) takes R1 from rust_repair at rust_mid_west; that job is back in the queue.", "used_gemini": false}}
+{"t": 420.0, "event": "assigned", "job": "flange_leak_check-021", "robot": "R1", "detail": {"cost_s": 140.0, "bids": {"R1": 140.0, "R3": 171.3}, "route_m": 84.1}}
+{"t": 450.0, "event": "handed_to_crew", "job": "rust_repair-018", "robot": null, "detail": {"reason": "no safe route for 120 s (blocked by a failed robot or closure)"}}
+{"t": 464.0, "event": "job_started", "job": "rust_repair-015", "robot": "R3", "detail": {"kind": "rust_repair", "target": "rust_mid_east"}}
+{"t": 520.0, "event": "gas_leak_injected", "job": null, "robot": null, "detail": {"position": [-5.882, 23.977, 43.6], "source": "F2", "rate_g_s": 3.5}}
+{"t": 520.0, "event": "gas_alarm", "job": "flange_leak_check-022", "robot": null, "detail": {"position": [-5.882, 23.977, 43.6], "source": "fixed gas detector"}}
+{"t": 520.0, "event": "job_queued", "job": "flange_leak_check-022", "robot": null, "detail": {"kind": "flange_leak_check", "target": "F2", "level": "AUTO", "priority": 1}}
+{"t": 534.0, "event": "job_done", "job": "rust_repair-015", "robot": "R3", "detail": {"status": "DONE", "findings": 1, "log": "outcome DONE (success): paint coverage 99.6% >= 98% and no rust visible -> repair complete"}}
+{"t": 534.0, "event": "finding", "job": "rust_repair-015", "robot": "R3", "detail": {"kind": "corrosion_repaired", "severity": "info", "summary": "rust removed and painted, 3.4% left", "position": [12.0, -6.8, 32.0]}}
+{"t": 535.0, "event": "low_battery", "job": null, "robot": "R3", "detail": {"battery": 0.284, "to_dock": 0.013, "reason": "idle and low: charge while there is time"}}
+{"t": 546.0, "event": "job_started", "job": "flange_leak_check-021", "robot": "R1", "detail": {"kind": "flange_leak_check", "target": "F3"}}
+{"t": 564.0, "event": "job_done", "job": "flange_leak_check-021", "robot": "R1", "detail": {"status": "FINDING", "findings": 1, "log": "view 0 read 2/3: 8 bolts read, crack p=1.00"}}
+{"t": 564.0, "event": "finding", "job": "flange_leak_check-021", "robot": "R1", "detail": {"kind": "flange_crack", "severity": "critical", "summary": "F3: crack-like feature on the flange face", "position": [-15.942, 23.167, 43.35]}}
+{"t": 564.0, "event": "job_queued", "job": "flange_leak_check-021-replace", "robot": null, "detail": {"kind": "flange_replace", "target": "F3", "level": "HUMAN", "priority": 1, "parent": "flange_leak_check-021"}}
+{"t": 564.0, "event": "handed_to_crew", "job": "flange_leak_check-021-replace", "robot": null, "detail": {"reason": "manual job: routed to crew"}}
+{"t": 565.0, "event": "assigned", "job": "flange_leak_check-022", "robot": "R1", "detail": {"cost_s": 37.8, "bids": {"R1": 37.8}, "route_m": 14.0}}
+{"t": 587.0, "event": "job_started", "job": "flange_leak_check-022", "robot": "R1", "detail": {"kind": "flange_leak_check", "target": "F2"}}
+{"t": 605.0, "event": "job_done", "job": "flange_leak_check-022", "robot": "R1", "detail": {"status": "FINDING", "findings": 1, "log": "view 0 read 2/3: 8 bolts read, crack p=0.00"}}
+{"t": 605.0, "event": "finding", "job": "flange_leak_check-022", "robot": "R1", "detail": {"kind": "flange_leak", "severity": "warning", "summary": "F2: bolt preload loss, gas above clear level", "position": [-5.882, 23.977, 43.6]}}
+{"t": 605.0, "event": "job_queued", "job": "flange_leak_check-022-torque", "robot": null, "detail": {"kind": "flange_retorque", "target": "F2", "level": "SUPV", "priority": 1, "parent": "flange_leak_check-022"}}
+{"t": 605.0, "event": "approval_requested", "job": "flange_leak_check-022-torque", "robot": null, "detail": {"kind": "flange_retorque", "target": "F2", "by": "coordinator", "note": ""}}
+{"t": 606.0, "event": "assigned", "job": "gauge_read-002", "robot": "R1", "detail": {"cost_s": 40.4, "bids": {"R1": 40.4}, "route_m": 15.8}}
+{"t": 621.0, "event": "docked", "job": null, "robot": "R3", "detail": {"battery": 0.272}}
+{"t": 630.0, "event": "job_started", "job": "gauge_read-002", "robot": "R1", "detail": {"kind": "gauge_read", "target": "gauge_02"}}
+{"t": 635.0, "event": "approved", "job": "flange_leak_check-022-torque", "robot": null, "detail": {"by": "operator"}}
+{"t": 635.0, "event": "preempted", "job": "gauge_read-002", "robot": "R1", "detail": {"reason": "preempted by flange_leak_check-022-torque (priority 1)"}}
+{"t": 635.0, "event": "priority_change", "job": "flange_leak_check-022-torque", "robot": "R1", "detail": {"explanation": "flange_retorque at F2 (priority 1) takes R1 from gauge_read at gauge_02; that job is back in the queue.", "used_gemini": false}}
+{"t": 635.0, "event": "assigned", "job": "flange_leak_check-022-torque", "robot": "R1", "detail": {"cost_s": 40.8, "bids": {"R1": 40.8}, "route_m": 15.8}}
+{"t": 659.0, "event": "job_started", "job": "flange_leak_check-022-torque", "robot": "R1", "detail": {"kind": "flange_retorque", "target": "F2"}}
+{"t": 682.0, "event": "job_done", "job": "flange_leak_check-022-torque", "robot": "R1", "detail": {"status": "DONE", "findings": 1, "log": "patrol complete: no rust perceived at any pose"}}
+{"t": 682.0, "event": "finding", "job": "flange_leak_check-022-torque", "robot": "R1", "detail": {"kind": "flange_retorqued", "severity": "info", "summary": "F2 re-torqued, gas back under the clear level", "position": [-5.882, 23.977, 43.6]}}
+{"t": 683.0, "event": "assigned", "job": "gauge_read-004", "robot": "R1", "detail": {"cost_s": 19.4, "bids": {"R1": 19.4}, "route_m": 0.9}}
+{"t": 684.0, "event": "job_started", "job": "gauge_read-004", "robot": "R1", "detail": {"kind": "gauge_read", "target": "gauge_04"}}
+{"t": 704.0, "event": "job_done", "job": "gauge_read-004", "robot": "R1", "detail": {"status": "DONE", "findings": 0, "log": "done in 20 s -> DONE, 0 finding(s)"}}
+{"t": 705.0, "event": "assigned", "job": "gauge_read-003", "robot": "R1", "detail": {"cost_s": 34.9, "bids": {"R1": 34.9}, "route_m": 9.5}}
+{"t": 721.0, "event": "job_started", "job": "gauge_read-003", "robot": "R1", "detail": {"kind": "gauge_read", "target": "gauge_03"}}
+{"t": 741.0, "event": "job_done", "job": "gauge_read-003", "robot": "R1", "detail": {"status": "DONE", "findings": 0, "log": "done in 20 s -> DONE, 0 finding(s)"}}
+{"t": 742.0, "event": "assigned", "job": "gauge_read-002", "robot": "R1", "detail": {"cost_s": 35.6, "bids": {"R1": 35.6}, "route_m": 11.2}}
+{"t": 758.0, "event": "job_started", "job": "gauge_read-002", "robot": "R1", "detail": {"kind": "gauge_read", "target": "gauge_02"}}
+{"t": 778.0, "event": "job_done", "job": "gauge_read-002", "robot": "R1", "detail": {"status": "DONE", "findings": 0, "log": "done in 20 s -> DONE, 0 finding(s)"}}
+{"t": 779.0, "event": "assigned", "job": "gauge_read-001", "robot": "R1", "detail": {"cost_s": 36.0, "bids": {"R1": 36.0}, "route_m": 10.2}}
+{"t": 795.0, "event": "job_started", "job": "gauge_read-001", "robot": "R1", "detail": {"kind": "gauge_read", "target": "gauge_01"}}
+{"t": 815.0, "event": "job_done", "job": "gauge_read-001", "robot": "R1", "detail": {"status": "DONE", "findings": 0, "log": "done in 20 s -> DONE, 0 finding(s)"}}
+{"t": 816.0, "event": "assigned", "job": "gauge_read-005", "robot": "R1", "detail": {"cost_s": 99.0, "bids": {"R1": 99.0}, "route_m": 73.8}}
+{"t": 895.0, "event": "job_started", "job": "gauge_read-005", "robot": "R1", "detail": {"kind": "gauge_read", "target": "gauge_05"}}
+{"t": 915.0, "event": "job_done", "job": "gauge_read-005", "robot": "R1", "detail": {"status": "DONE", "findings": 0, "log": "done in 20 s -> DONE, 0 finding(s)"}}
+{"t": 916.0, "event": "assigned", "job": "gauge_read-006", "robot": "R1", "detail": {"cost_s": 34.3, "bids": {"R1": 34.3}, "route_m": 9.6}}
+{"t": 929.0, "event": "job_started", "job": "gauge_read-006", "robot": "R1", "detail": {"kind": "gauge_read", "target": "gauge_06"}}
+{"t": 949.0, "event": "job_done", "job": "gauge_read-006", "robot": "R1", "detail": {"status": "DONE", "findings": 0, "log": "done in 20 s -> DONE, 0 finding(s)"}}
+{"t": 950.0, "event": "assigned", "job": "gauge_read-007", "robot": "R1", "detail": {"cost_s": 43.6, "bids": {"R1": 43.6}, "route_m": 10.9}}
+{"t": 971.0, "event": "job_started", "job": "gauge_read-007", "robot": "R1", "detail": {"kind": "gauge_read", "target": "gauge_07"}}
+{"t": 991.0, "event": "job_done", "job": "gauge_read-007", "robot": "R1", "detail": {"status": "DONE", "findings": 0, "log": "done in 20 s -> DONE, 0 finding(s)"}}
+{"t": 992.0, "event": "assigned", "job": "rust_repair-016", "robot": "R1", "detail": {"cost_s": 136.8, "bids": {"R1": 136.8}, "route_m": 85.7}}
+{"t": 1106.0, "event": "job_started", "job": "rust_repair-016", "robot": "R1", "detail": {"kind": "rust_repair", "target": "rust_mid_west"}}
+{"t": 1176.0, "event": "job_done", "job": "rust_repair-016", "robot": "R1", "detail": {"status": "DONE", "findings": 1, "log": "outcome DONE (success): paint coverage 99.2% >= 98% and no rust visible -> repair complete"}}
+{"t": 1176.0, "event": "finding", "job": "rust_repair-016", "robot": "R1", "detail": {"kind": "corrosion_repaired", "severity": "info", "summary": "rust removed and painted, 3.4% left", "position": [-21.8, 8.0, 32.0]}}

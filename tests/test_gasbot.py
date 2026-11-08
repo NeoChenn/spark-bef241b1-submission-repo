@@ -201,8 +201,11 @@ def test_hud_header_carries_gas_fields():
     for _ in range(30):
         orch.step()
     g = feed.header()["gas"]
-    assert {"sensors", "lel_max", "alarm", "source", "acoustic", "flow_gs", "h2s_ppm", "wind", "robot"} <= set(g)
-    assert [s["id"] for s in g["sensors"]] == ["trunk_ir", "tip_cat"]
+    assert {"sensors", "max", "alarm", "level", "source", "acoustic", "flow_gs", "flow_kg_h", "h2s_ppm", "wind",
+            "robot"} <= set(g)
+    assert [s["id"] for s in g["sensors"]] == ["IR-T", "CAT-A"]
+    assert all(0 <= s["lel"] <= 1 and "ppm" in s and s["at"] for s in g["sensors"]) and isinstance(g["alarm"], bool)
+    assert g["max"] == max(s["lel"] for s in g["sensors"])
 
 
 def test_solver_field_adapts_a_rate_scaled_plume():
@@ -253,3 +256,19 @@ def test_stripe_reader_on_an_isaac_render_of_a_deck_flange():
     assert {1, 2, 3, 5, 6, 7} <= set(seen) and min(b.conf for b in seen.values()) >= 0.7
     assert abs(seen[2].angle) > 0.15 and abs(seen[6].angle) > 0.1
     assert all(abs(seen[k].angle) < 0.06 for k in (1, 3, 5, 7)) and r.crack_prob < 0.5
+
+
+def test_control_centre_reads_the_gas_bot_header():
+    from policy.control.adapters import from_header
+    from policy.gasbot.mock import build
+    from rig.hud import HudFeed
+    orch, bridge, truth = build(1003, "loose")
+    feed = HudFeed(orch, rid="unit-2", name="Unit 2 · gas")
+    for _ in range(30):
+        orch.step()
+    h = feed.header()
+    s = from_header(h, "unit-2")
+    assert [g.id for g in s.gas] == ["IR-T", "CAT-A"]
+    assert s.gas[1].lel == pytest.approx(h["gas"]["sensors"][1]["lel"] * 100, abs=0.01)
+    assert s.gas[0].acoustic_db == h["gas"]["acoustic"]["db"] and s.wind_deg == h["gas"]["wind"]["dir_deg"]
+    assert s.plume_source and s.robots[0].id == "unit-2"

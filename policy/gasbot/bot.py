@@ -317,19 +317,23 @@ class GasBotOrchestrator(RigOrchestrator):
             src = {"x": round(float(m[0]), 2), "y": round(float(m[1]), 2), "sigma_m": round(sig, 2)}
         mode = self.seeker.mode if self.seeker is not None and self.state == S.GAS_SEEK else self.state.value
         x, y = b.base_xy()
-        return {"unit": UNIT, "mode": mode, "alarm": self.alarm_level(), "lel_max": round(s.lel_max() * 100, 2),
-                "sensors": s.readings(), "h2s_ppm": round(s.h2s.reading, 1),
+        level = self.alarm_level()
+        sensors = [{"id": sid, "at": at, "kind": r.kind, "lel": round(r.lel, 4), "ppm": round(r.reading),
+                    "sat": r.saturated} for r, sid, at in ((s.trunk, "IR-T", "Unit 2 trunk IR"), (s.tip, "CAT-A", "Unit 2 arm tip"))]
+        return {"unit": UNIT, "mode": mode, "sensors": sensors, "max": round(s.lel_max(), 4),
+                "alarm": level in ("ALARM", "RETREAT"), "level": level, "h2s_ppm": round(s.h2s.reading, 1),
                 "acoustic": None if ac is None else {"db": ac.db, "bg_db": ac.background_db, "snr_db": ac.snr_db,
                                                      "bearing_deg": None if ac.bearing is None else
-                                                     round(math.degrees(ac.bearing), 1)},
+                                                     round(math.degrees(ac.bearing) % 360, 1)},
                 "source": src, "flow_gs": None if self.flow is None else round(self.flow, 2),
-                "flow_kgh": None if self.flow is None else round(self.flow * 3.6, 2),
-                "wind": {"dir_deg": round(math.degrees(math.atan2(w[1], w[0])), 1), "speed_ms": round(b.wind.u, 1)},
+                "flow_kg_h": None if self.flow is None else round(self.flow * 3.6, 2),
+                "wind": {"dir_deg": round((math.degrees(math.atan2(w[1], w[0])) + 180) % 360, 1),
+                         "speed_ms": round(b.wind.u, 1)},
                 "robot": {"x": round(float(x), 2), "y": round(float(y), 2),
                           "yaw_deg": round(math.degrees(b.base_yaw()), 1)},
                 "flange": self.flange_id, "ogi": b.ogi_stats,
-                "limits": {"seek_lel": self.seek_cfg.hit_lel * 100, "alarm_lel": self.gcfg.alarm_lel * 100,
-                           "stop_lel": self.lcfg.gas_stop * 100, "h2s_stop": self.gcfg.h2s_stop}}
+                "limits": {"seek": self.seek_cfg.hit_lel, "alarm": self.gcfg.alarm_lel, "stop": self.lcfg.gas_stop,
+                           "h2s_stop_ppm": self.gcfg.h2s_stop}}
 
     def overlay_text(self) -> list[str]:
         s = self.bridge.suite

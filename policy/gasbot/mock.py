@@ -209,7 +209,7 @@ def record_hud(path, seed=10) -> dict:
     from rig.hud import HudFeed, playback_times
     orch, bridge, truth = build(seed, "loose", fid="M3", wind_speed=3.0, wind_dir=math.radians(20), h2s_ratio=2e-4,
                                 start=(6.6, 1.25))
-    feed = HudFeed(orch)
+    feed = HudFeed(orch, rid="unit-2", name="Unit 2 · gas")
     snaps = [feed.header()]
     run(orch, bridge, 200, on_step=lambda o: snaps.append(feed.header()))
     for k, pt in enumerate(playback_times(snaps)):

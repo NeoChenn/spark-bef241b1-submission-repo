@@ -1,0 +1,482 @@
+{
+ "t": 771.0,
+ "jobs_done": 21,
+ "jobs_escalated": 1,
+ "open_tasks": 0,
+ "jobs_by_kind": {
+  "crack": {
+   "escalated": 1
+  },
+  "gas": {
+   "done": 2
+  },
+  "inspect": {
+   "done": 7
+  },
+  "leak_check": {
+   "done": 6
+  },
+  "rust": {
+   "done": 6
+  }
+ },
+ "gas_alarms": 2,
+ "gas_alarms_escalated": 0,
+ "gas_response_mean_s": 29.2,
+ "gas_response_max_s": 35.8,
+ "gas_resolve_mean_s": 55.5,
+ "idle_pct": 1.2,
+ "state_pct": {
+  "CHARGING": 1.8,
+  "IDLE": 1.2,
+  "PAUSED": 1.1,
+  "TO_DOCK": 7.3,
+  "TRANSIT": 53.1,
+  "WAIT": 0.7,
+  "WORK": 34.8
+ },
+ "energy_used_wh": 106.5,
+ "energy_charged_wh": 13.7,
+ "energy_by_robot_wh": {
+  "R1": 42.2,
+  "R2": 19.8,
+  "R3": 44.5
+ },
+ "distance_m": 888.5,
+ "preemptions": 2,
+ "robot_failures": 1,
+ "replans": 36,
+ "reservation_wait_s": 14.0,
+ "corridor_conflicts": 0,
+ "late_tasks": [],
+ "robots": 3,
+ "wall_s": 3.29,
+ "orchestrator_jobs": {
+  "crack/crack": {
+   "duration_s": 3.0,
+   "outcome": "ESCALATE_TO_HUMAN",
+   "decisions": 4
+  },
+  "gas/loose": {
+   "duration_s": 11.0,
+   "outcome": "DONE",
+   "decisions": 19
+  },
+  "inspect/clean": {
+   "duration_s": 0.0,
+   "outcome": "DONE",
+   "decisions": 4
+  },
+  "leak_check/clean": {
+   "duration_s": 3.0,
+   "outcome": "DONE",
+   "decisions": 9
+  },
+  "rust/clean": {
+   "duration_s": 50.000000000000284,
+   "outcome": "DONE",
+   "decisions": 16
+  }
+ },
+ "events": [
+  {
+   "t": 18.0,
+   "kind": "job_start",
+   "message": "R2 starts leak_check:F5 (leak_check) -> orchestrator",
+   "robot": "R2",
+   "task": "leak_check:F5"
+  },
+  {
+   "t": 24.0,
+   "kind": "job_start",
+   "message": "R1 starts leak_check:F2 (leak_check) -> orchestrator",
+   "robot": "R1",
+   "task": "leak_check:F2"
+  },
+  {
+   "t": 35.0,
+   "kind": "job_done",
+   "message": "R2 done leak_check:F5: Flange F5 checked: bolts within tolerance, no crack.",
+   "robot": "R2",
+   "task": "leak_check:F5"
+  },
+  {
+   "t": 41.0,
+   "kind": "job_done",
+   "message": "R1 done leak_check:F2: Flange F2 checked: bolts within tolerance, no crack.",
+   "robot": "R1",
+   "task": "leak_check:F2"
+  },
+  {
+   "t": 54.0,
+   "kind": "job_start",
+   "message": "R2 starts leak_check:F6 (leak_check) -> orchestrator",
+   "robot": "R2",
+   "task": "leak_check:F6"
+  },
+  {
+   "t": 61.0,
+   "kind": "job_start",
+   "message": "R1 starts leak_check:F3 (leak_check) -> orchestrator",
+   "robot": "R1",
+   "task": "leak_check:F3"
+  },
+  {
+   "t": 71.0,
+   "kind": "job_done",
+   "message": "R2 done leak_check:F6: Flange F6 checked: bolts within tolerance, no crack.",
+   "robot": "R2",
+   "task": "leak_check:F6"
+  },
+  {
+   "t": 73.0,
+   "kind": "job_start",
+   "message": "R3 starts rust:rust_low_splash (rust) -> orchestrator",
+   "robot": "R3",
+   "task": "rust:rust_low_splash"
+  },
+  {
+   "t": 78.0,
+   "kind": "job_done",
+   "message": "R1 done leak_check:F3: Flange F3 checked: bolts within tolerance, no crack.",
+   "robot": "R1",
+   "task": "leak_check:F3"
+  },
+  {
+   "t": 90.0,
+   "kind": "new_rust",
+   "message": "new rust reported at rust_low_north (severity 0.9, exposure 1.0) -> queued",
+   "task": "rust:rust_low_north"
+  },
+  {
+   "t": 93.0,
+   "kind": "job_start",
+   "message": "R1 starts leak_check:F1 (leak_check) -> orchestrator",
+   "robot": "R1",
+   "task": "leak_check:F1"
+  },
+  {
+   "t": 110.0,
+   "kind": "job_done",
+   "message": "R1 done leak_check:F1: Flange F1 checked: bolts within tolerance, no crack.",
+   "robot": "R1",
+   "task": "leak_check:F1"
+  },
+  {
+   "t": 143.0,
+   "kind": "job_start",
+   "message": "R1 starts leak_check:F4 (leak_check) -> orchestrator",
+   "robot": "R1",
+   "task": "leak_check:F4"
+  },
+  {
+   "t": 143.0,
+   "kind": "job_done",
+   "message": "R3 done rust:rust_low_splash: paint coverage 99.3% >= 98% and no rust visible -> repair complete",
+   "robot": "R3",
+   "task": "rust:rust_low_splash"
+  },
+  {
+   "t": 160.0,
+   "kind": "job_done",
+   "message": "R1 done leak_check:F4: Flange F4 checked: bolts within tolerance, no crack.",
+   "robot": "R1",
+   "task": "leak_check:F4"
+  },
+  {
+   "t": 184.0,
+   "kind": "job_start",
+   "message": "R3 starts rust:rust_low_east (rust) -> orchestrator",
+   "robot": "R3",
+   "task": "rust:rust_low_east"
+  },
+  {
+   "t": 203.0,
+   "kind": "job_start",
+   "message": "R1 starts rust:rust_top_pipe (rust) -> orchestrator",
+   "robot": "R1",
+   "task": "rust:rust_top_pipe"
+  },
+  {
+   "t": 205.0,
+   "kind": "person",
+   "message": "person on deck at [20.0, -4.0, 20.0] for 90 s -> keep 3 m clear"
+  },
+  {
+   "t": 211.0,
+   "kind": "job_start",
+   "message": "R2 starts rust:rust_low_north (rust) -> orchestrator",
+   "robot": "R2",
+   "task": "rust:rust_low_north"
+  },
+  {
+   "t": 217.0,
+   "kind": "pause_person",
+   "message": "R3 paused: person within 3 m",
+   "robot": "R3"
+  },
+  {
+   "t": 227.0,
+   "kind": "resume",
+   "message": "R3 resumes: person clear",
+   "robot": "R3"
+  },
+  {
+   "t": 240.0,
+   "kind": "gas_alarm",
+   "message": "GAS ALARM at flange F5 -> pre-empt nearest robot, stop hot work within 8 m",
+   "task": "gas:F5"
+  },
+  {
+   "t": 240.0,
+   "kind": "preempt",
+   "message": "R1 pre-empted from rust:rust_top_pipe -> gas alarm F5",
+   "robot": "R1",
+   "task": "rust:rust_top_pipe"
+  },
+  {
+   "t": 244.0,
+   "kind": "pause_person",
+   "message": "R2 paused: person within 3 m",
+   "robot": "R2"
+  },
+  {
+   "t": 254.0,
+   "kind": "resume",
+   "message": "R2 resumes: person clear",
+   "robot": "R2"
+  },
+  {
+   "t": 264.0,
+   "kind": "job_done",
+   "message": "R3 done rust:rust_low_east: paint coverage 99.3% >= 98% and no rust visible -> repair complete",
+   "robot": "R3",
+   "task": "rust:rust_low_east"
+  },
+  {
+   "t": 276.0,
+   "kind": "job_start",
+   "message": "R1 starts gas:F5 (gas) -> orchestrator",
+   "robot": "R1",
+   "task": "gas:F5"
+  },
+  {
+   "t": 291.0,
+   "kind": "job_done",
+   "message": "R2 done rust:rust_low_north: paint coverage 99.3% >= 98% and no rust visible -> repair complete",
+   "robot": "R2",
+   "task": "rust:rust_low_north"
+  },
+  {
+   "t": 295.0,
+   "kind": "person_left",
+   "message": "person left the deck -> clear zone"
+  },
+  {
+   "t": 301.0,
+   "kind": "job_done",
+   "message": "R1 done gas:F5: Leak at F5 repaired automatically: re-torqued bolt(s) [1, 5]; gas back to normal.",
+   "robot": "R1",
+   "task": "gas:F5"
+  },
+  {
+   "t": 308.0,
+   "kind": "job_start",
+   "message": "R1 starts inspect:gauge_05 (inspect) -> orchestrator",
+   "robot": "R1",
+   "task": "inspect:gauge_05"
+  },
+  {
+   "t": 317.0,
+   "kind": "job_done",
+   "message": "R1 done inspect:gauge_05: patrol complete: no rust perceived at any pose",
+   "robot": "R1",
+   "task": "inspect:gauge_05"
+  },
+  {
+   "t": 330.0,
+   "kind": "robot_failure",
+   "message": "R2 failed (rust:rust_mid_east) -> task re-queued, robot marked as obstacle",
+   "robot": "R2"
+  },
+  {
+   "t": 352.0,
+   "kind": "job_start",
+   "message": "R1 starts rust:rust_top_pipe (rust) -> orchestrator",
+   "robot": "R1",
+   "task": "rust:rust_top_pipe"
+  },
+  {
+   "t": 380.0,
+   "kind": "job_start",
+   "message": "R3 starts rust:rust_mid_east (rust) -> orchestrator",
+   "robot": "R3",
+   "task": "rust:rust_mid_east"
+  },
+  {
+   "t": 385.0,
+   "kind": "job_done",
+   "message": "R1 done rust:rust_top_pipe: paint coverage 99.3% >= 98% and no rust visible -> repair complete",
+   "robot": "R1",
+   "task": "rust:rust_top_pipe"
+  },
+  {
+   "t": 418.0,
+   "kind": "job_start",
+   "message": "R1 starts inspect:gauge_03 (inspect) -> orchestrator",
+   "robot": "R1",
+   "task": "inspect:gauge_03"
+  },
+  {
+   "t": 420.0,
+   "kind": "crack",
+   "message": "crack suspected at flange F3 -> queued above rust",
+   "task": "crack:F3"
+  },
+  {
+   "t": 427.0,
+   "kind": "job_done",
+   "message": "R1 done inspect:gauge_03: patrol complete: no rust perceived at any pose",
+   "robot": "R1",
+   "task": "inspect:gauge_03"
+  },
+  {
+   "t": 440.0,
+   "kind": "job_start",
+   "message": "R1 starts crack:F3 (crack) -> orchestrator",
+   "robot": "R1",
+   "task": "crack:F3"
+  },
+  {
+   "t": 450.0,
+   "kind": "job_done",
+   "message": "R3 done rust:rust_mid_east: paint coverage 99.3% >= 98% and no rust visible -> repair complete",
+   "robot": "R3",
+   "task": "rust:rust_mid_east"
+  },
+  {
+   "t": 457.0,
+   "kind": "job_done",
+   "message": "R1 escalated crack:F3: Crack or burst suspected at F3; robot backed off and did not attempt repair.",
+   "robot": "R1",
+   "task": "crack:F3"
+  },
+  {
+   "t": 468.0,
+   "kind": "job_start",
+   "message": "R1 starts inspect:gauge_02 (inspect) -> orchestrator",
+   "robot": "R1",
+   "task": "inspect:gauge_02"
+  },
+  {
+   "t": 477.0,
+   "kind": "job_done",
+   "message": "R1 done inspect:gauge_02: patrol complete: no rust perceived at any pose",
+   "robot": "R1",
+   "task": "inspect:gauge_02"
+  },
+  {
+   "t": 492.0,
+   "kind": "job_start",
+   "message": "R1 starts inspect:gauge_01 (inspect) -> orchestrator",
+   "robot": "R1",
+   "task": "inspect:gauge_01"
+  },
+  {
+   "t": 498.0,
+   "kind": "job_start",
+   "message": "R3 starts rust:rust_mid_west (rust) -> orchestrator",
+   "robot": "R3",
+   "task": "rust:rust_mid_west"
+  },
+  {
+   "t": 501.0,
+   "kind": "job_done",
+   "message": "R1 done inspect:gauge_01: patrol complete: no rust perceived at any pose",
+   "robot": "R1",
+   "task": "inspect:gauge_01"
+  },
+  {
+   "t": 520.0,
+   "kind": "gas_alarm",
+   "message": "GAS ALARM at flange F2 -> pre-empt nearest robot, stop hot work within 8 m",
+   "task": "gas:F2"
+  },
+  {
+   "t": 520.0,
+   "kind": "preempt",
+   "message": "R1 pre-empted from inspect:gauge_04 -> gas alarm F2",
+   "robot": "R1",
+   "task": "inspect:gauge_04"
+  },
+  {
+   "t": 543.0,
+   "kind": "job_start",
+   "message": "R1 starts gas:F2 (gas) -> orchestrator",
+   "robot": "R1",
+   "task": "gas:F2"
+  },
+  {
+   "t": 568.0,
+   "kind": "job_done",
+   "message": "R1 done gas:F2: Leak at F2 repaired automatically: re-torqued bolt(s) [1, 5]; gas back to normal.",
+   "robot": "R1",
+   "task": "gas:F2"
+  },
+  {
+   "t": 568.0,
+   "kind": "job_done",
+   "message": "R3 done rust:rust_mid_west: paint coverage 99.3% >= 98% and no rust visible -> repair complete",
+   "robot": "R3",
+   "task": "rust:rust_mid_west"
+  },
+  {
+   "t": 586.0,
+   "kind": "job_start",
+   "message": "R1 starts inspect:gauge_04 (inspect) -> orchestrator",
+   "robot": "R1",
+   "task": "inspect:gauge_04"
+  },
+  {
+   "t": 595.0,
+   "kind": "job_done",
+   "message": "R1 done inspect:gauge_04: patrol complete: no rust perceived at any pose",
+   "robot": "R1",
+   "task": "inspect:gauge_04"
+  },
+  {
+   "t": 668.0,
+   "kind": "job_start",
+   "message": "R3 starts inspect:gauge_06 (inspect) -> orchestrator",
+   "robot": "R3",
+   "task": "inspect:gauge_06"
+  },
+  {
+   "t": 677.0,
+   "kind": "job_done",
+   "message": "R3 done inspect:gauge_06: patrol complete: no rust perceived at any pose",
+   "robot": "R3",
+   "task": "inspect:gauge_06"
+  },
+  {
+   "t": 678.0,
+   "kind": "return_to_charge",
+   "message": "R3 battery 26% -> return to dock",
+   "robot": "R3"
+  },
+  {
+   "t": 684.0,
+   "kind": "job_start",
+   "message": "R1 starts inspect:gauge_07 (inspect) -> orchestrator",
+   "robot": "R1",
+   "task": "inspect:gauge_07"
+  },
+  {
+   "t": 693.0,
+   "kind": "job_done",
+   "message": "R1 done inspect:gauge_07: patrol complete: no rust perceived at any pose",
+   "robot": "R1",
+   "task": "inspect:gauge_07"
+  }
+ ]
+}

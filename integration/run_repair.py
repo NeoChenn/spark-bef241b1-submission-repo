@@ -54,6 +54,8 @@ parser.add_argument("--bar", type=float, default=10.0)
 parser.add_argument("--max-sim-s", type=float, default=90.0)
 parser.add_argument("--no-gemini", action="store_true",
                     help="skip the Gemini second opinion even if GEMINI_API_KEY is set")
+parser.add_argument("--control", choices=["off", "auto", "live", "replay"], default="auto",
+                    help="fleet control centre: gemini-4-argon when a key is set (auto/live), else offline replay")
 args = parser.parse_args()
 
 from isaacsim import SimulationApp
@@ -80,6 +82,9 @@ from integration.isaac_bridge import Frames, IsaacRigBridge
 from policy.demo_mock import GreedyScrub, MockRustWorld
 from policy.gemini_verifier import GeminiVerifier
 from policy.orchestrator import Orchestrator, OrchestratorConfig, S, draw_hud
+from rig.camera import from_usd
+from rig.hud import HudFeed
+from rig.overlay import burn
 
 OUT = Path(args.out)
 FRAMES = OUT / "frames"
@@ -134,7 +139,6 @@ def make_localizer():
 
 
 def inset(frame: np.ndarray, inspection: np.ndarray | None, mask: np.ndarray | None, label: str) -> np.ndarray:
-    """Detector view in the bottom-right corner: the inspection frame with the rust mask outlined in red."""
     if inspection is None:
         return frame
     view = inspection[..., :3].astype(np.float32).copy()
@@ -166,10 +170,10 @@ def main() -> None:
     pipe = rs.read_pipe(rs.find_main_pipe(stage))
     world = make_world(pipe, theta)
 
-    state = {"orch": None, "frame": 0, "shot": 2, "feed": None}
+    state = {"orch": None, "frame": 0, "shot": 2, "feed": None, "captions": None}
     sender = None
     if args.stream:
-        from rig.hud import HudFeed, apply_event
+        from rig.hud import apply_event
         from rig.sim.sender import FrameSender
         host, port = args.stream.rsplit(":", 1)
         sender = FrameSender(host, int(port)).start()
@@ -189,6 +193,8 @@ def main() -> None:
         mask = orch.last.result.mask if orch is not None and orch.last is not None else None
         frame = inset(rgb, bridge.last_inspection, mask, "inspection camera + detector mask")
         frame = draw_hud(frame, hud) if hud else frame
+        if state["captions"] is not None:
+            frame = burn(frame, [state["captions"].robot()], top=14 * len(hud) + 22)
         Image.fromarray(frame).save(FRAMES / f"{state['frame']:05d}.jpg", quality=92)
         state["frame"] += 1
         if sender is not None and state["feed"] is not None:
@@ -198,7 +204,7 @@ def main() -> None:
         while not sender.inbox.empty():
             event = sender.inbox.get_nowait()
             try:
-                apply_event(bridge, event)
+                apply_event(bridge, event, state["feed"].control)
                 print(f"   >>> [web event t={bridge.sim_time():5.1f}s] {event}", flush=True)
             except Exception as e:
                 print(f"   >>> [web event rejected] {event}: {e}", flush=True)
@@ -241,8 +247,24 @@ def main() -> None:
                         OrchestratorConfig(log_path=str(OUT / "decisions.jsonl"), scrub_steps=200,
                                            scrub_redetect_every=40), advisor=advisor)
     state["orch"] = orch
+
+    def view_camera():
+        on_inspection = bridge.state.shot == 3 and bridge.last_inspection is not None
+        cam, (w, h) = (bridge.inspection, INSPECTION_SIZE) if on_inspection else (hero, (hero_w, hero_h))
+        return from_usd(cam.world_matrix(), cam.focal, cam.aperture, w, h)
+
+    state["captions"] = HudFeed(orch, pose=lambda: bridge.state.base[:3, 3], camera=view_camera)
     if sender is not None:
-        state["feed"] = HudFeed(orch)
+        if args.control != "off":
+            from policy.control.centre import from_env
+            from policy.control.port import MemoryCoordinator
+            port = MemoryCoordinator([{"id": "unit-1", "state": "PATROL", "zone": "A"}],
+                                     [{"id": "R-1", "kind": "rust_repair", "target": "main pipe", "level": "SUPV",
+                                       "status": "RUNNING"}], clock=bridge.sim_time)
+            state["captions"].control = from_env(args.control, OUT / "control_calls.jsonl", port=port)
+            backend = state["captions"].control.backend
+            print(f"CONTROL CENTRE {backend.name if backend else 'edge only'}", flush=True)
+        state["feed"] = state["captions"]
     if args.glare:
         bridge.set_glare(True)
         original = bridge.request_view
@@ -264,7 +286,7 @@ def main() -> None:
             continue
         if prev == S.SPRAY and "patch" not in fired:
             fired.add("patch")
-            th_new, z_new = theta + 0.28, 0.12
+            th_new, z_new = theta - 0.3, 0.12
             bridge.schedule(now + 12.0, f"NEW rust patch at theta={th_new:.2f}, z={z_new:+.2f}",
                             lambda: bridge.spawn_patch(th_new, z_new, size=0.035, level=0.85))
         if orch.state == S.SCRUB and "bead" not in fired:

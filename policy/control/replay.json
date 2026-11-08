@@ -1,0 +1,100 @@
+{
+  "nominal": {
+    "situation": "All robots nominal; gas at background on both decks (2% LEL), acoustic flat.\ngo2-2 patrolling deck B; go2-3 docked and charging.\nNo action needed.",
+    "actions": [
+      {"kind": "resume", "robot": "go2-2", "target": "B", "confidence": 0.71, "rationale": "Gas and ultrasonic baselines are flat; continue the deck B patrol loop."}
+    ],
+    "anomalies": []
+  },
+  "repair": {
+    "situation": "go2-1 is treating rust patch R-1 on deck A; detector confident, brush force inside the 40 N limit.\nDeck B gas flat at 2% LEL; go2-2 on patrol, go2-3 charging at the dock.\nKeep go2-3 docked as the backup verifier.",
+    "actions": [
+      {"kind": "resume", "robot": "go2-1", "target": "R-1", "confidence": 0.84, "rationale": "Repair is proceeding inside force and soak limits with no competing hazard."},
+      {"kind": "hold", "robot": "go2-3", "target": "dock", "confidence": 0.58, "rationale": "Battery under 80%: hold on the dock until a second-view task needs it."}
+    ],
+    "anomalies": []
+  },
+  "leak_suspect": {
+    "situation": "Probable flange leak at F3 (deck B): gas and ultrasonic dB rising together for ~20 s.\nPlume estimate under 1 kg/h methane, drifting west; deck A is upwind and unaffected.\nSend go2-2 to check F3 bolts; second view from go2-3.",
+    "actions": [
+      {"kind": "dispatch", "robot": "go2-2", "target": "L-F3", "confidence": 0.86, "rationale": "Nearest robot; the gas and acoustic co-rise localises the source to the F3 flange."},
+      {"kind": "second_view", "robot": "go2-3", "target": "L-F3", "confidence": 0.64, "rationale": "An independent upwind view separates a loose bolt from a gasket failure."},
+      {"kind": "escalate", "robot": "", "target": "B", "confidence": 0.55, "rationale": "A leak above 10% LEL needs the control room to check hot-work permits on deck B."}
+    ],
+    "anomalies": [
+      {"kind": "probable_leak", "zone": "F3", "severity": "warn", "confidence": 0.82, "sensors": ["G-F3 %LEL", "G-F3 dB"], "note": "Gas %LEL and ultrasonic dB rising together at one flange."}
+    ]
+  },
+  "evacuate": {
+    "situation": "Gas at F3 jumped past 50% LEL with a step in dB and plume flow: likely gasket blowout.\nEdge rules pulled go2-2 upwind and evacuated deck B.\nIsolate the F3 line from the control room; robots stay out until gas is under 10% LEL.",
+    "actions": [
+      {"kind": "escalate", "robot": "", "target": "B", "confidence": 0.93, "rationale": "Above 50% LEL needs human isolation of the line; a robot cannot fix a blowout."},
+      {"kind": "evacuate", "robot": "", "target": "B", "confidence": 0.9, "rationale": "Plume covers the deck B walkway; keep people and robots out."},
+      {"kind": "hold", "robot": "go2-3", "target": "dock", "confidence": 0.81, "rationale": "Keep the backup robot off deck B until the gas falls."},
+      {"kind": "dispatch", "robot": "go2-2", "target": "L-F3", "confidence": 0.41, "rationale": "Re-torquing the loose bolts would stop the leak at the source."}
+    ],
+    "anomalies": [
+      {"kind": "gasket_blowout", "zone": "F3", "severity": "critical", "confidence": 0.77, "sensors": ["G-F3 %LEL", "G-F3 dB", "plume"], "note": "Step change in gas, dB and plume flow at once, not a slow seep."}
+    ]
+  },
+  "recovering": {
+    "situation": "F3 line isolated by the crew; gas falling fast and ultrasonic back near baseline.\nStorm building on deck B: gusts on the exposed walkway.\nRe-check F3 once gas is under 5% LEL; deck A repair carries on.",
+    "actions": [
+      {"kind": "hold", "robot": "go2-2", "target": "B", "confidence": 0.76, "rationale": "Wait for gas under 5% LEL and calmer gusts before re-entering deck B."},
+      {"kind": "resume", "robot": "go2-1", "target": "R-1", "confidence": 0.68, "rationale": "Deck A stayed upwind of the F3 plume throughout."},
+      {"kind": "dispatch", "robot": "go2-3", "target": "L-F3", "confidence": 0.52, "rationale": "Freshest battery; verify the F3 bolts once the gas has cleared."}
+    ],
+    "anomalies": [
+      {"kind": "storm_exposure", "zone": "B", "severity": "warn", "confidence": 0.66, "sensors": ["storm_level", "wind"], "note": "Storm level rising while a robot waits on the exposed deck."}
+    ]
+  },
+  "force_spike": {
+    "situation": "go2-1 hit a force spike on patch R-1; the edge layer backed it off.\nSharp force step while most rust remains: likely a weld bead or pitting under the brush.\nTake a close-up before resuming at reduced press.",
+    "actions": [
+      {"kind": "second_view", "robot": "go2-1", "target": "R-1", "confidence": 0.74, "rationale": "A close-up shows whether the spike was a weld bead or a pit before scrubbing on."},
+      {"kind": "resume", "robot": "go2-1", "target": "R-1", "confidence": 0.52, "rationale": "Retry at 0.7x press once the view confirms no crack."}
+    ],
+    "anomalies": [
+      {"kind": "surface_damage", "zone": "A", "severity": "warn", "confidence": 0.71, "sensors": ["go2-1 force", "go2-1 rust %"], "note": "Force spike with most rust still present: weld bead or pitting under the brush."}
+    ]
+  },
+  "person": {
+    "situation": "Worker inside 3 m of go2-1 on deck A; the edge layer paused the arm.\nRepair R-1 resumes by itself once the worker is past 3 m.\nOther robots unaffected.",
+    "actions": [
+      {"kind": "hold", "robot": "go2-1", "target": "R-1", "confidence": 0.88, "rationale": "Keep the arm parked until the person is more than 3 m away."},
+      {"kind": "escalate", "robot": "", "target": "A", "confidence": 0.42, "rationale": "Remind the deck A crew of the 3 m exclusion zone around active repair."}
+    ],
+    "anomalies": [
+      {"kind": "exclusion_breach", "zone": "A", "severity": "info", "confidence": 0.9, "sensors": ["go2-1 person"], "note": "Person inside the 3 m zone during active repair."}
+    ]
+  },
+  "verifier_dispute": {
+    "situation": "go2-1 detector says the patch is clean but Gemini-ER still sees rust residue.\nPainting over rust is the failure to prevent, so trust the stricter verdict.\nF3 gas back to background; storm easing.",
+    "actions": [
+      {"kind": "resume", "robot": "go2-1", "target": "R-1", "confidence": 0.83, "rationale": "Run one more scrub cycle before paint; the verifier sees orange residue."},
+      {"kind": "second_view", "robot": "go2-1", "target": "R-1", "confidence": 0.61, "rationale": "A second angle resolves glare-driven disagreement between the two checks."}
+    ],
+    "anomalies": [
+      {"kind": "verifier_disagreement", "zone": "A", "severity": "warn", "confidence": 0.8, "sensors": ["detector", "gemini-er"], "note": "On-board detector under 5% rust vs Gemini-ER rust verdict."}
+    ]
+  },
+  "storm": {
+    "situation": "Storm level high: gusts and spray across the decks, camera views degrading.\nWork under cover can continue; exposed patrols should wait.\nEdge gas, force and person rules stay in force.",
+    "actions": [
+      {"kind": "hold", "robot": "go2-2", "target": "B", "confidence": 0.78, "rationale": "Gusts on the exposed deck raise slip and false-detection risk."},
+      {"kind": "resume", "robot": "go2-1", "target": "R-1", "confidence": 0.55, "rationale": "Repair site is sheltered and force stays in limits."}
+    ],
+    "anomalies": [
+      {"kind": "storm_exposure", "zone": "B", "severity": "warn", "confidence": 0.7, "sensors": ["storm_level", "wind"], "note": "Storm level high during exposed outdoor work."}
+    ]
+  },
+  "done": {
+    "situation": "Repair R-1 complete: rust 0%, paint 100%, confirmed by detector and Gemini-ER.\nF3 isolated and gas back to background; storm easing.\nSend go2-3 to re-check F3 bolts; go2-1 back to patrol.",
+    "actions": [
+      {"kind": "dispatch", "robot": "go2-3", "target": "L-F3", "confidence": 0.78, "rationale": "Freshest battery; the F3 flange needs a post-isolation bolt check."},
+      {"kind": "resume", "robot": "go2-1", "target": "A", "confidence": 0.7, "rationale": "Repair verified; return to the deck A patrol loop."},
+      {"kind": "resume", "robot": "go2-2", "target": "B", "confidence": 0.62, "rationale": "Gas clear and gusts easing; resume the deck B patrol."}
+    ],
+    "anomalies": []
+  }
+}

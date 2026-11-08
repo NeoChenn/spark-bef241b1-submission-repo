@@ -35,19 +35,19 @@ def gas_panel(img: Image.Image, g: dict) -> None:
     d = ImageDraw.Draw(img, "RGBA")
     W = img.width
     x0, y0, w = W - 300, 12, 288
-    rows = [("CH4 trunk IR", f"{g['sensors'][0]['lel']:.1f} %LEL", g["sensors"][0]["lel"]),
-            ("CH4 arm tip", f"{g['sensors'][1]['lel']:.1f} %LEL", g["sensors"][1]["lel"]),
+    tr, tp = (100 * x["lel"] for x in g["sensors"])
+    rows = [("CH4 trunk IR", f"{tr:.1f} %LEL", tr), ("CH4 arm tip", f"{tp:.1f} %LEL", tp),
             ("H2S", f"{g['h2s_ppm']:.1f} ppm", None),
             ("Ultrasound", "--" if not g["acoustic"] else f"{g['acoustic']['db']:.0f} dB (+{max(g['acoustic']['snr_db'], 0):.0f})", None),
             ("Source", "--" if not g["source"] else
              f"{g['source']['x']:.1f}, {g['source']['y']:.1f} +/-{g['source']['sigma_m']:.1f} m", None),
             ("Flow", "--" if g["flow_gs"] is None else f"{g['flow_gs']:.1f} g/s", None),
-            ("Wind", f"{g['wind']['dir_deg']:.0f} deg {g['wind']['speed_ms']:.1f} m/s", None)]
+            ("Wind from", f"{g['wind']['dir_deg']:.0f} deg {g['wind']['speed_ms']:.1f} m/s", None)]
     h = 34 + 20 * len(rows) + 8
     d.rounded_rectangle([x0, y0, x0 + w, y0 + h], 12, fill=(38, 38, 36, 215))
     col = {"OK": (63, 185, 80), "DETECT": (227, 179, 65), "ALARM": (248, 81, 73), "RETREAT": (248, 81, 73)}
     d.text((x0 + 12, y0 + 9), f"GAS SENSORS  {g['unit']}", fill=(245, 244, 238))
-    d.text((x0 + w - 70, y0 + 9), g["alarm"], fill=col[g["alarm"]])
+    d.text((x0 + w - 70, y0 + 9), g["level"], fill=col[g["level"]])
     for k, (name, val, bar) in enumerate(rows):
         y = y0 + 32 + 20 * k
         d.text((x0 + 12, y), name, fill=(190, 189, 182))
@@ -209,7 +209,7 @@ def run(app, rep, stage, args, out: Path, hero, hero_size, encode) -> None:
         from rig.hud import HudFeed
         from rig.sim.sender import FrameSender
         host, port = args.stream.rsplit(":", 1)
-        sender, feed = FrameSender(host, int(port)).start(), HudFeed(orch)
+        sender, feed = FrameSender(host, int(port)).start(), HudFeed(orch, rid="unit-2", name="Unit 2 · gas")
     truth = {"fid": args.leak_flange, "flow_gs": flow_full[args.leak_flange] * lw.flanges[args.leak_flange].level,
              "source": deck.leak_point(lw.flanges[args.leak_flange].geom).tolist(), "wind_dir": args.wind_dir,
              "wind_speed": args.wind_speed}

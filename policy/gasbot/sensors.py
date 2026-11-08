@@ -220,7 +220,3 @@ class SensorSuite:
 
     def lel_max(self) -> float:
         return max(self.trunk.lel, self.tip.lel)
-
-    def readings(self) -> list[dict]:
-        return [{"id": s.name, "kind": s.kind, "ppm": round(s.reading, 0), "lel": round(s.lel * 100, 2),
-                 "sat": s.saturated} for s in (self.trunk, self.tip)]
