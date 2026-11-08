@@ -20,6 +20,7 @@ ap.add_argument("--views", default="wide,deck_mid,repair,waterline,flare")
 ap.add_argument("--out", default="/rig/runs/judge")
 ap.add_argument("--tag", default="judge")
 ap.add_argument("--t", type=float, default=6.0)
+ap.add_argument("--times", default="")
 ap.add_argument("--warm", type=int, default=24)
 ap.add_argument("--lens", action="store_true")
 ap.add_argument("--set", action="append", default=[])
@@ -110,20 +111,23 @@ def tick(t):
         atm.update(t)
 
 
-for name in filter(None, args.views.split(",")):
-    start = time.monotonic()
-    aim(*VIEWS[name])
-    for i in range(args.warm):
-        tick(args.t - args.warm / 24.0 + i / 24.0)
+times = [float(x) for x in args.times.split(",") if x] or [args.t]
+for t0 in times:
+    suffix = f"_t{t0:g}" if len(times) > 1 else ""
+    for name in filter(None, args.views.split(",")):
+        start = time.monotonic()
         aim(*VIEWS[name])
-        rep.orchestrator.step(rt_subframes=1, delta_time=1.0 / 24.0, pause_timeline=False)
-    tick(args.t)
-    aim(*VIEWS[name])
-    rep.orchestrator.step(rt_subframes=args.subframes, delta_time=1.0 / 24.0, pause_timeline=False)
-    rgb = np.asarray(ann.get_data())[..., :3].astype(np.uint8)
-    if atm is not None:
-        rgb = atm.post(rgb, header(), args.t, args.lens)
-    Image.fromarray(np.ascontiguousarray(rgb)).save(out / f"{args.tag}_{name}.png")
-    print(f"VIEW {name} mean={rgb.mean():.1f} s={time.monotonic() - start:.1f}", flush=True)
+        for i in range(args.warm):
+            tick(t0 - args.warm / 24.0 + i / 24.0)
+            aim(*VIEWS[name])
+            rep.orchestrator.step(rt_subframes=1, delta_time=1.0 / 24.0, pause_timeline=False)
+        tick(t0)
+        aim(*VIEWS[name])
+        rep.orchestrator.step(rt_subframes=args.subframes, delta_time=1.0 / 24.0, pause_timeline=False)
+        rgb = np.asarray(ann.get_data())[..., :3].astype(np.uint8)
+        if atm is not None:
+            rgb = atm.post(rgb, header(), t0, args.lens)
+        Image.fromarray(np.ascontiguousarray(rgb)).save(out / f"{args.tag}{suffix}_{name}.png")
+        print(f"VIEW {name} mean={rgb.mean():.1f} s={time.monotonic() - start:.1f}", flush=True)
 print("DONE", flush=True)
 os._exit(0)
