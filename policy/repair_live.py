@@ -12,6 +12,62 @@ if ROOT not in sys.path:
 
 WIDE = ((2.9, 2.3, 2.0), (-0.6, -0.3, 0.75))
 CLOSE = ((0.75, -0.02, 1.62), (0.0, -0.42, 1.18))
+DEFAULT_DETECTOR = os.path.join(ROOT, "runs", "detector", "best")
+ORT_PREBUNDLE = r"C:\isaacsim\exts\isaacsim.pip.onnx\pip_prebundle"
+
+
+def _ensure_onnxruntime():
+    try:
+        import onnxruntime  # noqa: F401
+        return True
+    except ImportError:
+        pass
+    if os.path.isdir(ORT_PREBUNDLE) and ORT_PREBUNDLE not in sys.path:
+        sys.path.append(ORT_PREBUNDLE)
+    try:
+        import onnxruntime  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+def make_localizer(detector_dir: str = "", hue_lo: float = 0.3):
+    """LoRA rust detector (model.onnx + meta.json) if present, else the colour stand-in.
+
+    Returns (localizer, info); info says which detector actually runs, for the summary and captions."""
+    from detection.localize import RustLocalizer, colour_classifier
+
+    d = detector_dir or ""
+    missing = [f for f in ("model.onnx", "meta.json") if not (d and os.path.isfile(os.path.join(d, f)))]
+    reason = f"missing {', '.join(missing)} in {d or '(no --detector)'}" if missing else ""
+    if not missing and not _ensure_onnxruntime():
+        reason = "onnxruntime not importable"
+    if not reason:
+        try:
+            loc = RustLocalizer.from_checkpoint(d, patch=96, stride=48)
+            meta = json.load(open(os.path.join(d, "meta.json")))
+            info = {"kind": "lora_onnx", "label": "LoRA rust detector (ONNX)", "dir": os.path.abspath(d),
+                    "backbone": meta.get("backbone", meta.get("model", meta.get("arch"))),
+                    "threshold": loc.threshold, "temperature": loc.temperature, "patch": 96, "stride": 48}
+            return loc, info
+        except Exception as e:  # corrupt file, wrong runtime: run on, but say so
+            reason = f"load failed: {type(e).__name__}: {e}"
+    loc = RustLocalizer(colour_classifier(hue_lo), patch=32, stride=16, threshold=0.5, temperature=1.0)
+    return loc, {"kind": "colour_standin", "label": "colour stand-in (not the trained detector)", "hue_lo": hue_lo,
+                 "fallback_reason": reason, "patch": 32, "stride": 16}
+
+
+def select_policy(ckpt: str, storm: float = 0.0, storm_ckpt: str = "") -> tuple[str, dict]:
+    """Storm v3 checkpoint when storm > 0 and it exists, else the calm (v2) --ckpt."""
+    if storm > 0 and storm_ckpt and os.path.isfile(storm_ckpt):
+        return storm_ckpt, {"kind": "storm_v3", "label": "PPO scrub storm v3", "ckpt": os.path.abspath(storm_ckpt),
+                            "storm": storm}
+    info = {"kind": "scrub_v2", "label": "PPO scrub v2", "ckpt": os.path.abspath(ckpt), "storm": storm}
+    if storm > 0:
+        info["fallback_reason"] = (f"storm v3 checkpoint not found: {storm_ckpt}" if storm_ckpt
+                                   else "no --storm-ckpt given")
+        info["label"] = "PPO scrub v2 (storm v3 checkpoint missing)"
+    return ckpt, info
 
 
 def worker(argv):
@@ -33,10 +89,18 @@ def worker(argv):
     p.add_argument("--hue_lo", type=float, default=0.3)
     p.add_argument("--fps", type=int, default=15)
     p.add_argument("--hero_rust", action="store_true")
+    p.add_argument("--detector", default=DEFAULT_DETECTOR,
+                   help="folder with model.onnx + meta.json (LoRA rust detector); colour stand-in if missing")
+    p.add_argument("--storm", type=float, default=0.0, help="storm level 0-1 (gusts, deck sway, wet pipe)")
+    p.add_argument("--storm-ckpt", "--storm_ckpt", dest="storm_ckpt", default="",
+                   help="storm v3 scrub checkpoint (model_<it>.pt), used instead of --ckpt when --storm > 0")
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)
     args = p.parse_args(argv)
+    ckpt, policy_info = select_policy(args.ckpt, args.storm, args.storm_ckpt)
+    print(f"SCRUB POLICY {policy_info['label']} {ckpt}"
+          + (f" ({policy_info['fallback_reason']})" if "fallback_reason" in policy_info else ""), flush=True)
     args.headless, args.enable_cameras = True, True
     app = AppLauncher(args).app
 
@@ -53,7 +117,6 @@ def worker(argv):
     from isaaclab.sim import RenderCfg
     from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
 
-    from detection.localize import RustLocalizer, colour_classifier
     from integration.lab_bridge import ExternalScrub, LabRepairBridge, LabWorld, frame_telemetry, write_jsonl
     from integration.lab_video import FrameComposer
     from policy.envs import scrub_env_cfg as C
@@ -74,6 +137,8 @@ def worker(argv):
     cfg.sensor_in_loop = True
     cfg.spring_k_range = (cfg.contact_stiffness, cfg.contact_stiffness)
     cfg.abrasion_coef_range = (args.abrasion, args.abrasion)
+    if args.storm > 0:
+        cfg.storm_level_range = (args.storm, args.storm)
     cfg.prob_new_patch = 0.0
     cfg.init_joint_noise = 0.0
     cfg.episode_length_s = 1.0e6
@@ -91,7 +156,7 @@ def worker(argv):
     base = env.unwrapped
     env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
     runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
-    runner.load(args.ckpt)
+    runner.load(ckpt)
     policy = runner.get_inference_policy(device=base.device)
     get_dones = base._get_dones
 
@@ -207,8 +272,14 @@ def worker(argv):
     for _ in range(20):
         base.sim.render()
 
-    localizer = RustLocalizer(colour_classifier(args.hue_lo), patch=32, stride=16, threshold=0.5, temperature=1.0)
-    print(f"DETECTOR colour stand-in hue_lo={args.hue_lo} (no detector checkpoint on this box)", flush=True)
+    localizer, detector_info = make_localizer(args.detector, args.hue_lo)
+    if detector_info["kind"] == "lora_onnx":
+        print(f"DETECTOR {detector_info['label']} {detector_info['dir']} thr={detector_info['threshold']:.3f} "
+              f"T={detector_info['temperature']:.3f}", flush=True)
+    else:
+        print(f"DETECTOR colour stand-in hue_lo={args.hue_lo} ({detector_info['fallback_reason']})", flush=True)
+    json.dump({"detector": detector_info, "policy": policy_info, "storm": args.storm},
+              open(os.path.join(args.out_dir, "run_info.json"), "w"), indent=1)
     advisor = None
     if not args.no_gemini:
         from policy.gemini_verifier import GeminiVerifier
@@ -286,7 +357,8 @@ def worker(argv):
         "painted_cells": int(world.painted.sum()),
         "force_all": force_stats(ff, bridge.phys_dt), "force_scrub": force_stats(ff[scrub], bridge.phys_dt),
         "back_off_windows": intervals(list(ft), list(fs == "BACK_OFF")),
-        "bead": bridge.bead_cells, "gemini": bool(advisor), "detector": "colour stand-in",
+        "bead": bridge.bead_cells, "gemini": bool(advisor), "detector": detector_info["label"], "detector_info": detector_info,
+        "policy": policy_info["label"], "policy_info": policy_info, "storm": args.storm,
         "setpoint_cap_n": 38.0, "force_limit_n": 40.0, "frames": len(history), "wall_s": round(time.time() - started, 1),
     }
     json.dump(summary, open(os.path.join(args.out_dir, "summary.json"), "w"), indent=1)
