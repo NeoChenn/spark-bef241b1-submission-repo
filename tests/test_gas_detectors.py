@@ -32,13 +32,13 @@ def test_usd_detectors_switch_state():
     stage = Usd.Stage.CreateInMemory()
     gd = GasDetectors(stage)
     pos = gd.positions()
-    assert set(pos) == {f"GD-{f['id']}" for f in META["flanges"]}
+    assert set(pos) == {f"G-{f['id']}" for f in META["flanges"]}
     for state in STATES:
         gd.set_detector_state("F1", state)
-        led = stage.GetPrimAtPath("/World/GasDetectors/GD_F1/led")
+        led = stage.GetPrimAtPath("/World/GasDetectors/G_F1/led")
         bound = UsdShade.MaterialBindingAPI(led).GetDirectBinding().GetMaterialPath()
         assert str(bound).endswith(f"led_{state}") and gd.state("GD-F1") == state
-        assert stage.GetPrimAtPath("/World/GasDetectors/GD_F1").GetAttribute("rig:state").Get() == state
+        assert stage.GetPrimAtPath("/World/GasDetectors/G_F1").GetAttribute("rig:state").Get() == state
     assert gd.state("F2") == "ok"
     with pytest.raises(ValueError):
         gd.set_detector_state("F1", "purple")
