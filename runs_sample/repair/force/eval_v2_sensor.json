@@ -1,0 +1,22 @@
+{
+ "ckpt": "/repo/runs/v2/model.pt",
+ "force": "sensor",
+ "episodes": 512,
+ "setpoint_cap_n": 38.0,
+ "success_rate": 0.916015625,
+ "mean_episode_peak_n": 33.81822320446372,
+ "p95_episode_peak_n": 36.51164321899414,
+ "max_peak_n": 39.37924575805664,
+ "frac_episodes_over_40n": 0.0,
+ "mean_episode_peak_model_n": 28.11034055799246,
+ "step_stats": {
+  "peak_n": 39.37924575805664,
+  "mean_contact_n": 18.710290806730296,
+  "p95_contact_n": 28.790831184387212,
+  "frac_over_limit": 0.0,
+  "frac_contact_over_limit": 0.0,
+  "time_over_limit_s": 0.0,
+  "contact_s": 4838.133333333333
+ },
+ "wall_s": 505.4
+}

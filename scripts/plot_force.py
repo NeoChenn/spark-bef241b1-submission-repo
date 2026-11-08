@@ -145,7 +145,7 @@ def sweep(force_dir: Path, out: Path):
         mean_f = np.array([r["mean_contact_n"] for r in rows])
         p95 = np.array([r["p95_contact_n"] for r in rows])
         peak = np.array([r["env_peak_p95_n"] for r in rows])
-        name = "contact sensor in the loop" if tag == "sensor" else "analytic spring (training model)"
+        name = "policy sees contact sensor" if tag == "sensor" else "policy sees analytic spring force"
         a1.plot(sp, rate, color=col, ls=ls, marker="o", ms=5, label=name)
         a2.plot(sp, mean_f, color=col, ls=ls, marker="o", ms=5, label=f"{name}: mean (band to p95)")
         a2.fill_between(sp, mean_f, p95, color=col, alpha=0.15, lw=0)
