@@ -583,6 +583,29 @@ class DemoCan(Demo):
         return {"label": "cans", "value": int(self.i >= 4), "unit": "in the tote"}
 
 
+class DemoGas(Gas):
+    id, name = "demo_gas", "Demo: Gas leak"
+    robots = (("R1", [10.0, -9.0, 42.5], 0.9), ("R2", [12.0, -9.0, 42.5], 0.9), ("R3", [10.0, 12.0, 20.0], 0.8))
+    weather = DEMO_WEATHER
+    shots = ({"mode": "zoom", "at": [15.5, -9.8, 42.5], "lens": {"dist": 15.0, "elev": 28.0, "focal": 18.0, "az": [-90.0, -70.0, -110.0]}},
+             {"mode": "zoom", "at": [19.0, -9.8, 42.5], "lens": {"dist": 9.0, "elev": 30.0, "focal": 18.0, "az": [-90.0, -70.0, -110.0]}})
+
+    def setup(self) -> None:
+        super().setup()
+        self.shot = 0
+
+    def sim_events(self) -> list:
+        return [{"name": "camera", "args": dict(self.shots[0])}, {"name": "select", "args": {"robot": self.main}},
+                {"name": "views", "args": {"robot": self.main, "on": True, "kind": "fpv"}}]
+
+    def tick(self) -> None:
+        super().tick()
+        k = int(self.i >= 4)
+        if k != self.shot:
+            self.shot = k
+            self.m.sim_out.append({"name": "camera", "args": dict(self.shots[k])})
+
+
 class DemoRust(Demo):
     id, name, main = "demo_rust", "Demo: Rust scrub", "R1"
     steps = ("Rust patch on the main line", "Unit 1 walks to the pipe", "Learned scrub policy clears the rust",
@@ -630,8 +653,9 @@ class DemoRust(Demo):
         return {"label": "rust left", "value": round(100 * self.left(self.e())), "unit": "%"}
 
 
-SCRIPTS = {"gas": Gas, "patrol": Patrol, "repair": Repair, "flyby": Flyby, "demo_can": DemoCan, "demo_rust": DemoRust, "nav": Nav}
-DEMOS = {"can": "demo_can", "rust": "demo_rust", "nav": "nav", "reset": "flyby"}
+SCRIPTS = {"gas": Gas, "patrol": Patrol, "repair": Repair, "flyby": Flyby, "demo_can": DemoCan, "demo_gas": DemoGas,
+           "demo_rust": DemoRust, "nav": Nav}
+DEMOS = {"can": "demo_can", "gas": "demo_gas", "rust": "demo_rust", "nav": "nav", "reset": "flyby"}
 
 
 class Scenarios:
@@ -783,7 +807,7 @@ class Scenarios:
             out["can"] = list(cans[-1]["xyz"])
         if s is None or s.id == "flyby":
             return {**CAM_DEFAULTS, **out}
-        if s.id == "gas":
+        if isinstance(s, Gas):
             fl = self.m.valves.get(s.flange, s.valve_xyz)
             out["flange"], out["weld"] = list(fl), list(s.seam[1])
             out["deck"] = [(a + b) / 2 for a, b in zip(fl, s.seam[1])]
@@ -838,7 +862,7 @@ class Scenarios:
 
     def beat_caption(self, s: Script) -> str:
         m = self.m
-        if s.id == "gas":
+        if isinstance(s, Gas):
             cloud = m._budget_ok() and getattr(m.control, "agent", None) is not None
             return {1: "Argon reads the fixed sensors" if cloud else "Argon offline — edge rules read the fixed sensors",
                     2: "fleet coordinator pre-empts Unit 2",
