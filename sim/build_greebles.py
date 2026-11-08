@@ -42,8 +42,11 @@ def S():
     return _stage[0]
 
 
+LINE_LOOKS = {"main": f"{WL}/topside_pipe_green", "rusty": f"{WL}/topside_steel_rust"}
+
+
 def line_mat(line):
-    return f"{ZL}/{g.LINES[line][3]}"
+    return LINE_LOOKS.get(line, f"{ZL}/{g.LINES[line][3]}")
 
 
 def mesh_data(points, counts, indices, uvs=None, normals=None):
