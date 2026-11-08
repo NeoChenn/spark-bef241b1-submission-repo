@@ -404,9 +404,18 @@
     ws.onclose = () => setTimeout(liveState, 1500);
   }
 
+  function buildHelp() {
+    const rows = [["Space", "Start demo"], ["?  /  K", "Show / hide controls"], ["Tab", "Module list"], ["C", "Cinematic mode (hide all)"],
+      ["U", "Unscripted change panel"], ["1  2  3", "Wide rig / hero deck / close-up"],
+      ...MODS.map((m) => [m.key.toUpperCase(), m.name]), ...ACTIONS.map((a) => ["Shift+" + a.key, a.label])];
+    $("help-list").innerHTML = rows.map(([k, v]) => `<li><kbd>${k}</kbd><span>${v}</span></li>`).join("");
+  }
+
   function keys(e) {
     if (e.target.tagName === "INPUT") return;
     const k = e.key.toLowerCase();
+    if (k === "?" || k === "k") { $("help").classList.toggle("open"); return; }
+    if (k === "escape") { $("help").classList.remove("open"); return; }
     if (e.code === "Space") { e.preventDefault(); begin(); return; }
     if (k === "tab") { e.preventDefault(); $("mods").classList.toggle("open"); return; }
     if (k === "c") { document.body.classList.toggle("cine"); return; }
@@ -431,6 +440,7 @@
 
   buildMods();
   buildSteps();
+  buildHelp();
   buildActions();
   document.body.classList.add("intro");
   if (Q.get("title")) $("t-name").textContent = Q.get("title");

@@ -212,3 +212,10 @@ kbd { font-family: var(--mono); letter-spacing: 0.02em; color: var(--faint); bor
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition-duration: 0ms !important; }
 }
+#help { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -48%); width: 340px; padding: 16px 18px; opacity: 0; pointer-events: none; transition: opacity var(--fade) ease, transform var(--fade) ease; z-index: 20; }
+#help.open { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%); }
+#help header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+#help header i { color: var(--accent); }
+#help-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+#help-list li { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--dim); }
+#help-list kbd { min-width: 64px; text-align: center; color: var(--fg); }
