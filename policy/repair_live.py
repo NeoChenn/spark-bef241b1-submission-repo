@@ -114,9 +114,11 @@ def worker(argv):
     base.rust.initial_total = base.rust.initial_total.clone()
 
     stage = omni.usd.get_context().get_stage()
-    prim = stage.GetPrimAtPath("/World/Backdrop/Pipes/damage_patch")
-    if prim.IsValid():
-        prim.SetActive(False)
+    for path in ("/World/Backdrop/Pipes/damage_patch", "/World/Backdrop/RepairZone/Pipes/damage_patch",
+                 "/World/Backdrop/Robots/scrubber_dog", "/World/Backdrop/RepairZone/Robots"):
+        prim = stage.GetPrimAtPath(path)
+        if prim.IsValid():
+            prim.SetActive(False)
     tex_dir = os.path.join(ROOT, "sim/assets/third_party/textures/rust_coarse_01")
     painter = RustPainter(build_overlay(stage, base, tex_dir), tex_dir, flip_v=True)
     from integration import repair_scene as rsc
