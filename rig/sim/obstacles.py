@@ -1,3 +1,4 @@
+import os
 import math
 import sys
 import time
@@ -33,6 +34,7 @@ CAN_SIZE = {"small": (0.085, 0.24), "large": (0.15, 0.42)}
 CAN_PAINT = {"red": (0.62, 0.05, 0.03), "blue": (0.04, 0.16, 0.55), "yellow": (0.78, 0.55, 0.04), "green": (0.06, 0.35, 0.1)}
 WEATHER_KEYS = ("fog_color", "fog_height", "wave_height", "dome", "wind", "sun", "fog_dist")
 GRIP_ROBOTS = ("R3",)
+SODA = (0.045, 0.18)
 EE_LINK = ("Geometry/base/lift_housing/lift_carriage/ur3_base_link/ur3_shoulder_link/ur3_upper_arm_link/ur3_forearm_link/"
            "ur3_wrist_1_link/ur3_wrist_2_link/ur3_wrist_3_link/ur3_ee_link")
 TOTE = (-0.27, 0.0, 0.062, 0.26, 0.22, 0.09, 0.008)
@@ -70,6 +72,14 @@ def _truncate(path, frac):
     return out
 
 
+OVERLAYS = os.environ.get("RIG_OVERLAYS", "0") == "1"
+RUST_INPUTS = (("/World/RepairZone/Looks/rust_coarse_01/hero_mdl", "amount"),
+               ("/World/RepairZone/Looks/green_metal_rust/hero_mdl", "halo"),
+               ("/World/RepairZone/Looks/green_metal_rust/hero_mdl", "streak_amount"))
+STATIC_DOG = "/World/Robots/scrubber_dog"
+RUST_SLEW = 0.25
+
+
 class ObstacleScene:
     def __init__(self, stage, wave=None, radius=0.06, robot_model=True):
         self.stage, self.wave, self.radius, self.robot_model = stage, wave if wave is not None else {}, radius, robot_model
@@ -99,6 +109,7 @@ class ObstacleScene:
         self.clips = TaskMotion.load().clips if self.gait else {}
         self.rollout = Rollout.load() if self.gait else None
         self.anim_ms = 0.0
+        self.rust, self.rust_q, self.rust_attrs, self.dog = 1.0, Quantiser(0.005), None, None
 
     def _roots(self):
         UsdGeom.Scope.Define(self.stage, ROOT)
@@ -137,7 +148,7 @@ class ObstacleScene:
                             "t": self.now, "from": pr.get("at", tuple(o["xyz"]))}
         drums = {o["id"] for o in hz.get("obstacles", []) if o.get("kind") == "barrel"}
         key = tuple((tuple(c["a"]), tuple(c["b"])) for c in hz.get("closed", []) if c.get("why") not in drums)
-        if key != self.closed_key:
+        if OVERLAYS and key != self.closed_key:
             self.closed_key = key
             self.stage.RemovePrim(f"{ROOT}/Closed")
             UsdGeom.Scope.Define(self.stage, f"{ROOT}/Closed")
@@ -146,7 +157,8 @@ class ObstacleScene:
                     self._cyl(f"{ROOT}/Closed/{self._id('d')}", p, q, self.radius * 1.6, self.red, LIFT + 0.05)
         for k, r in enumerate(state.get("robots", [])):
             self._robot(k, r)
-            self._path(k, r)
+            if OVERLAYS:
+                self._path(k, r)
 
     def _cyl(self, path, a, b, radius, mat, lift=LIFT):
         a, b = (a[0], a[1], a[2] + lift), (b[0], b[1], b[2] + lift)
@@ -183,11 +195,12 @@ class ObstacleScene:
                 vs = body.GetPrim().GetVariantSets()
                 if vs.HasVariantSet("Physics"):
                     vs.GetVariantSet("Physics").SetVariantSelection("none")
-            light = UsdLux.SphereLight.Define(self.stage, f"{root}/beacon")
-            light.CreateRadiusAttr(0.15)
-            light.CreateIntensityAttr(BEACON_W)
-            light.CreateColorAttr(Gf.Vec3f(*(c / max(ROBOT_GLOW[k % len(ROBOT_GLOW)]) for c in ROBOT_GLOW[k % len(ROBOT_GLOW)])))
-            UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(0, 0, 1.2))
+            if OVERLAYS:
+                light = UsdLux.SphereLight.Define(self.stage, f"{root}/beacon")
+                light.CreateRadiusAttr(0.15)
+                light.CreateIntensityAttr(BEACON_W)
+                light.CreateColorAttr(Gf.Vec3f(*(c / max(ROBOT_GLOW[k % len(ROBOT_GLOW)]) for c in ROBOT_GLOW[k % len(ROBOT_GLOW)])))
+                UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(0, 0, 1.2))
             self.robots[rid] = {"ops": ops.GetOrderedXformOps()}
             if rid in GRIP_ROBOTS and self.robot_model and ROBOT_USD.exists():
                 self._grip(root)
@@ -243,11 +256,34 @@ class ObstacleScene:
                 if ro is not None:
                     continue
                 arm = rb["arm"]
-                rb["joints"].set(ARM, arm.step(rb.get("r") if rid == self.selected else None, t))
-                if rid == self.selected and arm.source:
+                live = rid == self.selected or str(r.get("task") or "").endswith(":demo")
+                rb["joints"].set(ARM, arm.step(rb.get("r") if live else None, t))
+                if live and arm.source:
                     motion[rid] = arm.source
         self.motion = motion
+        self._rust(t)
         self.anim_ms += ((time.perf_counter() - t0) * 1e3 - self.anim_ms) * 0.05
+
+    def _rust(self, t: float) -> None:
+        want = [float(rb["r"]["rust"]) for rb in self.robots.values() if (rb.get("r") or {}).get("rust") is not None]
+        target = min(want) if want else 1.0
+        dt = max(t - getattr(self, "rust_t", t), 0.0)
+        self.rust_t = t
+        self.rust = target if target >= self.rust else max(target, self.rust - RUST_SLEW * dt)
+        if self.rust_attrs is None:
+            self.rust_attrs = []
+            for path, name in RUST_INPUTS:
+                prim = self.stage.OverridePrim(path)
+                attr = prim.GetAttribute(f"inputs:{name}")
+                base = attr.Get() if attr and attr.Get() is not None else 1.0
+                self.rust_attrs.append((attr or prim.CreateAttribute(f"inputs:{name}", Sdf.ValueTypeNames.Float), float(base)))
+            dog = self.stage.GetPrimAtPath(STATIC_DOG)
+            self.dog = UsdGeom.Imageable(dog) if dog.IsValid() else None
+        if self.rust_q.changed("rust", self.rust):
+            for attr, base in self.rust_attrs:
+                attr.Set(round(base * self.rust, 4))
+        if self.dog is not None and self.rust_q.changed("dog", float(bool(want))):
+            self.dog.MakeInvisible() if want else self.dog.MakeVisible()
 
     def _path(self, k, r):
         rid = r["id"]
@@ -397,6 +433,7 @@ class ObstacleScene:
             x, y, z, yaw = rb["root"]
             k, lift = (f1 if o.get("phase") == "tote" else rb.get("ro_k", f0)), -ro.base_z
         _, _, p, q = ro.at(k)
+        lift += SODA[0] - ro.radius
         rot = Gf.Matrix4d().SetRotate(Gf.Quatd(*q)) * Gf.Matrix4d().SetRotate(Gf.Rotation(Gf.Vec3d(0, 0, 1), math.degrees(yaw)))
         at = Gf.Matrix4d().SetRotate(Gf.Rotation(Gf.Vec3d(0, 0, 1), math.degrees(yaw))).Transform(Gf.Vec3d(p[0], p[1], p[2] + lift))
         pr["op"].Set(rot.SetTranslateOnly(Gf.Vec3d(x, y, z) + at))
@@ -420,14 +457,21 @@ class ObstacleScene:
         return {"path": path, "op": op, "t0": self.now - (10.0 if flat else 0.0), "xyz": o["xyz"]}
 
     def _spawn_held(self, path, o) -> dict:
-        x = UsdGeom.Xform.Define(self.stage, path)
-        op = UsdGeom.Xformable(x).AddTransformOp()
-        r, h = self.rollout.radius, self.rollout.length
-        paint = self._mat("obst_can_red", CAN_PAINT["red"], 0.38, 0.35)
+        UsdGeom.Xform.Define(self.stage, path)
+        op = UsdGeom.Xformable(UsdGeom.Xform.Define(self.stage, f"{path}/can")).AddTransformOp()
+        r, h = SODA
+        paint = self._mat("obst_soda_red", (0.9, 0.035, 0.02), 0.3, 0.3)
+        white = self._mat("obst_soda_white", (0.92, 0.92, 0.9), 0.35)
         tin = self._mat("obst_can_tin", (0.7, 0.7, 0.68), 0.25, 0.95)
-        for name, rr, hh, z, mat in (("body", r, h, 0.0, paint), ("rim_0", r * 1.04, 0.008, -h / 2 + 0.004, tin),
-                                     ("rim_1", r * 1.04, 0.008, h / 2 - 0.004, tin)):
-            c = UsdGeom.Cylinder.Define(self.stage, f"{path}/{name}")
+        if o.get("lamp"):
+            lamp = UsdLux.SphereLight.Define(self.stage, f"{path}/lamp")
+            lamp.CreateRadiusAttr(0.4)
+            lamp.CreateIntensityAttr(float(o["lamp"][3]))
+            lamp.CreateColorAttr(Gf.Vec3f(1.0, 0.93, 0.82))
+            UsdGeom.Xformable(lamp).AddTranslateOp().Set(Gf.Vec3d(*o["lamp"][:3]))
+        for name, rr, hh, z, mat in (("body", r, h, 0.0, paint), ("band", r * 1.01, h * 0.3, 0.0, white),
+                                     ("rim_0", r * 1.04, 0.01, -h / 2 + 0.005, tin), ("rim_1", r * 1.04, 0.01, h / 2 - 0.005, tin)):
+            c = UsdGeom.Cylinder.Define(self.stage, f"{path}/can/{name}")
             c.CreateAxisAttr("Z")
             c.CreateRadiusAttr(rr)
             c.CreateHeightAttr(hh)
