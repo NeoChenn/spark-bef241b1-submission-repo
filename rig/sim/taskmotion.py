@@ -3,7 +3,7 @@ import math
 
 import numpy as np
 
-from rig.sim.gait import ARM, MOTION_DIR, PARK, smoothstep
+from rig.sim.gait import ARM, LEGS, MOTION_DIR, PARK, smoothstep
 
 BLEND_S = 0.8
 SCRUB_HOLD = ("SETUP", "DETECT", "DEPLOY", "SOAK", "VERIFY", "VERIFY_PAINT")
@@ -71,6 +71,31 @@ class Clip:
         if not idx:
             return 0.0, 0.0
         return idx[0] / self.hz, idx[-1] / self.hz
+
+
+class Rollout:
+    def __init__(self, d: dict):
+        self.hz, self.source, self.base_z = float(d["hz"]), d.get("source", ""), float(d.get("base_z", 0.32))
+        rows = d["rows"]
+        q = np.asarray([r["q"] for r in rows], np.float64)
+        self.legs = q[:, [d["joints"].index(j) for j in LEGS]]
+        self.arm = q[:, [d["joints"].index(j) for j in ARM]]
+        self.can = np.asarray([r["can"] for r in rows], np.float64)
+        self.quat = np.asarray([r["quat"] for r in rows], np.float64)
+        self.phase = [r.get("phase") for r in rows]
+        self.radius, self.length = float(d["can"]["radius"]), float(d["can"]["length"])
+
+    @classmethod
+    def load(cls, name: str = "pick_rollout"):
+        p = MOTION_DIR / f"{name}.json"
+        return cls(json.loads(p.read_text())) if p.exists() else None
+
+    def first(self, phase: str) -> int:
+        return self.phase.index(phase)
+
+    def at(self, k: float):
+        k = min(max(int(k), 0), len(self.arm) - 1)
+        return self.legs[k], self.arm[k], self.can[k], self.quat[k]
 
 
 def weld_sweep(t: float):

@@ -13,7 +13,7 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade
 from rig.sim.obstacle_math import (DROP_S, DRUM_R, dashes, drop_offset, drum_pose, flame_offset, ghost_alpha, lerp,
                                    puddle_edge, seg_frame, segments, weather_params)
 from rig.sim.gait import ARM, LEGS, PARK, STAND, GaitLoop, Quantiser, Walker
-from rig.sim.taskmotion import TaskMotion
+from rig.sim.taskmotion import Rollout, TaskMotion
 from rig.sim.zoom import ease
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
 
@@ -32,6 +32,11 @@ REVEAL_S = 1.2
 CAN_SIZE = {"small": (0.085, 0.24), "large": (0.15, 0.42)}
 CAN_PAINT = {"red": (0.62, 0.05, 0.03), "blue": (0.04, 0.16, 0.55), "yellow": (0.78, 0.55, 0.04), "green": (0.06, 0.35, 0.1)}
 WEATHER_KEYS = ("fog_color", "fog_height", "wave_height", "dome", "wind", "sun", "fog_dist")
+GRIP_ROBOTS = ("R3",)
+EE_LINK = ("Geometry/base/lift_housing/lift_carriage/ur3_base_link/ur3_shoulder_link/ur3_upper_arm_link/ur3_forearm_link/"
+           "ur3_wrist_1_link/ur3_wrist_2_link/ur3_wrist_3_link/ur3_ee_link")
+TOTE = (-0.27, 0.0, 0.062, 0.26, 0.22, 0.09, 0.008)
+CUP = ((0.032, 0.02, 0.01, "grey"), (0.012, 0.172, 0.086, "grey"), (0.016, 0.022, 0.183, "black"), (0.022, 0.006, 0.197, "black"))
 
 
 def _emissive(stage, name, color, intensity=1.0):
@@ -92,6 +97,7 @@ class ObstacleScene:
         self.selected = None
         self.motion = {"gait": self.gait.source} if self.gait else {}
         self.clips = TaskMotion.load().clips if self.gait else {}
+        self.rollout = Rollout.load() if self.gait else None
         self.anim_ms = 0.0
 
     def _roots(self):
@@ -123,6 +129,8 @@ class ObstacleScene:
         for oid, o in obs.items():
             if oid not in self.props:
                 self.props[oid] = self._spawn(o)
+            elif "rollout" in o:
+                self.props[oid]["o"] = o
             elif "mv" in self.props[oid]:
                 pr = self.props[oid]
                 pr["mv"] = {"p": tuple(o["xyz"]), "v": tuple(o.get("vel") or (0.0, 0.0)) if o.get("rolling") else (0.0, 0.0),
@@ -181,6 +189,8 @@ class ObstacleScene:
             light.CreateColorAttr(Gf.Vec3f(*(c / max(ROBOT_GLOW[k % len(ROBOT_GLOW)]) for c in ROBOT_GLOW[k % len(ROBOT_GLOW)])))
             UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(0, 0, 1.2))
             self.robots[rid] = {"ops": ops.GetOrderedXformOps()}
+            if rid in GRIP_ROBOTS and self.robot_model and ROBOT_USD.exists():
+                self._grip(root)
             if self.gait is not None:
                 from rig.sim.joints import RobotJoints
 
@@ -215,7 +225,23 @@ class ObstacleScene:
                 if rb["qy"].changed("yaw", math.degrees(yaw)):
                     rz.Set(round(math.degrees(yaw), 2))
                 rb["pose"] = (x, y, z)
+                r = rb.get("r") or {}
+                ro = r.get("rollout") if r.get("job_state") == "ROLLOUT" and self.rollout is not None else None
+                if ro is None:
+                    rb["ro_t0"] = None
+                else:
+                    if rb.get("ro_t0") is None:
+                        rb["ro_t0"] = t
+                    rb["ro_k"] = min(ro[0] + (t - rb["ro_t0"]) * self.rollout.hz, ro[1])
+                    q, aq, _, _ = self.rollout.at(rb["ro_k"])
+                    top.Set(Gf.Vec3d(round(x, 3), round(y, 3), round(z + self.rollout.base_z, 3)))
+                    rb["q"].last.pop("pos", None)
+                    rb["arm"].out = aq.copy()
+                    rb["joints"].set(ARM, aq)
+                rb["root"] = (x, y, z + (self.rollout.base_z if ro else self.gait.zmean + bob), yaw)
                 rb["joints"].set(LEGS, q)
+                if ro is not None:
+                    continue
                 arm = rb["arm"]
                 rb["joints"].set(ARM, arm.step(rb.get("r") if rid == self.selected else None, t))
                 if rid == self.selected and arm.source:
@@ -270,6 +296,9 @@ class ObstacleScene:
         self._animate(t)
         for o in self.props.values():
             age = t - o["t0"]
+            if "o" in o:
+                self._held(o, age)
+                continue
             if "mv" in o:
                 self._roll(o, t, age)
                 continue
@@ -331,8 +360,51 @@ class ObstacleScene:
         o["rz"].Set(yaw)
         o["spin_op"].Set(spin)
 
+    def _grip(self, root):
+        lx, ly, h, w = TOTE[3:]
+        UsdGeom.Xform.Define(self.stage, f"{root}/tote").AddTranslateOp().Set(Gf.Vec3d(*TOTE[:3]))
+        yellow = self._mat("obst_tote", (0.85, 0.62, 0.08), 0.55)
+        for k, (size, at) in enumerate((((lx, ly, w), (0, 0, w / 2)), ((w, ly, h), (lx / 2 - w / 2, 0, h / 2)),
+                                        ((w, ly, h), (-lx / 2 + w / 2, 0, h / 2)), ((lx, w, h), (0, ly / 2 - w / 2, h / 2)),
+                                        ((lx, w, h), (0, -ly / 2 + w / 2, h / 2)))):
+            c = UsdGeom.Cube.Define(self.stage, f"{root}/tote/wall_{k}")
+            c.CreateSizeAttr(1.0)
+            ops = UsdGeom.Xformable(c)
+            ops.AddTranslateOp().Set(Gf.Vec3d(*at))
+            ops.AddScaleOp().Set(Gf.Vec3f(*size))
+            _bind(c.GetPrim(), yellow)
+        ee = f"{root}/body/{EE_LINK}"
+        brush = self.stage.GetPrimAtPath(f"{ee}/scrubber_link")
+        if brush.IsValid():
+            UsdGeom.Imageable(brush).MakeInvisible()
+        mats = {"grey": self._mat("obst_cup_grey", (0.45, 0.45, 0.47), 0.4, 0.6), "black": self._mat("obst_cup", (0.03, 0.03, 0.035), 0.7)}
+        for k, (r, L, cx, m) in enumerate(CUP):
+            c = UsdGeom.Cylinder.Define(self.stage, f"{ee}/grip_{k}")
+            c.CreateAxisAttr("X")
+            c.CreateRadiusAttr(r)
+            c.CreateHeightAttr(L)
+            UsdGeom.Xformable(c).AddTranslateOp().Set(Gf.Vec3d(cx, 0, 0))
+            _bind(c.GetPrim(), mats[m])
+
+    def _held(self, pr, age) -> None:
+        o, ro = pr["o"], self.rollout
+        f0, f1 = o["frames"]
+        rb = self.robots.get(o["rollout"]) or {}
+        if o.get("phase") == "ground" or "root" not in rb:
+            x, y, z, yaw = o["anchor"]
+            k, lift = f0, drop_offset(age)
+        else:
+            x, y, z, yaw = rb["root"]
+            k, lift = (f1 if o.get("phase") == "tote" else rb.get("ro_k", f0)), -ro.base_z
+        _, _, p, q = ro.at(k)
+        rot = Gf.Matrix4d().SetRotate(Gf.Quatd(*q)) * Gf.Matrix4d().SetRotate(Gf.Rotation(Gf.Vec3d(0, 0, 1), math.degrees(yaw)))
+        at = Gf.Matrix4d().SetRotate(Gf.Rotation(Gf.Vec3d(0, 0, 1), math.degrees(yaw))).Transform(Gf.Vec3d(p[0], p[1], p[2] + lift))
+        pr["op"].Set(rot.SetTranslateOnly(Gf.Vec3d(x, y, z) + at))
+
     def _spawn(self, o) -> dict:
         path = f"{ROOT}/Props/{o['id']}"
+        if "rollout" in o and self.rollout is not None:
+            return self._spawn_held(path, o)
         x = UsdGeom.Xform.Define(self.stage, path)
         op = UsdGeom.Xformable(x).AddTranslateOp()
         flat = o["kind"] in ("puddle", "spill")
@@ -346,6 +418,24 @@ class ObstacleScene:
                     "mv": {"p": xyz, "v": tuple(o.get("vel") or (0.0, 0.0)), "t": self.now, "from": xyz}}
         getattr(self, f"_build_{o['kind']}", self._build_debris)(path, o)
         return {"path": path, "op": op, "t0": self.now - (10.0 if flat else 0.0), "xyz": o["xyz"]}
+
+    def _spawn_held(self, path, o) -> dict:
+        x = UsdGeom.Xform.Define(self.stage, path)
+        op = UsdGeom.Xformable(x).AddTransformOp()
+        r, h = self.rollout.radius, self.rollout.length
+        paint = self._mat("obst_can_red", CAN_PAINT["red"], 0.38, 0.35)
+        tin = self._mat("obst_can_tin", (0.7, 0.7, 0.68), 0.25, 0.95)
+        for name, rr, hh, z, mat in (("body", r, h, 0.0, paint), ("rim_0", r * 1.04, 0.008, -h / 2 + 0.004, tin),
+                                     ("rim_1", r * 1.04, 0.008, h / 2 - 0.004, tin)):
+            c = UsdGeom.Cylinder.Define(self.stage, f"{path}/{name}")
+            c.CreateAxisAttr("Z")
+            c.CreateRadiusAttr(rr)
+            c.CreateHeightAttr(hh)
+            UsdGeom.Xformable(c).AddTranslateOp().Set(Gf.Vec3d(0, 0, z))
+            _bind(c.GetPrim(), mat)
+        pr = {"path": path, "op": op, "t0": self.now, "xyz": o["xyz"], "o": o}
+        self._held(pr, 0.0)
+        return pr
 
     def _liquid(self, name, color, opacity, ior=1.33):
         if name in self.b.materials:
