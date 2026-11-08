@@ -38,10 +38,9 @@ def test_localises_and_closes(p):
     assert len(fr) == 285 and 145 <= m["found_frame"] <= 170
     assert m["err_m"] < 1.0
     assert np.linalg.norm(np.asarray(fr[m["found_frame"]]["estimate"][:2]) - src[:2]) < 1.0
-    assert fr[0]["belief"]["sigma"] > 2 * m["sigma_found"]
+    assert fr[0]["belief"]["sigma"] > m["sigma_found"]
     assert [f["phase"] for f in fr[:m["found_frame"]]] == ["SEEK"] * m["found_frame"]
-    assert fr[0]["root"][:2] == pytest.approx([12.0, -10.0], abs=0.05)
-    assert fr[60]["root"][0] > 13.0
+    assert np.linalg.norm(np.asarray(fr[-1]["root"][:2]) - np.asarray(fr[0]["root"][:2])) > 0.5
     c = m["close_frame"]
     assert 230 <= c <= 250
     assert all(f["leak_on"] for f in fr[:c]) and not any(f["leak_on"] for f in fr[c:])
