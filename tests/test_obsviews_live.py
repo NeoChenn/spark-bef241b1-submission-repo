@@ -71,3 +71,54 @@ def test_mission_views_reach_ws_state_as_url_stubs():
         assert "jpg" not in stub and stub["url"].startswith("/api/views/R1/lidar.jpg")
         r = c.get("/api/views/R1/lidar.jpg")
         assert r.status_code == 200 and r.content[:2] == b"\xff\xd8" and len(r.content) <= 10 * 1024
+
+
+def test_scrub_obs_is_retired_once_the_rust_job_is_over():
+    m = mission()
+    owner, retired = None, False
+    for _ in range(2000):
+        m.advance(0.5)
+        m.obs.clock.t += 1.0
+        for rid, ks in m.header()["views"].items():
+            if ks.get("obs") is not None:
+                owner = rid
+            elif "obs" in ks and rid == owner:
+                retired = True
+        if retired:
+            break
+    assert owner is not None and retired
+
+
+def test_any_gas_or_leak_check_job_streams_a_belief_and_retires_it_after():
+    m = mission()
+    owner, shown, retired = None, False, False
+    for _ in range(3000):
+        m.advance(0.5)
+        m.obs.clock.t += 1.0
+        h = m.header()
+        on = {r["id"] for r in h["fleet"]["robots"] if (r.get("task") or "").split(":")[0] in ("gas", "leak_check")}
+        for rid, ks in h["views"].items():
+            if ks.get("belief") is not None and rid in on:
+                owner, shown = rid, True
+            elif "belief" in ks and ks["belief"] is None and rid == owner:
+                retired = True
+        if retired:
+            break
+    assert shown and retired
+
+
+def test_weld_policy_view_is_retired_when_the_weld_job_ends():
+    m = mission()
+    m.event("weld_job", {"poi": "weld_test", "xyz": [10.0, -8.0, 42.5], "scenario": "crack"})
+    owner, retired = None, False
+    for _ in range(4000):
+        m.advance(0.5)
+        m.obs.clock.t += 1.0
+        for rid, ks in m.header()["views"].items():
+            if ks.get("policy") is not None:
+                owner = rid
+            elif "policy" in ks and rid == owner:
+                retired = True
+        if retired:
+            break
+    assert owner is not None and retired

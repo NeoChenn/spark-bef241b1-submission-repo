@@ -469,7 +469,7 @@ class MissionLive:
             if wv is not None:
                 d["job_state"] = wv.get("state") or d.get("job_state")
                 d["evidence"] = {**d["evidence"], **(wv.get("evidence") or {}), "job": "weld"}
-                if wv.get("pip"):
+                if wv.get("pip") and (d.get("task") or "").startswith("weld"):
                     s["views"][d["id"]] = {"policy": wv["pip"]}
         return s
 
@@ -505,7 +505,8 @@ class MissionLive:
             robots = fleet_robots(fl)
             gas = self.gas()
             views = self._fresh_views(fl.get("views") or {})
-            for rid, kv in (self.obs.update(self, fl) if self.obs is not None else {}).items():
+            pol = {rid for rid, v in (fl.get("views") or {}).items() if "policy" in v}
+            for rid, kv in (self.obs.update(self, fl, pol) if self.obs is not None else {}).items():
                 views.setdefault(rid, {}).update(kv)
             out = {"t": fl["t"], "fleet": {k: v for k, v in fl.items() if k not in ("events", "views")},
                    "robots": robots, "views": views,
