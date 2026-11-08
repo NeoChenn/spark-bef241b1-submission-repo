@@ -6,6 +6,7 @@ import pytest
 
 from integration.kinematics import LIFT_URDF
 from integration.scrub_motion import (
+    CLEAN_EPS,
     CONE,
     FACE_GAP,
     JOINTS,
@@ -73,7 +74,7 @@ def test_the_brush_presses_and_eases_within_the_pad_range(job, ticks):
 def test_render_rust_tracks_the_timeline_fraction(job, ticks):
     tr = np.array([(FILM["scrub"], 1.0)] + [p for p in FILM_RUST if p[0] > FILM["scrub"]])
     for s in ticks:
-        if FILM["scrub"] <= s["t"] <= FILM["verify"]:
+        if FILM["scrub"] <= s["t"] <= 100.5:
             assert abs(s["rust_fraction"] - np.interp(s["t"], tr[:, 0], tr[:, 1])) < 0.08
 
 
@@ -169,7 +170,16 @@ def test_the_scrub_ends_with_under_five_percent_rust(job):
     p = job.plan_
     k = int(np.searchsorted(p.t, FILM["verify"])) - 1
     assert p.rust[k].sum() / job.rust0.sum() < 0.05
-    assert p.clean_t is not None and 105.5 <= p.clean_t <= 107.6
+    assert p.clean_t is not None and 100.0 <= p.clean_t <= 107.0
+    assert not (p.rust[k] > CLEAN_EPS).any()
+    assert not (p.rust[int(np.searchsorted(p.t, 107.0))] > CLEAN_EPS).any()
+
+
+def test_paint_never_covers_rust(job):
+    p = job.plan_
+    assert not ((p.rust > CLEAN_EPS) & p.painted).any()
+    first_paint = int(np.flatnonzero(p.painted.any(axis=(1, 2)))[0])
+    assert not (p.rust[first_paint:] > CLEAN_EPS).any()
     assert 0.1 <= p.speeds["scrub"] <= 0.2
     assert not p.warnings
 
