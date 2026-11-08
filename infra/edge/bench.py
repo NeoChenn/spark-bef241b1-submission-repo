@@ -106,7 +106,7 @@ class Trt:
 
     def device_mem(self) -> int:
         e = self.r.context.engine
-        return int(getattr(e, "device_memory_size_v2", e.device_memory_size))
+        return int(e.device_memory_size_v2)
 
     def close(self):
         self.r.deactivate()

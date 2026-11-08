@@ -83,3 +83,23 @@ def test_binary_metrics():
 def test_loop_rate():
     assert loop_rate([1.0, 1.5]) == pytest.approx(400.0)
     assert math.isinf(loop_rate([]))
+
+
+def _fake_run(det_ms, pol_ms):
+    def e(ms, w):
+        return {"latency": {"p50_ms": ms, "p99_ms": 2 * ms}, "power": {"load_mean_w": w, "delta_w": 1.5}}
+    return {"background": {"gpu_util_mean": 90.0, "gpu_power_mean_w": 40.0},
+            "models": {"rust_detector": {"trt": {"fp16": e(det_ms, 45.0)}},
+                       "leak_crack": {"trt": {"fp16": e(5.0, 46.0)}},
+                       "scrub_policy": {"trt": {"fp16": e(pol_ms, 44.0)}}}}
+
+
+def test_headline_and_summary():
+    from infra.edge.report import headline, summary
+
+    h = headline({"contended": _fake_run(2.0, 0.5)}, "contended")
+    assert h["loop_hz_p50"] == pytest.approx(400.0)
+    assert h["loop_hz_p99"] == pytest.approx(200.0)
+    assert h["detector_gpu_w"] == 45.0
+    s = summary(h)
+    assert "400 Hz" in s and "Gemini" in s

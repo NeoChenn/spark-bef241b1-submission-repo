@@ -12,6 +12,7 @@ chmod 777 "$WORK/engines" "$WORK/out" "$WORK/pip"
 docker rm -f "$NAME" >/dev/null 2>&1 || true
 docker run --rm --name "$NAME" --device nvidia.com/gpu=all \
   -v "$WORK/bundle:/work/bundle:ro" -v "$WORK/engines:/work/engines" -v "$WORK/out:/work/out" \
-  -v "$WORK/pip:/work/pip" -v "$REPO/infra/edge:/work/edge:ro" "$IMAGE" bash -c "
-    pip install -q --target /work/pip onnxruntime==1.31.1 2>/dev/null || true
+  -e PYTHONUNBUFFERED=1 -v "$WORK/pip:/work/pip" -v "$REPO/infra/edge:/work/edge:ro" "$IMAGE" bash -c "
+    test -d /work/pip/onnxruntime || pip install -q --root-user-action=ignore --target /work/pip --no-deps \
+      onnxruntime==1.31.1 flatbuffers protobuf coloredlogs humanfriendly packaging sympy mpmath
     PYTHONPATH=/work/pip python3 /work/edge/bench.py --tag $TAG $*"
