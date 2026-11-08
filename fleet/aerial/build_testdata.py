@@ -1,12 +1,3 @@
-"""Write the aerial test images and (optionally) record live Gemini answers for them.
-
-    python -m fleet.aerial.build_testdata                 # images + classical grades only (offline)
-    python -m fleet.aerial.build_testdata --gemini        # also ask Gemini once per image and record replies
-    python -m fleet.aerial.build_testdata --gemini --only ri3_0,ri1_2   # re-ask a few
-
-Outputs in fleet/testdata/aerial/: ri*_*.jpg patches, thermal_*.png frames, patches.json (truth + classical
-grade), gemini_replies.json (recorded replies keyed by task and image hash), gemini_eval.json (summary).
-"""
 from __future__ import annotations
 
 import argparse
@@ -47,7 +38,7 @@ def main(argv=None) -> int:
         row["classical"] = g.summary()
     repaired = []
     for spec in test_set():
-        if spec.ri >= 3:                       # after a touch-up / repair: what the drone re-images
+        if spec.ri >= 3:
             spec.repaired = True
             img, _ = spec.render()
             name = f"{spec.id}_repaired.jpg"

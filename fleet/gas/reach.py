@@ -1,9 +1,3 @@
-"""Can the Go2 + lift + UR3 reach a handle, button or lever from a stance on the deck in front of it?
-
-Uses the team's IK (integration/kinematics.py): base = pose(x, y, deck + TRUNK_HEIGHT, yaw), tool x axis along
-the approach (into the device). Tries stances 0.35-0.5 m in front of the device, centred or 0.3 m to either
-side, at 8 headings; the first stance whose IK converges (< 1 cm, < 0.1 rad) wins.
-"""
 from __future__ import annotations
 
 import json
@@ -46,10 +40,6 @@ def deck_below(z: float) -> float:
 
 
 def facing_of(asset: dict, world_assets: dict | None = None) -> np.ndarray:
-    """Horizontal unit vector pointing out of the device toward where a robot can stand.
-
-    The asset's own `facing`, else the nearest gauge's (valves sit on the same pipe racks), else toward
-    the nearest patrol route point."""
     p = np.asarray(asset["position_m"], float)
     if asset.get("facing"):
         f = np.asarray(asset["facing"], float)[:2]

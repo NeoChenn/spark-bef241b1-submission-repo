@@ -1,9 +1,3 @@
-"""Run integration.isaac_bridge.IsaacRigBridge on CPU without Isaac Sim.
-
-The USD scene module (integration.repair_scene, which needs pxr) is replaced by stand-ins, and the
-inspection "render" is the CPU mock's ray-cast image of the RustState world. Everything else, including
-IK, contact force, parking, scrubbing and the orchestrator, is the real code.
-"""
 from __future__ import annotations
 
 import sys
@@ -45,7 +39,6 @@ def install_stub_scene(pipe: PipeGeometry):
             xc = np.cross(zc, [0, 0, -1.0])
             xc /= np.linalg.norm(xc)
             yc = np.cross(zc, xc)
-            # USD camera looks down -Z with +Y up; store a USD-convention row-vector matrix
             R = np.stack([xc, -yc, -zc], 1)
             M = np.eye(4)
             M[:3, :3] = R.T
@@ -87,7 +80,6 @@ def install_stub_scene(pipe: PipeGeometry):
 
 
 def make_bridge(theta: float | None = None):
-    """-> (bridge, world, pipe). Inspection frames come from the CPU mock's ray-caster."""
     from policy.demo_mock import MockPerception, MockRustWorld, scene_geometry
     pipe, dmg = scene_geometry()
     theta = dmg if theta is None else theta

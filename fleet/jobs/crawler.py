@@ -1,17 +1,3 @@
-"""Magnetic crawler (C) jobs: coating touch-up over a graded rust patch, and UT wall-thickness grids.
-
-    coating_touchup  C + spray    SUPV  (operator approves first) surface prep to ISO 8501-1 St 3 over the
-                                        rust found by the crawler camera plus a feather margin, then a
-                                        boustrophedon spray path with 50 % overlap; reports coverage and
-                                        hands a verify job back to the drone (corrosion_survey verify_of).
-    ut_thickness     C + ut_probe AUTO  ultrasonic thickness readings on a grid over a vessel shell; checks
-                                        the minimum against nominal - corrosion allowance.
-
-World.state used:
-    topsides_patches[patch_id]   (see fleet/jobs/aerial.py) - coating_touchup marks it repaired
-    vessels[vessel_id]           {"nominal_mm", "ca_mm", "radius_m", "height_m", "uniform_loss_mm",
-                                  "pits": [{"theta_deg", "z_m", "depth_mm", "sigma_m"}]}
-"""
 from __future__ import annotations
 
 import math
@@ -26,7 +12,6 @@ from fleet.jobs.aerial import patch_image
 
 
 def mark_repaired(world: World, patch_id: str, robot_id: str, job_id: str) -> dict:
-    """Record a finished repair on the patch (used by coating_touchup and by Q's rust_repair)."""
     p = world.state["topsides_patches"][patch_id]
     p.update({"repaired": True, "repaired_by": robot_id, "repair_job": job_id, "repaired_t": world.t})
     p.pop("verified", None)
@@ -40,7 +25,6 @@ def verify_job(parent: Job, patch_id: str, position, t: float) -> Job:
 
 def spray_path(region: np.ndarray, m_per_px: float, fan_m: float = 0.10, overlap: float = 0.5,
                margin_m: Optional[float] = None) -> list[tuple[float, float]]:
-    """Boustrophedon passes (x, y in metres in the patch plane) covering the region's bounding box."""
     ys, xs = np.nonzero(region)
     margin = fan_m / 2 if margin_m is None else margin_m
     x0, x1 = xs.min() * m_per_px - margin, (xs.max() + 1) * m_per_px + margin
@@ -56,7 +40,6 @@ def spray_path(region: np.ndarray, m_per_px: float, fan_m: float = 0.10, overlap
 
 
 def coverage(region: np.ndarray, m_per_px: float, path: list[tuple[float, float]], fan_m: float) -> dict:
-    """Passes per region pixel from the spray fan swept along each straight pass."""
     h, w = region.shape
     yy, xx = (np.mgrid[0:h, 0:w] + 0.5) * m_per_px
     count = np.zeros(region.shape, np.int16)
@@ -88,18 +71,18 @@ class CoatingTouchup:
         pid = job.params.get("patch_id", job.target)
         patch = world.state["topsides_patches"][pid]
         img = patch_image(pid, patch)
-        size_m = patch.get("size_m", [0.6, 0.6])        # patch images are square
+        size_m = patch.get("size_m", [0.6, 0.6])
         m_per_px = float(size_m[0]) / img.shape[1]
-        _, rust = grade_classical(img)                        # crawler camera close-up, same estimator
+        _, rust = grade_classical(img)
         if rust.any():
             region = distance_transform_edt(~rust) * m_per_px <= self.feather_m
         else:
-            region = np.ones(rust.shape, bool)                # nothing visible up close: treat the whole patch
+            region = np.ones(rust.shape, bool)
         prep_m2 = float(region.sum()) * m_per_px ** 2
         path = spray_path(region, m_per_px, self.fan_m, self.overlap)
         cov = coverage(region, m_per_px, path, self.fan_m)
         length = sum(math.dist(a, b) for a, b in zip(path[:-1], path[1:]))
-        spray_s = length / self.spray_speed + 1.5 * (len(path) // 2)      # 1.5 s per turnaround
+        spray_s = length / self.spray_speed + 1.5 * (len(path) // 2)
         prep_s = prep_m2 / self.prep_rate * 3600.0
         sprayed_m2 = (len(path) // 2) * self.fan_m * (1 - self.overlap) * abs(path[0][0] - path[1][0])
         paint_l = sprayed_m2 * self.dft_um * 1e-6 / (self.vs * self.te) * 1000.0
@@ -123,7 +106,6 @@ class CoatingTouchup:
         return JobResult(job.id, robot.id, JobStatus.DONE, world.t, done_t, [finding], log)
 
 
-# ---------------------------------------------------------------- UT thickness
 DEFAULT_VESSEL = {"nominal_mm": 12.7, "ca_mm": 3.0, "radius_m": 1.2, "height_m": 4.0, "uniform_loss_mm": 0.6,
                   "pits": []}
 
@@ -152,7 +134,7 @@ class UtThickness:
         rng = np.random.default_rng(int(job.params.get("seed", 0)))
         grid = float(job.params.get("grid_m", 0.3))
         r, height = v["radius_m"], v["height_m"]
-        if "region" in job.params:                       # dense re-grid around a spot: theta_deg, z_m, half_m
+        if "region" in job.params:
             reg = job.params["region"]
             half = reg["half_m"]
             ths = math.radians(reg["theta_deg"]) + np.arange(-half, half + 1e-9, grid) / r
@@ -163,7 +145,7 @@ class UtThickness:
         TH, Z = np.meshgrid(ths, zs)
         truth = true_thickness(v, TH, Z)
         reading = truth + rng.normal(0, self.noise, truth.shape)
-        lost = rng.random(truth.shape) < self.dropout                  # couplant loss: re-take once
+        lost = rng.random(truth.shape) < self.dropout
         retakes = int(lost.sum())
         reading[lost] = truth[lost] + rng.normal(0, self.noise, retakes)
         t_min = v["nominal_mm"] - v["ca_mm"]

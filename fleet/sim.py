@@ -1,17 +1,3 @@
-"""Time-stepped CPU world for the fleet: walkway graph, per-kind motion, scripted events, timeline file.
-
-Motion model (the coordinator moves robots along the legs this planner returns):
-  Q, C  walkway graph built from the rig patrol route (sim/output/full_rig_meta.json "patrol_route_m", else
-        sim/rig_details.py PATROL_ROUTE at TOP_DECK_Z). Straight segments; a spur leg joins the walkway to
-        the asset. Deck changes only on edges added in `stairs`. Q stays at deck height; C may climb the
-        spur onto the vessel or pipe it inspects.
-  A     climbs to cruise altitude, flies straight, descends to a standoff above the target
-  R     stays below sea level (z <= ROV_MAX_Z) and moves straight
-
-Timeline file (runs/fleet/timeline.jsonl), read by the renderer, one JSON object per line:
-  robot lines, one per robot per second: {"t","robot","kind","position":[x,y,z],"yaw","state","job"}
-  event lines:                            {"t","event","job","robot","detail"}
-"""
 from __future__ import annotations
 
 import ast
@@ -38,7 +24,6 @@ def patrol_route(meta_path: Path = RIG_META) -> list[Vec]:
         pts = json.loads(meta_path.read_text(encoding="utf-8")).get("patrol_route_m")
         if pts:
             return [tuple(float(v) for v in p) for p in pts]
-    # rig_details imports pxr at module level, so read the constants from source instead of importing it
     tree = ast.parse((REPO / "sim/rig_details.py").read_text(encoding="utf-8"))
     consts = {t.id: n.value for n in tree.body if isinstance(n, ast.Assign) for t in n.targets
               if isinstance(t, ast.Name) and t.id in ("PATROL_ROUTE", "TOP_DECK_Z")}
@@ -60,7 +45,6 @@ def _closest(p: Vec, a: Vec, b: Vec) -> tuple[Vec, float]:
 
 
 class Walkways:
-    """Undirected graph of straight walkway segments. Node ids are indices into `nodes`."""
 
     def __init__(self, polyline: list[Vec], stairs: Optional[list[tuple[Vec, Vec]]] = None):
         nodes: list[Vec] = []
@@ -74,7 +58,7 @@ class Walkways:
         raw = [(nid(a), nid(b)) for a, b in zip(polyline, polyline[1:])]
         raw += [(nid(a), nid(b)) for a, b in (stairs or [])]
         edges: set[tuple[int, int]] = set()
-        for i, j in raw:                       # split edges at T-junctions
+        for i, j in raw:
             inner = sorted((k for k in range(len(nodes)) if _on_segment(nodes[k], nodes[i], nodes[j])),
                            key=lambda k: dist(nodes[i], nodes[k]))
             chain = [i] + inner + [j]
@@ -94,7 +78,7 @@ class Walkways:
         best = None
         for e in self.edges:
             q, _ = _closest(p, self.nodes[e[0]], self.nodes[e[1]])
-            d = dist((p[0], p[1], 0), (q[0], q[1], 0)) + abs(p[2] - q[2]) * 4.0   # prefer the same deck
+            d = dist((p[0], p[1], 0), (q[0], q[1], 0)) + abs(p[2] - q[2]) * 4.0
             if best is None or d < best[0]:
                 best = (d, q, e)
         return best[1], best[2]
@@ -118,7 +102,6 @@ class Walkways:
         return d, prev
 
     def path(self, a: Vec, b: Vec) -> list[Leg]:
-        """Walkway legs from point a to point b (both already on the graph)."""
         pa, ea = self.snap(a)
         pb, eb = self.snap(b)
         if ea == eb:
@@ -145,6 +128,29 @@ class Walkways:
         return legs
 
 
+def air_route(start: Vec, goal: Vec) -> Route:
+    g = (goal[0], goal[1], goal[2] + DRONE_STANDOFF_Z)
+    alt = max(CRUISE_Z, start[2], g[2])
+    pts = [start, (start[0], start[1], alt), (g[0], g[1], alt), g]
+    return Route([Leg(a, b, kind="fly") for a, b in zip(pts, pts[1:]) if dist(a, b) > 1e-6])
+
+
+def sea_route(start: Vec, goal: Vec) -> Route:
+    g = (goal[0], goal[1], min(goal[2], ROV_MAX_Z))
+    s = (start[0], start[1], min(start[2], ROV_MAX_Z))
+    pts = [start, s, g]
+    return Route([Leg(a, b, kind="swim") for a, b in zip(pts, pts[1:]) if dist(a, b) > 1e-6])
+
+
+def spur_end(robot: Robot, on_goal: Vec, goal: Vec, standoff: float) -> Vec:
+    end = (goal[0], goal[1], on_goal[2]) if robot.kind == RobotKind.QUADRUPED else goal
+    spur = dist(on_goal, end)
+    if standoff and spur > standoff:
+        f = (spur - standoff) / spur
+        end = tuple(a + (b - a) * f for a, b in zip(on_goal, end))
+    return end
+
+
 class WalkwayPlanner:
     def __init__(self, walkways: Walkways, deck_z: float = TOP_DECK_Z):
         self.w = walkways
@@ -154,35 +160,26 @@ class WalkwayPlanner:
         start = tuple(float(v) for v in robot.position)
         goal = tuple(float(v) for v in goal)
         if robot.kind == RobotKind.AERIAL:
-            g = (goal[0], goal[1], goal[2] + DRONE_STANDOFF_Z)
-            alt = max(CRUISE_Z, start[2], g[2])
-            pts = [start, (start[0], start[1], alt), (g[0], g[1], alt), g]
-            return Route([Leg(a, b) for a, b in zip(pts, pts[1:]) if dist(a, b) > 1e-6])
+            return air_route(start, goal)
         if robot.kind == RobotKind.ROV:
-            g = (goal[0], goal[1], min(goal[2], ROV_MAX_Z))
-            s = (start[0], start[1], min(start[2], ROV_MAX_Z))
-            pts = [start, s, g]
-            return Route([Leg(a, b) for a, b in zip(pts, pts[1:]) if dist(a, b) > 1e-6])
+            return sea_route(start, goal)
         on_start, _ = self.w.snap(start)
         on_goal, _ = self.w.snap(goal)
-        if robot.kind == RobotKind.QUADRUPED:
-            end = (goal[0], goal[1], on_goal[2])          # stand on the deck in front of the asset
-        else:
-            end = goal                                     # crawler climbs onto the asset
-        spur = dist(on_goal, end)
-        if standoff and spur > standoff:
-            f = (spur - standoff) / spur
-            end = tuple(a + (b - a) * f for a, b in zip(on_goal, end))
+        end = spur_end(robot, on_goal, goal, standoff)
         legs = [Leg(start, on_start)] + self.w.path(on_start, on_goal) + [Leg(on_goal, end)]
         return Route([l for l in legs if l.length > 1e-6])
 
 
 class FleetSim:
-    """Steps the coordinator once per second, runs scripted events and ambient sensing, writes the timeline."""
 
     def __init__(self, coordinator: Coordinator, timeline_path: Optional[Path] = TIMELINE,
-                 gas_sense_radius_m: float = 6.0):
+                 gas_sense_radius_m: float = 6.0, states_path: Optional[Path] = None, state_every_s: float = 1.0):
+        from fleet.state import Snapshotter
         self.c = coordinator
+        self.states_path = Path(states_path) if states_path else None
+        self.state_every_s = state_every_s
+        self.snapshot = Snapshotter(coordinator)
+        self.states: list[dict] = []
         self.world: World = coordinator.world
         self.path = Path(timeline_path) if timeline_path else None
         self.lines: list[dict] = []
@@ -201,7 +198,6 @@ class FleetSim:
         self.scripted.sort(key=lambda s: s[0])
 
     def _sense(self):
-        """Robots with a gas sensor pick up leaks within range; fixed detectors alarm after `alarm_after_s`."""
         for leak in self.world.state["gas_leaks"]:
             if leak.get("reported") or leak.get("isolated"):
                 continue
@@ -224,12 +220,14 @@ class FleetSim:
         self.world.people = [p for p in (f(self.world.t) for f in self.people_paths) if p is not None]
         self._sense()
         t = self.world.t
-        for rt in self.c.rt.values():          # state at time t, then the coordinator acts for [t, t + dt)
+        for rt in self.c.rt.values():
             r = rt.robot
             self.lines.append({"t": round(t, 2), "robot": r.id, "kind": r.kind.value,
                                "position": [round(float(v), 3) for v in r.position],
                                "yaw": round(rt.yaw, 4), "state": rt.state, "job": rt.job})
         self.c.tick(dt)
+        if self.states_path and (self.world.t + 1e-9) % self.state_every_s < dt:
+            self.states.append(self.snapshot())
 
     def run(self, duration_s: float, dt: float = 1.0):
         end = self.world.t + duration_s
@@ -238,16 +236,15 @@ class FleetSim:
         self.write()
 
     def write(self):
-        if not self.path:
-            return
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("w", encoding="utf-8") as fh:
-            for line in self.lines:
-                fh.write(json.dumps(line) + "\n")
+        for path, rows in ((self.path, self.lines), (self.states_path, self.states)):
+            if path:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with path.open("w", encoding="utf-8") as fh:
+                    for row in rows:
+                        fh.write(json.dumps(row) + "\n")
 
 
 def walk(points: list[Vec], t0: float, speed: float = 0.8, linger_s: float = 0.0) -> Callable[[float], Optional[Vec]]:
-    """Person path for FleetSim.people_paths: walks the polyline from t0, lingers at the end, then leaves."""
     lengths = [dist(a, b) for a, b in zip(points, points[1:])]
     total = sum(lengths)
     t_end = t0 + total / speed

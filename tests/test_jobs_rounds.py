@@ -1,4 +1,3 @@
-"""Operator-rounds jobs: gauge readers, trend detection, route blockages, follow-up spawning. No network, no Isaac."""
 import json
 import os
 from pathlib import Path
@@ -7,15 +6,15 @@ import cv2
 import numpy as np
 import pytest
 
-os.environ.setdefault("FLEET_OFFLINE", "1")   # never call Gemini from tests; fakes are injected where needed
+os.environ.setdefault("FLEET_OFFLINE", "1")
 
-from fleet.contract import REGISTRY, Job, JobStatus, Level, Robot, RobotKind, World  # noqa: E402
-from fleet.jobs import rounds  # noqa: E402
-from fleet.perception import route as route_mod  # noqa: E402
-from fleet.perception.gauge import (ClassicalGaugeReader, CropParams, GaugeReading, GeminiGaugeReader,  # noqa: E402
+from fleet.contract import REGISTRY, Job, JobStatus, Level, Robot, RobotKind, World
+from fleet.jobs import rounds
+from fleet.perception import route as route_mod
+from fleet.perception.gauge import (ClassicalGaugeReader, CropParams, GaugeReading, GeminiGaugeReader,
                                     angle_to_value, render_gauge_crop, value_to_angle)
-from fleet.perception.lens import lens_obscuration, render_lens  # noqa: E402
-from fleet.perception.trend import detect_change, synth_condition_history  # noqa: E402
+from fleet.perception.lens import lens_obscuration, render_lens
+from fleet.perception.trend import detect_change, synth_condition_history
 
 TESTDATA = Path(__file__).resolve().parent.parent / "fleet/testdata/rounds"
 ROBOT = Robot("q1", RobotKind.QUADRUPED, {"camera", "thermal", "arm"}, (-21.0, 20.5, 42.5))
@@ -26,7 +25,6 @@ def job(kind, target="all", **params):
 
 
 class FakeGemini:
-    """Stands in for GeminiGaugeReader: returns a fixed offset from the truth table, or None (offline)."""
 
     def __init__(self, values=None, offset=0.0):
         self.values, self.offset, self.calls, self.last_error = values, offset, 0, None
@@ -40,8 +38,6 @@ class FakeGemini:
         return GaugeReading(v, 0.9, "gemini_vision", round(v * 16, 2))
 
 
-# ---------------------------------------------------------------------------------------------- registry
-
 def test_all_round_jobs_registered_with_contract_fields():
     for kind, level in [("gauge_read", Level.AUTO), ("thermal_acoustic_survey", Level.AUTO),
                         ("escape_route_check", Level.AUTO), ("spill_response", Level.SUPV),
@@ -50,8 +46,6 @@ def test_all_round_jobs_registered_with_contract_fields():
         assert ex.level == level and ex.robot_kinds == {RobotKind.QUADRUPED} and ex.needs <= ROBOT.capabilities
         assert ex.est_duration_s > 0
 
-
-# ---------------------------------------------------------------------------------------------- gauge readers
 
 def test_angle_value_roundtrip_and_dead_zone():
     for v in (0.0, 0.25, 0.5, 0.8, 1.0):
@@ -94,7 +88,6 @@ def test_saved_crops_match_truth_and_recorded_gemini_replays():
         g = rec["gemini"]
         if "error" in g:
             continue
-        # Replay the recorded Gemini reply through the real parser with a fake transport.
         reply = {"candidates": [{"content": {"parts": [{"text": json.dumps(
             {"reading_bar": g["reading_bar"] if g["reading_bar"] is not None else 0.0,
              "confidence": g["confidence"], "readable": g["detail"]["readable"], "reason": "replay"})}]}}]}
@@ -105,10 +98,10 @@ def test_saved_crops_match_truth_and_recorded_gemini_replays():
 
 
 def test_gemini_reader_offline_and_budget():
-    assert GeminiGaugeReader().read(np.zeros((8, 8, 3), np.uint8)) is None   # FLEET_OFFLINE in tests
+    assert GeminiGaugeReader().read(np.zeros((8, 8, 3), np.uint8)) is None
     bad = GeminiGaugeReader(api_key="x", transport=lambda u, b: {"candidates": []}, budget=1)
     assert bad.read(np.zeros((8, 8, 3), np.uint8)) is None and bad.last_error
-    assert not bad.available                                                  # one call spent, budget 1
+    assert not bad.available
 
 
 def test_gauge_round_classical_only_reads_all_seven():
@@ -137,13 +130,12 @@ def test_reader_disagreement_flags_second_look_then_human():
     w = World.from_rig_meta()
     g = w.assets["gauge_02"]
     truth = g["reading_bar"] / 16
-    fake = FakeGemini(values=[truth], offset=0.12)          # Gemini 12 % FS away from the needle reader
+    fake = FakeGemini(values=[truth], offset=0.12)
     r = rounds.GaugeReadJob(gemini=fake).run(job("gauge_read", "gauge_02"), ROBOT, w)
     assert r.used_gemini and r.status == JobStatus.FINDING
     f = next(f for f in r.findings if f.kind == "gauge_reading_disagreement")
     relook = f.follow_up[0]
     assert relook.kind == "gauge_read" and relook.params["second_look"] and relook.level == Level.AUTO
-    # Second look still disagrees -> manual read by a person.
     r2 = rounds.GaugeReadJob(gemini=FakeGemini(values=[truth], offset=0.12)).run(relook, ROBOT, w)
     f2 = next(f for f in r2.findings if f.kind == "gauge_reading_disagreement")
     assert f2.follow_up[0].kind == "manual_gauge_read" and f2.follow_up[0].level == Level.HUMAN
@@ -156,8 +148,6 @@ def test_readers_agree_no_flag():
     assert r.used_gemini and r.status == JobStatus.DONE and not r.findings
 
 
-# ---------------------------------------------------------------------------------------------- trends
-
 def test_trend_detects_drift_and_step_not_spike():
     hist = synth_condition_history(["a0", "a1", "a2", "a3", "a4"], rounds=30, seed=3)
     drift = detect_change(hist["a1"]["temp_c"], min_sd=0.3, min_effect=2.0)
@@ -165,7 +155,7 @@ def test_trend_detects_drift_and_step_not_spike():
     assert drift.slope_per_round == pytest.approx(0.6, abs=0.15)
     step = detect_change(hist["a4"]["vib_mm_s"], min_sd=0.08, min_effect=0.5)
     assert step.kind == "step" and abs(step.change_round - 22) <= 1 and step.delta == pytest.approx(2.4, abs=0.3)
-    assert detect_change(hist["a2"]["temp_c"], min_sd=0.3, min_effect=2.0) is None     # one-off spike
+    assert detect_change(hist["a2"]["temp_c"], min_sd=0.3, min_effect=2.0) is None
     for aid in ("a0", "a3"):
         assert detect_change(hist[aid]["temp_c"], min_sd=0.3, min_effect=2.0) is None
         assert detect_change(hist[aid]["vib_mm_s"], min_sd=0.08, min_effect=0.5) is None
@@ -186,7 +176,6 @@ def test_survey_findings_carry_trend_numbers_and_escalate():
         for key in ("baseline_mean", "current_mean", "delta_sigma", "slope_per_round", "change_round"):
             assert key in f.evidence
         assert f.follow_up and f.follow_up[0].level == Level.ASSIST
-    # Keep the drift going: next rounds push valve_02 past +10 C -> critical, HUMAN work order.
     h = w.state["condition_history"]["valve_02"]
     for _ in range(6):
         w.state["condition_now"] = {"valve_02": {"temp_c": h["temp_c"][-1] + 0.6, "vib_mm_s": h["vib_mm_s"][-1]}}
@@ -196,8 +185,6 @@ def test_survey_findings_carry_trend_numbers_and_escalate():
     assert f.follow_up[0].level == Level.HUMAN
 
 
-# ---------------------------------------------------------------------------------------------- escape route
-
 def test_route_symbols_come_from_rig_details():
     ns = route_mod.rig_details_symbols()
     assert route_mod.patrol_route()[0] == tuple(ns["PATROL_ROUTE"][0])
@@ -206,7 +193,6 @@ def test_route_symbols_come_from_rig_details():
 
 def test_route_blockages_from_sim_function_on_a_crate():
     route = [(0.0, 0.0), (10.0, 0.0)]
-    # A 1 m crate standing on the route at x = 5 (two triangles per face is enough for the sampler).
     lo, hi = np.array([4.5, -0.5, 42.5]), np.array([5.5, 0.5, 43.5])
     c = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])])
     faces = [(0, 1, 3, 2), (4, 5, 7, 6), (0, 1, 5, 4), (2, 3, 7, 6), (0, 2, 6, 4), (1, 3, 7, 5)]
@@ -242,8 +228,6 @@ def test_escape_route_clear_is_done():
     r = REGISTRY["escape_route_check"].run(job("escape_route_check", "escape_route"), ROBOT, World.from_rig_meta())
     assert r.status == JobStatus.DONE and not r.findings
 
-
-# ---------------------------------------------------------------------------------------------- spill + F&G
 
 def test_spill_small_is_ringed_with_socks():
     w = World.from_rig_meta()

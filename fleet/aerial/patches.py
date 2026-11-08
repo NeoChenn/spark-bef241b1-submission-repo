@@ -1,17 +1,3 @@
-"""Topsides coating patches: synthetic test images at known rust area and a classical ISO 4628-3 grader.
-
-ISO 4628-3 grades rusting by the share of the area that shows rust:
-    Ri 0: 0 %   Ri 1: 0.05 %   Ri 2: 0.5 %   Ri 3: 1 %   Ri 4: 8 %   Ri 5: 40-50 %
-The classical grader measures the rust area by colour (HSV) and maps it to the nearest grade on a log scale
-(class edges are the geometric means between neighbouring grades).
-
-Test patches are composited from the repo textures (sim/assets/third_party/textures):
-  * base coat: `blue_metal_plate` or a plain RAL-like paint colour shaded by that texture's luminance,
-  * rust: `rust_coarse_01` or `Rust004` pixels inside a mask,
-  * mask shape: the most rust-like pixels of `rusty_metal_02` (natural spot/bleed morphology), cut to exactly
-    the target area with a top-k rank, so the true rust % is known to the pixel,
-  * camera: illumination gradient, slight blur, sensor noise and JPEG, as a drone camera at standoff would add.
-"""
 from __future__ import annotations
 
 import io
@@ -29,11 +15,11 @@ TESTDATA = REPO / "fleet/testdata/aerial"
 
 RI_PCT = {0: 0.0, 1: 0.05, 2: 0.5, 3: 1.0, 4: 8.0, 5: 40.0}
 RI_EDGES = [0.02, math.sqrt(0.05 * 0.5), math.sqrt(0.5 * 1.0), math.sqrt(1.0 * 8.0), math.sqrt(8.0 * 40.0)]
-PAINTS = {   # plain topsides colours (approximate RAL values)
-    "grey": (203, 208, 204),      # RAL 7035 light grey
-    "white": (236, 233, 222),     # RAL 9010 offshore white
-    "green": (60, 110, 75),       # RAL 6011-ish process green
-    "yellow": (240, 170, 20),     # RAL 1003 safety yellow (hard negative: rust-adjacent hue)
+PAINTS = {
+    "grey": (203, 208, 204),
+    "white": (236, 233, 222),
+    "green": (60, 110, 75),
+    "yellow": (240, 170, 20),
 }
 BASES = ("blue_metal_plate", "grey", "white", "green", "yellow")
 FILLS = ("rust_coarse_01", "Rust004")
@@ -62,15 +48,14 @@ def _base(base: str, size: int, rng: np.random.Generator) -> np.ndarray:
 
 
 def rust_mask(pct: float, size: int, rng: np.random.Generator) -> np.ndarray:
-    """Boolean mask covering exactly round(pct% of pixels), shaped like real rust spots."""
     k = int(round(pct / 100.0 * size * size))
     mask = np.zeros((size, size), bool)
     if k <= 0:
         return mask
-    small = max(size // 4, 8)               # score at 1/4 resolution, upsampled: spots are compact blobs
+    small = max(size // 4, 8)
     src = _texture("rusty_metal_02", small, rng) / 255.0
     r, g, b = src[..., 0], src[..., 1], src[..., 2]
-    score = (r - b) + 0.3 * (r - g) - 0.15 * (r + g + b) / 3.0     # orange-brown and darker = more rust
+    score = (r - b) + 0.3 * (r - g) - 0.15 * (r + g + b) / 3.0
     score = np.asarray(Image.fromarray(score.astype(np.float32), "F").resize((size, size), Image.BILINEAR))
     score = score + rng.uniform(0, 1e-6, score.shape)
     idx = np.argpartition(score.ravel(), -k)[-k:]
@@ -98,21 +83,18 @@ class PatchSpec:
     fill: str = "rust_coarse_01"
     seed: int = 0
     size: int = 384
-    repaired: bool = False          # coating touched up after the repair
+    repaired: bool = False
 
     @property
     def ri(self) -> int:
         return 0 if self.repaired else ri_from_pct(self.rust_pct)
 
     def render(self) -> tuple[np.ndarray, np.ndarray]:
-        """(camera image RGB uint8, true rust mask before the camera)."""
         rng = np.random.default_rng(self.seed)
         base = _base(self.base, self.size, rng)
         mask = rust_mask(self.rust_pct, self.size, rng)
         fill = _texture(self.fill, self.size, rng)
         if self.repaired:
-            # fresh touch-up coat over the prepared area (rust bounding box + 15 px feather), slightly
-            # different shade from the weathered coat around it
             img = base.copy()
             if mask.any():
                 ys, xs = np.nonzero(mask)
@@ -126,9 +108,7 @@ class PatchSpec:
         return camera(img, rng), mask
 
 
-# ---------------------------------------------------------------- classical grader
 def rust_pixels(img: np.ndarray) -> np.ndarray:
-    """Rust colour classifier: orange-brown hue, saturated, not bright (excludes safety-yellow paint)."""
     hsv = np.asarray(Image.fromarray(np.asarray(img, np.uint8)).convert("HSV"), np.float32)
     h, s, v = hsv[..., 0] * (360.0 / 255.0), hsv[..., 1], hsv[..., 2]
     return (h >= 4.0) & (h <= 36.0) & (s >= 95.0) & (v >= 25.0) & (v <= 190.0)
@@ -145,7 +125,6 @@ class ClassicalGrade:
 
 def grade_classical(img: np.ndarray) -> tuple[ClassicalGrade, np.ndarray]:
     mask = rust_pixels(img)
-    # drop isolated pixels (JPEG/noise speckle): keep pixels with >= 2 rust 4-neighbours
     m = mask.astype(np.int8)
     nb = np.zeros_like(m)
     nb[1:] += m[:-1]
@@ -157,9 +136,7 @@ def grade_classical(img: np.ndarray) -> tuple[ClassicalGrade, np.ndarray]:
     return ClassicalGrade(pct, ri_from_pct(pct)), mask
 
 
-# ---------------------------------------------------------------- test set
 def test_set() -> list[PatchSpec]:
-    """Three patches per grade on rotating base coats and rust textures (18 total), fixed seeds."""
     specs = []
     n = 0
     for ri, pct in RI_PCT.items():
