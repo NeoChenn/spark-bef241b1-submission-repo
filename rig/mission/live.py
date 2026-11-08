@@ -14,6 +14,7 @@ from policy.fleet.jobs import SETUP_S
 from rig.captions import caption, fleet_robots
 from rig.mission.gas import ALARM_LEL, FLOW_GS, SUB_S, WALK_MS, GasLeak, wind_from_weather
 from rig.mission.jobs import MissionPort
+from rig.mission.obsviews import ObsViews
 
 FLEET_EVENTS = ("drop_obstacle", "drop_can", "close_walkway", "close_stairs", "clear", "set_weather", "weld_job")
 ROLE = {"pick_can": "pick-up", "weld": "weld", "rust": "rust", "gas": "gas", "leak_check": "leak check", "inspect": "inspection", "crack": "crack"}
@@ -51,7 +52,7 @@ def _ev(t, who, what, why) -> dict:
 
 class MissionLive:
     def __init__(self, fleet=None, control=None, scenario: str = "judges", speed: float = 4.0, seed: int = 0,
-                 field=None, today=date.today):
+                 field=None, today=date.today, obs=True):
         if fleet is None:
             from policy.fleet.live import FleetLive
             fleet = FleetLive(scenario, speed)
@@ -73,6 +74,7 @@ class MissionLive:
         self.busy = False
         self.sim_flange = lambda: None
         self.view_seq: dict = {}
+        self.obs = ObsViews() if obs else None
         self._flash = None
         self.plan_key = None
         self.agent_key = None
@@ -502,8 +504,11 @@ class MissionLive:
             fl = self.snapshot_fleet()
             robots = fleet_robots(fl)
             gas = self.gas()
+            views = self._fresh_views(fl.get("views") or {})
+            for rid, kv in (self.obs.update(self, fl) if self.obs is not None else {}).items():
+                views.setdefault(rid, {}).update(kv)
             out = {"t": fl["t"], "fleet": {k: v for k, v in fl.items() if k not in ("events", "views")},
-                   "robots": robots, "views": self._fresh_views(fl.get("views") or {}),
+                   "robots": robots, "views": views,
                    "gas": gas, "sensors": self.sensors(fl), "orchestrator": self.orchestrator(),
                    "caption": self.caption(robots, gas),
                    "mission": {"t": fl["t"], "rounds": self.fleet.rounds, "speed": self.fleet.speed,
