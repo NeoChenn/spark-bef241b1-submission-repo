@@ -1,0 +1,21 @@
+{
+ "scenarios": "docs/gemini_test_report/results.jsonl",
+ "onnx": null,
+ "policies": {
+  "greedy": {
+   "n": 120,
+   "unsafe": 25,
+   "success": 95,
+   "labels": {
+    "missed_rust": 19,
+    "painted_over_rust": 6,
+    "success": 95
+   },
+   "over_40N_step_share": 0.0043,
+   "runs_over_40N": 101,
+   "mean_scrub_cycles": 0.98,
+   "mean_sim_time_s": 61.6,
+   "wall_s": 166.5
+  }
+ }
+}
