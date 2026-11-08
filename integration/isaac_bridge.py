@@ -13,12 +13,15 @@ from integration.kinematics import ARM_STOWED, TRUNK_HEIGHT, RobotModel, pose, s
 from policy.interfaces import CameraModel, PipeGeometry, Waypoint, camera_from_usd
 
 TWO_PI = 2 * math.pi
-STIFFNESS = 2500.0
-NOMINAL_FORCE = 25.0
-SLIDE_SPEED = 0.3
-CONTACT_RADIUS = 0.03
-AXIS_DISTANCE = 0.5
-WORK_LIFT = 0.42
+STIFFNESS = 2500.0          # N/m, ScrubEnvCfg.spring_k_nominal
+NOMINAL_FORCE = 25.0        # N at press = 1 (INTERFACE.md: admittance gives ~25 * press N)
+SLIDE_SPEED = 0.3           # m/s rotary brush
+CONTACT_RADIUS = 0.03       # m brush footprint
+# Stance at the pipe: both inside ScrubLiftEnvCfg's training ranges (axis 0.45-0.55 m, lift 0.38-0.45 m). An IK
+# reach map over the patch (theta 0.3-1.7, z +-0.3) gave 76/105 points here vs 64/105 at 0.5 m / 0.42 m.
+AXIS_DISTANCE = 0.45        # m, trunk centreline to pipe axis
+WORK_LIFT = 0.45
+CONTACT_TOLERANCE = 0.003   # m: at k = 2500 N/m, 1 cm of IK error is 25 N, so contact poses must be tight
 
 
 @dataclass
@@ -45,6 +48,7 @@ class BridgeState:
     view: int = 0
     hud: list = field(default_factory=list)
     spraying: bool = False
+    shot: int = 2
 
 
 class IsaacRigBridge:
@@ -121,14 +125,28 @@ class IsaacRigBridge:
 
     def _move_tool(self, target: np.ndarray, approach: np.ndarray) -> bool:
         seed = self.unpark_q if self.parked and self.unpark_q else self.state.q
-        result = self.model.solve_ik(self.state.base, seed, target, approach)
+        result = self.model.solve_ik(self.state.base, seed, target, approach, iterations=120)
+        converged = result.position_error < CONTACT_TOLERANCE and result.axis_error < 0.05
+        if not converged:
+            # DLS can get stuck from an awkward seed (e.g. after spraying a second patch); retry from the
+            # working pose before declaring the target unreachable.
+            nominal = self.model.default_q()
+            nominal["lift_joint"] = seed.get("lift_joint", WORK_LIFT)
+            retry = self.model.solve_ik(self.state.base, nominal, target, approach, iterations=120)
+            if retry.position_error < CONTACT_TOLERANCE and retry.axis_error < 0.05:
+                result, converged = retry, True
+        q_new = result.q
+        if not converged:
+            # An unconverged solve can leave the tip partway through the pipe (huge spring force). Like a real
+            # controller, reject infeasible targets and hold the last good pose.
+            q_new = dict(seed)
         if self.parked:
             self.parked = False
-            self._animate({k: v for k, v in result.q.items() if k in ARM_STOWED})
-        self.state.q = result.q
+            self._animate({k: v for k, v in q_new.items() if k in ARM_STOWED})
+        self.state.q = q_new
         tip = self.tool()[:3, 3]
         self.state.force = spring_force(tip, self._pipe, STIFFNESS, self.bumps)
-        return result.reached
+        return converged
 
     def sim_time(self) -> float:
         return self.state.t
@@ -180,6 +198,7 @@ class IsaacRigBridge:
         for f in range(1, 9):
             s = f / 8
             start = self.model.default_q()
+            start["lift_joint"] = WORK_LIFT
             for name in ARM_STOWED:
                 self.state.q[name] = ARM_STOWED[name] + (start[name] - ARM_STOWED[name]) * s
             self.state.t += 0.25
@@ -320,6 +339,10 @@ class IsaacRigBridge:
         theta, z = self.ee_theta_z()
         self.bumps.append((theta, z, height, radius))
         rs.add_weld_bead(self.stage, f"{rs.PIPE_SCOPE}/weld_bead_{len(self.bumps)}", self._pipe, theta, z, height, radius)
+
+    def set_shot(self, shot: int) -> None:
+        """Hero-video camera choice (web HUD 'camera' event). Not Perception.camera(), which the orchestrator calls."""
+        self.state.shot = int(shot)
 
     def person_at(self, distance: Optional[float]) -> None:
         if distance is None:

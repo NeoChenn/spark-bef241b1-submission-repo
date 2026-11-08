@@ -1,0 +1,751 @@
+{
+ "schema": "fleet_state.v1",
+ "t": 250.0,
+ "robots": [
+  {
+   "id": "R1",
+   "state": "TRANSIT",
+   "job_state": null,
+   "job_reason": null,
+   "task": "gas:F5",
+   "pose": {
+    "x": -0.5,
+    "y": -4.5,
+    "z": 42.5,
+    "yaw": 0.0
+   },
+   "deck": "top_deck",
+   "battery": {
+    "soc": 0.9174,
+    "wh": 396.31,
+    "used_wh": 14.09,
+    "charged_wh": 0.0
+   },
+   "path": [
+    [
+     -0.5,
+     -4.5,
+     42.5
+    ],
+    [
+     9.0,
+     -4.5,
+     42.5
+    ],
+    [
+     9.0,
+     -9.0,
+     42.5
+    ],
+    [
+     20.46,
+     -9.0,
+     42.5
+    ],
+    [
+     20.46,
+     -9.65,
+     42.5
+    ]
+   ],
+   "eta_s": 25.8,
+   "dist_m": 102.1
+  },
+  {
+   "id": "R2",
+   "state": "PAUSED",
+   "job_state": null,
+   "job_reason": null,
+   "task": "rust:rust_low_north",
+   "pose": {
+    "x": 10.0,
+    "y": 12.0,
+    "z": 20.0,
+    "yaw": 0.0
+   },
+   "deck": "lower_deck",
+   "battery": {
+    "soc": 0.6638,
+    "wh": 286.76,
+    "used_wh": 15.64,
+    "charged_wh": 0.0
+   },
+   "path": [
+    [
+     10.0,
+     12.0,
+     20.0
+    ]
+   ],
+   "eta_s": 0.0,
+   "dist_m": 117.1
+  },
+  {
+   "id": "R3",
+   "state": "WORK",
+   "job_state": "SCRUB",
+   "job_reason": "soak complete (30 s since last spray)",
+   "task": "rust:rust_low_east",
+   "pose": {
+    "x": 20.0,
+    "y": 6.0,
+    "z": 20.0,
+    "yaw": 1.571
+   },
+   "deck": "lower_deck",
+   "battery": {
+    "soc": 0.3248,
+    "wh": 140.3,
+    "used_wh": 15.22,
+    "charged_wh": 0.0
+   },
+   "path": [
+    [
+     20.0,
+     6.0,
+     20.0
+    ]
+   ],
+   "eta_s": 0.0,
+   "dist_m": 85.2
+  }
+ ],
+ "tasks": [
+  {
+   "id": "inspect:gauge_01",
+   "kind": "inspect",
+   "poi": "gauge_01",
+   "xyz": [
+    -23.5,
+    23.37,
+    43.8
+   ],
+   "work_xyz": [
+    -22.94,
+    22.73,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 1.0,
+   "status": "pending",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": 900.0,
+   "progress": 0.0,
+   "duration": 10.0,
+   "outcome": null
+  },
+  {
+   "id": "inspect:gauge_02",
+   "kind": "inspect",
+   "poi": "gauge_02",
+   "xyz": [
+    -17.5,
+    23.37,
+    43.8
+   ],
+   "work_xyz": [
+    -17.5,
+    22.52,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 1.0,
+   "status": "pending",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": 900.0,
+   "progress": 0.0,
+   "duration": 10.0,
+   "outcome": null
+  },
+  {
+   "id": "inspect:gauge_03",
+   "kind": "inspect",
+   "poi": "gauge_03",
+   "xyz": [
+    -12.0,
+    23.37,
+    43.8
+   ],
+   "work_xyz": [
+    -12.0,
+    22.52,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 1.0,
+   "status": "pending",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": 900.0,
+   "progress": 0.0,
+   "duration": 10.0,
+   "outcome": null
+  },
+  {
+   "id": "inspect:gauge_04",
+   "kind": "inspect",
+   "poi": "gauge_04",
+   "xyz": [
+    -6.5,
+    23.37,
+    43.8
+   ],
+   "work_xyz": [
+    -7.16,
+    22.83,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 1.0,
+   "status": "pending",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": 900.0,
+   "progress": 0.0,
+   "duration": 10.0,
+   "outcome": null
+  },
+  {
+   "id": "inspect:gauge_05",
+   "kind": "inspect",
+   "poi": "gauge_05",
+   "xyz": [
+    17.8,
+    -10.67,
+    43.86
+   ],
+   "work_xyz": [
+    17.8,
+    -9.82,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 1.0,
+   "status": "pending",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": 900.0,
+   "progress": 0.0,
+   "duration": 10.0,
+   "outcome": null
+  },
+  {
+   "id": "inspect:gauge_06",
+   "kind": "inspect",
+   "poi": "gauge_06",
+   "xyz": [
+    24.5,
+    -10.67,
+    43.86
+   ],
+   "work_xyz": [
+    24.26,
+    -9.86,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 1.0,
+   "status": "pending",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": 900.0,
+   "progress": 0.0,
+   "duration": 10.0,
+   "outcome": null
+  },
+  {
+   "id": "inspect:gauge_07",
+   "kind": "inspect",
+   "poi": "gauge_07",
+   "xyz": [
+    33.0,
+    -10.67,
+    43.86
+   ],
+   "work_xyz": [
+    32.16,
+    -10.51,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 1.0,
+   "status": "pending",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": 900.0,
+   "progress": 0.0,
+   "duration": 10.0,
+   "outcome": null
+  },
+  {
+   "id": "leak_check:F1",
+   "kind": "leak_check",
+   "poi": "F1",
+   "xyz": [
+    -20.57,
+    23.8,
+    43.6
+   ],
+   "work_xyz": [
+    -20.57,
+    22.95,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 3.0,
+   "status": "done",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": 1500.0,
+   "progress": 18.0,
+   "duration": 18.0,
+   "outcome": "DONE"
+  },
+  {
+   "id": "leak_check:F2",
+   "kind": "leak_check",
+   "poi": "F2",
+   "xyz": [
+    -5.88,
+    23.98,
+    43.6
+   ],
+   "work_xyz": [
+    -6.53,
+    23.43,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 3.0,
+   "status": "done",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": 1500.0,
+   "progress": 18.0,
+   "duration": 18.0,
+   "outcome": "DONE"
+  },
+  {
+   "id": "leak_check:F3",
+   "kind": "leak_check",
+   "poi": "F3",
+   "xyz": [
+    -15.94,
+    23.17,
+    43.35
+   ],
+   "work_xyz": [
+    -15.94,
+    22.32,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 3.0,
+   "status": "done",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": 1500.0,
+   "progress": 18.0,
+   "duration": 18.0,
+   "outcome": "DONE"
+  },
+  {
+   "id": "leak_check:F4",
+   "kind": "leak_check",
+   "poi": "F4",
+   "xyz": [
+    -1.48,
+    23.25,
+    43.35
+   ],
+   "work_xyz": [
+    -2.28,
+    22.99,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 3.0,
+   "status": "done",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": 1500.0,
+   "progress": 18.0,
+   "duration": 18.0,
+   "outcome": "DONE"
+  },
+  {
+   "id": "leak_check:F5",
+   "kind": "leak_check",
+   "poi": "F5",
+   "xyz": [
+    20.46,
+    -10.5,
+    43.4
+   ],
+   "work_xyz": [
+    20.46,
+    -9.65,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 3.0,
+   "status": "done",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": 1500.0,
+   "progress": 18.0,
+   "duration": 18.0,
+   "outcome": "DONE"
+  },
+  {
+   "id": "leak_check:F6",
+   "kind": "leak_check",
+   "poi": "F6",
+   "xyz": [
+    31.01,
+    -10.59,
+    43.4
+   ],
+   "work_xyz": [
+    30.18,
+    -10.4,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 3.0,
+   "status": "done",
+   "robot": null,
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": 1500.0,
+   "progress": 18.0,
+   "duration": 18.0,
+   "outcome": "DONE"
+  },
+  {
+   "id": "rust:rust_top_pipe",
+   "kind": "rust",
+   "poi": "rust_top_pipe",
+   "xyz": [
+    -1.8,
+    4.0,
+    43.0
+   ],
+   "work_xyz": [
+    -1.0,
+    4.0,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 2.0,
+   "status": "pending",
+   "robot": null,
+   "severity": 0.5,
+   "exposure": 0.4,
+   "deadline": null,
+   "progress": 37.0,
+   "duration": 70.0,
+   "outcome": null
+  },
+  {
+   "id": "rust:rust_mid_east",
+   "kind": "rust",
+   "poi": "rust_mid_east",
+   "xyz": [
+    12.0,
+    -6.8,
+    32.0
+   ],
+   "work_xyz": [
+    12.0,
+    -6.0,
+    31.25
+   ],
+   "deck": "middle_deck",
+   "priority": 3.6,
+   "status": "pending",
+   "robot": null,
+   "severity": 0.6,
+   "exposure": 0.6,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 70.0,
+   "outcome": null
+  },
+  {
+   "id": "rust:rust_mid_west",
+   "kind": "rust",
+   "poi": "rust_mid_west",
+   "xyz": [
+    -21.8,
+    8.0,
+    32.0
+   ],
+   "work_xyz": [
+    -21.0,
+    8.0,
+    31.25
+   ],
+   "deck": "middle_deck",
+   "priority": 2.4,
+   "status": "pending",
+   "robot": null,
+   "severity": 0.4,
+   "exposure": 0.6,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 70.0,
+   "outcome": null
+  },
+  {
+   "id": "rust:rust_low_splash",
+   "kind": "rust",
+   "poi": "rust_low_splash",
+   "xyz": [
+    -10.0,
+    -4.8,
+    21.0
+   ],
+   "work_xyz": [
+    -10.0,
+    -4.0,
+    20.0
+   ],
+   "deck": "lower_deck",
+   "priority": 6.65,
+   "status": "done",
+   "robot": null,
+   "severity": 0.7,
+   "exposure": 0.95,
+   "deadline": null,
+   "progress": 71.0,
+   "duration": 70.0,
+   "outcome": "DONE"
+  },
+  {
+   "id": "rust:rust_low_east",
+   "kind": "rust",
+   "poi": "rust_low_east",
+   "xyz": [
+    20.8,
+    6.0,
+    21.0
+   ],
+   "work_xyz": [
+    20.0,
+    6.0,
+    20.0
+   ],
+   "deck": "lower_deck",
+   "priority": 4.5,
+   "status": "active",
+   "robot": "R3",
+   "severity": 0.5,
+   "exposure": 0.9,
+   "deadline": null,
+   "progress": 56.0,
+   "duration": 70.0,
+   "outcome": null
+  },
+  {
+   "id": "rust:rust_low_north",
+   "kind": "rust",
+   "poi": "rust_low_north",
+   "xyz": [
+    10.0,
+    12.8,
+    21.0
+   ],
+   "work_xyz": [
+    10.0,
+    12.0,
+    20.0
+   ],
+   "deck": "lower_deck",
+   "priority": 9.0,
+   "status": "active",
+   "robot": "R2",
+   "severity": 0.9,
+   "exposure": 1.0,
+   "deadline": null,
+   "progress": 33.0,
+   "duration": 70.0,
+   "outcome": null
+  },
+  {
+   "id": "gas:F5",
+   "kind": "gas",
+   "poi": "F5",
+   "xyz": [
+    20.46,
+    -10.5,
+    43.4
+   ],
+   "work_xyz": [
+    20.46,
+    -9.65,
+    42.5
+   ],
+   "deck": "top_deck",
+   "priority": 100.0,
+   "status": "assigned",
+   "robot": "R1",
+   "severity": 0.0,
+   "exposure": 0.0,
+   "deadline": null,
+   "progress": 0.0,
+   "duration": 26.0,
+   "outcome": null
+  }
+ ],
+ "zones": [
+  {
+   "kind": "gas",
+   "id": "gas:F5",
+   "xyz": [
+    20.46,
+    -10.5,
+    43.4
+   ],
+   "radius": 8.0
+  },
+  {
+   "kind": "person",
+   "id": "person@295",
+   "xyz": [
+    9.6,
+    12.0,
+    20.0
+   ],
+   "radius": 3.0
+  }
+ ],
+ "alarms": [
+  {
+   "id": "gas:F5",
+   "flange": "F5",
+   "t": 240.0,
+   "responder": "R1",
+   "response_s": null,
+   "resolved_s": null,
+   "outcome": null
+  }
+ ],
+ "events": [],
+ "recent_events": [
+  {
+   "t": 203.0,
+   "kind": "job_start",
+   "message": "R1 starts rust:rust_top_pipe (rust) -> orchestrator",
+   "robot": "R1",
+   "task": "rust:rust_top_pipe"
+  },
+  {
+   "t": 205.0,
+   "kind": "person",
+   "message": "person on deck at [20.0, -4.0, 20.0] for 90 s -> keep 3 m clear"
+  },
+  {
+   "t": 211.0,
+   "kind": "job_start",
+   "message": "R2 starts rust:rust_low_north (rust) -> orchestrator",
+   "robot": "R2",
+   "task": "rust:rust_low_north"
+  },
+  {
+   "t": 217.0,
+   "kind": "pause_person",
+   "message": "R3 paused: person within 3 m",
+   "robot": "R3"
+  },
+  {
+   "t": 227.0,
+   "kind": "resume",
+   "message": "R3 resumes: person clear",
+   "robot": "R3"
+  },
+  {
+   "t": 240.0,
+   "kind": "gas_alarm",
+   "message": "GAS ALARM at flange F5 -> pre-empt nearest robot, stop hot work within 8 m",
+   "task": "gas:F5"
+  },
+  {
+   "t": 240.0,
+   "kind": "preempt",
+   "message": "R1 pre-empted from rust:rust_top_pipe -> gas alarm F5",
+   "robot": "R1",
+   "task": "rust:rust_top_pipe"
+  },
+  {
+   "t": 244.0,
+   "kind": "pause_person",
+   "message": "R2 paused: person within 3 m",
+   "robot": "R2"
+  }
+ ],
+ "assignments": [],
+ "metrics": {
+  "t": 250.0,
+  "jobs_done": 7,
+  "jobs_escalated": 0,
+  "open_tasks": 13,
+  "jobs_by_kind": {
+   "gas": {
+    "assigned": 1
+   },
+   "inspect": {
+    "pending": 7
+   },
+   "leak_check": {
+    "done": 6
+   },
+   "rust": {
+    "pending": 3,
+    "done": 1,
+    "active": 2
+   }
+  },
+  "gas_alarms": 1,
+  "gas_alarms_escalated": 0,
+  "gas_response_mean_s": null,
+  "gas_response_max_s": null,
+  "gas_resolve_mean_s": null,
+  "idle_pct": 0.9,
+  "state_pct": {
+   "IDLE": 0.9,
+   "PAUSED": 2.1,
+   "TRANSIT": 56.8,
+   "WAIT": 0.4,
+   "WORK": 39.7
+  },
+  "energy_used_wh": 45.0,
+  "energy_charged_wh": 0.0,
+  "energy_by_robot_wh": {
+   "R1": 14.1,
+   "R2": 15.6,
+   "R3": 15.2
+  },
+  "distance_m": 304.4,
+  "preemptions": 1,
+  "robot_failures": 0,
+  "replans": 15,
+  "reservation_wait_s": 3.0,
+  "corridor_conflicts": 0,
+  "late_tasks": []
+ }
+}

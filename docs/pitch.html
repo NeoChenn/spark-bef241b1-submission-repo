@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rig Robot: Pitch</title>
+<style>
+:root{--bg:#0f1720;--panel:#16212d;--ink:#eef2f6;--mute:#93a3b5;--accent:#f07a3a;--gas:#b593e8;--blue:#6fa8dc;--ok:#5cc28a;--bad:#ef6a5a;--line:#2a3a4b}
+@page{size:1280px 720px;margin:0}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000;color:var(--ink);font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.deck{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+.slide{position:absolute;width:1280px;height:720px;background:var(--bg);padding:60px 80px;display:none;flex-direction:column;transform-origin:center;overflow:hidden}
+.slide.on{display:flex}
+@media print{.deck{position:static;display:block}.slide{position:relative;display:flex!important;transform:none!important;page-break-after:always;break-after:page}.hint{display:none}}
+h1{font-size:60px;line-height:1.05;margin:0 0 18px;letter-spacing:-1px}
+h2{font-size:40px;margin:0 0 26px;letter-spacing:-.5px}
+h2 small{display:block;font-size:19px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;font-weight:700}
+p,li{font-size:25px;line-height:1.4}
+ul{margin:0;padding-left:30px}
+li{margin-bottom:10px}
+.mute{color:var(--mute)}
+.acc{color:var(--accent)}
+.gas{color:var(--gas)}
+.n{font-variant-numeric:tabular-nums}
+.big{font-size:76px;font-weight:800;letter-spacing:-2px;line-height:1}
+.row{display:flex;gap:30px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px 28px;flex:1}
+.card h3{margin:0 0 10px;font-size:28px}
+.card p,.card li{font-size:21px;margin:0;color:var(--mute)}
+.card li{margin-bottom:6px}
+.card.g{border-color:rgba(181,147,232,.5)}
+.card.r{border-color:rgba(111,168,220,.5)}
+.hero{background:linear-gradient(90deg,#0f1720 0%,#0f1720 30%,rgba(15,23,32,.55) 48%,rgba(15,23,32,0) 66%),url("../sim/output/cine_night_hero.png") 380px center/auto 100% no-repeat,#0f1720;justify-content:flex-end}
+.strip{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:16px}
+.strip b{width:80px;font-size:18px;letter-spacing:2px;color:var(--mute)}
+.strip span{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:20px;font-weight:700}
+.strip i{color:var(--mute);font-style:normal;font-size:20px}
+.strip.r span{border-color:rgba(111,168,220,.6);color:var(--blue)}
+.strip.g span{border-color:rgba(181,147,232,.6);color:var(--gas)}
+table{border-collapse:collapse;width:100%;font-size:23px}
+th,td{padding:11px 14px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--mute);font-weight:600;font-size:18px;text-transform:uppercase;letter-spacing:1px}
+td.r,th.r{text-align:right}
+tr.crit td{background:rgba(240,122,58,.13)}
+.good{color:var(--ok);font-weight:800}
+.bad{color:var(--bad);font-weight:800}
+.tbd{background:#ffe066;color:#111;padding:0 8px;border-radius:4px;font-weight:800}
+.foot{margin-top:auto;font-size:18px;color:var(--mute)}
+.pipe{display:flex;gap:8px;align-items:stretch;margin:4px 0 0}
+.pipe div{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:17px;text-align:center;display:flex;align-items:center;justify-content:center}
+.pipe b{color:var(--mute);align-self:center;flex:0}
+.pipe.g div{border-color:rgba(181,147,232,.5)}
+.lab{font-size:17px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin:16px 0 8px}
+.stat{display:flex;gap:26px;margin-top:12px}
+.stat div{font-size:19px;color:var(--mute)}
+.stat b{display:block;font-size:40px;color:var(--ink);letter-spacing:-1px}
+.zone{border:2px dashed var(--line);border-radius:14px;padding:20px 24px;flex:1}
+.zone h3{margin:0 0 10px;font-size:24px}
+.zone li{font-size:20px;margin-bottom:6px}
+.shot{border-radius:12px;border:1px solid var(--line);display:block}
+.hint{position:fixed;bottom:10px;right:16px;font-size:13px;color:#666}
+</style>
+</head>
+<body>
+<div class="deck">
+
+<section class="slide hero">
+  <div style="max-width:660px">
+    <h2 style="margin:0"><small>Agentverse 2026 · Robotics</small></h2>
+    <h1>Rig Robot</h1>
+    <p style="font-size:30px">One quadruped, two jobs on an offshore rig: <span class="acc">rust repair</span> and <span class="gas">gas-leak response</span>. It knows when to call a human.</p>
+  </div>
+</section>
+
+<section class="slide">
+  <h2><small>The problem</small>Two chronic jobs that put people in the hazard zone</h2>
+  <div class="row">
+    <div class="card r"><h3 style="color:var(--blue)">Corrosion</h3><p>Pipework rusts constantly in salt spray. People fix it by hand from rope access, 30 m up, next to live hydrocarbons.</p></div>
+    <div class="card g"><h3 class="gas">Small gas leaks</h3><p>Bolted flanges work loose. A person with a gas detector walks up to the leak to find it.</p></div>
+  </div>
+  <p style="margin-top:26px"><b>Dangerous · costly · never finished.</b> User: asset-integrity and maintenance crews.</p>
+  <p>The robot must never <span class="acc"><b>paint over rust</b></span> or <span class="acc"><b>put a wrench on a cracked flange.</b></span></p>
+</section>
+
+<section class="slide">
+  <h2><small>What we built</small>Go2 + 0–0.45 m lift mast + UR3 arm, one brain</h2>
+  <p class="mute" style="margin:0">On a full offshore rig in Isaac Sim 6.2, rendered on an NVIDIA GB10 and streamed live with a HUD.</p>
+  <div class="strip r"><b>RUST</b><span>DETECT</span><i>→</i><span>SPRAY</span><i>→</i><span>SOAK 30 s</span><i>→</i><span>SCRUB · PPO</span><i>→</i><span>VERIFY · detector + Gemini</span><i>→</i><span>PAINT</span></div>
+  <div class="strip g"><b>LEAK</b><span>GAS_CHECK</span><i>→</i><span>LEAK_APPROACH</span><i>→</i><span>LEAK_INSPECT</span><i>→</i><span>RETORQUE</span><i>→</i><span>LEAK_VERIFY</span><i>→</i><span>resume</span></div>
+  <div class="strip"><b>ANY</b><span>GAS_RETREAT</span><span>BACK_OFF</span><span>SECOND_VIEW</span><span>HOLD</span><span>PAUSE_PERSON</span><span>ESCALATE_TO_HUMAN</span></div>
+  <p class="foot">The gas check runs at every patrol stop and before every step: <b style="color:var(--ink)">gas pre-empts everything</b>. One state machine, one camera, one arm, one decision log.</p>
+</section>
+
+<section class="slide" style="justify-content:center;align-items:center;text-align:center;background:linear-gradient(rgba(15,23,32,.82),rgba(15,23,32,.82)),url('img/hud_mock_backoff.png') center/cover">
+  <h2 style="font-size:26px;color:var(--accent);letter-spacing:3px;text-transform:uppercase">Demo · one take · ≤ 60 s</h2>
+  <div class="big">▶ Play video</div>
+  <p style="margin-top:26px">Watch the HUD: detector mask → target grid · unscripted change → RE-PLAN / leak fix / resume · BACK_OFF · HOLD · PAUSE</p>
+  <p class="mute" style="font-size:19px">File: <span class="tbd">TBD</span> (~/Downloads/rig-videos/) · fallback: rig.zeecloud.org, or the mock replay at /?mock=1</p>
+</section>
+
+<section class="slide">
+  <h2><small>Perception-driven action</small>Pixels become the work plan</h2>
+  <div class="lab" style="color:var(--blue);margin-top:0">Rust · MobileNetV4-S + LoRA, 1.1 ms on CPU</div>
+  <div class="pipe"><div>Frame</div><b>→</b><div>96 px patches</div><b>→</b><div>Heatmap</div><b>→</b><div>Ray–cylinder</div><b>→</b><div>(θ, z) grid on pipe</div><b>→</b><div>Spray · scrub · done check</div></div>
+  <div class="stat"><div><b>0.977</b>F1, 881 real photos</div><div><b>13/13</b>held-out Isaac renders</div></div>
+  <div class="lab gas">Leak · no ML: torque stripes + crack check</div>
+  <div class="pipe g"><div>Frame</div><b>→</b><div>Project known bolts</div><b>→</b><div>Read each red stripe</div><b>→</b><div>Thin dark shapes, mm length</div><b>→</b><div>View quality</div><b>→</b><div>Loose · crack · unsure</div></div>
+  <div class="stat"><div><b>40/40</b>cracks found</div><div><b>0/40</b>false alarms</div><div><b>≈ 1°</b>bolt-angle error</div></div>
+</section>
+
+<section class="slide">
+  <h2><small>Scrub policy · PPO in Isaac Lab, 2,048 envs</small>v1 cleaned everything by pressing too hard</h2>
+  <table>
+    <tr><th>Rig geometry, new rust patch each episode</th><th class="r">v1</th><th class="r">v2 (force-limited)</th></tr>
+    <tr><td>Success (&lt; 5 % rust left)</td><td class="r n">100 %</td><td class="r n">97.6 %</td></tr>
+    <tr><td>Episodes over the 40 N limit</td><td class="r n bad">76.8 %</td><td class="r n good">1.0 %</td></tr>
+    <tr><td>Mean / p95 episode-max force</td><td class="r n bad">49.9 / 70.1 N</td><td class="r n good">29.9 / 35.7 N</td></tr>
+    <tr><td>Mean time to clean</td><td class="r n">5.2 s</td><td class="r n">6.8 s</td></tr>
+  </table>
+  <p class="foot">Wear model: removal ~ force × speed, 4× faster after a 30 s soak. v2 adds a quadratic over-force penalty and a 38 N setpoint cap. The v2 demo render peaks at 31.9 N.</p>
+</section>
+
+<section class="slide">
+  <h2><small>Gas-leak job</small>Loose bolt, or crack? The camera decides</h2>
+  <img class="shot" src="leak/crack_check.png" alt="Crack check on a clean flange, a cracked flange and a cracked flange through a dirty lens" style="height:250px;width:auto;align-self:center">
+  <div class="row" style="margin-top:20px">
+    <div class="card g"><h3 class="good" style="font-size:24px">Loose bolts 1 and 5</h3><p>Re-torque, stripe aligned, gas clears → DONE</p></div>
+    <div class="card g"><h3 class="bad" style="font-size:24px">Cracked flange</h3><p>Back off 3 m, critical alert → ESCALATE</p></div>
+    <div class="card g"><h3 class="acc" style="font-size:24px">Dirty lens</h3><p>“No crack” not trusted → 2 extra views → ESCALATE</p></div>
+    <div class="card g"><h3 class="good" style="font-size:24px">Leak mid-scrub</h3><p>Pause, fix bolt 2, resume the scrub → DONE</p></div>
+  </div>
+</section>
+
+<section class="slide">
+  <h2><small>Critical failure modes</small>The most severe hazard always wins</h2>
+  <div class="row" style="align-items:flex-start">
+    <table style="font-size:19px;flex:1.25">
+      <tr class="crit"><td><b>Paint over rust</b></td><td>&lt; 5 % rust, ≥ 80 % visible · Gemini veto · 3 cycles → ESCALATE</td></tr>
+      <tr class="crit"><td><b>Wrench on a crack</b></td><td>crack possible → no bolt touched · back off 3 m</td></tr>
+      <tr><td>Gas ≥ 0.20 LEL · sensor fault</td><td><b>GAS_RETREAT</b> (fail-safe)</td></tr>
+      <tr><td>Gas during rust work</td><td>pause → fix leak → resume</td></tr>
+      <tr><td>Force &gt; 40 N</td><td><b>BACK_OFF</b>: retract 5 cm, × 0.7</td></tr>
+      <tr><td>Person &lt; 3 m · lens blocked</td><td><b>PAUSE_PERSON</b> · <b>HOLD</b></td></tr>
+    </table>
+    <div style="flex:1">
+      <img class="shot" src="img/hud_mock_backoff.png" alt="Demo HUD in mock replay at BACK_OFF: brush force 65 N over the 40 N limit" style="width:100%">
+      <p class="mute" style="font-size:16px;margin:8px 0 0">The HUD in mock replay: BACK_OFF at 65 N &gt; 40 N, with the decision log and pipe map.</p>
+    </div>
+  </div>
+  <p class="foot">Check order before every step: gas sensor working → gas below limit → gas clear → person clear.</p>
+</section>
+
+<section class="slide">
+  <h2><small>Edge autonomy · what's next</small>The fast loop never leaves the robot</h2>
+  <div class="row">
+    <div class="zone" style="border-color:var(--accent)"><h3 class="acc">On the robot · CPU</h3><ul><li>Rust detector: 1.1 ms</li><li>Scrub policy: 0.012 ms*</li><li>Leak check: ~90 ms / frame*</li><li>GB10 TensorRT: <span class="tbd">TBD</span></li></ul></div>
+    <div class="zone"><h3>Cloud · optional</h3><ul><li>Gemini rust second opinion</li><li>Asynchronous · latency <span class="tbd">TBD</span></li><li>Offline → unchanged behaviour</li></ul></div>
+    <div class="zone"><h3>Training only</h3><ul><li>Modal A10G · L40S</li><li>GB10: PPO + RTX render + stream</li></ul></div>
+  </div>
+  <div class="card g" style="margin-top:22px;flex:none"><h3 class="gas" style="font-size:22px">Coming <span class="tbd">TBD</span></h3><p>Unit 2 “gas” robot: methane %LEL, H₂S, OGI-style camera, acoustic sensor, cast-and-surge source localisation · 3D plume with orifice leak rate · fleet planner with gas pre-emption · storm adaptation · Go2 walking</p></div>
+  <p class="foot">*measured on a laptop CPU, batch 1.</p>
+</section>
+
+<section class="slide hero">
+  <div style="max-width:700px">
+    <h1>Find it. Fix it. Prove it.<br><span class="acc">Ask when unsure.</span></h1>
+    <p class="mute" style="font-size:20px;max-width:600px">Limits: simulation only · robot posed kinematically · brush force is a spring model, bolt torque not simulated · gas thresholds illustrative · leak checks not yet re-tested on Isaac frames</p>
+    <p class="mute" style="font-size:20px">rig.zeecloud.org · docs/technical_summary.pdf</p>
+  </div>
+</section>
+
+</div>
+<div class="hint">← → to navigate · F fullscreen</div>
+<script>
+const s=[...document.querySelectorAll('.slide')];let i=0;
+function fit(){const k=Math.min(innerWidth/1280,innerHeight/720);s.forEach(e=>e.style.transform=`scale(${k})`)}
+function go(n){i=Math.max(0,Math.min(s.length-1,n));s.forEach((e,j)=>e.classList.toggle('on',j===i));try{history.replaceState(null,'','#'+(i+1))}catch(e){}}
+addEventListener('keydown',e=>{if(['ArrowRight','PageDown',' '].includes(e.key))go(i+1);else if(['ArrowLeft','PageUp'].includes(e.key))go(i-1);else if(e.key==='f')document.documentElement.requestFullscreen?.()});
+addEventListener('click',e=>go(e.clientX>innerWidth/2?i+1:i-1));
+addEventListener('resize',fit);fit();go((parseInt(location.hash.slice(1))||1)-1);
+</script>
+</body>
+</html>

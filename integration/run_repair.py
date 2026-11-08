@@ -13,6 +13,7 @@ mock demo, and the scrub policy is the mock's greedy policy; both are printed at
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import math
 import os
@@ -35,8 +36,11 @@ parser.add_argument("--fps", type=int, default=12, help="video frame rate")
 parser.add_argument("--hero-size", default="1280x720")
 parser.add_argument("--no-events", action="store_true", help="skip the unscripted scene changes")
 parser.add_argument("--glare", action="store_true", help="add glare on the nominal inspection view")
+parser.add_argument("--stream", default="", help="host:port of the web viewer's sim socket, e.g. 127.0.0.1:9000")
 parser.add_argument("--no-gemini", action="store_true",
                     help="skip the Gemini second opinion even if GEMINI_API_KEY is set")
+parser.add_argument("--control", choices=["off", "auto", "live", "replay"], default="auto",
+                    help="fleet control centre: gemini-4-argon when a key is set (auto/live), else offline replay")
 args = parser.parse_args()
 
 from isaacsim import SimulationApp
@@ -63,6 +67,9 @@ from integration.isaac_bridge import Frames, IsaacRigBridge
 from policy.demo_mock import GreedyScrub, MockRustWorld
 from policy.gemini_verifier import GeminiVerifier
 from policy.orchestrator import Orchestrator, OrchestratorConfig, S, draw_hud
+from rig.camera import from_usd
+from rig.hud import HudFeed
+from rig.overlay import burn
 
 OUT = Path(args.out)
 FRAMES = OUT / "frames"
@@ -95,8 +102,10 @@ def setup_scene(stage):
     n = damage["surface_normal"]
     theta = math.atan2(float(n[2]), float(n[1])) % (2 * math.pi)
     hero = rs.Camera(stage, rs.HERO_CAMERA, focal=24.0, aperture=20.955, clip=(0.05, 4000.0))
-    hero.look((origin[0] + 2.6, 2.9, 2.15), (origin[0] - 0.1, 0.25, 0.95))
-    return theta, hero
+    shots = {1: ((origin[0] + 9.0, 9.5, 6.5), (origin[0] - 0.5, 0.0, 0.8)),
+             2: ((origin[0] + 2.6, 2.9, 2.15), (origin[0] - 0.1, 0.25, 0.95))}
+    hero.look(*shots[2])
+    return theta, hero, shots
 
 
 def make_world(pipe, theta):
@@ -139,11 +148,18 @@ def main() -> None:
     for old in FRAMES.glob("*.jpg"):
         old.unlink()
     stage = open_deck()
-    theta, hero = setup_scene(stage)
+    theta, hero, shots = setup_scene(stage)
     pipe = rs.read_pipe(rs.find_main_pipe(stage))
     world = make_world(pipe, theta)
 
-    state = {"orch": None, "frame": 0}
+    state = {"orch": None, "frame": 0, "shot": 2, "feed": None, "captions": None}
+    sender = None
+    if args.stream:
+        from rig.hud import apply_event
+        from rig.sim.sender import FrameSender
+        host, port = args.stream.rsplit(":", 1)
+        sender = FrameSender(host, int(port)).start()
+        print(f"STREAM frames + HUD header to {args.stream}", flush=True)
     annotators = {}
 
     def render() -> dict:
@@ -159,8 +175,33 @@ def main() -> None:
         mask = orch.last.result.mask if orch is not None and orch.last is not None else None
         frame = inset(rgb, bridge.last_inspection, mask, "inspection camera + detector mask")
         frame = draw_hud(frame, hud) if hud else frame
+        if state["captions"] is not None:
+            frame = burn(frame, [state["captions"].robot()], top=14 * len(hud) + 22)
         Image.fromarray(frame).save(FRAMES / f"{state['frame']:05d}.jpg", quality=92)
         state["frame"] += 1
+        if sender is not None and state["feed"] is not None:
+            stream(rgb)
+
+    def stream(rgb: np.ndarray) -> None:
+        while not sender.inbox.empty():
+            event = sender.inbox.get_nowait()
+            try:
+                apply_event(bridge, event, state["feed"].control)
+                print(f"   >>> [web event t={bridge.sim_time():5.1f}s] {event}", flush=True)
+            except Exception as e:
+                print(f"   >>> [web event rejected] {event}: {e}", flush=True)
+        shot = bridge.state.shot
+        if shot != state["shot"]:
+            state["shot"] = shot
+            if shot in shots:
+                hero.look(*shots[shot])
+        img = bridge.last_inspection if shot == 3 and bridge.last_inspection is not None else rgb
+        buf = io.BytesIO()
+        Image.fromarray(np.ascontiguousarray(img[..., :3])).save(buf, "JPEG", quality=85)
+        header = {"type": "frame", "w": img.shape[1], "h": img.shape[0], "seq": state["frame"],
+                  "t": round(bridge.sim_time(), 2), "mean": round(float(img.mean()), 1), "shot": shot}
+        header.update(state["feed"].header())
+        sender.send(header, buf.getvalue())
 
     bridge = IsaacRigBridge(stage, world, Frames(render, record), inspection_size=INSPECTION_SIZE)
     for _ in range(20):
@@ -188,6 +229,24 @@ def main() -> None:
                         OrchestratorConfig(log_path=str(OUT / "decisions.jsonl"), scrub_steps=200,
                                            scrub_redetect_every=40), advisor=advisor)
     state["orch"] = orch
+
+    def view_camera():
+        on_inspection = bridge.state.shot == 3 and bridge.last_inspection is not None
+        cam, (w, h) = (bridge.inspection, INSPECTION_SIZE) if on_inspection else (hero, (hero_w, hero_h))
+        return from_usd(cam.world_matrix(), cam.focal, cam.aperture, w, h)
+
+    state["captions"] = HudFeed(orch, pose=lambda: bridge.state.base[:3, 3], camera=view_camera)
+    if sender is not None:
+        if args.control != "off":
+            from policy.control.centre import from_env
+            from policy.control.port import MemoryCoordinator
+            port = MemoryCoordinator([{"id": "unit-1", "state": "PATROL", "zone": "A"}],
+                                     [{"id": "R-1", "kind": "rust_repair", "target": "main pipe", "level": "SUPV",
+                                       "status": "RUNNING"}], clock=bridge.sim_time)
+            state["captions"].control = from_env(args.control, OUT / "control_calls.jsonl", port=port)
+            backend = state["captions"].control.backend
+            print(f"CONTROL CENTRE {backend.name if backend else 'edge only'}", flush=True)
+        state["feed"] = state["captions"]
     if args.glare:
         bridge.set_glare(True)
         original = bridge.request_view
@@ -209,7 +268,7 @@ def main() -> None:
             continue
         if prev == S.SPRAY and "patch" not in fired:
             fired.add("patch")
-            th_new, z_new = theta + 0.28, 0.12
+            th_new, z_new = theta - 0.3, 0.12      # inside the arm's reach map (theta 0.3-1.2 at this stance)
             bridge.schedule(now + 12.0, f"NEW rust patch at theta={th_new:.2f}, z={z_new:+.2f}",
                             lambda: bridge.spawn_patch(th_new, z_new, size=0.035, level=0.85))
         if orch.state == S.SCRUB and "bead" not in fired:

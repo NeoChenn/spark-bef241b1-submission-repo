@@ -1,17 +1,25 @@
 import asyncio
 import contextlib
 import os
+from collections import deque
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from rig.frames import read_message_async
+from rig.frames import encode, read_message_async
+from rig.hud import CONTROL_EVENTS, EXTRA, HOOKS
 
 STATIC = Path(__file__).parent / "static"
+REPO = Path(__file__).resolve().parents[2]
+MOCK_PATH = REPO / "runs/hud/mock_session.json"
+SHOTS = {1: "sim/output/cine_storm_aerial.png", 2: "sim/output/preview_hero.png",
+         3: "sim/output/preview_repair_closeup.png"}
+LOG_KEEP = 200
+REPLAY_EVENTS = 20
 FPS_WINDOW_S = 2.0
 STALE_AFTER_S = 2.0
 BLACK_MEAN = 3.0
@@ -26,6 +34,8 @@ class FrameHub:
         self._seq = 0
         self._event = asyncio.Event()
         self._times: list[float] = []
+        self.log: list[dict] = []
+        self.log_base = 0
 
     @property
     def fps(self) -> float:
@@ -39,6 +49,10 @@ class FrameHub:
         self.frames += 1
         self.last_frame_at = now
         self.latest = (self._seq, jpeg, header)
+        self.log.extend(header.get("events") or [])
+        if len(self.log) > LOG_KEEP:
+            self.log_base += len(self.log) - LOG_KEEP
+            self.log = self.log[-LOG_KEEP:]
         self._times = [t for t in self._times if now - t <= FPS_WINDOW_S]
         self._times.append(now)
         event, self._event = self._event, asyncio.Event()
@@ -49,10 +63,20 @@ class FrameHub:
             await self._event.wait()
         return self.latest
 
+    def events_since(self, idx: int) -> tuple[int, list[dict]]:
+        end = self.log_base + len(self.log)
+        return end, self.log[max(0, idx - self.log_base):]
 
-def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000) -> FastAPI:
+
+def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000, mock_path: Path = MOCK_PATH) -> FastAPI:
     hub = FrameHub()
     current: dict[str, asyncio.StreamWriter | None] = {"writer": None}
+    pending: deque = deque()
+
+    def flush() -> None:
+        writer = current["writer"]
+        while writer is not None and pending:
+            writer.write(encode({"type": "event", **pending.popleft()}))
 
     async def handle_sim(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         previous = current["writer"]
@@ -60,6 +84,7 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000) -> FastAPI:
         if previous is not None:
             previous.close()
         hub.sim_connected = True
+        flush()
         try:
             while True:
                 header, payload = await read_message_async(reader)
@@ -115,7 +140,33 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000) -> FastAPI:
             "frame_age_s": None if age is None else round(age, 2),
             "w": header.get("w"),
             "h": header.get("h"),
+            "events_pending": len(pending),
         }
+
+    @app.post("/api/event")
+    async def post_event(body: dict) -> dict:
+        name = body.get("name")
+        if name not in HOOKS + EXTRA + CONTROL_EVENTS:
+            raise HTTPException(400, f"unknown event {name!r}; expected one of {HOOKS + EXTRA + CONTROL_EVENTS}")
+        pending.append({"name": name, "args": body.get("args") or {}})
+        queued = len(pending)
+        flush()
+        if current["writer"] is not None:
+            await current["writer"].drain()
+        return {"queued": queued, "delivered": not pending}
+
+    @app.get("/api/mock")
+    async def mock() -> Response:
+        if not mock_path.exists():
+            from rig.hud import record_mock
+            await asyncio.to_thread(record_mock, mock_path, str(mock_path.parent / "decisions.jsonl"))
+        return FileResponse(mock_path, media_type="application/json")
+
+    @app.get("/api/mock/shot/{n}")
+    async def mock_shot(n: int) -> FileResponse:
+        if n not in SHOTS:
+            raise HTTPException(404, "no such shot")
+        return FileResponse(REPO / SHOTS[n], media_type="image/png")
 
     @app.get("/api/frame.jpg")
     async def frame_jpg() -> Response:
@@ -131,6 +182,20 @@ def create_app(sim_host: str = "127.0.0.1", sim_port: int = 9000) -> FastAPI:
             while True:
                 seq, jpeg, _ = await hub.wait_newer(seq)
                 await ws.send_bytes(jpeg)
+        except (WebSocketDisconnect, RuntimeError):
+            pass
+
+    @app.websocket("/ws/state")
+    async def ws_state(ws: WebSocket) -> None:
+        await ws.accept()
+        seq = 0
+        idx = max(0, hub.log_base + len(hub.log) - REPLAY_EVENTS)
+        try:
+            while True:
+                seq, _, header = await hub.wait_newer(seq)
+                idx, events = hub.events_since(idx)
+                await ws.send_json({**header, "events": events})
+                await asyncio.sleep(0.08)
         except (WebSocketDisconnect, RuntimeError):
             pass
 

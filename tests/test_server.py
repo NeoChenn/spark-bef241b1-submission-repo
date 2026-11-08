@@ -145,3 +145,90 @@ def test_viewer_shows_server_state():
     js = VIEWER_JS.read_text()
     assert "h.state" in js
     assert 'setStatus("live", true)' not in js
+
+
+def state_frame(seq: int, events: list) -> bytes:
+    header = {"type": "frame", "w": 640, "h": 360, "seq": seq, "t": seq / 10, "state": "SCRUB",
+              "force_n": 12.5, "events": events}
+    return encode(header, b"\xff\xd8" + bytes([seq]))
+
+
+def test_ws_state_sends_header_json(client):
+    with client.websocket_connect("/ws/state") as ws, connect(client.app) as s:
+        s.sendall(state_frame(0, [{"t": 0, "from": "PATROL", "to": "DETECT", "reason": "x", "evidence": {}}]))
+        msg = ws.receive_json()
+        assert msg["state"] == "SCRUB"
+        assert msg["force_n"] == 12.5
+        assert [e["to"] for e in msg["events"]] == ["DETECT"]
+
+
+def test_ws_state_merges_events_and_replays_recent(client):
+    with connect(client.app) as s:
+        for k in range(3):
+            s.sendall(state_frame(k, [{"t": k, "from": "A", "to": f"S{k}", "reason": "", "evidence": {}}]))
+        wait_frames(client, 3)
+        with client.websocket_connect("/ws/state") as ws:
+            msg = ws.receive_json()
+            assert [e["to"] for e in msg["events"]] == ["S0", "S1", "S2"]
+            s.sendall(state_frame(3, []))
+            assert ws.receive_json()["events"] == []
+
+
+def test_ws_video_still_binary_with_rich_header(client):
+    with client.websocket_connect("/ws/video") as ws, connect(client.app) as s:
+        s.sendall(state_frame(0, []))
+        assert ws.receive_bytes() == b"\xff\xd8\x00"
+
+
+def read_event(sock: socket.socket) -> dict:
+    from rig.frames import read_message
+    sock.settimeout(2)
+    header, _ = read_message(sock)
+    return header
+
+
+def test_post_event_forwards_to_sim(client):
+    with connect(client.app) as s:
+        s.sendall(frame(0))
+        wait_frames(client, 1)
+        r = client.post("/api/event", json={"name": "spawn_patch", "args": {"theta": 1.2, "z": 0.1}})
+        assert r.status_code == 200
+        assert read_event(s) == {"type": "event", "name": "spawn_patch", "args": {"theta": 1.2, "z": 0.1}}
+
+
+def test_post_event_rejects_unknown(client):
+    assert client.post("/api/event", json={"name": "shutdown"}).status_code == 400
+
+
+def test_post_event_accepts_control_events(client):
+    assert client.post("/api/event", json={"name": "cut_link", "args": {"on": True}}).status_code == 200
+    assert client.post("/api/event", json={"name": "intent", "args": {"text": "inspect deck 2"}}).status_code == 200
+
+
+def test_event_queued_until_sim_connects(client):
+    r = client.post("/api/event", json={"name": "force_spike"})
+    assert r.json()["queued"] == 1
+    with connect(client.app) as s:
+        s.sendall(frame(0))
+        assert read_event(s)["name"] == "force_spike"
+    assert client.get("/api/health").json()["events_pending"] == 0
+
+
+def test_mock_session_generated_and_served(tmp_path):
+    with TestClient(create_app(sim_port=0, mock_path=tmp_path / "mock.json")) as c:
+        r = c.get("/api/mock")
+        assert r.status_code == 200
+        assert r.json()["snapshots"][-1]["state"] == "DONE"
+        assert (tmp_path / "mock.json").exists()
+
+
+def test_mock_shots_served(client):
+    for n in (1, 2, 3):
+        r = client.get(f"/api/mock/shot/{n}")
+        assert r.status_code == 200
+        assert r.headers["content-type"] == "image/png"
+    assert client.get("/api/mock/shot/9").status_code == 404
+
+
+def test_viewer_skips_stream_in_mock_mode():
+    assert '"mock"' in VIEWER_JS.read_text()

@@ -4,7 +4,7 @@ import socket
 import struct
 
 PREFIX = struct.Struct("<II")
-MAX_HEADER = 64 * 1024
+MAX_HEADER = 512 * 1024
 MAX_PAYLOAD = 16 * 1024 * 1024
 
 
