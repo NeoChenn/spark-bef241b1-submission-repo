@@ -44,10 +44,12 @@ def embedded(meshes) -> dict:
     return out
 
 
-def save_texture(src, dst: Path, size: int, mode: str) -> Path:
+def save_texture(src, dst: Path, size: int, mode: str, tint=None) -> Path:
     from PIL import Image
 
     im = (src if isinstance(src, Image.Image) else Image.open(src)).convert(mode)
+    if tint:
+        im = Image.merge("RGB", [band.point(lambda v, k=k: v * k) for band, k in zip(im.split(), tint)])
     if max(im.size) > size:
         im.thumbnail((size, size), Image.LANCZOS)
     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -122,6 +124,7 @@ def main():
     ap.add_argument("--roughness", type=float, default=0.5)
     ap.add_argument("--metallic", type=float, default=0.0)
     ap.add_argument("--size", type=int, default=2048)
+    ap.add_argument("--tint", type=float, nargs=3)
     for key in MAPS:
         ap.add_argument(f"--{key}", type=Path)
     args = ap.parse_args()
@@ -137,7 +140,8 @@ def main():
         src = getattr(args, key) or inside.get(key)
         if src is not None:
             textures[key] = save_texture(src, args.out.parent / "textures" / f"{args.out.stem}_{key}.jpg", args.size,
-                                         "RGB" if key in ("albedo", "normal") else "L")
+                                         "RGB" if key in ("albedo", "normal") else "L",
+                                         args.tint if key == "albedo" else None)
     lo, hi = write(meshes, args.out, textures, args.color, args.roughness, args.metallic)
     print("BOUNDS", lo.round(3).tolist(), hi.round(3).tolist(), "faces", sum(len(m.faces) for _, m in meshes))
 
