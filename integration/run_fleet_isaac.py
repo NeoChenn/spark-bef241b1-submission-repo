@@ -1798,7 +1798,7 @@ def open_control_room(stage, cr: dict, root: str = "/World/Fleet/control_room", 
         return {"opened": 0}
     UsdGeom.Xform.Define(stage, root)
     UsdGeom.Xform.Define(stage, f"{root}/frames")
-    white = _surface(stage, f"{root}/Looks/steel", (0.36, 0.375, 0.385), 0.6, 0.3)
+    white = _surface(stage, f"{root}/Looks/steel", (0.5, 0.52, 0.53), 0.6, 0.25)
     glass = UsdShade.MaterialBindingAPI(win).ComputeBoundMaterial()[0]
     warm = _surface(stage, f"{root}/Looks/glass_warm", (0.9, 0.75, 0.55), 0.2, emissive=(2.2, 1.35, 0.62))
     dark = _surface(stage, f"{root}/Looks/frame", (0.035, 0.037, 0.04), 0.5, 0.4)
@@ -1880,7 +1880,7 @@ def add_control_room(stage, center, size, yaw: float = 0.0, root: str = "/World/
     UsdGeom.Xform.Define(stage, root)
     wall = _surface(stage, f"{root}/Looks/wall", (0.55, 0.56, 0.55), 0.8)
     floor = _surface(stage, f"{root}/Looks/floor", (0.12, 0.13, 0.14), 0.6)
-    panel = _surface(stage, f"{root}/Looks/panel", (0.9, 0.9, 0.85), 0.5, emissive=(40.0, 40.0, 36.0))
+    panel = _surface(stage, f"{root}/Looks/panel", (0.9, 0.85, 0.75), 0.5, emissive=(40.0, 30.0, 18.0))
     parts = control_room_parts(center, size, yaw)
     for name, c, sz in parts:
         cube = UsdGeom.Cube.Define(stage, f"{root}/{name}")
@@ -1905,12 +1905,12 @@ def add_control_room(stage, center, size, yaw: float = 0.0, root: str = "/World/
         lt.CreateWidthAttr(min(1.6, 0.3 * w))
         lt.CreateHeightAttr(0.4)
         lt.CreateIntensityAttr(1.5e5)
-        lt.CreateColorAttr(Gf.Vec3f(1.0, 0.96, 0.9))
+        lt.CreateColorAttr(Gf.Vec3f(1.0, 0.8, 0.58))
         UsdGeom.Xformable(lt).AddTranslateOp().Set(Gf.Vec3d(x, y, cz + h - 0.08))
     fill = UsdLux.SphereLight.Define(stage, f"{root}/fill")
     fill.CreateRadiusAttr(0.3)
     fill.CreateIntensityAttr(3.0e4)
-    fill.CreateColorAttr(Gf.Vec3f(1.0, 0.95, 0.88))
+    fill.CreateColorAttr(Gf.Vec3f(1.0, 0.8, 0.6))
     UsdGeom.Xformable(fill).AddTranslateOp().Set(Gf.Vec3d(cx, cy, cz + 0.6 * h))
     return len(parts) + 5
 
