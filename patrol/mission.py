@@ -73,6 +73,7 @@ class PatrolMission:
         self.last_event: str | None = None
         self.n_confirmed = 0
         self.max_width = 0.0
+        self.widths: list[float] = []
         self.reversed_count = 0
 
     # ------------------------------------------------------------------ helpers
@@ -166,13 +167,15 @@ class PatrolMission:
         c = self.cfg
         match = min(dets, key=lambda d: np.linalg.norm(d.xy - self.target.xy), default=None)
         if event == "target":
-            self.max_width = self.target.width
+            self.widths = [self.target.width]
         if match is not None and np.linalg.norm(match.xy - self.target.xy) < c.ignore_radius:
             self.target, self.lost = match, 0.0
-            self.max_width = max(self.max_width, match.width)
+            self.widths.append(match.width)
         else:
             self.lost += c.dt
-        too_big = self.max_width > c.detect.pick_max_width
+        # median, not max: single-frame width estimates are noisy (about +-5 cm)
+        self.max_width = float(np.median(self.widths))
+        too_big = len(self.widths) >= 3 and self.max_width > c.detect.pick_max_width
         if too_big or self.lost > c.lost_timeout or self.timer > c.approach_timeout:
             self.handled.append(self.target.xy.copy())
             self.target, self.state = None, FOLLOW
@@ -184,7 +187,7 @@ class PatrolMission:
         self.target.range, self.target.bearing = rng, b
         err = rng - c.pick_standoff
         if abs(err) < 0.05 and abs(b) < 0.15:
-            if self._extent_near(self.target.xy, 0.18) > c.detect.pick_max_width + 0.02:
+            if self._extent_near(self.target.xy, 0.18) > c.detect.pick_max_width:
                 self.handled.append(self.target.xy.copy())
                 self.target, self.state = None, FOLLOW
                 return self._cmd(0.0, 0.0, None, None, "too_big")
@@ -196,14 +199,30 @@ class PatrolMission:
             vx = max(vx, 0.03)
         return self._cmd(vx, wz, "open", None, event)
 
-    def _extent_near(self, xy, radius) -> float:
-        """Size of everything the raw scan sees within `radius` of xy (no path-tube clipping)."""
+    def _extent_near(self, xy, radius, gap: float = 0.05) -> float:
+        """Width of the object at xy from the raw scan (no path-tube clipping): the run of consecutive
+        beams that starts at a hit within `radius` of xy and continues while neighbouring hits are
+        closer than `gap`. A wall behind or beside the object sits across a range jump, so it is not
+        counted; an object that really is wider than the gripper still is."""
         ranges, angles, pose = self._scan
-        pts, _, _, _ = hits_world(ranges, angles, pose, self.cfg.detect.lidar_range)
-        near = pts[np.linalg.norm(pts - xy, axis=1) < radius]
-        if len(near) < 2:
+        pts, r, a, _ = hits_world(ranges, angles, pose, self.cfg.detect.lidar_range)
+        if len(pts) == 0:
             return 0.0
-        return float(np.linalg.norm(near[:, None] - near[None], axis=-1).max())
+        order = np.argsort(a)
+        pts, r = pts[order], r[order]
+        d = np.linalg.norm(pts - xy, axis=1)
+        seed = int(d.argmin())
+        if d[seed] > radius:
+            return 0.0
+        n = len(pts)
+        lo = hi = seed
+        while hi - lo < n - 1 and np.linalg.norm(pts[(hi + 1) % n] - pts[hi % n]) < gap:
+            hi += 1
+        while hi - lo < n - 1 and np.linalg.norm(pts[(lo - 1) % n] - pts[lo % n]) < gap:
+            lo -= 1
+        dbeam = 2 * math.pi / max(len(ranges), 1)
+        chord = float(np.linalg.norm(pts[hi % n] - pts[lo % n])) if hi > lo else 0.0
+        return chord + float(r[seed]) * dbeam
 
     def overlay_text(self) -> list[str]:
         tgt = f"target {self.target.range:.2f} m" if self.target is not None else f"{self.n_confirmed} objects in view"

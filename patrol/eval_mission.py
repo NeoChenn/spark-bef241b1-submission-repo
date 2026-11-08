@@ -18,7 +18,7 @@ from patrol.controller import PatrolController, cmd_to_action
 from patrol.mission import MissionCfg, PatrolMission
 from patrol.sim2d import PatrolSim, SimCfg
 
-PICKABLE_DIAM = 0.12
+PICKABLE_DIAM = 0.11  # gripper opens 0.12 m; 1 cm grasp margin, same as DetectCfg.pick_max_width
 IN_PATH_TUBE = 0.32
 
 

@@ -52,7 +52,24 @@ Detector (see `DETECT_RESULTS.md`): precision 0.998, recall 0.988, F1 0.993 at 3
 
 Mission eval (`eval_mission`, 30 episodes x 4 legs = ~80 m each, 360 beams):
 
-| policy | all 4 legs done | collision | picked / pickable | false picks | blocked events |
-|---|---|---|---|---|---|
-| `nav_v3a` | 63% | 37% | 6 / 16 | 0 | 17 |
-| `nav_v1b` | 53% | 47% | 6 / 16 | 0 | 0 |
+| policy | mission | all 4 legs done | collision | picked / pickable | false picks | blocked events |
+|---|---|---|---|---|---|---|
+| `nav_v3a` | pick fixes | 63% | 37% | **8 / 12** | 1 | 17 |
+| `nav_v3a` | before | 63% | 37% | 6 / 16 | 0 | 17 |
+| `nav_v1b` | before | 53% | 47% | 6 / 16 | 0 | 0 |
+
+"Pickable" is diameter <= 0.11 m (gripper opens 0.12 m, 1 cm grasp margin), matching `DetectCfg.pick_max_width`;
+the old rows counted up to 0.12 m. With the pick fixes, every pickable object the robot reached was picked;
+the 4 misses were all never reached because the episode ended in a collision first. The one false pick is a
+0.137 m object next to a 0.125 m one, which merge into one partly hidden blob in the scan.
+
+Pick fixes: the approach uses the median of the per-frame width estimates instead of the max (estimates are
+about +-5 cm noisy, so the max rejected objects that fit), and the final size check at the pick standoff
+measures only the contiguous run of beams on the object, so a wall beside it no longer makes it look too
+big; that check now uses the strict 0.11 m limit.
+
+Collisions by cause (same 30 episodes): 7 of 11 are the nav policy driving into a large object in FOLLOW,
+1 a small object, 3 walls. Tried and dropped: a lidar speed governor in FOLLOW (cap vx by the free distance
+in the robot's lane). It made things worse (collision 53%, blocked 35) because the policy was not trained
+with it. Object avoidance has to improve in training (next: more large objects, and the 0.3 m clearance
+band applied to objects separately from walls).

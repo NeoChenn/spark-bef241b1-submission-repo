@@ -134,6 +134,23 @@ def test_mission_picks_object_and_dumps_at_end():
     assert len(mission.overlay_text()) == 4
 
 
+@pytest.mark.parametrize("radius,pickable", [(0.05, True), (0.08, False)])
+def test_size_check_ignores_wall_but_rejects_wide_objects(radius, pickable):
+    # object 4 cm from the left wall, robot stopped 0.45 m away at the pick standoff
+    sim = straight_world([((8.0, 0.42 - 0.04 - radius), radius)])
+    sim.wl[0] = 0.42
+    obj = sim.obs_c[0, 0].numpy()
+    sim.pos[0] = torch.tensor([float(obj[0]) - 0.45, float(obj[1]) - 0.1])
+    sim.yaw[0] = math.atan2(0.1, 0.45)
+    beams = -math.pi + (torch.arange(360) + 0.5) * (2 * math.pi / 360)
+    mission = PatrolMission(PatrolController("pure_pursuit", sim.P[0].numpy()), MissionCfg())
+    mission._scan = (sim.lidar(beams=beams)[0].numpy(), beams.numpy(),
+                     (float(sim.pos[0, 0]), float(sim.pos[0, 1]), float(sim.yaw[0])))
+    width = mission._extent_near(obj, 0.18)
+    assert abs(width - 2 * radius) < 0.025
+    assert (width <= mission.cfg.detect.pick_max_width) == pickable
+
+
 def cautious(obs):
     front = obs[features.SECTORS // 2 - 1: features.SECTORS // 2 + 1].min() * features.LIDAR_RANGE
     return np.array([0.5 if front > 0.7 else 0.0, 0.0], dtype=np.float32)
