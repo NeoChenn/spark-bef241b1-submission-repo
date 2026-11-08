@@ -74,7 +74,8 @@
     if (!h || typeof h !== "object") return;
     if (h.views && typeof h.views === "object") Object.entries(h.views).forEach(([rid, ks]) => { if (ks && typeof ks === "object") S.views[rid] = { ...(S.views[rid] || {}), ...ks }; });
     S.h = { ...S.h, ...h };
-    if ("selected" in h && now() - S.selAt > 4 && h.selected !== S.sel) { S.sel = h.selected || null; if (!S.sel) closeCard(); }
+    const hs = "selected" in h ? h.selected || null : h.camera_mode && typeof h.camera_mode === "object" ? (h.camera_mode.mode === "chase" && h.camera_mode.robot) || null : undefined;
+    if (hs !== undefined && now() - S.selAt > 4 && hs !== S.sel) { if (!hs) closeCard(); S.sel = hs; }
     if (h.scenario && h.scenario.id && h.scenario.id !== "flyby" && h.scenario.id !== S.scenId) S.mc = true;
     S.scenId = h.scenario?.id || null;
     record(h);
@@ -113,26 +114,26 @@
     setTimeout(() => { el.classList.remove("on"); setTimeout(() => el.remove(), 320); }, 4200);
   }
 
-  const headCard = (k) => k === "f" || k === "b";
+  const onDemand = (k) => k === "f" || k === "b" || k === "d";
   function setSel(rid) {
     const old = selected();
     S.sel = rid; S.selAt = now();
     if (!rid) closeCard();
-    else if (old && old !== rid && headCard(S.card)) { post("views", { robot: old, on: false }); post("views", { robot: rid, on: true, kind: CARDS[S.card][0] }); }
+    else if (old && old !== rid && onDemand(S.card)) { post("views", { robot: old, on: false }); post("views", { robot: rid, on: true, kind: CARDS[S.card][0] }); }
     post("select", { robot: rid });
   }
   function wide() { S.mc = true; S.g = false; setSel(null); }
   function pick(n) { const rid = "R" + n; if (ids().length && !ids().includes(rid)) { toast(`No ${rid} on the rig`, "Robots reporting: " + ids().join(", ")); return; } setSel(rid); }
-  function closeCard() { if (headCard(S.card) && S.sel) post("views", { robot: S.sel, on: false }); S.card = null; }
+  function closeCard() { if (onDemand(S.card) && S.sel) post("views", { robot: S.sel, on: false }); S.card = null; }
   function toggleCard(k) {
     const rid = selected();
     if (!rid) { toast("Pick a robot first", "Press 1, 2 or 3"); return; }
     const prev = S.card;
     S.card = prev === k ? null : k;
-    if (headCard(S.card)) post("views", { robot: rid, on: true, kind: CARDS[S.card][0] });
-    else if (headCard(prev)) post("views", { robot: rid, on: false });
+    if (onDemand(S.card)) post("views", { robot: rid, on: true, kind: CARDS[S.card][0] });
+    else if (onDemand(prev)) post("views", { robot: rid, on: false });
   }
-  setInterval(() => { const rid = selected(); if (rid && headCard(S.card)) post("views", { robot: rid, on: true, kind: CARDS[S.card][0] }); }, 20000);
+  setInterval(() => { const rid = selected(); if (rid && onDemand(S.card)) post("views", { robot: rid, on: true, kind: CARDS[S.card][0] }); }, 20000);
   function startScenario(id) {
     if (id === "flyby") { flyby(); return; }
     closeCard();
@@ -169,7 +170,7 @@
   function labels() {
     const L = $("labels"), m = mode(), cam = S.h.camera, sel = selected();
     const show = m !== "flyby" && cam?.T && cam?.K && cam.w && !S.spot ? robots().filter((r) => Array.isArray(r.world_pos) && r.world_pos.length > 2 && (m === "mc" || r.id === sel)) : [];
-    const keep = new Set(), W = innerWidth, H = innerHeight;
+    const keep = new Set(), W = innerWidth, H = innerHeight, at = [];
     const k = cam?.w ? Math.max(W / cam.w, H / cam.h) : 1, ox = cam?.w ? (W - cam.w * k) / 2 : 0, oy = cam?.h ? (H - cam.h * k) / 2 : 0;
     show.forEach((r) => {
       const [u, v, z] = project(cam, r.world_pos), x = ox + u * k, y = oy + v * k;
@@ -181,8 +182,17 @@
       el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
       txt(el.querySelector("b"), r.id);
       txt(el.querySelector("span"), task(r.id));
+      at.push([el, x, y]);
     });
     [...L.children].forEach((el) => keep.has(el.dataset.id) || el.remove());
+    const placed = [];
+    at.sort((a, b) => b[2] - a[2]).forEach(([el, x, y]) => {
+      const w = el.firstChild.offsetWidth, h = el.firstChild.offsetHeight, l = x - w / 2;
+      let lift = 0;
+      for (let i = 0; i < placed.length; i++) { const p = placed[i]; if (l < p[0] + p[2] + 6 && p[0] < l + w + 6 && Math.abs(y - lift - p[1]) < h + 4) { lift = y - p[1] + h + 6; i = -1; } }
+      placed.push([l, y - lift, w]);
+      el.style.setProperty("--lift", lift.toFixed(0) + "px");
+    });
   }
 
   function capsule() {
@@ -218,7 +228,7 @@
     const c = S.h.control || {}, ag = c.agent || S.h.orchestrator?.planner || {};
     const th = (Array.isArray(c.thoughts) ? c.thoughts : []).filter((x) => x && x.text).slice(-6);
     const calls = (Array.isArray(ag.calls) ? ag.calls : []).filter(Boolean).slice(-5).reverse();
-    const vet = (Array.isArray(c.vetoed) ? c.vetoed : []).filter(Boolean).slice(0, 3);
+    const vet = (Array.isArray(c.refused) ? c.refused : Array.isArray(c.vetoed) ? c.vetoed : []).filter(Boolean).slice(-4).reverse();
     const cut = c.link === "CUT" || ag.link === "CUT";
     const meta = [cut ? "link cut · fleet on rules" : c.mode === "CLOUD" ? "cloud" : c.mode ? "edge" : "", c.calls_today != null ? c.calls_today + " calls today" : "", c.cost_today_usd != null ? "$" + (+c.cost_today_usd).toFixed(2) : ""].filter(Boolean).join(" · ");
     const sit = Array.isArray(c.situation) ? c.situation[0] : c.situation;
@@ -226,7 +236,7 @@
       : ag.text || sit ? `<ol class="th"><li class="new">${esc(String(ag.text || sit).split("\n")[0])}</li></ol>` : `<p class="none">Waiting for Argon's first thought</p>`;
     const callRows = calls.map((x) => `<div class="call ${x.ok === false ? "no" : ""}"><b>${esc(x.label || x.name || "call")}</b>${x.why || x.note ? `<p>${esc(x.why || x.note)}</p>` : ""}${x.ok === false && x.refused ? `<p class="ref">Refused · ${esc(x.refused)}</p>` : ""}</div>`).join("");
     const vetRows = vet.map((v) => `<div class="call no"><b>${esc(v.label || v.kind || "action")}</b>${v.why ? `<p class="ref">${esc(v.why)}</p>` : ""}</div>`).join("");
-    return `<header><b>Gemini 4 Argon</b><span class="tnum">${esc(meta)}</span></header><h3>Thinking</h3>${think}<h3>Calls</h3>${callRows || `<p class="none">No calls yet</p>`}${vetRows ? `<h3>Refused by the safety envelope</h3>${vetRows}` : ""}`;
+    return `<header><b>Gemini 4 Argon</b><span class="tnum">${esc(meta)}</span></header><h3>${c.thoughts_mode === "decisions" ? "Decisions" : "Thinking"}</h3>${think}<h3>Calls</h3>${callRows || `<p class="none">No calls yet</p>`}${vetRows ? `<h3>Refused by the safety envelope</h3>${vetRows}` : ""}`;
   }
   function left() {
     const el = $("left"), what = S.g ? "g" : mode() === "mc" ? "mc" : "";
@@ -258,7 +268,7 @@
     if (e?.w && e?.h) C.box.style.aspectRatio = `${e.w} / ${e.h}`;
     if (src && pending._s !== src) { pending._s = src; pending.src = src; }
     if (!src) { pending._s = null; C.img.hidden = true; }
-    txt(C.none, src ? "" : headCard(k) ? `Starting ${rid}'s head camera…` : `No ${title.toLowerCase()} view from ${rid} yet`);
+    txt(C.none, src ? "" : onDemand(k) ? `Starting ${rid}'s ${k === "d" ? "depth view" : "head camera"}…` : `No ${title.toLowerCase()} view from ${rid} yet`);
     const bx = k === "b" && Array.isArray(e?.boxes) && e.w ? e.boxes : [], bk = JSON.stringify(bx) + (e?.w || 0);
     if (C.svg._k !== bk) {
       C.svg._k = bk;
@@ -297,10 +307,10 @@
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, w, h);
     if (data.length < 2) return;
-    const t1 = now(), t0 = t1 - 30, vs = data.map((p) => p[1]), lo = Math.min(...vs), hi = Math.max(...vs), r = hi - lo || 1;
+    const t0 = now() - 30, vs = data.map((p) => p[1]), lo = Math.min(...vs), hi = Math.max(...vs), r = Math.max(hi - lo, Math.abs(hi) * 0.15, 1e-3);
     g.strokeStyle = col; g.lineWidth = 1.4; g.lineJoin = g.lineCap = "round";
     g.beginPath();
-    data.forEach(([t, v], i) => { const x = ((t - t0) / 30) * w, y = h - 2 - ((v - lo) / r) * (h - 4); i ? g.lineTo(x, y) : g.moveTo(x, y); });
+    data.forEach(([t, v], i) => { const x = ((t - t0) / 30) * w, y = h / 2 - ((v - (lo + hi) / 2) / r) * (h - 4); i ? g.lineTo(x, y) : g.moveTo(x, y); });
     g.stroke();
   }
 
