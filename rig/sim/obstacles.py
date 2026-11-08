@@ -78,6 +78,8 @@ RUST_INPUTS = (("/World/RepairZone/Looks/rust_coarse_01/hero_mdl", "amount"),
                ("/World/RepairZone/Looks/green_metal_rust/hero_mdl", "streak_amount"))
 STATIC_DOG = "/World/Robots/scrubber_dog"
 RUST_SLEW = 0.25
+VAPOUR_N, VAPOUR_LIFE, VAPOUR_MS = 40, 6.0, 0.7
+VAPOUR_ALPHA = (0.2, 0.12, 0.06)
 
 
 class ObstacleScene:
@@ -110,6 +112,7 @@ class ObstacleScene:
         self.rollout = Rollout.load() if self.gait else None
         self.anim_ms = 0.0
         self.rust, self.rust_q, self.rust_attrs, self.dog = 1.0, Quantiser(0.005), None, None
+        self.leak, self.vap, self.vap_on, self.vap_t = None, None, False, -1e9
 
     def _roots(self):
         UsdGeom.Scope.Define(self.stage, ROOT)
@@ -121,7 +124,7 @@ class ObstacleScene:
     def republish(self):
         for p in (ROOT, "/World/Looks/obst_coral", "/World/Looks/obst_closed"):
             self.stage.RemovePrim(p)
-        self.props, self.paths, self.robots, self.closed_key = {}, {}, {}, None
+        self.props, self.paths, self.robots, self.closed_key, self.vap = {}, {}, {}, None, None
         self.b.materials = {k: v for k, v in self.b.materials.items() if not k.startswith("obst_")}
         self._roots()
 
@@ -134,6 +137,11 @@ class ObstacleScene:
         w = hz.get("weather")
         if w:
             self.set_weather(w.get("level", "calm"), w.get("wind_dir"), w.get("gust"))
+        if "leak" in state:
+            self.leak = state["leak"]
+            on = bool(self.leak and self.leak.get("on"))
+            if on != self.vap_on:
+                self.vap_on, self.vap_t = on, self.now
         obs = {o["id"]: o for o in hz.get("obstacles", [])}
         for oid in [k for k in self.props if k not in obs]:
             self.stage.RemovePrim(self.props.pop(oid)["path"])
@@ -327,9 +335,46 @@ class ObstacleScene:
                 if i == 0:
                     cur["lead"] = c
 
+    def _vapour(self, t: float) -> None:
+        lk = self.leak
+        if lk is None and self.vap is None:
+            return
+        from pxr import Vt
+
+        from sim.plume.isaac import PARK as OFF, omnipbr
+
+        if self.vap is None:
+            inst = UsdGeom.PointInstancer.Define(self.stage, f"{ROOT}/Vapour")
+            protos = []
+            for k, a in enumerate(VAPOUR_ALPHA):
+                sp = UsdGeom.Sphere.Define(self.stage, f"{ROOT}/Vapour/puff{k}")
+                sp.CreateRadiusAttr(1.0)
+                _bind(sp.GetPrim(), omnipbr(self.stage, f"/World/Looks/obst_vapour{k}", (0.78, 0.8, 0.82), a, 1.0))
+                protos.append(sp.GetPath())
+            inst.CreatePrototypesRel().SetTargets(protos)
+            self.vap = inst
+        src = lk["xyz"] if lk else (0.0, 0.0, OFF[2])
+        wx, wy = (lk.get("wind") or (0.0, 0.0)) if lk else (0.0, 0.0)
+        pos, scl, idx = [], [], []
+        for i in range(VAPOUR_N):
+            age = (t + i * VAPOUR_LIFE / VAPOUR_N) % VAPOUR_LIFE
+            born = t - age
+            live = lk is not None and (born >= self.vap_t if self.vap_on else born < self.vap_t)
+            j, k = 0.3 * age ** 0.7, VAPOUR_MS * age + 0.5 * (1.0 - math.exp(-4.0 * age))
+            p = (src[0] + wx * k + j * math.sin(1.7 * i + 0.9 * age),
+                 src[1] + wy * k + j * math.cos(2.3 * i + 0.7 * age), src[2] + 0.1 + 0.12 * age)
+            pos.append(p if live else OFF)
+            r = 0.12 + 0.14 * age
+            scl.append((r, r, r * 0.8))
+            idx.append(min(int(age / VAPOUR_LIFE * len(VAPOUR_ALPHA)), len(VAPOUR_ALPHA) - 1))
+        self.vap.GetPositionsAttr().Set(Vt.Vec3fArray([Gf.Vec3f(*p) for p in pos]))
+        self.vap.GetScalesAttr().Set(Vt.Vec3fArray([Gf.Vec3f(*c) for c in scl]))
+        self.vap.GetProtoIndicesAttr().Set(Vt.IntArray(idx))
+
     def tick(self, t: float) -> None:
         self.now = t
         self._animate(t)
+        self._vapour(t)
         for o in self.props.values():
             age = t - o["t0"]
             if "o" in o:

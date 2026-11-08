@@ -9,7 +9,7 @@ from policy.fleet.fleet import walk_along
 from policy.fleet.jobs import SETUP_S
 from policy.fleet.reservations import Reservations
 from policy.fleet.scenario import JUDGES_ROBOTS, JUDGES_RUST, JUDGES_WELD, CHECK_DEADLINE_S, nearest_node
-from rig.mission.gas import ALARM_LEL, FLOW_GS, INFOTAXIS, METHODS, GasLeak
+from rig.mission.gas import ALARM_LEL, FLOW_GS, INFOTAXIS, METHODS, GasLeak, InfoSeek, Seek
 
 IDS = ("gas", "patrol", "repair", "flyby", "nav")
 NAMES = {"gas": "Gas leak", "patrol": "Deck patrol", "repair": "Pipe repair", "flyby": "Fly-by"}
@@ -535,6 +535,15 @@ class Flyby(Script):
         return False
 
 
+class QuietSeek(InfoSeek if INFOTAXIS else Seek):
+    hit = None
+
+    def step(self, leak, dt: float) -> None:
+        super().step(leak, dt)
+        if leak.found is not None:
+            self.hit, leak.found = leak.found, None
+
+
 class Demo(Script):
     deck = 42.5
     cam: dict = {}
@@ -629,27 +638,82 @@ class DemoCan(Demo):
         return {"label": "cans", "value": int(self.i >= 4), "unit": "in the tote"}
 
 
-class DemoGas(Gas):
-    id, name = "demo_gas", "Demo: Gas leak"
-    robots = (("R1", [10.0, -9.0, 42.5], 0.9), ("R2", [12.0, -9.0, 42.5], 0.9), ("R3", [10.0, 12.0, 20.0], 0.8))
+class DemoGas(Demo):
+    id, name, main = "demo_gas", "Demo: Gas leak", "R2"
+    steps = ("Gas hissing from the yellow band on the orange line", "Fixed gas sensor trips — alarm",
+             "Unit 2 localising the leak", "Unit 2 isolating the valve", "Leak isolated")
+    robots = (("R1", [-21.0, 4.0, 31.25], 0.9), ("R2", [12.0, -10.0, 42.5], 0.9), ("R3", [10.0, 12.0, 20.0], 0.8))
     weather = DEMO_WEATHER
-    shots = ({"mode": "zoom", "at": [15.5, -9.8, 42.5], "lens": {"dist": 15.0, "elev": 28.0, "focal": 18.0, "az": [-90.0, -70.0, -110.0]}},
-             {"mode": "zoom", "at": [19.0, -9.8, 42.5], "lens": {"dist": 9.0, "elev": 30.0, "focal": 18.0, "az": [-90.0, -70.0, -110.0]}})
+    fid, src, wheel = "F7", (19.16, -9.25, 43.2), (20.4, -9.15, 43.5)
+    start, box = (12.0, -10.0), {"xmin": 11.5, "xmax": 23.0, "ymin": -11.3, "ymax": -8.6}
+    alarm_s, seek_wait_s, seek_max_s, turn_s, walk_ms, near_m = 3.0, 1.5, 24.0, 6.0, 0.8, 0.9
+    cam = {"mode": "zoom", "at": [17.3, -9.8, 42.5], "lens": {"dist": 7.5, "elev": 25.0, "focal": 18.0, "az": [-35.0, -50.0, -20.0]}}
+    close = {"mode": "zoom", "at": [19.8, -9.6, 42.7], "lens": {"dist": 4.5, "elev": 22.0, "focal": 22.0, "az": [-35.0, -50.0, -20.0]}}
 
     def setup(self) -> None:
-        super().setup()
-        self.shot = 0
+        from rig.sim.gait import GaitLoop
+        from rig.sim.taskmotion import scrub_base
 
-    def sim_events(self) -> list:
-        return [{"name": "camera", "args": dict(self.shots[0])}, {"name": "select", "args": {"robot": self.main}},
-                {"name": "views", "args": {"robot": self.main, "on": True, "kind": "fpv"}}]
+        super().setup()
+        m = self.m
+        m.leak = GasLeak({self.fid: list(self.src)}, self.box, m.leak.seed, None)
+        m.leak.method = "infotaxis" if INFOTAXIS else "cast"
+        m.leak.start(self.fid, GAS_FLOW_GS)
+        g = GaitLoop.load()
+        zm = g.zmean if g else 0.36
+        self.z = round(self.deck + 0.32 - zm, 2)
+        w = self.wheel
+        x, y, self.yaw = scrub_base((w[0], w[1] - 0.01, w[2]), w[1], w[2], 0.15, self.deck + 0.32 - 0.2)
+        self.stop = (x, y)
+        self.trip_t = self.seek = self.found_t = self.at_t = self.done_t = None
+        self.from_xy = None
+        m.note("Sensor", "GAS_LEAK", f"{self.fid} hissing on the orange line")
+        self.pose(self.main, self.start, 0.0)
+
+    def gas_max(self) -> float:
+        return max([d["lel"] for d in self.m.leak.detectors()] or [0.0])
 
     def tick(self) -> None:
-        super().tick()
-        k = int(self.i >= 4)
-        if k != self.shot:
-            self.shot = k
-            self.m.sim_out.append({"name": "camera", "args": dict(self.shots[k])})
+        m, lk, e = self.m, self.m.leak, self.e()
+        if self.trip_t is None and e >= self.alarm_s:
+            self.trip_t = e
+            self.run.alert("gas_alarm", f"Gas alarm · {self.fid} above {ALARM_LEL * 100:.0f} %LEL")
+            m.note("Sensor", "GAS_ALARM", f"GD-{self.fid} above {ALARM_LEL * 100:.0f} %LEL -> alarm, Unit 2 dispatched")
+        if self.trip_t is not None and self.seek is None and e >= self.trip_t + self.seek_wait_s:
+            self.seek = lk.seek = QuietSeek(lk, [*self.start, self.deck], self.deck, self.box, lk.seed)
+            m.note("Unit 2", "GAS_SEEK", f"localising the leak -> {METHODS[lk.method]}")
+        sk = self.seek
+        if sk is not None and self.found_t is None and (sk.hit is not None or sk.t >= self.seek_max_s
+                                                              or float(np.linalg.norm(sk.pos - self.src[:2])) < self.near_m):
+            sk.done, self.found_t, self.from_xy = True, e, sk.pos.copy()
+            m.note("Unit 2", "LEAK_FOUND", f"leak localised on the orange line in {sk.t:.0f} s -> isolating the valve")
+        if self.found_t is None:
+            if sk is None:
+                self.pose(self.main, self.start, 0.0)
+            else:
+                self.pose(self.main, sk.pos, sk.yaw, state="WORK", task="gas:demo", job_state="LEAK_APPROACH")
+        else:
+            d = float(np.linalg.norm(np.asarray(self.stop) - self.from_xy))
+            walk_s = max(1.0, d / self.walk_ms)
+            u = (e - self.found_t) / walk_s
+            if u < 1:
+                yaw = math.atan2(self.stop[1] - self.from_xy[1], self.stop[0] - self.from_xy[0])
+                self.pose(self.main, walk(self.from_xy, self.stop, u), yaw, state="TRANSIT", task="gas:demo")
+            else:
+                if self.at_t is None:
+                    self.at_t = e
+                    m.sim_out.append({"name": "camera", "args": dict(self.close)})
+                turning = e < self.at_t + self.turn_s
+                if not turning and lk.on:
+                    lk.stop("isolated")
+                    self.done_t = e
+                    m.note("Unit 2", "ISOLATED", f"valve closed, {self.fid} leak stopped")
+                self.pose(self.main, self.stop, self.yaw, self.z, state="WORK", task="gas:demo",
+                          job_state="VALVE_TURN" if turning or e < self.done_t + 1.0 else "LEAK_VERIFY")
+        self.i = 0 if self.trip_t is None else 1 if sk is None else 2 if self.found_t is None else 3 if self.done_t is None else 4
+
+    def key(self) -> dict:
+        return {"label": "gas", "value": round(self.gas_max() * 100, 1), "unit": "%LEL"}
 
 
 class DemoRust(Demo):
@@ -715,6 +779,7 @@ class Scenarios:
         self.mine: set = set()
         self.asked: set = set()
         self.last_i = None
+        self.leak0 = (dict(mission.leak.flanges), mission.leak.bounds)
 
     def alert(self, kind: str, text: str) -> dict:
         self.seq += 1
@@ -794,7 +859,7 @@ class Scenarios:
             fl.specs = []
             fl.snap = f.snapshot()
         old = m.leak
-        m.leak = GasLeak(old.flanges, old.bounds, old.seed, old.field)
+        m.leak = GasLeak(*self.leak0, old.seed, old.field)
         m.leak.t = old.t
         m.override.clear()
         m.isolate_at = m.valve_job = m.valve_ft = None
@@ -917,6 +982,9 @@ class Scenarios:
                     3: f"{METHODS[m.leak.method]} on the trunk and arm-tip sensors",
                     4: "approve the valve isolation in the inbox", 5: "Unit 1 walks to the valve upstream",
                     6: "weld frozen while gas is above 10 %LEL", 7: "hot-work gate released"}.get(s.i, "")
+        if s.id == "demo_gas":
+            return {1: f"fixed detector over {ALARM_LEL * 100:.0f} %LEL", 2: f"{METHODS[m.leak.method]} on the trunk and arm-tip sensors",
+                    3: "scripted arm motion on the handwheel", 4: "vapour stopped, gas clearing"}.get(s.i, "")
         if s.id == "patrol":
             return {1: "puddles are a soft cost", 2: "pickup policy on depth geometric priors",
                     4: f"battery {self.m._robot('R3').battery.soc:.0%}"}.get(s.i, "")
