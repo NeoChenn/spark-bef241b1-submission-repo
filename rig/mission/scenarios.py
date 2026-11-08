@@ -653,9 +653,167 @@ class DemoRust(Demo):
         return {"label": "rust left", "value": round(100 * self.left(self.e())), "unit": "%"}
 
 
+def along(pts, speed: float, t: float, yaw0: float, turn_s: float = 0.8):
+    yaw = yaw0
+    for a, b in zip(pts, pts[1:]):
+        a, d = np.asarray(a, float), np.asarray(b, float) - np.asarray(a, float)
+        h, dt = math.atan2(d[1], d[0]), float(np.hypot(*d)) / speed
+        if t <= dt:
+            return a + d * max(t, 0.0) / dt, yaw + math.remainder(h - yaw, math.tau) * min(max(t, 0.0) / turn_s, 1.0)
+        t -= dt
+        yaw = h
+    return np.asarray(pts[-1], float), yaw
+
+
+def span(pts, speed: float) -> float:
+    return sum(math.dist(a, b) for a, b in zip(pts, pts[1:])) / speed
+
+
+class DemoDeck(Demo):
+    id, name, main = "demo_deck", "Demo: Deck", ""
+    steps = ("Deck ready — drop a can or add rust", "Unit 3 picks up the can", "Unit 1 scrubs the rust",
+             "Unit 3 and Unit 1 at work")
+    robots = (("R1", [20.9, -4.4, 42.5], 0.95), ("R2", [-21.0, 4.0, 31.25], 0.9), ("R3", [12.4, -4.5, 42.5], 0.95))
+    weather = DEMO_WEATHER
+    park3, stop3, park1, speed = (12.4, -4.5), (14.9, -4.5), (20.9, -4.4), 0.7
+    lead_s, hold_s, deploy_s, scrub_s, arm_s = 1.0, 0.5, 1.0, 11.5, 1.0
+    cam = {"mode": "deck", "at": [16.65, -4.8, 42.5], "lens": {"eye": [16.65, 4.73, 48.5], "focal": 22.0}}
+
+    def setup(self) -> None:
+        from rig.sim.gait import GaitLoop
+        from rig.sim.taskmotion import Rollout, scrub_base
+
+        super().setup()
+        ro = self.ro = Rollout.load()
+        self.f0, self.f1 = 40, len(ro.arm) - 25
+        g = GaitLoop.load()
+        zm = g.zmean if g else 0.36
+        self.z1 = round(self.deck + DemoRust.base_z - zm, 2)
+        x, y, self.yaw1 = scrub_base(DemoRust.patch, *DemoRust.axis, trunk_z=self.z1 + zm)
+        self.stop1 = (x, y)
+        self.go1 = [self.park1, (17.6, -4.4), (17.7, y), self.stop1]
+        self.back1 = [self.stop1, (19.6, y), (19.9, -4.4), self.park1]
+        self.go3, self.back3 = [self.park3, self.stop3], [self.stop3, self.park3]
+        self.can_t = self.rust_t = self.can = None
+        self.rest1, self.rest3, self.cans = math.pi, 0.0, 0
+        self.run.cam_at = list(self.cam["at"])
+        self.tick()
+
+    def sim_events(self) -> list:
+        return [{"name": "camera", "args": dict(self.cam)}]
+
+    def act(self, what: str) -> dict:
+        busy = self.can_t if what == "can" else self.rust_t
+        if busy is not None:
+            return {"deck": what, "started": False, "note": "Unit 3 is still on the last can" if what == "can"
+                    else "Unit 1 is still scrubbing"}
+        if what == "can":
+            self.can_t = self.e()
+            self.drop()
+        else:
+            self.rust_t = self.e()
+        self.m.sim_out.append({"name": "camera", "args": dict(self.cam)})
+        self.tick()
+        return {"deck": what, "started": True, "note": "Unit 3 walks over and picks it up" if what == "can"
+                else "Unit 1 walks over and scrubs it clean"}
+
+    def drop(self) -> None:
+        c = self.ro.can[self.f0]
+        with self.m.fleet.lock:
+            if self.can is not None and self.can["id"] in self.f.hz.obstacles:
+                self.f.hz.clear(self.can["id"])
+            self.can = self.f.hz.drop("can", [self.stop3[0] + c[0], self.stop3[1] + c[1], self.deck], None, size="small",
+                                      colour="red", radius=0.0, rollout="R3", anchor=[*self.stop3, self.deck, 0.0],
+                                      frames=[self.f0, self.f1], phase="ground")
+            self.m.fleet.snap = self.f.snapshot()
+        self.run.mine.add(self.can["id"])
+
+    def tick(self) -> None:
+        e = self.e()
+        self.tick_can(e)
+        self.tick_rust(e)
+        self.i = int(self.can_t is not None) + 2 * int(self.rust_t is not None)
+
+    def tick_can(self, e: float) -> None:
+        task = "pick_can:demo"
+        if self.can_t is None:
+            return self.pose("R3", self.park3, self.rest3)
+        u, ro = e - self.can_t - self.lead_s, self.ro
+        walk = span(self.go3, self.speed)
+        rs = walk + self.hold_s
+        k = self.f0 + (u - rs) * ro.hz
+        back = rs + (self.f1 - self.f0) / ro.hz + self.hold_s
+        if u < 0:
+            self.pose("R3", self.park3, self.rest3)
+        elif u < walk:
+            xy, yaw = along(self.go3, self.speed, u, self.rest3)
+            self.pose("R3", xy, yaw, state="TRANSIT", task=task)
+        elif u < rs or k >= self.f1 and u < back:
+            self.pose("R3", self.stop3, 0.0)
+        elif k < self.f1:
+            self.pose("R3", self.stop3, 0.0, state="WORK", task=task, job_state="ROLLOUT", rollout=[self.f0, self.f1])
+        elif u < back + span(self.back3, self.speed):
+            xy, yaw = along(self.back3, self.speed, u - back, 0.0)
+            self.pose("R3", xy, yaw, state="TRANSIT", task=task)
+        else:
+            self.rest3 = along(self.back3, self.speed, 1e9, 0.0)[1]
+            self.can_t = None
+            self.cans += 1
+            return self.pose("R3", self.park3, self.rest3)
+        ph = "ground" if u < rs else "held" if k < self.f1 else "tote"
+        if self.can is not None and self.can["phase"] != ph:
+            self.can["phase"] = ph
+            with self.m.fleet.lock:
+                self.m.fleet.snap = self.f.snapshot()
+
+    def left(self, e: float) -> float:
+        if self.rust_t is None:
+            return 0.0
+        a = self.rust_t + self.lead_s + span(self.go1, self.speed) + self.deploy_s + 0.5
+        u = min(max((e - a) / (self.scrub_s - 1.5), 0.0), 1.0)
+        return round(1.0 - u * u * (3 - 2 * u), 3)
+
+    def tick_rust(self, e: float) -> None:
+        task, rust = "rust:demo", self.left(e)
+        if self.rust_t is None:
+            return self.pose("R1", self.park1, self.rest1, self.z1, rust=0.0)
+        u = e - self.rust_t - self.lead_s
+        walk = span(self.go1, self.speed)
+        scrub = walk + self.deploy_s
+        park = scrub + self.scrub_s
+        back = park + self.arm_s
+        if u < 0:
+            self.pose("R1", self.park1, self.rest1, self.z1, rust=rust)
+        elif u < walk:
+            xy, yaw = along(self.go1, self.speed, u, self.rest1)
+            self.pose("R1", xy, yaw, self.z1, state="TRANSIT", task=task, rust=rust)
+        elif u < scrub:
+            self.pose("R1", self.stop1, self.yaw1, self.z1, state="WORK", task=task, job_state="DEPLOY", rust=rust)
+        elif u < park:
+            self.pose("R1", self.stop1, self.yaw1, self.z1, state="WORK", task=task, job_state="SCRUB", rust=rust)
+        elif u < back:
+            self.pose("R1", self.stop1, self.yaw1, self.z1, task=task, rust=0.0)
+        elif u < back + span(self.back1, self.speed):
+            xy, yaw = along(self.back1, self.speed, u - back, self.yaw1)
+            self.pose("R1", xy, yaw, self.z1, state="TRANSIT", task=task, rust=0.0)
+        else:
+            self.rest1 = along(self.back1, self.speed, 1e9, self.yaw1)[1]
+            self.rust_t = None
+            self.pose("R1", self.park1, self.rest1, self.z1, rust=0.0)
+
+    def done(self) -> bool:
+        return False
+
+    def key(self) -> dict:
+        if self.rust_t is not None:
+            return {"label": "rust left", "value": round(100 * self.left(self.e())), "unit": "%"}
+        return {"label": "cans", "value": self.cans, "unit": "in the tote"}
+
+
 SCRIPTS = {"gas": Gas, "patrol": Patrol, "repair": Repair, "flyby": Flyby, "demo_can": DemoCan, "demo_gas": DemoGas,
-           "demo_rust": DemoRust, "nav": Nav}
-DEMOS = {"can": "demo_can", "gas": "demo_gas", "rust": "demo_rust", "nav": "nav", "reset": "flyby"}
+           "demo_rust": DemoRust, "demo_deck": DemoDeck, "nav": Nav}
+DEMOS = {"can": "demo_can", "gas": "demo_gas", "rust": "demo_rust", "deck": "demo_deck", "nav": "nav", "reset": "flyby"}
+DECK_ACTS = {"deck_can": "can", "deck_rust": "rust"}
 
 
 class Scenarios:
@@ -761,8 +919,11 @@ class Scenarios:
         m._flash = None
 
     def demo(self, did: str) -> dict:
+        if did in DECK_ACTS:
+            out = {} if isinstance(self.cur, DemoDeck) else self.start("demo_deck")
+            return {**out, **self.cur.act(DECK_ACTS[did])}
         if did not in DEMOS:
-            raise ValueError(f"unknown demo {did!r}; expected one of {tuple(DEMOS)}")
+            raise ValueError(f"unknown demo {did!r}; expected one of {tuple(DEMOS) + tuple(DECK_ACTS)}")
         return self.start(DEMOS[did])
 
     def disturb(self) -> dict:

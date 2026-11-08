@@ -97,6 +97,9 @@ h2 { margin: 0 0 10px 2px; font-size: 13px; font-weight: 600; color: var(--text2
 .more summary h2::after { content: "›"; display: inline-block; margin-left: 8px; transition: transform 200ms; }
 .more[open] summary h2::after { transform: rotate(90deg); }
 .more summary .dim { font-size: 12.5px; }
+.btns.top { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.btns.top .b.hero { grid-column: auto; }
+.more h3 { margin: 14px 0 8px 2px; font-size: 12px; font-weight: 600; color: var(--text2); }
 .btns.small { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
 .btns.small .b { min-height: 56px; padding: 9px 12px; border-radius: 13px; }
 .btns.small .b b { font-size: 14px; }

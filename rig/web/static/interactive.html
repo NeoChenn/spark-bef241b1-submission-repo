@@ -9,7 +9,7 @@
 </head>
 <body>
   <header class="top">
-    <div><h1>Interactive controls</h1><p class="sub">Change the weather or drop something on a walkway. The fleet planner answers live.</p></div>
+    <div><h1>Interactive controls</h1><p class="sub">Drop a crate, drop a can or add rust. The robots answer live.</p></div>
     <span class="pill" id="health"><span class="dot"></span><span id="health-t">connecting</span></span>
   </header>
   <main class="grid">
@@ -32,7 +32,16 @@
     </section>
     <section class="controls">
       <div class="group">
-        <h2>Weather</h2>
+        <h2>Demo</h2>
+        <div class="btns top">
+          <button class="b hero" data-act="ahead"><b>Drop crate</b><span>Right in front of the walking robot. Watch it turn and take another way</span></button>
+          <button class="b hero" data-act="deck_can"><b>Drop can</b><span>A can on the walkway. Unit 3 walks over and lifts it into its tote</span></button>
+          <button class="b hero" data-act="deck_rust"><b>Add rust</b><span>Rust on the pipe. Unit 1 walks over and scrubs it clean</span></button>
+        </div>
+      </div>
+      <details class="group more">
+        <summary><h2>More</h2><span class="dim">Weather, obstacles and closures</span></summary>
+        <h3>Weather</h3>
         <div class="wx">
           <div class="seg big" id="time" role="group" aria-label="Time of day">
             <button data-time="dusk">Dusk</button><button data-time="night">Night</button>
@@ -41,19 +50,11 @@
             <button data-cond="rain">Rain</button><button data-cond="fog">Fog</button>
           </div>
         </div>
-      </div>
-      <div class="group">
-        <h2>Drop on a walkway</h2>
-        <div class="btns">
-          <button class="b hero" data-act="ahead"><b>Drop crate</b><span>Right in front of the walking robot. Watch it turn and take another way</span></button>
-          <button class="b" data-act="large"><b>Large can</b><span>A 205 L drum breaks loose and rolls into the hero bay</span></button>
-          <button class="b" data-act="puddle"><b>Puddle</b><span>Soft cost: around it or slowly through</span></button>
-          <button class="b" data-act="small"><b>Small can</b><span>A gripper robot comes to pick it up</span></button>
-        </div>
-      </div>
-      <details class="group more">
-        <summary><h2>More</h2><span class="dim">Obstacles and closures</span></summary>
+        <h3>Drop on a walkway</h3>
         <div class="btns small">
+          <button class="b" data-act="large"><b>Large can</b><span>A 205 L drum rolls into the hero bay</span></button>
+          <button class="b" data-act="puddle"><b>Puddle</b><span>Soft cost</span></button>
+          <button class="b" data-act="small"><b>Small can</b><span>A gripper robot picks it up</span></button>
           <button class="b" data-act="crate"><b>Crate</b><span>Blocks</span></button>
           <button class="b" data-act="spill"><b>Oil spill</b><span>Slippery</span></button>
           <button class="b" data-act="debris"><b>Debris</b><span>Blocks</span></button>

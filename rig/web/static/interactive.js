@@ -33,6 +33,8 @@
   const drop = (kind, title) => () => ["drop_obstacle", { kind, at: mover() }, title];
   const ACTS = {
     ahead: () => { setDeck("top_deck"); return ["drop_obstacle", { kind: "crate", at: "ahead", ahead_m: 3 }, "Crate ahead"]; },
+    deck_can: () => { setDeck("top_deck"); return ["demo", { id: "deck_can" }, "Can on the walkway"]; },
+    deck_rust: () => { setDeck("top_deck"); return ["demo", { id: "deck_rust" }, "Rust on the pipe"]; },
     large: () => { setDeck("top_deck"); return ["drop_obstacle", { kind: "barrel", at: "spur_hero_bay" }, "Large can rolling"]; },
     puddle: drop("puddle", "Puddle"),
     small: () => ["drop_can", { size: "small", at: mover() }, "Small can"],
@@ -58,7 +60,7 @@
     const m = log.find((e) => e.kind !== "reroute");
     if (m?.hazard) S.follow = m.hazard;
     const [head, ...rest] = pretty(m?.message || "").split(" → ");
-    toast(name === "clear" || name === "set_weather" ? "ok" : "warn", title, rest.join(" → ") || head || "Sent to the sim");
+    toast(name === "clear" || name === "set_weather" ? "ok" : "warn", title, rest.join(" → ") || head || body.note || "Sent to the sim");
     log.filter((e) => e.kind === "reroute").forEach(showEvent);
     S.dirty = true;
   }
