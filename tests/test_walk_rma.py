@@ -153,3 +153,19 @@ def test_rma_runtime_runs_exported_onnx(tmp_path):
     rt.reset([0])
     rt.act(obs)
     assert np.allclose(rt.history[0], obs[0, PROPRIO])
+
+
+def test_gait_period_and_loop_trim():
+    import numpy as np
+
+    from policy.walk.gait import gait_period, loop_segment
+
+    dt = 0.02
+    t = np.arange(400) * dt
+    q = np.stack([np.sin(2 * np.pi * t / 0.5), np.cos(2 * np.pi * t / 0.5 + 0.3)], 1)
+    n = gait_period(q, dt, lo_s=0.2, hi_s=1.5)
+    assert abs(n * dt - 0.5) < dt + 1e-9
+    seg = loop_segment(q, n, cycles=3)
+    assert len(seg) == 3 * n
+    assert np.abs(seg[0] - q[len(q) - 3 * n]).max() < 1e-12
+    assert np.abs(seg[-1] + (seg[1] - seg[0]) - seg[0]).max() < 0.15

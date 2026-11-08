@@ -47,7 +47,7 @@ def chart(res: dict, path: str):
             ax.set_ylim(0, max(vals) * 1.18 + 1e-9)
             ax.set_xticks(range(len(vals)), [LABELS[k].replace(" ", "\n", 1) for k in keys], color=fg, fontsize=8)
             for bb, v in zip(bars, vals):
-                ax.text(bb.get_x() + bb.get_width() / 2, v, f"{v:.2f}", ha="center", va="bottom", color=fg, fontsize=9)
+                ax.text(bb.get_x() + bb.get_width() / 2, v, f"{v:.3g}", ha="center", va="bottom", color=fg, fontsize=9)
         ax.set_title(title, color=fg, fontsize=10)
         ax.tick_params(colors=mute)
         for s in ax.spines.values():
