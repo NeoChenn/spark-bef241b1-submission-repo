@@ -1,6 +1,6 @@
 {
  "control": "live",
- "t_end": 88.9,
+ "t_end": 87.9,
  "beats": {
   "1_unit1_spray": 2.3,
   "1_unit1_soak": 5.4,
@@ -13,25 +13,25 @@
   "3_spark_hold": 18.8,
   "3_unit1_held": 18.9,
   "3_unverified": 20.6,
-  "3_dispatch_unit2": 27.4,
-  "4_unit2_walks": 27.5,
-  "4_unit2_sniffs": 49.6,
-  "4_leak_confirmed": 43.7,
-  "4_fix_leak": 52.3,
-  "4_retorque": 55.9,
-  "4_gf5_green": 63.2,
-  "5_resume_rust": 69.7,
-  "5_unit1_scrubs_again": 69.8,
-  "5_unit1_verify": 82.0,
-  "5_unit1_paint": 83.6,
-  "5_unit1_done": 88.8,
-  "5_unit2_returns": 63.8,
-  "5_unit2_docked": 85.5,
+  "3_dispatch_unit2": 24.8,
+  "4_unit2_walks": 24.9,
+  "4_unit2_sniffs": 47.0,
+  "4_leak_confirmed": 41.1,
+  "4_fix_leak": 49.7,
+  "4_retorque": 53.3,
+  "4_gf5_green": 60.6,
+  "5_resume_rust": 68.7,
+  "5_unit1_scrubs_again": 68.8,
+  "5_unit1_verify": 81.0,
+  "5_unit1_paint": 82.6,
+  "5_unit1_done": 87.8,
+  "5_unit2_returns": 61.2,
+  "5_unit2_docked": 82.9,
   "6_gf6_stuck": 2.0,
   "6_gf6_fault": 5.0,
-  "6_ticket": 15.2,
-  "6_inbox": 15.2,
-  "6_no_repair_at_f6": 15.2,
+  "6_ticket": 9.7,
+  "6_inbox": 9.7,
+  "6_no_repair_at_f6": 9.7,
   "6_object_report": null,
   "6_link_cut": null
  },
@@ -42,26 +42,26 @@
   "calls": 4,
   "ok": 4,
   "latency_ms": {
-   "min": 6433.7,
-   "max": 10175.5,
-   "mean": 7962.9
+   "min": 4198.2,
+   "max": 8553.6,
+   "mean": 6366.4
   },
-  "cost_usd": 0.01225,
+  "cost_usd": 0.0123,
   "tickets": [
    {
     "id": "MT-001",
     "sensor": "G-F6",
-    "t": 15.2,
+    "t": 9.7,
     "source": "argon",
-    "reason": "G-F6 at 14.0% LEL but unit2 reads 2.0% LEL at F6; PIPE_SENSOR_FAULT below stop."
+    "reason": "G-F6 PIPE_SENSOR_FAULT at 14.0% LEL (<20% stop); unit2 measured 2.0% LEL."
    }
   ],
   "commands": [
-   "15.2s argon:log_sensor_fault:supv:G-F6",
+   "9.7s argon:log_sensor_fault:supv:G-F6",
    "18.8s edge:hold:unit1:F5",
-   "27.4s argon:go_check:unit2:F5",
-   "52.3s argon:fix_leak:unit2:F5",
-   "69.7s argon:resume_rust:unit1:"
+   "24.8s argon:go_check:unit2:F5",
+   "49.7s argon:fix_leak:unit2:F5",
+   "68.7s argon:resume_rust:unit1:"
   ]
  },
  "nav": "fleet_nav.NavWalker (pure_pursuit)",
@@ -77,7 +77,7 @@
     "name": "approve_request",
     "args": {
      "job_id": "SENS-001",
-     "why": "MT-001 G-F6: G-F6 at 14.0% LEL but unit2 reads 2.0% LEL at F6; PIPE_SENSOR_FAULT below stop."
+     "why": "MT-001 G-F6: G-F6 PIPE_SENSOR_FAULT at 14.0% LEL (<20% stop); unit2 measured 2.0% LEL."
     },
     "ok": true,
     "refused": null,
