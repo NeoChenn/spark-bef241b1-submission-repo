@@ -73,6 +73,7 @@ class OrchestratorConfig:
     rain_ok: float = 0.35
     lens_min_q: float = 0.7
     lens_usable_q: float = 0.5
+    storm_press: float = 0.8
     max_wipes: int = 2
     wipe_dt: float = 2.0
     lull_dt: float = 1.0
@@ -486,7 +487,8 @@ class Orchestrator:
             if hasattr(self.bridge, "scrub_obs"):
                 obs.update(self.bridge.scrub_obs() or {})
             a = np.asarray(self.scrub_policy.step(obs), float).copy()
-            a[2] = float(np.clip(a[2], 0, 1)) * self.press_scale
+            storm = self._weather()["level"] >= 0.5
+            a[2] = float(np.clip(a[2], 0, 1)) * self.press_scale * (self.cfg.storm_press if storm else 1.0)
             self.arm.apply_ee_delta(a)
             self._advance(cfg.scrub_dt)
             self.scrub_steps_left -= 1

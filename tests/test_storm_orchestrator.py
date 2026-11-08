@@ -104,3 +104,16 @@ def test_set_weather_is_the_same_control_as_storm_level():
     assert bridge.weather()["level"] == 1.0 and float(world.abrasion_coef[0]) < coef
     bridge.storm_level(0.0)
     assert bridge.weather()["level"] == 0.0 and abs(float(world.abrasion_coef[0]) - coef) < 1e-6
+
+
+def test_storm_lowers_the_press_setpoint():
+    presses = {}
+    for level in (0.0, 1.0):
+        orch, bridge, world, perception, arm, _ = build(None, glare=False, verbose=False)
+        bridge.weather = lambda: {"level": level, "gust_n": 0.0, "rain": 0.0}
+        seen = []
+        orig = arm.apply_ee_delta
+        arm.apply_ee_delta = lambda a: (seen.append(float(a[2])), orig(a))
+        orch.run(400)
+        presses[level] = max(seen)
+    assert presses[1.0] <= orch.cfg.storm_press * presses[0.0] + 1e-9
