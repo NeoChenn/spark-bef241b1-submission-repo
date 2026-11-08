@@ -82,3 +82,22 @@ def test_camera_path_interpolates_smoothly():
     assert np.allclose(camera_path(keys, -1)[0], [0, 0, 0]) and np.allclose(camera_path(keys, 5)[0], [2, 0, 0])
     e1, _ = camera_path(keys, 0.2)
     assert e1[0] < 0.2
+
+
+def test_repair_rgba_wet_and_primer_layers():
+    from policy.rust_overlay import repair_rgba
+
+    rgba = np.zeros((4, 8, 4), np.uint8)
+    rgba[0, 0] = (200, 90, 40, 255)
+    wet = np.zeros((4, 8), np.float32)
+    wet[1, 1] = 1.0
+    wet[0, 0] = 1.0
+    primer = np.zeros((4, 8), np.float32)
+    primer[2, 2] = 1.0
+    primer[0, 0] = 1.0
+    out = repair_rgba(rgba, wet, primer)
+    assert out.shape == (4, 8, 4) and out.dtype == np.uint8
+    assert out[3, 3, 3] == 0
+    assert 60 <= out[1, 1, 3] < 255 and out[1, 1, :3].max() < 80
+    assert out[2, 2, 3] == 255 and tuple(out[2, 2, :3]) == tuple(out[0, 0, :3])
+    assert abs(int(out[2, 2, 1]) - int(out[2, 2, 0])) < 40
