@@ -317,7 +317,7 @@
   "out_and_thought": 10.0,
   "source": "policy/control/limiter.py"
  },
- "wall_s": 75.8,
+ "wall_s": 74.1,
  "notes": [
   "Stand-ins: kinematic CPU robots, a synthetic first-order %LEL model per flange, fixed gas detector alarms at 20% LEL; leak_check visits report a leak at >= 5% LEL.",
   "unsafe_executed counts distinct incidents the sim observed: a robot doing work within the gas zone of a flange at >= 50% LEL, or a robot moving/working within 3 m of a person while not paused; each condition must hold for more than 1 control tick (1 s), i.e. one reaction tick is allowed.",
