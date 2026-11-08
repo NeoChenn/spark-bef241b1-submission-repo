@@ -9,7 +9,8 @@ def test_board_follows_the_film_run_in_order_with_sources_and_sim_times():
     b = film_data("board", 11.5, RUN, (0.0, 18.3, 1.83))["board"]
     assert [(d["robot"], d["source"], d["t_run"]) for d in b["decisions"]] == [("unit1", "edge", 4.8), ("unit2", "argon", 18.3)]
     assert abs(b["decisions"][0]["u"] - 4.8 / 1.83) < 0.01 and abs(b["decisions"][1]["u"] - 10.0) < 0.01
-    assert b["modelled"] and b["argon"]["calls"] == 3 and b["argon"]["cost_usd"] == 0.008
+    assert b["modelled"] and [c[1:] for c in b["argon"]["calls"]] == [[0, 0.0], [1, 0.0028]]
+    assert abs(b["argon"]["calls"][1][0] - 18.24 / 1.83) < 0.01
     seg = next(s for s in b["segments"] if s["id"] == "F5–F6")
     assert seg["index"][0][1] < 0.6 <= seg["index"][-1][1] and seg["coating"][-1][1] == "breached"
     leak = next(d for d in b["detectors"] if d["id"] == "G-F5")
