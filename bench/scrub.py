@@ -48,7 +48,7 @@ def run_gemini(scen, cfg, n, model_wanted):
     s.update({"status": "run", "model": model, "calls_per_episode": float(np.mean([e["calls"] for e in eps])),
               "errors": int(sum(e["errors"] for e in eps)),
               "tokens_per_episode": float(np.mean([e["tokens_in"] + e["tokens_out"] for e in eps])),
-              "price_note": "cost needs GEMINI_PRICE_IN_PER_MTOK / GEMINI_PRICE_OUT_PER_MTOK" if cost is None else ""})
+              "price_usd_per_mtok": gemini.price_per_mtok(model), "price_source": "GEMINI_PRICE_* env, else policy/control/limiter.py table for gemini-4-argon"})
     return s
 
 

@@ -38,13 +38,20 @@ def resolve_model(wanted: str, available: list[str]) -> str | None:
     return cands[0] if cands else None
 
 
-def price_per_mtok() -> tuple[float | None, float | None]:
+def price_per_mtok(model: str = "") -> tuple[float | None, float | None]:
     f = lambda k: float(os.environ[k]) if os.environ.get(k) else None
-    return f("GEMINI_PRICE_IN_PER_MTOK"), f("GEMINI_PRICE_OUT_PER_MTOK")
+    pi, po = f("GEMINI_PRICE_IN_PER_MTOK"), f("GEMINI_PRICE_OUT_PER_MTOK")
+    if (pi is None or po is None) and model.startswith(ARGON):
+        from datetime import date
+
+        from policy.control.limiter import price
+
+        return price(date.today())
+    return pi, po
 
 
-def cost_usd(tokens_in: int, tokens_out: int) -> float | None:
-    pi, po = price_per_mtok()
+def cost_usd(tokens_in: int, tokens_out: int, model: str = "") -> float | None:
+    pi, po = price_per_mtok(model)
     if pi is None or po is None:
         return None
     return tokens_in / 1e6 * pi + tokens_out / 1e6 * po

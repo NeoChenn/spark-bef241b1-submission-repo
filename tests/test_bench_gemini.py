@@ -16,6 +16,7 @@ def test_cost_needs_prices(monkeypatch):
     monkeypatch.delenv("GEMINI_PRICE_IN_PER_MTOK", raising=False)
     monkeypatch.delenv("GEMINI_PRICE_OUT_PER_MTOK", raising=False)
     assert gemini.cost_usd(1000, 1000) is None
+    assert gemini.cost_usd(1_000_000, 0, "gemini-4-argon") > 0
     monkeypatch.setenv("GEMINI_PRICE_IN_PER_MTOK", "2")
     monkeypatch.setenv("GEMINI_PRICE_OUT_PER_MTOK", "10")
     assert gemini.cost_usd(1_000_000, 100_000) == pytest.approx(3.0)

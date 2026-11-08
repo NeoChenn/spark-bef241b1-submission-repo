@@ -79,5 +79,5 @@ def run_episode(scenario: dict, model: str, key: str, cfg=None, post=None, max_c
     ok = [c for c in calls if "error" not in c]
     tin, tout = sum(c["tokens_in"] for c in ok), sum(c["tokens_out"] for c in ok)
     ep.update({"calls": len(calls), "errors": len(calls) - len(ok), "latency_s": [c["latency_s"] for c in ok],
-               "tokens_in": tin, "tokens_out": tout, "cost_usd": gemini.cost_usd(tin, tout)})
+               "tokens_in": tin, "tokens_out": tout, "cost_usd": gemini.cost_usd(tin, tout, model)})
     return ep
