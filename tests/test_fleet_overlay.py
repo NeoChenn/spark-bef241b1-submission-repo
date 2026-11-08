@@ -89,3 +89,22 @@ def test_draws_a_live_argon_link_header():
               "findings": [fd.to_dict()], "argon": link.header()}
     f = frame(1280, 720)
     assert changed(f, draw(f, header, {"unit1": (600, 500)}), (400, 640, 880, 720))
+
+
+def test_caption_dicts_and_robot_lists_render_like_strings_and_dicts(monkeypatch):
+    import policy.fleet_overlay as fo
+
+    seen = []
+    real = fo.ImageDraw.ImageDraw.text
+
+    def spy(self, xy, text, *a, **k):
+        seen.append(str(text))
+        return real(self, xy, text, *a, **k)
+
+    monkeypatch.setattr(fo.ImageDraw.ImageDraw, "text", spy)
+    cap = {"state": "HOLD", "lead": "Holding", "rest": " clear of F2", "text": "Holding clear of F2", "tone": "warn"}
+    header = {"robots": [{"id": "unit1", "state": "HOLD", "caption": cap, "force_n": 0.0},
+                         {"id": "unit2", "state": "WALK", "caption": {"text": "Walking to F2"}}]}
+    draw(frame(1280, 720), header)
+    assert "Holding" in seen and " clear of F2" in seen and "Walking to F2" in seen
+    assert not any("{" in t for t in seen)

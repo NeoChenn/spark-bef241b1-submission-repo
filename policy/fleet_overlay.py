@@ -158,21 +158,41 @@ class Canvas:
         return self.d.textlength(str(text), font=self.f(kind, size, weight))
 
 
+CAPTION_TONE = {"warn": WARN, "stop": STOP}
+
+
+def caption_line(c: Canvas, x, y, w, cap):
+    if isinstance(cap, dict):
+        lead, rest = str(cap.get("lead") or ""), str(cap.get("rest") or "")
+        if not lead and not rest:
+            lead = str(cap.get("text") or "")
+        tone = CAPTION_TONE.get(str(cap.get("tone") or ""), None)
+    else:
+        lead, rest, tone = "", str(cap or ""), None
+    fb, fr = c.f("sans", 14, 600), c.f("sans", 14)
+    lead = fit(c.d, lead, fb, w)
+    if lead:
+        c.d.text((x, y), lead, font=fb, fill=rgba(tone, 240) if tone else LABEL, anchor="lm")
+        x, w = x + c.d.textlength(lead, font=fb), w - c.d.textlength(lead, font=fb)
+    if rest and w > c.u(24):
+        c.d.text((x, y), fit(c.d, rest, fr, w), font=fr, fill=LABEL2, anchor="lm")
+
+
 def robot_card(c: Canvas, x, y, w, rid, tag, name, r: dict, scrubber: bool) -> float:
     u = c.u
     pad = u(18)
     h = u(176 if scrubber else 136)
     c.panel((x, y, x + w, y + h))
-    state = str(r.get("state") or "--").upper()
+    state = str(r.get("state") or "--").upper().replace("_", " ")
     tone = tone_of_state(state)
     cy = y + pad + u(9)
     c.text((x + pad, cy), tag, "mono", 12, 600, LABEL3, "lm")
     c.text((x + pad + c.width(tag, "mono", 12, 600) + u(9), cy), name, "sans", 17, 600, LABEL, "lm")
     cx0, _ = c.chip(x + w - pad, cy, state, tone, 12)
-    cap = fit(c.d, r.get("caption", ""), c.f("sans", 14), w - 2 * pad)
-    c.text((x + pad, cy + u(28)), cap, "sans", 14, 400, LABEL2, "lm")
+    caption_line(c, x + pad, cy + u(28), w - 2 * pad, r.get("caption"))
     my = cy + u(70)
-    cells = [("BATT", num(pct(r.get("battery")), "{:.0f}"), "%"), ("GAS", num(r.get("lel")), "%LEL")]
+    cells = [("BATT", num(pct(r.get("battery")), "{:.0f}"), "%")] if r.get("battery") is not None else []
+    cells.append(("GAS", num(r.get("lel")), "%LEL"))
     if scrubber:
         cells.append(("RUST", num(pct(r.get("rust")), "{:.0f}"), "% left"))
     cw = (w - 2 * pad) / 3
@@ -224,7 +244,7 @@ def sparkline(c: Canvas, x, y, w, h, r: dict):
 
 
 def findings_by_sensor(header: dict) -> dict:
-    fs = header.get("findings") or {}
+    fs = header.get("findings") or header.get("fusion") or {}
     if isinstance(fs, list):
         fs = {f.get("sensor"): f for f in fs if isinstance(f, dict)}
     return fs
@@ -336,7 +356,7 @@ def argon_strip(c: Canvas, header: dict):
     c.panel((x, y, x + w, y + h), radius=18)
     pad = u(20)
     cmd = a.get("last_command") or {}
-    src = str(cmd.get("source") or ("edge" if cut else "")).lower()
+    src = str(cmd.get("source") or a.get("source") or ("edge" if cut else "")).lower()
     edge = src == "edge" or (cut and not cmd)
     cy1, cy2 = y + h / 2 - u(13), y + h / 2 + u(14)
     c.text((x + pad, cy1), "ARGON", "mono", 14, 700, rgba(ACCENT), "lm")
@@ -438,12 +458,38 @@ def floating_labels(c: Canvas, header: dict, labels):
         c.rects.append((bx, by, bx2, by2))
 
 
+def normalize(header: Optional[dict]) -> dict:
+    header = dict(header or {})
+    robots = header.get("robots") or {}
+    if isinstance(robots, list):
+        robots = {str(r.get("id")): r for r in robots if isinstance(r, dict)}
+    header["robots"] = robots
+    a = header.get("argon")
+    if a and header.get("source") and not (a.get("last_command") or {}).get("source"):
+        header["argon"] = {**a, "source": str(header["source"]).lower()}
+    return header
+
+
+def with_force_history(rows: list[dict], window_s: float = 8.0, n: int = 64) -> list[dict]:
+    trail: list[tuple] = []
+    out = []
+    for r in rows:
+        r = normalize(r)
+        u1 = r["robots"].get("unit1")
+        if isinstance(u1, dict) and "force_hist" not in u1 and isinstance(u1.get("force_n"), (int, float)):
+            t = float(r.get("t", 0.0))
+            trail = [p for p in trail if p[0] > t - window_s] + [(t, float(u1["force_n"]))]
+            r["robots"] = {**r["robots"], "unit1": {**u1, "force_hist": [v for _, v in trail][-n:]}}
+        out.append(r)
+    return out
+
+
 def draw(frame_rgb, header: dict, labels: Optional[dict] = None):
     as_array = isinstance(frame_rgb, np.ndarray)
     img = Image.fromarray(np.asarray(frame_rgb, np.uint8)[..., :3]) if as_array else frame_rgb.convert("RGB")
     img = img.copy()
     c = Canvas(img)
-    header = header or {}
+    header = normalize(header)
     robots = header.get("robots") or {}
     edge, gap, cw = c.u(32), c.u(12), c.u(380)
     y = edge
@@ -466,7 +512,7 @@ def load_headers(path) -> list[dict]:
             if isinstance(r, dict) and ("robots" in r or "argon" in r or "detectors" in r):
                 rows.append(r)
     rows.sort(key=lambda r: float(r.get("t", 0.0)))
-    return rows
+    return with_force_history(rows)
 
 
 def header_at(rows: list[dict], t: float) -> dict:
@@ -592,11 +638,14 @@ def main(argv=None):
     ap.add_argument("--headers", default="")
     ap.add_argument("--out", default="sim/output/fleet_overlay")
     ap.add_argument("--sizes", default="1280x720,1920x1080")
+    ap.add_argument("--at", default="", help="comma-separated times to render from --headers")
     a = ap.parse_args(argv)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     if a.headers:
-        rows = load_headers(a.headers)
+        hs = load_headers(a.headers)
+        ts = [float(v) for v in a.at.split(",")] if a.at else list(np.arange(0.0, float(hs[-1]["t"]) + 1e-6, 5.0))
+        rows = [header_at(hs, t) for t in ts]
     else:
         rows = sample_beats()
         (out / "fake_timeline.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
