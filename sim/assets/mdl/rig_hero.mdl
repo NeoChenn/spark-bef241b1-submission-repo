@@ -1,0 +1,382 @@
+mdl 1.7;
+
+import ::anno::*;
+import ::df::*;
+import ::math::*;
+import ::state::*;
+import ::tex::*;
+
+struct hero_sample {
+    float3 albedo;
+    float rough;
+    float metal;
+    float3 normal;
+    float coat;
+    float coat_rough;
+    float opacity;
+};
+
+struct pipe_frame {
+    float2 uv;
+    float3 t;
+    float3 b;
+    float ang;
+    float side;
+};
+
+float3 wpos() {
+    return state::transform_point(state::coordinate_internal, state::coordinate_world, state::position());
+}
+
+float3 wnrm() {
+    return math::normalize(state::transform_normal(state::coordinate_internal, state::coordinate_world, state::normal()));
+}
+
+float3 to_internal(float3 n) {
+    return math::normalize(state::transform_normal(state::coordinate_world, state::coordinate_internal, n));
+}
+
+float3 f3(uniform texture_2d t, float2 uv) {
+    return tex::lookup_float3(t, uv, tex::wrap_repeat, tex::wrap_repeat);
+}
+
+float f1(uniform texture_2d t, float2 uv) {
+    return tex::lookup_float3(t, uv, tex::wrap_repeat, tex::wrap_repeat).x;
+}
+
+float3 nmap(uniform texture_2d t, float2 uv) {
+    return f3(t, uv) * 2.0 - 1.0;
+}
+
+float3 perturb(float3 n, float3 t, float3 b, float3 tn, float s) {
+    return math::normalize(n * math::max(tn.z, 0.2) + (t * tn.x + b * tn.y) * s);
+}
+
+float luma(float3 c) {
+    return 0.2126 * c.x + 0.7152 * c.y + 0.0722 * c.z;
+}
+
+float sat(float3 c) {
+    return math::max(c.x, math::max(c.y, c.z)) - math::min(c.x, math::min(c.y, c.z));
+}
+
+float ss(float a, float b, float x) {
+    return math::smoothstep(a, b, x);
+}
+
+pipe_frame frame(float3 p, float3 n, float cy, float cz, float r) {
+    float ang = math::atan2(p.z - cz, p.y - cy);
+    if (math::abs(n.x) > 0.6)
+        return pipe_frame(float2(p.y, p.z), float3(0.0, 1.0, 0.0), float3(0.0, 0.0, 1.0), ang, 0.0);
+    return pipe_frame(float2(p.x, ang * r), float3(1.0, 0.0, 0.0), float3(0.0, -math::sin(ang), math::cos(ang)), ang, 1.0);
+}
+
+float wrap_angle(float a) {
+    return a - 2.0 * math::PI * math::floor((a + math::PI) / (2.0 * math::PI));
+}
+
+material hero_surface(
+    float3 albedo = float3(0.5), float rough = 0.5, float metal = 0.0, float3 n = float3(0.0, 0.0, 1.0),
+    float coat = 0.0, float coat_rough = 0.1, float opacity = 1.0)
+= let {
+    float a = rough * rough;
+    bsdf dielectric = df::fresnel_layer(
+        ior: 1.5,
+        layer: df::microfacet_ggx_smith_bsdf(roughness_u: a, roughness_v: a, tint: color(1.0), mode: df::scatter_reflect),
+        base: df::diffuse_reflection_bsdf(tint: color(albedo)));
+    bsdf shiny = df::microfacet_ggx_smith_bsdf(roughness_u: a, roughness_v: a, tint: color(albedo), mode: df::scatter_reflect);
+    bsdf base = df::normalized_mix(
+        components: df::bsdf_component[](
+            df::bsdf_component(weight: 1.0 - metal, component: dielectric),
+            df::bsdf_component(weight: metal, component: shiny)));
+    float ca = coat_rough * coat_rough;
+    bsdf coated = df::fresnel_layer(
+        ior: 1.33,
+        weight: coat,
+        layer: df::microfacet_ggx_smith_bsdf(roughness_u: ca, roughness_v: ca, tint: color(1.0), mode: df::scatter_reflect),
+        base: base,
+        normal: state::normal());
+} in material(
+    surface: material_surface(scattering: coated),
+    geometry: material_geometry(normal: to_internal(n), cutout_opacity: opacity)
+);
+
+hero_sample pipe_sample(
+    uniform texture_2d paint_diff, uniform texture_2d paint_rough, uniform texture_2d paint_normal,
+    uniform texture_2d chip_mask, uniform texture_2d rust_diff, uniform texture_2d rust_normal,
+    uniform texture_2d noise, uniform texture_2d streaks,
+    float3 paint_tint, float3 primer_color, float paint_scale, float chip_scale, float chip_amount, float rust_scale,
+    float pipe_y, float pipe_z, float pipe_r, float3 damage, float damage_r, float halo, float streak_amount,
+    float streak_length, float grime_amount, float salt_amount, float wetness)
+{
+    float3 p = wpos();
+    float3 n = wnrm();
+    pipe_frame f = frame(p, n, pipe_y, pipe_z, pipe_r);
+    float2 uv = f.uv / paint_scale;
+    float3 nm = f3(noise, float2(p.x + 0.5 * p.z, p.y + 0.5 * p.z) / 4.3);
+    float3 nf = f3(noise, f.uv / 0.47 + float2(0.37, 0.61));
+    float3 pd = f3(paint_diff, uv);
+    float top = ss(0.25, 0.95, n.z);
+    float under = ss(0.15, -0.85, n.z);
+
+    float3 paint = pd * paint_tint * (0.78 + 0.44 * nm.x) * (0.9 + 0.2 * nf.z);
+    paint = math::lerp(paint, float3(luma(paint)) * float3(1.0, 1.06, 0.95), 0.35 * top * nm.y);
+
+    float3 cm = f3(chip_mask, f.uv / chip_scale);
+    float sig = math::saturate(luma(cm) - 0.9 * sat(cm));
+    sig = math::lerp(1.0, sig, math::saturate(chip_amount * (0.35 + 1.3 * nf.x)));
+    float primer = 1.0 - ss(0.45, 0.6, sig);
+    float bare = 1.0 - ss(0.24, 0.34, sig);
+
+    float da = wrap_angle(f.ang - math::atan2(damage.z - pipe_z, damage.y - pipe_y));
+    float darc = da * pipe_r;
+    float dx = p.x - damage.x;
+    float dist = math::sqrt(dx * dx + darc * darc);
+    float hal = f.side * halo * (1.0 - ss(damage_r * 0.8, damage_r * 1.75, dist + (nf.y - 0.5) * 0.16));
+    float bleed = hal * ss(0.42, 0.62, nf.x * 0.7 + f1(chip_mask, f.uv / 0.21) * 0.15 + 0.25 * hal);
+    float below = math::max(-darc, 0.0);
+    float sx = math::exp(-(dx * dx) / (damage_r * damage_r * 0.45));
+    float st = f1(streaks, float2(dx / 0.9 + 0.13, darc / 2.2));
+    float run = f.side * streak_amount * sx * math::exp(-below / streak_length) * ss(0.0, 0.05, below)
+        * (0.25 + 0.75 * ss(0.04, 0.3, st));
+
+    float3 rustc = f3(rust_diff, f.uv / rust_scale);
+    float3 albedo = math::lerp(paint, primer_color * (0.85 + 0.3 * nf.z), primer);
+    albedo = math::lerp(albedo, rustc * 0.45, bare);
+    albedo = math::lerp(albedo, albedo * float3(0.78, 0.66, 0.5), hal);
+    albedo = math::lerp(albedo, rustc * 0.75, bleed);
+    albedo = math::lerp(albedo, rustc * float3(0.8, 0.62, 0.5) * 0.7, math::saturate(run));
+
+    float grime = grime_amount * math::saturate(under * (0.45 + 0.8 * nm.z) + 0.35 * nf.z * nm.z);
+    albedo *= 1.0 - 0.6 * grime;
+    float salt = salt_amount * ss(0.55, 0.85, nf.y * 0.6 + nm.z * 0.4 + 0.25 * under) * (1.0 - hal);
+    albedo = math::lerp(albedo, float3(0.36, 0.37, 0.35), 0.75 * salt);
+
+    float pr = f1(paint_rough, uv);
+    float rough = math::lerp(0.34, 0.6, pr);
+    rough = math::lerp(rough, 0.72, primer);
+    rough = math::lerp(rough, 0.85, math::max(bare, math::max(bleed, run * 0.7)));
+    rough = math::saturate(rough + 0.2 * grime + 0.3 * salt + 0.12 * hal);
+
+    float3 tn = nmap(paint_normal, uv);
+    float3 rn = nmap(rust_normal, f.uv / rust_scale);
+    float3 sn = perturb(n, f.t, f.b, tn, 0.55);
+    sn = math::normalize(math::lerp(sn, perturb(n, f.t, f.b, rn, 1.4), math::saturate(math::max(bare, hal * 0.8))));
+
+    float wet = math::saturate(wetness * (0.55 + 0.45 * top) * (1.0 - 0.5 * salt));
+    albedo *= 1.0 - 0.3 * wet;
+    rough = math::lerp(rough, rough * 0.5 + 0.04, wet);
+    return hero_sample(math::saturate(albedo), rough, 0.0, sn, wet * 0.6, 0.05, 1.0);
+}
+
+export material rig_hero_pipe(
+    uniform texture_2d paint_diff = texture_2d(),
+    uniform texture_2d paint_rough = texture_2d(),
+    uniform texture_2d paint_normal = texture_2d(),
+    uniform texture_2d chip_mask = texture_2d(),
+    uniform texture_2d rust_diff = texture_2d(),
+    uniform texture_2d rust_normal = texture_2d(),
+    uniform texture_2d noise = texture_2d(),
+    uniform texture_2d streaks = texture_2d(),
+    color paint_tint = color(1.0),
+    color primer_color = color(0.12, 0.12, 0.11),
+    float paint_scale = 0.314,
+    float chip_scale = 0.8,
+    float chip_amount = 0.6,
+    float rust_scale = 0.45,
+    float pipe_y = 0.0,
+    float pipe_z = 0.0,
+    float pipe_r = 0.15,
+    float3 damage = float3(0.0),
+    float damage_r = 0.2,
+    float halo = 1.0,
+    float streak_amount = 0.85,
+    float streak_length = 0.4,
+    float grime_amount = 0.6,
+    float salt_amount = 0.5,
+    float wetness = 0.0 [[ anno::hard_range(0.0, 1.0) ]]
+)
+= let {
+    hero_sample s = pipe_sample(paint_diff, paint_rough, paint_normal, chip_mask, rust_diff, rust_normal, noise, streaks,
+        float3(paint_tint), float3(primer_color), paint_scale, chip_scale, chip_amount, rust_scale,
+        pipe_y, pipe_z, pipe_r, damage, damage_r, halo, streak_amount, streak_length, grime_amount, salt_amount, wetness);
+} in hero_surface(s.albedo, s.rough, s.metal, s.normal, s.coat, s.coat_rough, s.opacity);
+
+hero_sample rust_sample(
+    uniform texture_2d rust_diff, uniform texture_2d rust_rough, uniform texture_2d rust_normal,
+    uniform texture_2d scale_diff, uniform texture_2d scale_normal,
+    uniform texture_2d paint_diff, uniform texture_2d noise,
+    float3 paint_tint, float paint_scale, float rust_scale, float pipe_y, float pipe_z, float pipe_r,
+    float amount, float edge_noise, float rim_width, float wetness)
+{
+    float3 p = wpos();
+    float3 n = wnrm();
+    pipe_frame f = frame(p, n, pipe_y, pipe_z, pipe_r);
+    float e = state::texture_coordinate(0).x;
+    float3 na = f3(noise, f.uv / 0.33 + float2(0.21, 0.77));
+    float3 nb = f3(noise, f.uv / 0.09 + float2(0.53, 0.11));
+    float k = e / math::max(amount, 0.001) + edge_noise * (0.65 * na.y + 0.35 * nb.z - 0.5);
+    float rim0 = 1.0 - rim_width;
+    float core = 1.0 - ss(0.15, 0.55, k + 0.25 * (nb.x - 0.5));
+    float rim = ss(rim0, rim0 + 0.06, k);
+    float lip = ss(rim0 - 0.07, rim0, k) * (1.0 - rim);
+
+    float3 ra = f3(rust_diff, f.uv / rust_scale);
+    float3 rb = f3(scale_diff, f.uv / (rust_scale * 0.55) + float2(0.4, 0.2));
+    float3 fresh = rb * float3(1.25, 0.95, 0.7);
+    float3 deep = ra * float3(0.6, 0.48, 0.42);
+    float flake = ss(0.35, 0.65, nb.y);
+    float3 rust = math::lerp(fresh, deep, math::saturate(core * 0.85 + 0.35 * (flake - 0.5)));
+    rust = math::lerp(rust, ra * 1.1, 0.35 * (1.0 - core) * (1.0 - flake));
+
+    float3 pd = f3(paint_diff, f.uv / paint_scale) * paint_tint * float3(0.82, 0.8, 0.72);
+    float crack = ss(0.5, 0.7, nb.x * 0.6 + na.z * 0.5);
+    float3 rimc = math::lerp(pd, fresh * 0.7, crack * 0.55);
+    float3 albedo = math::lerp(rust, rimc, rim);
+    albedo = math::lerp(albedo, float3(0.2, 0.19, 0.16), lip * 0.85);
+
+    float rough = math::lerp(math::lerp(0.75, 0.95, f1(rust_rough, f.uv / rust_scale)), 0.5, rim);
+    float3 rn = nmap(rust_normal, f.uv / rust_scale);
+    float3 sn = nmap(scale_normal, f.uv / (rust_scale * 0.55) + float2(0.4, 0.2));
+    float3 shading = perturb(n, f.t, f.b, rn, 1.2 + 1.2 * core);
+    shading = math::normalize(math::lerp(shading, perturb(n, f.t, f.b, sn, 1.6), 0.5 * flake * (1.0 - rim)));
+    shading = math::normalize(math::lerp(shading, perturb(n, f.t, f.b, sn, 0.9 + 1.5 * lip), rim + lip));
+
+    float wet = math::saturate(wetness * (0.6 + 0.4 * ss(0.2, 0.9, n.z)));
+    albedo *= 1.0 - 0.35 * wet;
+    rough = math::lerp(rough, rough * 0.6 + 0.08, wet * (0.4 + 0.6 * rim));
+    float opacity = (amount > 0.0 && k < 1.0) ? 1.0 : 0.0;
+    return hero_sample(math::saturate(albedo), rough, 0.0, shading, wet * 0.35, 0.12, opacity);
+}
+
+export material rig_hero_rust(
+    uniform texture_2d rust_diff = texture_2d(),
+    uniform texture_2d rust_rough = texture_2d(),
+    uniform texture_2d rust_normal = texture_2d(),
+    uniform texture_2d scale_diff = texture_2d(),
+    uniform texture_2d scale_normal = texture_2d(),
+    uniform texture_2d paint_diff = texture_2d(),
+    uniform texture_2d noise = texture_2d(),
+    color paint_tint = color(1.0),
+    float paint_scale = 0.314,
+    float rust_scale = 0.3,
+    float pipe_y = 0.0,
+    float pipe_z = 0.0,
+    float pipe_r = 0.15,
+    float amount = 1.0 [[ anno::hard_range(0.0, 1.0) ]],
+    float edge_noise = 0.35,
+    float rim_width = 0.16,
+    float wetness = 0.0 [[ anno::hard_range(0.0, 1.0) ]]
+)
+= let {
+    hero_sample s = rust_sample(rust_diff, rust_rough, rust_normal, scale_diff, scale_normal, paint_diff, noise,
+        float3(paint_tint), paint_scale, rust_scale, pipe_y, pipe_z, pipe_r, amount, edge_noise, rim_width, wetness);
+} in hero_surface(s.albedo, s.rough, s.metal, s.normal, s.coat, s.coat_rough, s.opacity);
+
+hero_sample deck_sample(
+    uniform texture_2d plate_diff, uniform texture_2d plate_rough, uniform texture_2d plate_normal,
+    uniform texture_2d plate_ao, uniform texture_2d noise, uniform texture_2d rust_diff, uniform texture_2d grime_tex,
+    float3 tint, float scale, float macro_scale, float dirt_amount, float stain_amount, float worn_amount,
+    float normal_strength, float wetness, float puddles, float puddle_scale)
+{
+    float3 p = wpos();
+    float3 n = wnrm();
+    float3 a = math::abs(n);
+    float up = ss(0.7, 0.95, n.z);
+    float2 q = a.z >= math::max(a.x, a.y) ? float2(p.x, p.y) : (a.x > a.y ? float2(p.y, p.z) : float2(p.x, p.z));
+    float3 t = a.z >= math::max(a.x, a.y) ? float3(1.0, 0.0, 0.0) : (a.x > a.y ? float3(0.0, 1.0, 0.0) : float3(1.0, 0.0, 0.0));
+    float3 b = a.z >= math::max(a.x, a.y) ? float3(0.0, 1.0, 0.0) : float3(0.0, 0.0, 1.0);
+    float2 uv = q / scale;
+    float3 d = f3(plate_diff, uv);
+    float ao = f1(plate_ao, uv);
+    float r0 = f1(plate_rough, uv);
+    float3 tn = nmap(plate_normal, uv);
+    float3 m1 = f3(noise, q / macro_scale + float2(0.31, 0.17));
+    float3 m2 = f3(noise, q / (macro_scale * 3.7) + float2(0.73, 0.41));
+    float3 m3 = f3(noise, q / (macro_scale * 0.21) + float2(0.13, 0.57));
+    float g = f1(grime_tex, q / 1.9 + float2(0.3, 0.6));
+    float macro = 0.5 * m1.x + 0.35 * m2.x + 0.15 * m3.x;
+
+    float3 base = tint * math::lerp(1.0, luma(d) / 0.16, 0.45) * (0.62 + 0.76 * macro);
+    float recess = ss(0.78, 0.55, ao);
+    float raised = ss(0.9, 0.975, ao);
+    float dirt = math::saturate(dirt_amount * (recess * (0.45 + 0.9 * m3.z) + 0.55 * ss(0.45, 0.85, m1.z * 0.6 + m2.z * 0.6) + 0.35 * g));
+    float3 albedo = math::lerp(base, float3(0.022, 0.019, 0.015), dirt);
+    float stain = stain_amount * ss(0.62, 0.85, m2.y * 0.55 + m1.z * 0.55);
+    albedo = math::lerp(albedo, f3(rust_diff, q / 2.3) * 0.3, stain * (0.5 + 0.5 * recess));
+    float worn = worn_amount * raised * ss(0.35, 0.7, m1.x * 0.7 + m3.y * 0.5) * (1.0 - dirt);
+    albedo = math::lerp(albedo, float3(0.2, 0.2, 0.21), worn);
+    float rough = math::saturate(math::lerp(0.52, 0.86, r0) + 0.12 * dirt - 0.28 * worn + 0.1 * (m3.x - 0.5));
+
+    float pool = 0.62 * f1(noise, q / puddle_scale + float2(0.71, 0.29)) + 0.38 * m1.y;
+    float level = 0.84 - 0.32 * puddles;
+    float water = pool + 0.12 * recess - 0.05 * raised;
+    float puddle = up * (puddles > 0.0 ? ss(level, level + 0.035, water) : 0.0);
+    float damp = math::saturate(wetness * (0.5 + 0.5 * up) * (0.6 + 0.5 * recess + 0.4 * ss(level - 0.2, level, water)));
+    albedo *= 1.0 - 0.45 * damp;
+    albedo *= 1.0 - 0.3 * puddle;
+    rough = math::lerp(rough, rough * 0.35 + 0.05, damp);
+    float3 sn = perturb(n, t, b, tn, normal_strength);
+    sn = math::normalize(math::lerp(sn, n, puddle));
+    return hero_sample(math::saturate(albedo), rough, 0.55 * worn * (1.0 - damp), sn,
+        math::saturate(math::max(damp * 0.6, puddle)), math::lerp(0.1, 0.012, puddle), 1.0);
+}
+
+export material rig_hero_deck(
+    uniform texture_2d plate_diff = texture_2d(),
+    uniform texture_2d plate_rough = texture_2d(),
+    uniform texture_2d plate_normal = texture_2d(),
+    uniform texture_2d plate_ao = texture_2d(),
+    uniform texture_2d noise = texture_2d(),
+    uniform texture_2d rust_diff = texture_2d(),
+    uniform texture_2d grime_tex = texture_2d(),
+    color tint = color(0.075, 0.077, 0.08),
+    float scale = 1.6,
+    float macro_scale = 6.0,
+    float dirt_amount = 0.75,
+    float stain_amount = 0.4,
+    float worn_amount = 0.7,
+    float normal_strength = 1.0,
+    float wetness = 0.0 [[ anno::hard_range(0.0, 1.0) ]],
+    float puddles = 0.0 [[ anno::hard_range(0.0, 1.0) ]],
+    float puddle_scale = 7.0
+)
+= let {
+    hero_sample s = deck_sample(plate_diff, plate_rough, plate_normal, plate_ao, noise, rust_diff, grime_tex,
+        float3(tint), scale, macro_scale, dirt_amount, stain_amount, worn_amount, normal_strength, wetness, puddles,
+        puddle_scale);
+} in hero_surface(s.albedo, s.rough, s.metal, s.normal, s.coat, s.coat_rough, s.opacity);
+
+hero_sample line_sample(
+    uniform texture_2d noise, uniform texture_2d wear_tex, float3 paint_color, float wear_amount, float dirt_amount,
+    float wetness)
+{
+    float3 p = wpos();
+    float3 n = wnrm();
+    float2 q = float2(p.x, p.y);
+    float3 m = f3(noise, q / 2.1 + float2(0.17, 0.83));
+    float3 mf = f3(noise, q / 0.37 + float2(0.61, 0.07));
+    float im = f1(wear_tex, q / 0.9);
+    float wear = wear_amount * (0.5 * m.x + 0.5 * mf.z) + 0.55 * im;
+    float edge = ss(0.42, 0.6, wear);
+    float3 albedo = paint_color * (0.7 + 0.45 * m.z) * (0.9 + 0.2 * mf.y);
+    float dirt = math::saturate(dirt_amount * (0.25 + 0.75 * mf.x * m.y) + 0.55 * edge);
+    albedo = math::lerp(albedo, float3(0.05, 0.042, 0.03), dirt * 0.75);
+    float rough = math::saturate(0.5 + 0.25 * dirt + 0.1 * im);
+    float wet = math::saturate(wetness);
+    albedo *= 1.0 - 0.3 * wet;
+    rough = math::lerp(rough, rough * 0.4 + 0.05, wet);
+    return hero_sample(math::saturate(albedo), rough, 0.0, n, wet * 0.5, 0.06, wear < 0.6 ? 1.0 : 0.0);
+}
+
+export material rig_hero_line(
+    uniform texture_2d noise = texture_2d(),
+    uniform texture_2d wear_tex = texture_2d(),
+    color paint_color = color(0.62, 0.42, 0.02),
+    float wear_amount = 0.75,
+    float dirt_amount = 0.6,
+    float wetness = 0.0 [[ anno::hard_range(0.0, 1.0) ]]
+)
+= let {
+    hero_sample s = line_sample(noise, wear_tex, float3(paint_color), wear_amount, dirt_amount, wetness);
+} in hero_surface(s.albedo, s.rough, s.metal, s.normal, s.coat, s.coat_rough, s.opacity);

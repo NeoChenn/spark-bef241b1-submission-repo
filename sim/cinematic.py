@@ -7,6 +7,7 @@ import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
 import ocean
+import hero_mat
 import photoreal
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
 from topside_frames import aim_from_down, kelvin_rgb
@@ -432,6 +433,7 @@ def build_stage() -> Usd.Stage:
 def apply_preset(stage, name: str) -> None:
     preset = PRESETS[name]
     photoreal.apply(stage, name)
+    hero_mat.apply(stage, name)
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))
     dome.GetIntensityAttr().Set(preset["dome"])
