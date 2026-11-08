@@ -14,7 +14,7 @@ def "World"
             {
                 float xformOp:rotateZ = 90
                 float3 xformOp:scale = (1.5, 1.5, 1.5)
-                double3 xformOp:translate = (13.2, -19.2, 42.5)
+                double3 xformOp:translate = (13.4, -7.05, 42.5)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
@@ -27,45 +27,87 @@ def "World"
                 }
             }
 
-            def Xform "fuel_pump_skid_01"
+            def Xform "nv_tripod_light_01"
             {
-                float xformOp:rotateZ = 90
-                float3 xformOp:scale = (1.5, 1.5, 1.5)
-                double3 xformOp:translate = (15.6, -19.2, 42.5)
+                float xformOp:rotateZ = 300
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (11.6, -7.3, 42.5)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
                     instanceable = true
-                    prepend references = @../assets/third_party/models/fuel_pump_skid/fuel_pump_skid.usdc@
+                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Tripod_Flood_Task_Light_A01/sm_lighting_taskLight_tripodFlood_a01_01.usd@
+                    variants = {
+                        string PhysX = "Disabled"
+                    }
+                    prepend variantSets = "PhysX"
                 )
                 {
-                    double3 xformOp:translate = (-0, -0, 0.0000073699998210940976)
+                    double3 xformOp:translate = (0.10175, -0, -0.0003)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
             }
 
-            def Xform "fuel_pump_skid_02"
+            def Xform "nv_tripod_light_02"
             {
-                float xformOp:rotateZ = 90
-                float3 xformOp:scale = (1.5, 1.5, 1.5)
-                double3 xformOp:translate = (18, -19.2, 42.5)
+                float xformOp:rotateZ = 230
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (22.7, -7.3, 42.5)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
                     instanceable = true
-                    prepend references = @../assets/third_party/models/fuel_pump_skid/fuel_pump_skid.usdc@
+                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Tripod_Flood_Task_Light_A01/sm_lighting_taskLight_tripodFlood_a01_01.usd@
+                    variants = {
+                        string PhysX = "Disabled"
+                    }
+                    prepend variantSets = "PhysX"
                 )
                 {
-                    double3 xformOp:translate = (-0, -0, 0.0000073699998210940976)
+                    double3 xformOp:translate = (0.10175, -0, -0.0003)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
             }
 
-            def Xform "nv_air_compressor_a01_03"
+            def Xform "fuel_gate_valve_03"
+            {
+                float xformOp:rotateZ = 180
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (13.3, -11.45, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @../assets/third_party/models/fuel_gate_valve/fuel_gate_valve.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-0, 0.2472415715456009, -0.00005396000051405281)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+                }
+            }
+
+            def Xform "fuel_gate_valve_04"
+            {
+                float xformOp:rotateZ = 180
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (14.4, -11.45, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @../assets/third_party/models/fuel_gate_valve/fuel_gate_valve.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-0, 0.2472415715456009, -0.00005396000051405281)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+                }
+            }
+
+            def Xform "nv_air_compressor_a01_05"
             {
                 float xformOp:rotateZ = 0
-                float3 xformOp:scale = (1.6, 1.6, 1.6)
-                double3 xformOp:translate = (22.6, -19.4, 42.5)
+                float3 xformOp:scale = (1.5, 1.5, 1.5)
+                double3 xformOp:translate = (10.9, -12, 42.5)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
@@ -82,11 +124,45 @@ def "World"
                 }
             }
 
-            def Xform "nv_ibc_steel_a01_04"
+            def Xform "fuel_pump_skid_06"
             {
-                float xformOp:rotateZ = 8
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1.5, 1.5, 1.5)
+                double3 xformOp:translate = (8.6, -14.6, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @../assets/third_party/models/fuel_pump_skid/fuel_pump_skid.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-0, -0, 0.0000073699998210940976)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+                }
+            }
+
+            def Xform "fuel_pump_skid_07"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1.5, 1.5, 1.5)
+                double3 xformOp:translate = (10, -14.6, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @../assets/third_party/models/fuel_pump_skid/fuel_pump_skid.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-0, -0, 0.0000073699998210940976)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+                }
+            }
+
+            def Xform "nv_ibc_steel_a01_08"
+            {
+                float xformOp:rotateZ = 6
                 float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (25.6, -18.9, 42.5)
+                double3 xformOp:translate = (11.9, -14.2, 42.5)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
@@ -103,11 +179,11 @@ def "World"
                 }
             }
 
-            def Xform "nv_ibc_steel_a01_05"
+            def Xform "nv_ibc_steel_a01_09"
             {
-                float xformOp:rotateZ = -4
+                float xformOp:rotateZ = -3
                 float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (25.7, -20.25, 42.5)
+                double3 xformOp:translate = (11.9, -15.55, 42.5)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
@@ -124,11 +200,11 @@ def "World"
                 }
             }
 
-            def Xform "nv_stillage_d01_06"
+            def Xform "nv_stillage_d01_10"
             {
                 float xformOp:rotateZ = 90
                 float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (9.6, -18.6, 42.5)
+                double3 xformOp:translate = (9.4, -17.6, 42.5)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
@@ -145,11 +221,28 @@ def "World"
                 }
             }
 
-            def Xform "nv_pipe_bundle_b08_07"
+            def Xform "fuel_cable_spool_11"
             {
-                float xformOp:rotateZ = 90
+                float xformOp:rotateZ = 20
                 float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (18, -22.6, 42.5)
+                double3 xformOp:translate = (11.8, -17.4, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @../assets/third_party/models/fuel_cable_spool/fuel_cable_spool.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-0, 0.29999998211860657, 0.49240389466285706)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+                }
+            }
+
+            def Xform "nv_pipe_bundle_b08_12"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (10.6, -21.6, 42.5)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
@@ -166,108 +259,11 @@ def "World"
                 }
             }
 
-            def Xform "fuel_cable_spool_08"
-            {
-                float xformOp:rotateZ = 20
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (27.6, -15.2, 42.5)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    instanceable = true
-                    prepend references = @../assets/third_party/models/fuel_cable_spool/fuel_cable_spool.usdc@
-                )
-                {
-                    double3 xformOp:translate = (-0, 0.29999998211860657, 0.49240389466285706)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
-            def Xform "fuel_cable_spool_09"
-            {
-                float xformOp:rotateZ = 75
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (28.6, -15.6, 42.5)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    instanceable = true
-                    prepend references = @../assets/third_party/models/fuel_cable_spool/fuel_cable_spool.usdc@
-                )
-                {
-                    double3 xformOp:translate = (-0, 0.29999998211860657, 0.49240389466285706)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
-            def Xform "nv_scaffold_a01_10"
+            def Xform "nv_hopper_blue_a04_13"
             {
                 float xformOp:rotateZ = 0
                 float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (10.2, -2.6, 42.5)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    instanceable = true
-                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Equipment/Rolling_Steel_Scaffold_A01/sm_scaffold_rolling_steel_a01_01.usd@
-                    variants = {
-                        string PhysX = "Disabled"
-                    }
-                    prepend variantSets = "PhysX"
-                )
-                {
-                    double3 xformOp:translate = (0.004149999999999987, 0.027200000000000002, -0)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
-            def Xform "nv_tripod_light_11"
-            {
-                float xformOp:rotateZ = 215
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (15.2, -2.1, 42.5)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    instanceable = true
-                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Tripod_Flood_Task_Light_A01/sm_lighting_taskLight_tripodFlood_a01_01.usd@
-                    variants = {
-                        string PhysX = "Disabled"
-                    }
-                    prepend variantSets = "PhysX"
-                )
-                {
-                    double3 xformOp:translate = (0.10175, -0, -0.0003)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
-            def Xform "nv_tripod_light_12"
-            {
-                float xformOp:rotateZ = 35
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (21.6, -10.45, 42.5)
-                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
-
-                def Xform "model" (
-                    instanceable = true
-                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Equipment/Tripod_Flood_Task_Light_A01/sm_lighting_taskLight_tripodFlood_a01_01.usd@
-                    variants = {
-                        string PhysX = "Disabled"
-                    }
-                    prepend variantSets = "PhysX"
-                )
-                {
-                    double3 xformOp:translate = (0.10175, -0, -0.0003)
-                    uniform token[] xformOpOrder = ["xformOp:translate"]
-                }
-            }
-
-            def Xform "nv_hopper_blue_a04_13"
-            {
-                float xformOp:rotateZ = 90
-                float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (29, -12.6, 42.5)
+                double3 xformOp:translate = (8.2, -20.2, 42.5)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
@@ -284,11 +280,32 @@ def "World"
                 }
             }
 
-            def Xform "nv_hose_reel_exhaust_14"
+            def Xform "nv_scaffold_a01_14"
             {
-                float xformOp:rotateZ = 180
+                float xformOp:rotateZ = 90
                 float3 xformOp:scale = (1, 1, 1)
-                double3 xformOp:translate = (11.4, -12.4, 42.5)
+                double3 xformOp:translate = (2, -12, 42.5)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.2/Isaac/SimReady/Industrial/Warehouse/Equipment/Rolling_Steel_Scaffold_A01/sm_scaffold_rolling_steel_a01_01.usd@
+                    variants = {
+                        string PhysX = "Disabled"
+                    }
+                    prepend variantSets = "PhysX"
+                )
+                {
+                    double3 xformOp:translate = (0.004149999999999987, 0.027200000000000002, -0)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+                }
+            }
+
+            def Xform "nv_hose_reel_exhaust_15"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (1.2, -14.4, 42.5)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
 
                 def Xform "model" (
@@ -397,6 +414,94 @@ def "World"
                 )
                 {
                     double3 xformOp:translate = (-0.05435, 0.0020000000000000018, -0.20875)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+                }
+            }
+        }
+
+        def Scope "Hung"
+        {
+            def Xform "lifebuoy_00"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (9, -27.35, 43.55)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @../assets/third_party/models/lifebuoy/lifebuoy_1k.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-0.001162111759185791, 0.006846442818641663, 0.041602179408073425)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+                }
+            }
+
+            def Xform "lifebuoy_01"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (2, -27.35, 43.55)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @../assets/third_party/models/lifebuoy/lifebuoy_1k.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-0.001162111759185791, 0.006846442818641663, 0.041602179408073425)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+                }
+            }
+
+            def Xform "lifebuoy_02"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (37.35, -6, 43.55)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @../assets/third_party/models/lifebuoy/lifebuoy_1k.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-0.001162111759185791, 0.006846442818641663, 0.041602179408073425)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+                }
+            }
+
+            def Xform "lifebuoy_03"
+            {
+                float xformOp:rotateZ = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (37.35, 4, 43.55)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @../assets/third_party/models/lifebuoy/lifebuoy_1k.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-0.001162111759185791, 0.006846442818641663, 0.041602179408073425)
+                    uniform token[] xformOpOrder = ["xformOp:translate"]
+                }
+            }
+
+            def Xform "exterior_aircon_unit_04"
+            {
+                float xformOp:rotateZ = 0
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (5, -27.2, 42.85)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZ", "xformOp:scale"]
+
+                def Xform "model" (
+                    instanceable = true
+                    prepend references = @../assets/third_party/models/exterior_aircon_unit/exterior_aircon_unit_1k.usdc@
+                )
+                {
+                    double3 xformOp:translate = (-0.007287845015525818, -0.028886564075946808, -0.14388293027877808)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
             }

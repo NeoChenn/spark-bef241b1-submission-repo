@@ -66,15 +66,18 @@ def build() -> Path:
     UsdGeom.Xform.Define(stage, ah.ROOT)
     UsdGeom.Scope.Define(stage, f"{ah.ROOT}/Equipment")
     UsdGeom.Scope.Define(stage, f"{ah.ROOT}/Wall")
+    UsdGeom.Scope.Define(stage, f"{ah.ROOT}/Hung")
     UsdGeom.Scope.Define(stage, ah.OFFLINE)
     for index, (asset, x, y, rot, scale) in enumerate(ah.PLACE):
         place(stage, f"{ah.ROOT}/Equipment", f"{asset}_{index:02d}", asset, (x, y, ah.DECK), rot, scale)
     for index, (asset, x, y, face, height) in enumerate(ah.WALL):
         wall_item(stage, f"{ah.ROOT}/Wall", index, asset, x, y, face, height)
+    for index, (asset, x, y, rot, height) in enumerate(ah.HUNG):
+        place(stage, f"{ah.ROOT}/Hung", f"{asset}_{index:02d}", asset, (x, y, ah.DECK + height), rot, 1.0, centre_z=True)
     for path in ah.HIDE:
         stage.OverridePrim(path).SetActive(False)
     stage.GetRootLayer().Save()
-    print(f"ASSETS_HERO_WRITTEN {ah.LAYER} items={len(ah.PLACE) + len(ah.WALL)} hidden={len(ah.HIDE)}")
+    print(f"ASSETS_HERO_WRITTEN {ah.LAYER} items={len(ah.PLACE) + len(ah.WALL) + len(ah.HUNG)} hidden={len(ah.HIDE)}")
     return ah.LAYER
 
 

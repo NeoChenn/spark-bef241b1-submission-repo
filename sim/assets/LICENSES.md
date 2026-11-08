@@ -99,6 +99,7 @@ Generated from `sim/assets/manifest.json` by `sim/tools/fetch_assets.py --licenc
 | fire_alarm | model | polyhaven | CC0-1.0 | https://polyhaven.com/a/fire_alarm |
 | fire_hydrant | model | polyhaven | CC0-1.0 | https://polyhaven.com/a/fire_hydrant |
 | fuel_cable_spool | model | gazebo-fuel | CC-BY-4.0 (OpenRobotics, Gazebo Fuel) | https://app.gazebosim.org/OpenRobotics/fuel/models/Cable_Spool |
+| fuel_gate_valve | model | gazebo-fuel | CC0-1.0 (OpenRobotics, Gazebo Fuel) | https://app.gazebosim.org/OpenRobotics/fuel/models/Valve |
 | fuel_junction_box | model | gazebo-fuel | CC0-1.0 (OpenRobotics, Gazebo Fuel) | https://app.gazebosim.org/OpenRobotics/fuel/models/Electrical%20Box |
 | fuel_pump_skid | model | gazebo-fuel | CC-BY-4.0 (OpenRobotics, Gazebo Fuel) | https://app.gazebosim.org/OpenRobotics/fuel/models/Pump |
 | garden_hose_wall_mounted_01 | model | polyhaven | CC0-1.0 | https://polyhaven.com/a/garden_hose_wall_mounted_01 |

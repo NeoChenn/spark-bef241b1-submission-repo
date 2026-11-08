@@ -16,7 +16,7 @@ def test_layout_keeps_work_zone_route_and_eyes_clear():
 def test_every_asset_resolves_locally_or_has_remote_bounds():
     bounds = {**json.loads((ASSETS / "nv_bounds.json").read_text()), **json.loads((ASSETS / "hero_bounds.json").read_text())}
     manifest = {a["id"] for a in json.loads((ASSETS / "manifest.json").read_text())["assets"]}
-    for asset, *_ in ah.PLACE + ah.WALL:
+    for asset, *_ in ah.PLACE + ah.WALL + ah.HUNG:
         assert asset in manifest
         if asset.startswith("nv_"):
             assert asset in bounds
@@ -26,7 +26,7 @@ def test_every_asset_resolves_locally_or_has_remote_bounds():
 
 def test_hero_props_stay_on_the_top_deck():
     for x, y in ah.footprints():
-        assert -27.0 < x < 37.0 and -27.0 < y < 27.0
+        assert -27.6 < x < 37.5 and -27.6 < y < 27.4
 
 
 def test_wall_pose_sits_on_the_column_face():

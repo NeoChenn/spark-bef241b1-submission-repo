@@ -2259,6 +2259,17 @@
       "category": "hoses",
       "remote": true,
       "note": "exhaust extractor hose reel"
+    },
+    {
+      "id": "fuel_gate_valve",
+      "kind": "model",
+      "source": "gazebo-fuel",
+      "url": "https://app.gazebosim.org/OpenRobotics/fuel/models/Valve",
+      "licence": "CC0-1.0 (OpenRobotics, Gazebo Fuel)",
+      "resolution": "2k",
+      "path": "models/fuel_gate_valve",
+      "category": "valves",
+      "note": "riser with gate valve and handwheel, DAE converted with sim/tools/mesh_usd.py"
     }
   ]
 }
