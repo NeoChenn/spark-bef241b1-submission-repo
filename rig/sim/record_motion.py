@@ -115,13 +115,31 @@ def pickcan(args):
             "joints": ARM, "rows": rows}
 
 
+def export(raw_dir: str, out_dir: str) -> None:
+    from rig.sim.gait import gait_from_raw
+    from rig.sim.taskmotion import export_clip
+
+    os.makedirs(out_dir, exist_ok=True)
+    load = lambda n: json.load(open(os.path.join(raw_dir, f"{n}_raw.json")))
+    for name, data in (("gait_loop", gait_from_raw(load("gait"))), ("scrub", export_clip(load("scrub"))),
+                       ("pick_can", export_clip(load("pickcan")))):
+        with open(os.path.join(out_dir, f"{name}.json"), "w") as f:
+            json.dump(data, f, separators=(",", ":"))
+        print(f"[export] {name} -> {out_dir}", flush=True)
+
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("mode", choices=["gait", "scrub", "pickcan"])
+    p.add_argument("mode", choices=["gait", "scrub", "pickcan", "export"])
     p.add_argument("--ckpt", default="")
-    p.add_argument("--out", required=True)
+    p.add_argument("--out", default="")
+    p.add_argument("--raw", default="runs/motion")
     p.add_argument("--seconds", type=float, default=10.0)
     p.add_argument("--speed", type=float, default=0.8)
+    if sys.argv[1:2] == ["export"]:
+        args = p.parse_args()
+        export(args.raw, args.out or os.path.join(ROOT, "rig/sim/motion"))
+        return
     from isaaclab.app import AppLauncher
 
     AppLauncher.add_app_launcher_args(p)

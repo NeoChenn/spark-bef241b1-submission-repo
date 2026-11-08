@@ -11,6 +11,8 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade
 
 from rig.sim.obstacle_math import (DROP_S, DRUM_R, dashes, drop_offset, drum_pose, flame_offset, ghost_alpha, lerp,
                                    puddle_edge, seg_frame, segments, weather_params)
+from rig.sim.gait import ARM, LEGS, PARK, STAND, GaitLoop, Quantiser, Walker
+from rig.sim.taskmotion import TaskMotion
 from rig.sim.zoom import ease
 from scene_builder import ASSETS, GENERATED, OUTPUT, SceneBuilder, rel
 
@@ -86,6 +88,10 @@ class ObstacleScene:
             self.flames.append((op, op.Get()))
         self.tip_z = min((p[2] for _, p in self.flames), default=0.0)
         self.n = 0
+        self.gait = GaitLoop.load() if robot_model and ROBOT_USD.exists() else None
+        self.selected = None
+        self.motion = {"gait": self.gait.source} if self.gait else {}
+        self.clips = TaskMotion.load().clips if self.gait else {}
 
     def _roots(self):
         UsdGeom.Scope.Define(self.stage, ROOT)
@@ -181,10 +187,45 @@ class ObstacleScene:
             light.CreateColorAttr(Gf.Vec3f(*(c / max(ROBOT_GLOW[k % len(ROBOT_GLOW)]) for c in ROBOT_GLOW[k % len(ROBOT_GLOW)])))
             UsdGeom.Xformable(light).AddTranslateOp().Set(Gf.Vec3d(0, 0, 1.2))
             self.robots[rid] = {"ops": ops.GetOrderedXformOps()}
-        t, rz = self.robots[rid]["ops"]
+            if self.gait is not None:
+                from rig.sim.joints import RobotJoints
+
+                j = RobotJoints(self.stage, f"{root}/body")
+                j.set(LEGS + ARM, [STAND[n] for n in LEGS] + [PARK[n] for n in ARM])
+                self.robots[rid].update(joints=j, walker=Walker(self.gait, (p["x"], p["y"], p["z"], p.get("yaw", 0.0)), self.now),
+                                        arm=TaskMotion(self.clips), q=Quantiser(), qy=Quantiser(0.05))
+                ring.GetPrim().GetAttribute("xformOp:translate").Set(Gf.Vec3d(0, 0, -self.gait.zmean + 0.03))
+        rb = self.robots[rid]
+        rb["r"] = r
+        if "walker" in rb:
+            rb["walker"].target((p["x"], p["y"], p["z"], p.get("yaw", 0.0)), self.now)
+            return
+        t, rz = rb["ops"]
         t.Set(Gf.Vec3d(p["x"], p["y"], p["z"] + ROBOT_Z))
         rz.Set(math.degrees(p.get("yaw", 0.0)))
-        self.robots[rid]["pose"] = (p["x"], p["y"], p["z"])
+        rb["pose"] = (p["x"], p["y"], p["z"])
+
+    def select(self, rid) -> None:
+        self.selected = rid
+
+    def _animate(self, t: float) -> None:
+        motion = {"gait": self.gait.source} if self.gait else {}
+        for rid, rb in self.robots.items():
+            if "walker" not in rb:
+                continue
+            (x, y, z, yaw), q, bob = rb["walker"].step(t)
+            top, rz = rb["ops"]
+            if rb["q"].changed("pos", (x, y, z + bob)):
+                top.Set(Gf.Vec3d(round(x, 3), round(y, 3), round(z + self.gait.zmean + bob, 3)))
+            if rb["qy"].changed("yaw", math.degrees(yaw)):
+                rz.Set(round(math.degrees(yaw), 2))
+            rb["pose"] = (x, y, z)
+            rb["joints"].set(LEGS, q)
+            arm = rb["arm"]
+            rb["joints"].set(ARM, arm.step(rb.get("r") if rid == self.selected else None, t))
+            if rid == self.selected and arm.source:
+                motion[rid] = arm.source
+        self.motion = motion
 
     def _path(self, k, r):
         rid = r["id"]
@@ -230,6 +271,7 @@ class ObstacleScene:
 
     def tick(self, t: float) -> None:
         self.now = t
+        self._animate(t)
         for o in self.props.values():
             age = t - o["t0"]
             if "mv" in o:
