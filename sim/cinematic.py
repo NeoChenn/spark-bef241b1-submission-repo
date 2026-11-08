@@ -7,6 +7,7 @@ import numpy as np
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdLux, UsdShade, Vt
 
 import assets_hero
+import facade
 import flare_fx
 import greebles
 import look
@@ -494,6 +495,7 @@ def add_work_light(stage) -> None:
 def apply_preset(stage, name: str) -> None:
     preset = PRESETS[name]
     assets_hero.attach(stage)
+    facade.apply(stage, preset["windows"])
     photoreal.apply(stage, name)
     greebles.apply(stage)
     structure.apply(stage, name)
