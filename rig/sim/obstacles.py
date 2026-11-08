@@ -72,6 +72,11 @@ def _truncate(path, frac):
 
 
 OVERLAYS = os.environ.get("RIG_OVERLAYS", "0") == "1"
+RUST_INPUTS = (("/World/RepairZone/Looks/rust_coarse_01/hero_mdl", "amount"),
+               ("/World/RepairZone/Looks/green_metal_rust/hero_mdl", "halo"),
+               ("/World/RepairZone/Looks/green_metal_rust/hero_mdl", "streak_amount"))
+STATIC_DOG = "/World/Robots/scrubber_dog"
+RUST_SLEW = 0.25
 
 
 class ObstacleScene:
@@ -103,6 +108,7 @@ class ObstacleScene:
         self.clips = TaskMotion.load().clips if self.gait else {}
         self.rollout = Rollout.load() if self.gait else None
         self.anim_ms = 0.0
+        self.rust, self.rust_q, self.rust_attrs, self.dog = 1.0, Quantiser(0.005), None, None
 
     def _roots(self):
         UsdGeom.Scope.Define(self.stage, ROOT)
@@ -249,11 +255,34 @@ class ObstacleScene:
                 if ro is not None:
                     continue
                 arm = rb["arm"]
-                rb["joints"].set(ARM, arm.step(rb.get("r") if rid == self.selected else None, t))
-                if rid == self.selected and arm.source:
+                live = rid == self.selected or str(r.get("task") or "").endswith(":demo")
+                rb["joints"].set(ARM, arm.step(rb.get("r") if live else None, t))
+                if live and arm.source:
                     motion[rid] = arm.source
         self.motion = motion
+        self._rust(t)
         self.anim_ms += ((time.perf_counter() - t0) * 1e3 - self.anim_ms) * 0.05
+
+    def _rust(self, t: float) -> None:
+        want = [float(rb["r"]["rust"]) for rb in self.robots.values() if (rb.get("r") or {}).get("rust") is not None]
+        target = min(want) if want else 1.0
+        dt = max(t - getattr(self, "rust_t", t), 0.0)
+        self.rust_t = t
+        self.rust = target if target >= self.rust else max(target, self.rust - RUST_SLEW * dt)
+        if self.rust_attrs is None:
+            self.rust_attrs = []
+            for path, name in RUST_INPUTS:
+                prim = self.stage.OverridePrim(path)
+                attr = prim.GetAttribute(f"inputs:{name}")
+                base = attr.Get() if attr and attr.Get() is not None else 1.0
+                self.rust_attrs.append((attr or prim.CreateAttribute(f"inputs:{name}", Sdf.ValueTypeNames.Float), float(base)))
+            dog = self.stage.GetPrimAtPath(STATIC_DOG)
+            self.dog = UsdGeom.Imageable(dog) if dog.IsValid() else None
+        if self.rust_q.changed("rust", self.rust):
+            for attr, base in self.rust_attrs:
+                attr.Set(round(base * self.rust, 4))
+        if self.dog is not None and self.rust_q.changed("dog", float(bool(want))):
+            self.dog.MakeInvisible() if want else self.dog.MakeVisible()
 
     def _path(self, k, r):
         rid = r["id"]

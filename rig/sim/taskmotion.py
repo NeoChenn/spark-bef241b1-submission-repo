@@ -12,6 +12,8 @@ PICK_PHASES = {"APPROACH": ("APPROACH",), "GRASP": ("DESCEND",), "LIFT": ("LIFT"
 WELD_WORK = {"lift_joint": 0.3, "ur3_shoulder_pan_joint": 0.0, "ur3_shoulder_lift_joint": -1.1,
              "ur3_elbow_joint": 1.5, "ur3_wrist_1_joint": -1.95, "ur3_wrist_2_joint": -1.57, "ur3_wrist_3_joint": 0.0}
 WELD_SOURCE = "weld seam-tracking sweep (scripted)"
+SCRUB_TIP = (-0.058, -0.404, 0.904)
+BRUSH_R = 0.025
 
 
 def trim_jump(rows: list, max_step: float = 1.0) -> list:
@@ -96,6 +98,16 @@ class Rollout:
     def at(self, k: float):
         k = min(max(int(k), 0), len(self.arm) - 1)
         return self.legs[k], self.arm[k], self.can[k], self.quat[k]
+
+
+def scrub_base(patch, axis_y: float, axis_z: float, pipe_r: float, trunk_z: float):
+    tx, ty, tz = SCRUB_TIP
+    side = 1.0 if patch[1] >= axis_y else -1.0
+    dz = trunk_z + tz - axis_z
+    dy = math.sqrt(max((pipe_r + BRUSH_R) ** 2 - dz * dz, 0.0))
+    yaw = 0.0 if side > 0 else math.pi
+    c, s = math.cos(yaw), math.sin(yaw)
+    return patch[0] - (c * tx - s * ty), axis_y + side * dy - (s * tx + c * ty), yaw
 
 
 def weld_sweep(t: float):
