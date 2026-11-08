@@ -364,6 +364,7 @@ class ArgonLink:
         self.faulted: set[str] = set()
         self.tickets: list[dict] = []
         self.held = False
+        self.holds: set[str] = set()
         self.clear_asked = False
         self.spark: list[str] = []
         self.commands: list[Command] = []
@@ -395,6 +396,7 @@ class ArgonLink:
     def tick(self, t: float, findings: list[Finding], robots: dict, detectors: list[FixedDetector], ids: set,
              scrubber_pos=None, crack=False, wait: bool = False) -> list[Command]:
         out = []
+        dmap = {d.id: d for d in detectors}
         for d in detectors:
             d.fault = d.id in self.faulted
         for fd in findings:
@@ -428,7 +430,12 @@ class ArgonLink:
                 continue
             if fd.kind == OK:
                 continue
-            self._ask(t, key, fd, self._prompt(fd, robots, detectors, t), edge_rule(fd))
+            fallback = edge_rule(fd)
+            far = scrubber_pos is not None and fd.sensor in dmap and \
+                dmap[fd.sensor].dist(scrubber_pos) > self.spark_radius_m
+            if far:
+                fallback = [c for c in fallback if not (c.kind == HOLD and c.robot == SCRUBBER)]
+            self._ask(t, key, fd, self._prompt(fd, robots, detectors, t), fallback)
         for d in detectors:
             d.fault = d.id in self.faulted
         out += self._collect(t, ids, wait)
@@ -544,10 +551,16 @@ class ArgonLink:
             c.t = round(t, 2)
             if c.kind in FLANGE_TARGET and re.fullmatch(r"G-F\d+", c.target or ""):
                 c.target = c.target[2:]
-            if c.kind == HOLD:
+            if c.kind == HOLD and c.robot != SCRUBBER:
+                if c.robot in self.holds:
+                    continue
+                self.holds.add(c.robot)
+            elif c.kind == HOLD:
                 if self.held:
                     continue
                 self.held, self.clear_asked = True, False
+            elif c.kind == RESUME_RUST and c.robot != SCRUBBER:
+                continue
             elif c.kind == RESUME_RUST:
                 if not self.held:
                     continue
