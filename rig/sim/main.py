@@ -519,9 +519,10 @@ def main() -> None:
             if grade is not None:
                 now = cinematic.CURRENT["time"]
                 rgb = shafts.add(rgb, shafts.layer(camera_header(), beams, t)) if beams else rgb
-                if now in look.INSCATTER:
+                mist = look.mist_level(settings.get("/rtx/fog/fogDistanceDensity"))
+                if now in look.INSCATTER or mist > 0.0:
                     rgb = look.inscatter(rgb, np.asarray(dist_ann.get_data()), camera_header(), now,
-                                         look.sun_direction(cinematic.PRESETS[now]["sun_rotation"]))
+                                         look.sun_direction(cinematic.PRESETS[now]["sun_rotation"]), mist=mist)
                 rgb = grade(rgb, args.look, t, now)
             mean = float(rgb.mean())
             buf = io.BytesIO()

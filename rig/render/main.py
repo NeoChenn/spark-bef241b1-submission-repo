@@ -18,6 +18,9 @@ class Post:
         self.grade = self.atm = None
         self.stage, self.cinematic = stage, cinematic
         self.beams, self.weather, self.lens = [], None, bool(scene.get("lens"))
+        import carb
+
+        self.settings = carb.settings.get_settings()
         tier = scene.get("look") or "none"
         if tier != "none":
             import carb
@@ -56,8 +59,10 @@ class Post:
             if self.beams and cam is not None:
                 rgb = self.shafts.add(rgb, self.shafts.layer(cam, self.beams, t))
             now = self.cinematic.CURRENT["time"]
-            if cam is not None and depth is not None and now in self.look.INSCATTER:
-                rgb = self.look.inscatter(rgb, depth, cam, now, self.look.sun_direction(self.cinematic.PRESETS[now]["sun_rotation"]))
+            mist = self.look.mist_level(self.settings.get("/rtx/fog/fogDistanceDensity"))
+            if cam is not None and depth is not None and (now in self.look.INSCATTER or mist > 0.0):
+                rgb = self.look.inscatter(rgb, depth, cam, now, self.look.sun_direction(self.cinematic.PRESETS[now]["sun_rotation"]),
+                                          mist=mist)
             rgb = self.grade(rgb, t)
         return rgb
 
