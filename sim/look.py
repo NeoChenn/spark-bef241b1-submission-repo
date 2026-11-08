@@ -13,7 +13,9 @@ VIEWS = {
     "waterline": {"ev": 0.8, "fstop": 0.0},
     "flare": {"ev": 0.3, "fstop": 0.0},
 }
-PRESET_EV = {"storm": -0.7, "golden": 0.3, "dusk": 0.0}
+PRESET_GRADE = {"dusk": {"highlight": (0.06, 0.015, -0.07), "shadow": (-0.035, 0.01, 0.04), "contrast": 0.25}}
+PRESET_EV = {"storm": -0.7, "golden": 0.3}
+PRESET_EV_KEYS = {"dusk": ((3.0, 0.4), (30.0, 0.0), (150.0, -0.6), (330.0, -0.8))}
 ATMOS_EV = {"wide": -0.6, "waterline": -0.3, "flare": -0.3}
 ATMOS_EV_KEYS = ((8.0, 0.0), (60.0, -0.3), (250.0, -0.6))
 LENS_SCALE = 100.0
@@ -74,7 +76,7 @@ def exposure(ev: float) -> dict:
 
 def view_look(view: str | None, distance: float, atmos: bool = False, preset: str = "night") -> dict:
     base = dict(VIEWS.get(view) or {"ev": ev_at(distance), "fstop": 0.0})
-    base["ev"] += PRESET_EV.get(preset, 0.0)
+    base["ev"] += ev_at(distance, PRESET_EV_KEYS[preset]) if preset in PRESET_EV_KEYS else PRESET_EV.get(preset, 0.0)
     if atmos:
         base["ev"] += ATMOS_EV.get(view, 0.0) if view in VIEWS else ev_at(distance, ATMOS_EV_KEYS)
     return base
@@ -135,10 +137,11 @@ def _lut(p: dict) -> list:
     return _CACHE[key]
 
 
-def grade(rgb: np.ndarray, tier: str, t: float = 0.0) -> np.ndarray:
+def grade(rgb: np.ndarray, tier: str, t: float = 0.0, preset: str = "night") -> np.ndarray:
     p = TIERS[tier]["grade"]
     if not p:
         return rgb
+    p = {**p, **PRESET_GRADE.get(preset, {})}
     img = Image.fromarray(np.ascontiguousarray(rgb[..., :3])).point(_lut(p))
     if p["vignette"]:
         img = ImageChops.multiply(img, vignette(img.height, img.width, p["vignette"]))

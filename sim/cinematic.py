@@ -77,7 +77,7 @@ PRESETS = {
     },
     "dusk": {
         "sky": ASSETS / "third_party" / "hdris" / "belfast_sunset_puresky.hdr",
-        "dome": 300.0,
+        "dome": 180.0,
         "sky_rotation": 333.0,
         "sun": 1200.0,
         "sun_rotation": (85.0, 0.0, 205.0),
@@ -85,7 +85,7 @@ PRESETS = {
         "fog_color": (0.8, 0.45, 0.22),
         "fog_height": 0.004,
         "wave_height": 1.0,
-        "lights": 0.5,
+        "lights": 0.7,
         "windows": 0.8,
         "sea_color": (0.012, 0.024, 0.03),
     },
@@ -543,20 +543,28 @@ def add_deck_floods(stage, gain: float = 1.0) -> None:
         _relight(stage.GetPrimAtPath(path), look.fixture("spot", kelvin, intensity * gain, cone))
 
 
+CURRENT = {"time": "night"}
+
+
 def apply_preset(stage, name: str) -> None:
-    preset = PRESETS[name]
     assets_hero.attach(stage)
-    facade.apply(stage, preset["windows"])
     photoreal.apply(stage, name)
     greebles.apply(stage)
     structure.apply(stage, name)
     hero_mat.apply(stage, name)
-    ocean_fx.apply(stage, name, preset["wave_height"])
     flare_fx.attach(stage)
     relight(stage)
     add_deck_floods(stage)
     add_zone_spot(stage)
     add_work_light(stage)
+    set_time(stage, name)
+
+
+def set_time(stage, name: str, atm=None) -> None:
+    preset = PRESETS[name]
+    CURRENT["time"] = name
+    facade.apply(stage, preset["windows"])
+    ocean_fx.apply(stage, name, preset["wave_height"])
     dome = UsdLux.DomeLight(stage.GetPrimAtPath("/World/Environment/sky"))
     dome.GetTextureFileAttr().Set(rel(preset["sky"]))
     dome.GetIntensityAttr().Set(preset["dome"])
@@ -592,6 +600,9 @@ def apply_preset(stage, name: str) -> None:
             settings.set_bool(path, value)
         else:
             settings.set_float(path, value)
+    if atm is not None:
+        atm.preset = name
+        atm.set_weather(atm.w)
 
 
 CAMERA_KEYS = (
