@@ -78,3 +78,21 @@ def test_agc_gain_is_capped_on_near_black_frames():
     from rig.views.draw import agc
     black = np.full((48, 64, 3), 3, np.uint8)
     assert agc(black).max() < 40
+
+
+def test_demand_one_robot_keepalive_and_rate():
+    from rig.views.schedule import Demand
+    d = Demand(rate=4.0, keepalive=45.0, warmup=0.5)
+    assert d.active is None and not d.due(0.0)
+    assert d.request("R2", True, 0.0) == "start"
+    assert not d.due(0.2) and d.due(0.6)
+    d.captured(0.6)
+    assert not d.due(0.7) and d.due(0.86)
+    assert d.request("R2", True, 30.0) is None
+    assert not d.expire(70.0) and d.active == "R2"
+    assert d.request("R1", True, 71.0) == "switch" and d.active == "R1"
+    assert not d.due(71.2)
+    assert d.expire(117.0) and d.active is None
+    d.request("R3", True, 120.0)
+    assert d.request("R1", False, 121.0) is None and d.active == "R3"
+    assert d.request(None, False, 122.0) == "stop" and d.active is None
