@@ -12,14 +12,16 @@ import shafts
 from topside_frames import kelvin_rgb
 
 ROOT = "/World/Cinematic/Shafts"
-PRESENCE = 0.15
-GAIN = 1.5
+PRESENCE = 0.5
+GAIN = 6.0
 
 
 def _texture() -> Path:
-    path = Path(tempfile.gettempdir()) / "shaft_white.png"
+    path = Path(tempfile.gettempdir()) / "shaft_ramp.png"
     if not path.exists():
-        Image.fromarray(np.full((4, 4, 4), 255, np.uint8)).save(path)
+        ramp = np.full((4, 256, 4), 255, np.uint8)
+        ramp[..., 3] = np.rint(np.linspace(0.0, 255.0 * PRESENCE, 256)).astype(np.uint8)
+        Image.fromarray(ramp).save(path)
     return path
 
 
@@ -44,7 +46,7 @@ def _material(stage):
     tex.CreateInput("file", Sdf.ValueTypeNames.Asset).Set(str(_texture()))
     tex.CreateInput("st", Sdf.ValueTypeNames.Float2).ConnectToSource(st.CreateOutput("result", Sdf.ValueTypeNames.Float2))
     tex.CreateInput("sourceColorSpace", Sdf.ValueTypeNames.Token).Set("raw")
-    tex.CreateInput("scale", Sdf.ValueTypeNames.Float4).Set(Gf.Vec4f(1, 1, 1, PRESENCE))
+    tex.CreateInput("wrapS", Sdf.ValueTypeNames.Token).Set("clamp")
     sh.CreateInput("opacity", Sdf.ValueTypeNames.Float).ConnectToSource(tex.CreateOutput("a", Sdf.ValueTypeNames.Float))
     mat.CreateSurfaceOutput().ConnectToSource(sh.CreateOutput("surface", Sdf.ValueTypeNames.Token))
     return mat
@@ -71,20 +73,23 @@ class Shafts:
             for flag in ("doNotCastShadows", "invisibleToSecondaryRays"):
                 m.GetPrim().CreateAttribute(f"primvars:{flag}", Sdf.ValueTypeNames.Bool).Set(True)
             pv = UsdGeom.PrimvarsAPI(m)
-            pv.CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex).Set(
-                Vt.Vec2fArray.FromNumpy(np.full((len(pts), 2), 0.5, np.float32)))
-            glow = pv.CreatePrimvar("displayColor", Sdf.ValueTypeNames.Color3fArray, UsdGeom.Tokens.vertex)
-            glow.Set(Vt.Vec3fArray.FromNumpy(np.zeros((len(pts), 3), np.float32)))
+            st = pv.CreatePrimvar("st", Sdf.ValueTypeNames.TexCoord2fArray, UsdGeom.Tokens.vertex)
+            st.Set(Vt.Vec2fArray.FromNumpy(np.full((len(pts), 2), 0.5, np.float32)))
+            color = np.asarray(kelvin_rgb(look.KELVIN.get(sp["kelvin"], sp["kelvin"])), np.float32) * sp["gain"] * gain
+            pv.CreatePrimvar("displayColor", Sdf.ValueTypeNames.Color3fArray, UsdGeom.Tokens.constant).Set(
+                Vt.Vec3fArray.FromNumpy(color[None]))
             UsdShade.MaterialBindingAPI.Apply(m.GetPrim()).Bind(mat)
-            color = np.asarray(kelvin_rgb(look.KELVIN.get(sp["kelvin"], sp["kelvin"])), np.float32) * sp["gain"]
-            self.items.append((m, sp, pts, nrm, s, glow, color))
+            self.items.append((m, sp, pts, nrm, s, st))
+        self.on = True
 
     def update(self, eye, t: float) -> None:
-        k = self.gain / PRESENCE
-        for _, sp, pts, nrm, s, glow, color in self.items:
-            a = shafts.alpha(pts, nrm, s, eye, sp, t)[:, None] * color[None] * k
-            glow.Set(Vt.Vec3fArray.FromNumpy(a.astype(np.float32)))
+        for m, sp, pts, nrm, s, st in self.items:
+            hide = shafts.inside(eye, sp)
+            UsdGeom.Imageable(m).GetVisibilityAttr().Set("invisible" if hide or not self.on else "inherited")
+            a = shafts.alpha(pts, nrm, s, eye, sp, t)
+            st.Set(Vt.Vec2fArray.FromNumpy(np.stack((a, np.full_like(a, 0.5)), -1).astype(np.float32)))
 
     def show(self, on: bool) -> None:
+        self.on = on
         for m, *_ in self.items:
             UsdGeom.Imageable(m).GetVisibilityAttr().Set("inherited" if on else "invisible")
