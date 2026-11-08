@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 
 HOOKS = ("spawn_patch", "set_glare", "occlude_camera", "force_spike", "person_at")
-EXTRA = ("camera",)
+EXTRA = ("camera", "leak")
 RATES = {"SOAK": 0.15, "SCRUB": 0.35}
 DWELL = 1.3
 THUMB_W = 320

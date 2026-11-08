@@ -196,6 +196,10 @@ def main() -> None:
     while app.is_running():
         now = time.monotonic()
         t = now - start
+        while leak and not sender.inbox.empty():
+            ev = sender.inbox.get_nowait()
+            if ev["name"] == "leak":
+                print(f"rig sim: leak event {ev['args']} -> {leak.plume.set_leak(**ev['args'])}", flush=True)
         for tick in tickers:
             tick(t)
         rep.orchestrator.step(rt_subframes=args.subframes, pause_timeline=False, wait_for_render=args.wait_render)

@@ -186,6 +186,16 @@ class Plume:
     def set_rate(self, rate: float) -> None:
         self.rate = float(max(0.0, rate))
 
+    def set_leak(self, hole_mm: float | None = None, bar: float | None = None, rate: float | None = None) -> dict:
+        m = self.meta
+        if hole_mm is not None or bar is not None:
+            m["hole_mm"] = float(m.get("hole_mm", 3.0) if hole_mm is None else hole_mm)
+            m["bar_g"] = float(m.get("bar_g", 20.0) if bar is None else bar)
+            self.release = orifice(m["hole_mm"], m["bar_g"], h2s=m.get("h2s", 0.0))
+        if rate is not None:
+            self.set_rate(rate)
+        return self.flow_rate()
+
     def stats(self) -> dict:
         self.red.zero_()
         self._launch(K.reduce_stats, self.shape, [self.c, 0.1 * self.lel, 0.5 * self.lel, self.red])
@@ -217,9 +227,6 @@ class Plume:
     def velocity(self) -> np.ndarray:
         u, v, w = (a.numpy() for a in self.vel)
         return np.stack([0.5 * (u[1:] + u[:-1]), 0.5 * (v[:, 1:] + v[:, :-1]), 0.5 * (w[:, :, 1:] + w[:, :, :-1])], -1)
-
-    def mass_inflow(self, dt: float) -> float:
-        return self.release.mass_flow * self.rate * dt
 
     @classmethod
     def for_flange(cls, fid: str = "F5", hole_mm: float = 3.0, bar: float = 20.0, h2s: float = 0.0,

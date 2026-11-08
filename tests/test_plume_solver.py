@@ -94,3 +94,13 @@ def test_flange_helpers():
     speeds = [np.linalg.norm(s.at(t)) for t in np.linspace(0, 20, 50)]
     assert max(speeds) > 6 and min(speeds) < 4
     assert np.linalg.norm(Wind(5.0, 0.0).at(3.0)) == pytest.approx(5.0)
+
+
+def test_set_leak_changes_release_and_rate():
+    p, _ = open_field(shape=(16, 8, 8))
+    p.meta.update(hole_mm=3.0, bar_g=20.0)
+    out = p.set_leak(hole_mm=6.0)
+    assert out["kg_s"] == pytest.approx(4 * REL.mass_flow, rel=1e-4)
+    assert p.set_leak(rate=0.0)["kg_s"] == 0.0
+    s0 = p.step(0.1)["mass_kg"]
+    assert s0 == 0.0

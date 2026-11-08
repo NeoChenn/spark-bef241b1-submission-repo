@@ -56,7 +56,6 @@ def slices(d: dict, out: Path, when: float | None = None):
         im = ax.imshow(m, extent=ext, origin="lower", cmap=LEL_CMAP, vmin=0, vmax=100, interpolation="bilinear")
         xs = np.linspace(ext[0], ext[1], img.shape[1])
         ys = np.linspace(ext[2], ext[3], img.shape[0])
-        sp = np.hypot(uv[..., 0], uv[..., 1])
         ax.streamplot(xs, ys, uv[..., 0], uv[..., 1], color=FG, linewidth=0.45, density=1.1, arrowsize=0.6)
         ax.set_xlim(ext[:2])
         ax.set_ylim(ext[2:])
