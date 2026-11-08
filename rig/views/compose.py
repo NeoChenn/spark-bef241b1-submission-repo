@@ -65,7 +65,7 @@ def robot_views(rid: str, role: str, rgb, depth, cam: dict, pose, path=None, fie
         sparkline(pol, f, (4, h - 26, w // 2, h - 4), 0.0, 60.0, ref=40.0)
         info["force_n"] = round(float(f[-1]), 1)
     fov = 2 * math.atan(w / 2 / cam["K"][0][0])
-    top = label(bev.render((x, y, yaw), path, size=h, span=span, fov=fov), "BEV · depth → occupancy", f"±{span:.0f} m")
+    top = label(bev.render((x, y, yaw), path, size=h, span=span, fov=fov), "BEV · depth -> occupancy", f"±{span:.0f} m")
     fpv = label(Image.fromarray(rgb), f"{rid} · {UNITS.get(role, role)}", "head cam")
     return {"fpv": encode(fpv, f"{rid} head camera", seq), "policy": encode(pol, cap, seq),
             "bev": encode(top, "BEV occupancy from depth points + planned path", seq), "info": info}
