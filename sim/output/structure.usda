@@ -1058,75 +1058,55 @@ def "World"
             )
             {
                 color3f inputs:color = (1, 0.80712247, 0.6512994)
-                float inputs:intensity = 200000
+                float inputs:intensity = 170000
                 float inputs:radius = 0.25
-                float inputs:shaping:cone:angle = 80
+                float inputs:shaping:cone:angle = 85
                 float inputs:shaping:cone:softness = 0.5
                 double3 xformOp:translate = (18.575127514067454, -25.89870422177223, 6.1000000000000005)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
             }
 
-            def SphereLight "under_00" (
-                prepend apiSchemas = ["ShapingAPI"]
-            )
+            def SphereLight "under_00"
             {
                 color3f inputs:color = (1, 0.7200783, 0.48282117)
-                float inputs:intensity = 170000
+                float inputs:intensity = 140000
                 float inputs:radius = 0.25
-                float inputs:shaping:cone:angle = 80
-                float inputs:shaping:cone:softness = 0.5
                 double3 xformOp:translate = (0, -17.5, 16.049999999999997)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
             }
 
-            def SphereLight "under_01" (
-                prepend apiSchemas = ["ShapingAPI"]
-            )
+            def SphereLight "under_01"
             {
                 color3f inputs:color = (1, 0.8353334, 0.70307255)
-                float inputs:intensity = 170000
+                float inputs:intensity = 140000
                 float inputs:radius = 0.25
-                float inputs:shaping:cone:angle = 80
-                float inputs:shaping:cone:softness = 0.5
                 double3 xformOp:translate = (0, 17.5, 16.049999999999997)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
             }
 
-            def SphereLight "under_02" (
-                prepend apiSchemas = ["ShapingAPI"]
-            )
+            def SphereLight "under_02"
             {
                 color3f inputs:color = (1, 0.6538038, 0.34276664)
-                float inputs:intensity = 170000
+                float inputs:intensity = 140000
                 float inputs:radius = 0.25
-                float inputs:shaping:cone:angle = 80
-                float inputs:shaping:cone:softness = 0.5
                 double3 xformOp:translate = (-17.5, 0, 16.049999999999997)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
             }
 
-            def SphereLight "under_03" (
-                prepend apiSchemas = ["ShapingAPI"]
-            )
+            def SphereLight "under_03"
             {
                 color3f inputs:color = (1, 0.89416665, 0.8075703)
-                float inputs:intensity = 170000
+                float inputs:intensity = 140000
                 float inputs:radius = 0.25
-                float inputs:shaping:cone:angle = 80
-                float inputs:shaping:cone:softness = 0.5
                 double3 xformOp:translate = (17.5, 0, 16.049999999999997)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
             }
 
-            def SphereLight "overhang_01" (
-                prepend apiSchemas = ["ShapingAPI"]
-            )
+            def SphereLight "overhang_01"
             {
                 color3f inputs:color = (1, 0.8353334, 0.70307255)
-                float inputs:intensity = 130000
+                float inputs:intensity = 110000
                 float inputs:radius = 0.25
-                float inputs:shaping:cone:angle = 80
-                float inputs:shaping:cone:softness = 0.5
                 double3 xformOp:translate = (31.25, -12, 27.8)
                 uniform token[] xformOpOrder = ["xformOp:translate"]
             }
@@ -3717,127 +3697,91 @@ def "World"
                 )
                 {
                     color3f inputs:color = (1, 0.5912571, 0.19704382)
-                    float inputs:intensity = 200000
+                    float inputs:intensity = 170000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 80
+                    float inputs:shaping:cone:angle = 85
                     float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (22.22946698427441, -22.06517904688414, 13.2)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
 
-                def SphereLight "under_04" (
-                    prepend apiSchemas = ["ShapingAPI"]
-                )
+                def SphereLight "under_04"
                 {
                     color3f inputs:color = (1, 0.7200783, 0.48282117)
-                    float inputs:intensity = 170000
+                    float inputs:intensity = 140000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 80
-                    float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (-9, -9, 17.5)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
 
-                def SphereLight "under_05" (
-                    prepend apiSchemas = ["ShapingAPI"]
-                )
+                def SphereLight "under_05"
                 {
                     color3f inputs:color = (1, 0.8353334, 0.70307255)
-                    float inputs:intensity = 170000
+                    float inputs:intensity = 140000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 80
-                    float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (9, 9, 17.5)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
 
-                def SphereLight "under_06" (
-                    prepend apiSchemas = ["ShapingAPI"]
-                )
+                def SphereLight "under_06"
                 {
                     color3f inputs:color = (1, 0.6538038, 0.34276664)
-                    float inputs:intensity = 170000
+                    float inputs:intensity = 140000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 80
-                    float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (9, -26, 17.5)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
 
-                def SphereLight "under_07" (
-                    prepend apiSchemas = ["ShapingAPI"]
-                )
+                def SphereLight "under_07"
                 {
                     color3f inputs:color = (1, 0.89416665, 0.8075703)
-                    float inputs:intensity = 170000
+                    float inputs:intensity = 140000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 80
-                    float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (-9, 9, 17.5)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
 
-                def SphereLight "overhang_00" (
-                    prepend apiSchemas = ["ShapingAPI"]
-                )
+                def SphereLight "overhang_00"
                 {
                     color3f inputs:color = (1, 0.7200783, 0.48282117)
-                    float inputs:intensity = 130000
+                    float inputs:intensity = 110000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 80
-                    float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (31.25, -30, 27.8)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
 
-                def SphereLight "overhang_02" (
-                    prepend apiSchemas = ["ShapingAPI"]
-                )
+                def SphereLight "overhang_02"
                 {
                     color3f inputs:color = (1, 0.6538038, 0.34276664)
-                    float inputs:intensity = 130000
+                    float inputs:intensity = 110000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 80
-                    float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (31.25, 6, 27.8)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
 
-                def SphereLight "overhang_03" (
-                    prepend apiSchemas = ["ShapingAPI"]
-                )
+                def SphereLight "overhang_03"
                 {
                     color3f inputs:color = (1, 0.89416665, 0.8075703)
-                    float inputs:intensity = 130000
+                    float inputs:intensity = 110000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 80
-                    float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (31.25, 20, 27.8)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
 
-                def SphereLight "top_00" (
-                    prepend apiSchemas = ["ShapingAPI"]
-                )
+                def SphereLight "top_00"
                 {
                     color3f inputs:color = (1, 0.8353334, 0.70307255)
-                    float inputs:intensity = 110000
+                    float inputs:intensity = 90000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 80
-                    float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (7, -24, 39.85)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
 
-                def SphereLight "top_01" (
-                    prepend apiSchemas = ["ShapingAPI"]
-                )
+                def SphereLight "top_01"
                 {
                     color3f inputs:color = (1, 0.6538038, 0.34276664)
-                    float inputs:intensity = 110000
+                    float inputs:intensity = 90000
                     float inputs:radius = 0.25
-                    float inputs:shaping:cone:angle = 80
-                    float inputs:shaping:cone:softness = 0.5
                     double3 xformOp:translate = (18, -24, 39.85)
                     uniform token[] xformOpOrder = ["xformOp:translate"]
                 }
@@ -3878,43 +3822,31 @@ def "World"
         {
             over "lamp_320"
             {
-                over "light" (
-                    prepend apiSchemas = ["ShapingAPI"]
-                )
+                over "light"
                 {
                     color3f inputs:color = (1, 0.60785884, 0.23729977)
-                    float inputs:intensity = 230000
-                    float inputs:shaping:cone:angle = 72
-                    float inputs:shaping:cone:softness = 0.7
-                    custom float spark:baseIntensity = 230000
+                    float inputs:intensity = 190000
+                    custom float spark:baseIntensity = 190000
                 }
             }
 
             over "lamp_321"
             {
-                over "light" (
-                    prepend apiSchemas = ["ShapingAPI"]
-                )
+                over "light"
                 {
                     color3f inputs:color = (1, 0.85306746, 0.7350351)
-                    float inputs:intensity = 160000
-                    float inputs:shaping:cone:angle = 72
-                    float inputs:shaping:cone:softness = 0.7
-                    custom float spark:baseIntensity = 160000
+                    float inputs:intensity = 130000
+                    custom float spark:baseIntensity = 130000
                 }
             }
 
             over "lamp_322"
             {
-                over "light" (
-                    prepend apiSchemas = ["ShapingAPI"]
-                )
+                over "light"
                 {
                     color3f inputs:color = (1, 0.74372685, 0.53008634)
-                    float inputs:intensity = 95000
-                    float inputs:shaping:cone:angle = 72
-                    float inputs:shaping:cone:softness = 0.7
-                    custom float spark:baseIntensity = 95000
+                    float inputs:intensity = 75000
+                    custom float spark:baseIntensity = 75000
                 }
             }
         }
