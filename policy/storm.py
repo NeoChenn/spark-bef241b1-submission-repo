@@ -8,6 +8,8 @@ import torch
 from scipy.ndimage import gaussian_filter, uniform_filter1d
 
 TWO_PI = 2 * math.pi
+WEATHER = {"calm": (0.0, 0.0, 0.0), "wind": (0.8, 1.0, 0.0), "rain": (0.7, 0.25, 1.0), "fog": (0.6, 0.0, 0.8),
+           "storm": (1.0, 1.0, 1.0)}
 FOG = np.array([138.0, 144.0, 152.0], np.float32)
 
 
@@ -122,6 +124,7 @@ class Weather:
         self.seed, self.horizon = seed, horizon_s
         self.lull_every, self.lull_s, self.lull_depth = lull_every_s, lull_s, lull_depth
         self.level, self.t_on = 0.0, 0.0
+        self.gust_scale, self.rain_scale, self.kind = 1.0, 1.0, "storm"
         self._sample()
 
     def _sample(self):
@@ -136,6 +139,20 @@ class Weather:
     def set_level(self, level: float, t: float) -> None:
         self.level, self.t_on = float(np.clip(level, 0.0, 1.0)), float(t)
 
+    def set_weather(self, level, t: float, wind_dir: Optional[float] = None, gust: Optional[float] = None) -> float:
+        if isinstance(level, str):
+            self.kind = level
+            lv, self.gust_scale, self.rain_scale = WEATHER[level]
+        else:
+            self.kind, lv, self.gust_scale, self.rain_scale = "storm", float(level), 1.0, 1.0
+        if gust is not None:
+            self.gust_scale = float(gust) / 18.0
+        if wind_dir is not None:
+            a = math.radians(float(wind_dir))
+            self.gusts["dir"] = torch.tensor([[math.cos(a), math.sin(a), 0.0]])
+        self.set_level(lv, t)
+        return self.level
+
     def _envelope(self, tau: float) -> float:
         u = (tau - self.lulls) / self.lull_s
         dip = np.where((u >= 0) & (u <= 1), np.minimum(1.0, 2.0 * np.sin(math.pi * np.clip(u, 0, 1))), 0.0).max()
@@ -147,9 +164,9 @@ class Weather:
         tau = (float(t) - self.t_on) % self.horizon
         env = self._envelope(tau)
         tt = torch.tensor([tau])
-        gust = float(gust_force(self.gusts, tt)[0]) * self.level * env
+        gust = float(gust_force(self.gusts, tt)[0]) * self.level * env * self.gust_scale
         deck = deck_offset(self.deck, tt)[0] * self.level
-        return {"level": self.level, "gust_n": gust, "rain": self.level * env,
+        return {"level": self.level, "gust_n": gust, "rain": min(1.0, self.level * env * self.rain_scale),
                 "deck_m": (float(deck[0]), float(deck[1])), "gust_dir": tuple(float(v) for v in self.gusts["dir"][0])}
 
     def next_lull(self, t: float, threshold: float = 0.35, within_s: float = 120.0) -> Optional[float]:

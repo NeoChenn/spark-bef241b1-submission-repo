@@ -165,3 +165,25 @@ def test_storm_grade_rain_overlay():
     assert np.array_equal(a, b) and a.shape == img.shape and a.dtype == np.uint8
     assert not np.array_equal(storm_grade(img, 1.0, t=1.1), a)
     assert a.astype(float)[..., 0].mean() < img.astype(float)[..., 0].mean()
+
+
+def test_set_weather_kinds_map_onto_storm():
+    from policy.storm import WEATHER
+    ts = np.arange(0.0, 60.0, 0.25)
+    peak = {}
+    for kind in WEATHER:
+        w = Weather(seed=0)
+        w.set_weather(kind, t=0.0)
+        xs = [w.at(t) for t in ts]
+        peak[kind] = (max(x["gust_n"] for x in xs), max(x["rain"] for x in xs))
+    assert peak["calm"] == (0.0, 0.0)
+    assert peak["wind"][0] > 10 and peak["wind"][1] == 0
+    assert peak["rain"][1] > 0.6 and peak["rain"][0] < peak["wind"][0]
+    assert peak["fog"][0] == 0 and peak["fog"][1] > 0.4
+    assert peak["storm"][0] >= peak["wind"][0] and peak["storm"][1] >= peak["rain"][1]
+    w = Weather(seed=0)
+    w.set_weather("wind", t=0.0, wind_dir=90.0, gust=40.0)
+    assert abs(w.at(1.0)["gust_dir"][1] - 1.0) < 1e-6
+    assert max(w.at(t)["gust_n"] for t in ts) > peak["wind"][0]
+    w.set_weather(0.4, t=0.0)
+    assert w.level == 0.4

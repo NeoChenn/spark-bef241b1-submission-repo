@@ -92,3 +92,15 @@ def test_hud_shows_storm_line():
     orch, bridge, *_ = build(None, glare=False, verbose=False)
     bridge.storm_level(0.8)
     assert any(l.startswith("storm 0.8") for l in orch.overlay_text())
+
+
+def test_set_weather_is_the_same_control_as_storm_level():
+    orch, bridge, world, *_ = build(None, glare=False, verbose=False)
+    coef = float(world.abrasion_coef[0])
+    bridge.set_weather("wind", wind_dir=0.0, gust=30.0)
+    w = bridge.weather()
+    assert w["level"] == 0.8 and w["rain"] == 0.0 and float(world.abrasion_coef[0]) == coef
+    bridge.set_weather("storm")
+    assert bridge.weather()["level"] == 1.0 and float(world.abrasion_coef[0]) < coef
+    bridge.storm_level(0.0)
+    assert bridge.weather()["level"] == 0.0 and abs(float(world.abrasion_coef[0]) - coef) < 1e-6

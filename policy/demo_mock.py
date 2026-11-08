@@ -280,11 +280,14 @@ class MockBridge:
         return self.storm.at(self.t)
 
     def storm_level(self, level):
-        self.storm.set_level(level, self.t)
+        self.set_weather(float(level))
+
+    def set_weather(self, level="storm", wind_dir=None, gust=None):
+        lv = self.storm.set_weather(level, self.t, wind_dir, gust)
         coef = getattr(self.world, "abrasion_coef", None)
         if coef is not None:
             self.base_coef = coef.clone() if self.base_coef is None else self.base_coef
-            coef[:] = self.base_coef * wet_factor(level)
+            coef[:] = self.base_coef * wet_factor(lv * self.storm.rain_scale)
 
     def _lens_perception(self):
         p = self.perception
