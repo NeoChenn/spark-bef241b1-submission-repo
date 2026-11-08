@@ -520,7 +520,7 @@ class MissionLive:
                 d["path"] = [[d["pose"]["x"], d["pose"]["y"], d["pose"]["z"]]]
                 d["prev_path"] = None
                 if o["mode"] == "DEMO":
-                    d.update({k: o.get(k) for k in ("state", "task", "job_state", "rollout", "rust")})
+                    d.update({k: o.get(k) for k in ("state", "task", "job_state", "rollout", "rust", "weld")})
                 elif o["mode"] != "RETURN":
                     d["job_state"] = "LEAK_APPROACH"
                     d["seek"] = o["mode"]
@@ -735,7 +735,7 @@ class MissionLive:
         leak = {"xyz": [round(float(v), 2) for v in lk.source()], "on": lk.on, "wind": [round(float(w[0]), 3), round(float(w[1]), 3)]} \
             if lk.fid is not None else None
         return {"t": s["t"], "hazards": s["hazards"], "leak": leak,
-                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state", "task", "job_state", "rollout", "rust")}
+                "robots": [{k: r.get(k) for k in ("id", "pose", "path", "prev_path", "reroute_t", "state", "task", "job_state", "rollout", "rust", "weld")}
                            for r in s["robots"]]}
 
     def state(self) -> dict:

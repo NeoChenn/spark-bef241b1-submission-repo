@@ -562,10 +562,10 @@ class Demo(Script):
     def e(self) -> float:
         return self.run.clock() - self.t0
 
-    def pose(self, rid, xy, yaw, z=None, state="IDLE", task=None, job_state=None, rollout=None, rust=None) -> None:
+    def pose(self, rid, xy, yaw, z=None, state="IDLE", task=None, job_state=None, rollout=None, rust=None, weld=None) -> None:
         self.m.override[rid] = {"xy": np.asarray(xy, float)[:2].copy(), "yaw": float(yaw), "z": self.deck if z is None else z,
                                 "mode": "DEMO", "state": state, "task": task, "job_state": job_state, "rollout": rollout,
-                                "rust": rust}
+                                "rust": rust, "weld": weld}
 
     def sim_events(self) -> list:
         return [{"name": "camera", "args": dict(self.cam)}, {"name": "select", "args": {"robot": self.main}},
@@ -645,9 +645,9 @@ class DemoGas(Demo):
     robots = (("R1", [-21.0, 4.0, 31.25], 0.9), ("R2", [17.3, -10.0, 42.5], 0.9), ("R3", [10.0, 12.0, 20.0], 0.8))
     weather = DEMO_WEATHER
     fid, src, wheel = "F7", (19.06, -9.3, 43.2), (20.4, -9.15, 43.5)
-    start, box = (17.3, -10.0), {"xmin": 15.6, "xmax": 22.0, "ymin": -11.2, "ymax": -8.6}
+    start, box = (17.3, -10.0), {"xmin": 15.6, "xmax": 21.5, "ymin": -11.2, "ymax": -8.6}
     hide = ["/World/Greebles/Zone/Clutter/tarp", "/World/Greebles/Zone/Clutter/strap_0", "/World/Greebles/Zone/Clutter/strap_1"]
-    alarm_s, seek_wait_s, seek_min_s, seek_max_s, turn_s, walk_ms, near_m = 3.0, 1.5, 10.0, 24.0, 6.0, 0.8, 0.9
+    alarm_s, seek_wait_s, search_s, turn_s, walk_ms, near_m = 3.0, 1.5, (5.0, 9.0), 5.0, 0.8, 0.9
     cam = {"mode": "zoom", "at": [18.8, -9.7, 42.5], "lens": {"dist": 7.0, "elev": 42.0, "focal": 18.0, "az": [-35.0, -50.0, -20.0]}}
     close = {"mode": "zoom", "at": [19.9, -9.5, 42.6], "lens": {"dist": 4.5, "elev": 40.0, "focal": 20.0, "az": [-80.0, -65.0, -95.0]}}
 
@@ -682,9 +682,10 @@ class DemoGas(Demo):
             m.note("Sensor", "GAS_ALARM", f"GD-{self.fid} above {ALARM_LEL * 100:.0f} %LEL -> alarm, Unit 2 dispatched")
         if self.trip_t is not None and self.seek is None and e >= self.trip_t + self.seek_wait_s:
             self.seek = lk.seek = QuietSeek(lk, [*self.start, self.deck], self.deck, self.box, lk.seed)
+            self.seek_e = e
             m.note("Unit 2", "GAS_SEEK", f"localising the leak -> {METHODS[lk.method]}")
         sk = self.seek
-        if sk is not None and self.found_t is None and (sk.t >= self.seek_max_s or sk.t >= self.seek_min_s and (
+        if sk is not None and self.found_t is None and (e - self.seek_e >= self.search_s[1] or e - self.seek_e >= self.search_s[0] and (
                 sk.hit is not None or float(np.linalg.norm(sk.pos - self.src[:2])) < self.near_m)):
             sk.done, self.found_t, self.from_xy = True, e, sk.pos.copy()
             m.note("Unit 2", "LEAK_FOUND", f"leak localised on the orange line in {sk.t:.0f} s -> isolating the valve")
@@ -695,7 +696,7 @@ class DemoGas(Demo):
                 self.pose(self.main, sk.pos, sk.yaw, state="WORK", task="gas:demo", job_state="LEAK_APPROACH")
         else:
             d = float(np.linalg.norm(np.asarray(self.stop) - self.from_xy))
-            walk_s = max(1.0, d / self.walk_ms)
+            walk_s = min(max(1.0, d / self.walk_ms), 2.5)
             u = (e - self.found_t) / walk_s
             if u < 1:
                 yaw = math.atan2(self.stop[1] - self.from_xy[1], self.stop[0] - self.from_xy[0])
@@ -762,6 +763,61 @@ class DemoRust(Demo):
 
     def key(self) -> dict:
         return {"label": "rust left", "value": round(100 * self.left(self.e())), "unit": "%"}
+
+
+class DemoWeld(Demo):
+    id, name, main = "demo_weld", "Demo: Weld", "R1"
+    steps = ("Crack on the main line", "Unit 1 walks to the pipe", "Laser profile finds the seam",
+             "Seam-tracked weld over the crack", "Bead cooling, weld done")
+    robots = (("R1", [14.9, -5.25, 42.5], 0.95), ("R2", [-21.0, 4.0, 31.25], 0.9), ("R3", [10.0, 12.0, 20.0], 0.8))
+    weather = DEMO_WEATHER
+    stop, back, yaw = (16.9, -5.25), 2.0, 0.0
+    walk_s, arm_s, cool_s = (0.5, 3.5), 4.0, 4.0
+    lens = {"dist": 3.8, "elev": 28.0, "focal": 38.0, "az": [55.0, 70.0, 40.0, 85.0]}
+
+    def setup(self) -> None:
+        from rig.sim.gait import GaitLoop
+        from rig.sim.herocam import LOOK_Z
+        from rig.sim.weld import LEAD_S, WeldClip, to_world
+
+        super().setup()
+        g = GaitLoop.load()
+        self.z = round(self.deck + DemoRust.base_z - (g.zmean if g else 0.36), 2)
+        self.clip, self.lead = WeldClip.load(), LEAD_S
+        self.start = (self.stop[0] - self.back * math.cos(self.yaw), self.stop[1] - self.back * math.sin(self.yaw))
+        self.at = [*self.stop, self.deck, self.yaw]
+        mid = to_world(self.clip.bead.mean(0), self.at)
+        self.cam = {"mode": "zoom", "at": [round(float(mid[0]), 3), round(float(mid[1]), 3), round(float(mid[2]) - LOOK_Z, 3)],
+                    "lens": dict(self.lens)}
+        self.m.note("Detector", "CRACK", f"crack on the main line at x {mid[0]:.1f} m -> weld repair for Unit 1")
+        self.pose(self.main, self.start, self.yaw, self.z, rust=1.0)
+
+    def c(self) -> float:
+        return self.e() - self.arm_s - self.lead
+
+    def tick(self) -> None:
+        e, task, cl = self.e(), "weld:demo", self.clip
+        c = self.c()
+        end = cl.off + self.cool_s
+        w = {"id": round(self.t0, 3), "c": round(e - self.arm_s, 3), "at": self.at, "arm": e >= self.arm_s and c < end}
+        kw = {"z": self.z, "rust": 1.0, "weld": w}
+        if e < self.walk_s[0]:
+            self.pose(self.main, self.start, self.yaw, **kw)
+        elif e < self.walk_s[1]:
+            u = (e - self.walk_s[0]) / (self.walk_s[1] - self.walk_s[0])
+            self.pose(self.main, walk(self.start, self.stop, u), self.yaw, state="TRANSIT", task=task, **kw)
+        elif not w["arm"]:
+            self.pose(self.main, self.stop, self.yaw, task=task, **kw)
+        else:
+            js = "SEAM_SCAN" if c < cl.on else "WELD" if c <= cl.off else "INSPECT_WELD"
+            self.pose(self.main, self.stop, self.yaw, state="WORK", task=task, job_state=js, **kw)
+        self.i = 0 if e < self.walk_s[0] else 1 if c < 0 else 2 if c < cl.on else 3 if c <= cl.off else 4
+
+    def key(self) -> dict:
+        u = float((self.clip.bead_t <= self.c()).mean())
+        if u >= 1.0:
+            return {"label": "seam track", "value": round(self.clip.metrics.get("tracker_rmse_mm", 0.0), 2), "unit": "mm RMS"}
+        return {"label": "weld", "value": round(100 * u), "unit": "%"}
 
 
 def along(pts, speed: float, t: float, yaw0: float, turn_s: float = 0.8):
@@ -922,8 +978,9 @@ class DemoDeck(Demo):
 
 
 SCRIPTS = {"gas": Gas, "patrol": Patrol, "repair": Repair, "flyby": Flyby, "demo_can": DemoCan, "demo_gas": DemoGas,
-           "demo_rust": DemoRust, "demo_deck": DemoDeck, "nav": Nav}
-DEMOS = {"can": "demo_can", "gas": "demo_gas", "rust": "demo_rust", "deck": "demo_deck", "nav": "nav", "reset": "flyby"}
+           "demo_rust": DemoRust, "demo_deck": DemoDeck, "demo_weld": DemoWeld, "nav": Nav}
+DEMOS = {"can": "demo_can", "gas": "demo_gas", "rust": "demo_rust", "weld": "demo_weld", "deck": "demo_deck", "nav": "nav",
+         "reset": "flyby"}
 DECK_ACTS = {"deck_can": "can", "deck_rust": "rust"}
 
 
@@ -1151,7 +1208,7 @@ class Scenarios:
                     6: "weld frozen while gas is above 10 %LEL", 7: "hot-work gate released"}.get(s.i, "")
         if s.id == "demo_gas":
             return {1: f"fixed detector over {ALARM_LEL * 100:.0f} %LEL", 2: f"{METHODS[m.leak.method]} on the trunk and arm-tip sensors",
-                    3: "scripted arm motion on the handwheel", 4: "vapour stopped, gas clearing"}.get(s.i, "")
+                    3: "turning the handwheel to isolate the line", 4: "vapour stopped, gas clearing"}.get(s.i, "")
         if s.id == "patrol":
             return {1: "puddles are a soft cost", 2: "pickup policy on depth geometric priors",
                     4: f"battery {self.m._robot('R3').battery.soc:.0%}"}.get(s.i, "")
