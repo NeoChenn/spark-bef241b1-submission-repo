@@ -12,6 +12,9 @@ runs/
 *.onnx
 *.pt
 *.pth
+# Shipped patrol policies (small, needed by the sim team without Modal access)
+!patrol/models/**/*.onnx
+!patrol/models/**/*.pt
 
 # Regenerate with sim/tools/inspect_assets.py
 sim/output/asset_report.json
